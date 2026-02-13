@@ -2,6 +2,7 @@ use eframe::egui::{Response, Sense};
 use eframe::{egui, epaint::Vec2};
 use std::cmp::min;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::config::SlideshowConfig;
@@ -158,7 +159,7 @@ impl ImageView {
 
         if !self.preload_active {
             for i in 0..self.imgs.len() {
-                self.imgs[i].load(ctx);
+                self.imgs[i].load(ctx, i);
             }
 
             return;
@@ -181,7 +182,7 @@ impl ImageView {
 
         for (i, img) in &mut self.imgs.iter_mut().enumerate() {
             if indexes_to_load.contains(&i) {
-                img.load(ctx);
+                img.load(ctx, i);
             } else {
                 img.unload();
             }
@@ -221,7 +222,7 @@ impl ImageView {
             );
 
             self.imgs[index_to_clear].unload();
-            self.imgs[index_to_preload].load(ctx);
+            self.imgs[index_to_preload].load(ctx, index_to_preload);
         }
 
         if self.selected_img_index == self.imgs.len() - 1 {
@@ -252,7 +253,7 @@ impl ImageView {
             );
 
             self.imgs[index_to_clear].unload();
-            self.imgs[index_to_preload].load(ctx);
+            self.imgs[index_to_preload].load(ctx, index_to_preload);
         }
 
         if self.selected_img_index == 0 {
@@ -400,7 +401,7 @@ impl ImageView {
         if let Some(index) = self.imgs.iter().position(|x| x.path == path) {
             let img = &mut self.imgs[index];
             img.unload();
-            img.load(ctx);
+            img.load(ctx, index);
         }
     }
 

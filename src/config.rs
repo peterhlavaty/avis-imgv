@@ -362,7 +362,7 @@ pub fn default_sc_watch_directory() -> Shortcut {
 
 //Gallery
 pub fn default_nr_loaded_images() -> usize {
-    6
+    120
 }
 pub fn default_should_wait() -> bool {
     true

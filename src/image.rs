@@ -1,7 +1,8 @@
+use std::error::Error;
 use crate::{
-    db::Db,
+    // db::Db,
     icc::profile_desc_to_icc,
-    metadata::{self, Orientation, METADATA_ORIENTATION, METADATA_PROFILE_DESCRIPTION},
+    metadata::{self, Orientation, METADATA_PROFILE_DESCRIPTION},
     FRAME_MEMORY_KEY, JXL_EXTENSION, RAW_EXTENSIONS, SKIP_ORIENT_EXTENSIONS,
     TWO_DIM_TEXTURE_LIMIT_MEMORY_KEY,
 };
@@ -23,9 +24,10 @@ use std::{
     thread::{self, JoinHandle},
 };
 use std::{path::Path, time::Instant};
-
+use eframe::egui::Context;
 use fast_image_resize::{images::Image as FirImage, ResizeOptions};
 use fast_image_resize::{PixelType, Resizer};
+use crate::metadata::Metadata;
 
 pub const LOAD_FAIL_PNG: &[u8; 95764] = include_bytes!("../resources/load_fail.png");
 
@@ -36,15 +38,23 @@ pub struct Image {
     pub metadata: HashMap<String, String>,
 }
 
+pub struct PreImage {
+    // pub size: Vec2,
+    pub metadata: Metadata,
+    pub pixels: Box<[u8]>,
+    pub size: [u32; 2],
+    pub file_name: String,
+}
+
 impl Image {
-    pub fn load(
+    pub fn preload(
         path: PathBuf,
         image_size: Option<u32>,
         output_icc_profile: String,
-        ctx: &egui::Context,
-    ) -> JoinHandle<Option<Image>> {
-        let ctx = ctx.clone();
-        thread::spawn(move || {
+        ctx: &Context,
+    ) -> Result<PreImage, String> {
+        // let ctx = ctx.clone();
+        // thread::spawn(move || {
             let file_name = path
                 .file_name()
                 .unwrap_or(path.as_os_str())
@@ -64,7 +74,7 @@ impl Image {
             ) {
                 match extract_preview_from_raw_file(&path) {
                     Some(buf) => buffer = buf,
-                    None => return Self::get_error_image(&file_name, &ctx),
+                    None => return Err(file_name.parse().unwrap()), //return Self::get_error_image(&file_name, &ctx),
                 };
             } else {
                 let mut f = match File::open(&path) {
@@ -72,12 +82,12 @@ impl Image {
                     Err(e) => {
                         tracing::error!("Failure opening image: {e}");
 
-                        let delete_result = Db::delete_file_by_path(&path);
-                        if delete_result.is_err() {
-                            tracing::error!("Failure deleting file record from the database {e}");
-                        }
+                        // let delete_result = Db::delete_file_by_path(&path);
+                        // if delete_result.is_err() {
+                        //     tracing::error!("Failure deleting file record from the database {e}");
+                        // }
 
-                        return Self::get_error_image(&file_name, &ctx);
+                        return Err(file_name.parse().unwrap()) //Self::get_error_image(&file_name, &ctx);
                     }
                 };
 
@@ -85,7 +95,7 @@ impl Image {
                     Ok(_) => {}
                     Err(e) => {
                         tracing::error!("{file_name} -> Error reading image into buffer: {e}");
-                        return Self::get_error_image(&file_name, &ctx);
+                        return Err(file_name.parse().unwrap()) //Self::get_error_image(&file_name, &ctx);
                     }
                 }
             }
@@ -100,7 +110,7 @@ impl Image {
             let mut image = match Self::decode(&buffer, &file_name, &path) {
                 Some(img) => img,
                 None => {
-                    return Self::get_error_image(&file_name, &ctx);
+                    return Err(file_name.parse().unwrap()) //Self::get_error_image(&file_name, &ctx);
                 }
             };
 
@@ -124,7 +134,7 @@ impl Image {
             );
             now = Instant::now();
 
-            let metadata =
+            let mut metadata =
                 metadata::Metadata::get_image_metadata(&path.to_string_lossy()).unwrap_or_default();
 
             tracing::info!(
@@ -141,7 +151,7 @@ impl Image {
                     .to_str()
                     .unwrap_or_default(),
             ) {
-                image = Self::orient(image, &metadata);
+                image = Self::orient(image, &metadata.orientation);
             }
 
             tracing::info!(
@@ -155,7 +165,7 @@ impl Image {
             let mut flat_samples = image.into_rgb8().into_flat_samples();
             let pixels = flat_samples.as_mut_slice();
 
-            if let Some(cpd) = metadata.get(METADATA_PROFILE_DESCRIPTION) {
+            if let Some(cpd) = metadata.metadata_map.get(METADATA_PROFILE_DESCRIPTION) {
                 Self::apply_cc(cpd, pixels, &path, &output_icc_profile);
             };
 
@@ -165,25 +175,42 @@ impl Image {
                 now.elapsed().as_millis()
             );
 
-            match Self::load_wgpu_linear_texture(pixels, size, &ctx, &file_name) {
-                Some((texture_id, render_state)) => {
-                    tracing::info!(
+            Ok(PreImage {
+                // pub size: Vec2,
+                metadata,
+                pixels: Box::from(pixels),
+                size,
+                file_name: file_name.parse().unwrap(),
+            })
+        // })
+    }
+
+    pub fn load (
+        metadata: HashMap<String, String>,
+        pixels: &Box<[u8]>,
+        size: [u32; 2],
+        ctx: &Context,
+        file_name: &String
+    ) -> Option<Image> {
+        let mut now = Instant::now();
+        match Self::load_wgpu_linear_texture(&*pixels, size, ctx, &file_name) {
+            Some((texture_id, render_state)) => {
+                tracing::info!(
                         "Spent {}ms loading texture with wgpu",
                         now.elapsed().as_millis()
                     );
-                    Some(Image {
-                        texture_id,
-                        size: Vec2 {
-                            x: size[0] as f32,
-                            y: size[1] as f32,
-                        },
-                        metadata,
-                        render_state: Some(render_state),
-                    })
-                }
-                None => Self::get_error_image(&file_name, &ctx),
+                Some(Image {
+                    texture_id,
+                    size: Vec2 {
+                        x: size[0] as f32,
+                        y: size[1] as f32,
+                    },
+                    metadata,
+                    render_state: Some(render_state),
+                })
             }
-        })
+            None => Self::get_error_image(&file_name, &ctx),
+        }
     }
 
     pub fn decode(buffer: &[u8], file_name: &str, path: &Path) -> Option<DynamicImage> {
@@ -303,10 +330,10 @@ impl Image {
         }
     }
 
-    pub fn orient(img: DynamicImage, metadata: &HashMap<String, String>) -> DynamicImage {
+    pub fn orient(img: DynamicImage, orientation: &Option<Orientation>) -> DynamicImage {
         //see https://magnushoff.com/articles/jpeg-orientation/
-        match metadata.get(METADATA_ORIENTATION) {
-            Some(o) => match metadata::Orientation::from_orientation_metadata(o) {
+        match orientation {
+            Some(o) => match o {
                 Orientation::Normal => img,
                 Orientation::MirrorHorizontal => img.fliph(),
                 Orientation::Rotate180 => img.rotate180(),

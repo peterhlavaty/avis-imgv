@@ -1,6 +1,6 @@
 {
   "image_view": {
-    "nr_loaded_images": 6,
+    "nr_loaded_images": 120,
     "should_wait": true,
     "frame_size_relative_to_image": 0.2,
     "scroll_navigation": true,

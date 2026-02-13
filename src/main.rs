@@ -1,5 +1,5 @@
 use avis_imgv::app::App;
-use avis_imgv::db::Db;
+// use avis_imgv::db::Db;
 use eframe::egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew};
 use eframe::{
     wgpu::{self},
@@ -42,15 +42,15 @@ fn main() {
         tracing::info!("Starting recursive crawl from: {path:?}");
         let image_paths = avis_imgv::crawler::crawl(&path, true);
         tracing::info!("Found {} images. Caching metadata...", image_paths.len());
-        match Db::init_db() {
-            Ok(_) => {}
-            Err(e) => {
-                panic!("Failure initializing database {e}");
-            }
-        }
-
-        avis_imgv::metadata::Metadata::cache_metadata_for_images(&image_paths);
-        avis_imgv::metadata::Metadata::clean_moved_files();
+        // match Db::init_db() {
+        //     Ok(_) => {}
+        //     Err(e) => {
+        //         panic!("Failure initializing database {e}");
+        //     }
+        // }
+        //
+        // avis_imgv::metadata::Metadata::cache_metadata_for_images(&image_paths);
+        // avis_imgv::metadata::Metadata::clean_moved_files();
         tracing::info!("Metadata caching finished. Exiting.");
         return;
     }
@@ -63,7 +63,7 @@ fn main() {
         return;
     }
     if args.len() > 1 && args[1] == "--clean" {
-        avis_imgv::metadata::Metadata::clean_moved_files();
+        // avis_imgv::metadata::Metadata::clean_moved_files();
         return;
     }
     if args.len() > 1 && args.contains(&"--slideshow".to_string()) {

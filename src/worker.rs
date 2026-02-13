@@ -1,10 +1,13 @@
+use crate::db::PREIMAGE_CACHE;
+use rayon::iter::ParallelIterator;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::thread;
+use std::{fs, io, thread};
 
 use eframe::egui::{Context, Id};
-
+use rayon::prelude::IntoParallelIterator;
+use crate::image::{Image, PreImage};
 use crate::metadata::Metadata;
 use crate::WORKER_MESSAGE_MEMORY_KEY;
 
@@ -20,58 +23,70 @@ pub enum WorkerMessage {
 }
 
 pub struct Worker {
-    job_tx: Sender<Job>,
+    // job_tx: Sender<Job>,
 }
 
 impl Worker {
-    pub fn new(ctx: Context) -> Self {
-        let (job_tx, job_rx) = channel();
+    // pub fn new(ctx: Context) -> Self {
+    //     let (job_tx, job_rx) = channel();
+    //
+    //     let worker_ctx = ctx.clone();
+    //     thread::spawn(move || {
+    //         worker_loop(worker_ctx, job_rx);
+    //     });
+    //
+    //     Self { job_tx }
+    // }
 
-        let worker_ctx = ctx.clone();
-        thread::spawn(move || {
-            worker_loop(worker_ctx, job_rx);
-        });
+    // pub fn send_job(&self, job: Job) {
+    //     self.job_tx.send(job).expect("Failed to send job to worker");
+    // }
 
-        Self { job_tx }
-    }
-
-    pub fn send_job(&self, job: Job) {
-        self.job_tx.send(job).expect("Failed to send job to worker");
-    }
-}
-
-fn worker_loop(ctx: Context, job_rx: Receiver<Job>) {
-    while let Ok(job) = job_rx.recv() {
-        match job {
-            Job::CacheMetadataForImages(paths) => {
-                worker_set_msg(
-                    &ctx,
-                    &format!("Caching metadata for {} images", paths.len()),
-                );
-                Metadata::cache_metadata_for_images(&paths);
-                worker_set_msg(
-                    &ctx,
-                    &format!("Finished caching metadata for {} images", paths.len()),
-                );
-            }
-            Job::ClearMovedFiles(paths) => {
-                worker_set_msg(&ctx, "Clearing moved files from the database");
-                let cleared_files = Metadata::clear_moved_files(&paths);
-                worker_set_msg(
-                    &ctx,
-                    &format!("Cleared {cleared_files} moved files from the database"),
-                );
-            }
-        }
+    pub fn cache_all_images(paths: Vec<PathBuf>, ctx: &Context) {
+        // .into_par_iter() turns the Vec into a parallel iterator
+        PREIMAGE_CACHE.set(paths.into_par_iter()
+            .filter_map(|path| {
+                // Each thread reads its assigned file into memory
+                Image::preload(path, None, "srgb".parse().unwrap(), ctx).ok()
+            })
+            // collect() is magic: it gathers the results into a single Result
+            // If any one file fails, the whole operation returns an Err
+            .collect()).ok(); //TODO handle error case
     }
 }
 
-fn worker_set_msg(ctx: &Context, msg: &str) {
-    ctx.memory_mut(|mem| {
-        let worker_msgs = mem
-            .data
-            .get_temp_mut_or_default::<Vec<Arc<String>>>(Id::new(WORKER_MESSAGE_MEMORY_KEY));
-
-        worker_msgs.push(Arc::new(msg.to_string()));
-    });
-}
+// fn worker_loop(ctx: Context, job_rx: Receiver<Job>) {
+//     while let Ok(job) = job_rx.recv() {
+//         match job {
+//             Job::CacheMetadataForImages(paths) => {
+//                 worker_set_msg(
+//                     &ctx,
+//                     &format!("Caching metadata for {} images", paths.len()),
+//                 );
+//                 Metadata::cache_metadata_for_images(&paths);
+//                 worker_set_msg(
+//                     &ctx,
+//                     &format!("Finished caching metadata for {} images", paths.len()),
+//                 );
+//             }
+//             Job::ClearMovedFiles(paths) => {
+//                 worker_set_msg(&ctx, "Clearing moved files from the database");
+//                 let cleared_files = Metadata::clear_moved_files(&paths);
+//                 worker_set_msg(
+//                     &ctx,
+//                     &format!("Cleared {cleared_files} moved files from the database"),
+//                 );
+//             }
+//         }
+//     }
+// }
+//
+// fn worker_set_msg(ctx: &Context, msg: &str) {
+//     ctx.memory_mut(|mem| {
+//         let worker_msgs = mem
+//             .data
+//             .get_temp_mut_or_default::<Vec<Arc<String>>>(Id::new(WORKER_MESSAGE_MEMORY_KEY));
+//
+//         worker_msgs.push(Arc::new(msg.to_string()));
+//     });
+// }

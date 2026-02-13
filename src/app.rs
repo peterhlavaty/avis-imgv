@@ -1,10 +1,10 @@
-use crate::filters::Filters;
+// use crate::filters::Filters;
 use crate::worker::Worker;
 use crate::{
     callback::Callback,
     config::{Config, GeneralConfig},
     crawler,
-    db::Db,
+    // db::Db,
     grid_view::GridView,
     image_view::ImageView,
     navigator,
@@ -14,10 +14,11 @@ use crate::{
 use crate::{FRAME_MEMORY_KEY, TWO_DIM_TEXTURE_LIMIT_MEMORY_KEY, WORKER_MESSAGE_MEMORY_KEY};
 use eframe::egui::{self, Id, KeyboardShortcut, RichText, ViewportCommand};
 use eframe::Frame;
-#[cfg(not(any(target_os = "linux", target_os = "android")))]
-use notify::FsEventWatcher;
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use notify::INotifyWatcher;
+// #[cfg(not(any(target_os = "linux", target_os = "android")))]
+// use notify::FsEventWatcher;
+// #[cfg(any(target_os = "linux", target_os = "android"))]
+// use notify::INotifyWatcher;
+use notify::RecommendedWatcher;
 use notify::{Event, RecursiveMode, Watcher};
 use rfd::FileDialog;
 use std::{
@@ -44,9 +45,9 @@ pub struct App {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     watcher: Option<INotifyWatcher>,
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    watcher: Option<FsEventWatcher>,
+    watcher: Option<RecommendedWatcher>,
     watcher_events: Arc<Mutex<Vec<Event>>>,
-    filters: Filters,
+    // filters: Filters,
     side_panel_visible: bool,
     worker: Arc<Worker>,
     fullscreen: bool,
@@ -74,24 +75,25 @@ impl App {
 
         img_paths.sort();
 
-        let worker = Worker::new(cc.egui_ctx.clone());
+        // let worker = Worker::new(cc.egui_ctx.clone());
+        let worker = Worker{};
 
-        match Db::init_db() {
-            Ok(_) => {
-                tracing::info!("Database initiated successfully");
-                match Db::trim_db(&cfg.general.limit_cached) {
-                    Ok(_) => worker.send_job(crate::worker::Job::CacheMetadataForImages(
-                        img_paths.clone(),
-                    )),
-                    Err(e) => {
-                        tracing::info!("Failure trimming db {e}");
-                    }
-                };
-            }
-            Err(e) => {
-                tracing::info!("Failure initiating db -> {e}");
-            }
-        };
+        // match Db::init_db() {
+        //     Ok(_) => {
+        //         tracing::info!("Database initiated successfully");
+        //         match Db::trim_db(&cfg.general.limit_cached) {
+        //             Ok(_) => worker.send_job(crate::worker::Job::CacheMetadataForImages(
+        //                 img_paths.clone(),
+        //             )),
+        //             Err(e) => {
+        //                 tracing::info!("Failure trimming db {e}");
+        //             }
+        //         };
+        //     }
+        //     Err(e) => {
+        //         tracing::info!("Failure initiating db -> {e}");
+        //     }
+        // };
 
         cc.egui_ctx.memory_mut(|mem| {
             if let Some(wgpu_render_state) = cc.wgpu_render_state.clone() {
@@ -127,7 +129,7 @@ impl App {
             navigator_search: base_path.to_str().unwrap_or_default().to_string(),
             perf_metrics: PerfMetrics::new(),
             config: cfg.general,
-            filters: Filters::new(cfg.filter, base_path.to_str().unwrap_or(""), worker.clone()),
+            // filters: Filters::new(cfg.filter, base_path.to_str().unwrap_or(""), worker.clone()),
             paths: img_paths,
             watcher: None,
             watcher_events: Arc::new(Mutex::new(vec![])),
@@ -298,10 +300,12 @@ impl App {
         new_dir_opened: bool,
         ctx: &egui::Context,
     ) {
-        self.worker
-            .send_job(crate::worker::Job::CacheMetadataForImages(
-                self.paths.clone(),
-            ));
+        // self.worker
+        //     .send_job(crate::worker::Job::CacheMetadataForImages(
+        //         self.paths.clone(),
+        //     ));
+        Worker::cache_all_images(self.paths.clone(), ctx);
+
         self.load_images(selected_img, new_dir_opened, ctx);
     }
 
@@ -316,7 +320,7 @@ impl App {
 
         if new_dir_opened {
             self.base_path = Self::get_base_path(&self.paths);
-            self.filters.set_metadata_directory_value(&self.base_path);
+            // self.filters.set_metadata_directory_value(&self.base_path);
             self.navigator_search = self.base_path.to_str().unwrap_or_default().to_string();
         }
     }
@@ -506,9 +510,9 @@ impl eframe::App for App {
             .min_width(200.)
             .show_animated(ctx, self.side_panel_visible, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    if let Some(filtered_paths) = self.filters.ui(ui) {
-                        self.set_images_from_paths(filtered_paths, ctx);
-                    }
+                    // if let Some(filtered_paths) = self.filters.ui(ui) {
+                    //     self.set_images_from_paths(filtered_paths, ctx);
+                    // }
                     ui.add_space(20.);
                     ui.separator();
                     ui.add_space(10.);

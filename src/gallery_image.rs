@@ -6,6 +6,9 @@ use eframe::epaint::{Pos2, Vec2};
 use std;
 use std::path::PathBuf;
 use std::thread::JoinHandle;
+use itertools::Itertools;
+use crate::db::PREIMAGE_CACHE;
+use crate::metadata::Metadata;
 
 pub struct GalleryImageSizing {
     pub zoom_factor: f32,
@@ -25,8 +28,8 @@ pub struct GalleryImage {
     pub display_name: Option<String>,
     scroll_pos: Pos2,
     image: Option<Image>,
-    load_image_handle: Option<JoinHandle<Option<Image>>>,
-    output_profile: String,
+    // load_image_handle: Option<JoinHandle<Option<Image>>>,
+    pub output_profile: String,
     display_metadata: Option<Vec<(String, String)>>,
     pub prev_percentage_zoom: f32,
     pub prev_available_size: Vec2,
@@ -52,7 +55,7 @@ impl GalleryImage {
                     .to_string(),
                 scroll_pos: Pos2::new(0.0, 0.0),
                 image: None,
-                load_image_handle: None,
+                // load_image_handle: None,
                 output_profile: output_profile.to_owned(),
                 display_metadata: None,
                 display_name: None,
@@ -70,7 +73,7 @@ impl GalleryImage {
         frame: &GalleryImageFrame,
         sizing: &mut GalleryImageSizing,
     ) {
-        self.finish_img_loading();
+        // self.finish_img_loading();
 
         let image = match &mut self.image {
             Some(image) => image,
@@ -265,24 +268,24 @@ impl GalleryImage {
         visible_rect.max.x += scroll_pos.x;
     }
 
-    pub fn finish_img_loading(&mut self) {
-        if self.load_image_handle.is_none() {
-            return;
-        };
-
-        //not ideal can't match because of problem case #3 in https://rust-lang.github.io/rfcs/2094-nll.html
-        let lih = self.load_image_handle.take().unwrap();
-        if lih.is_finished() {
-            match lih.join() {
-                Ok(image) => {
-                    self.image = image;
-                }
-                Err(_) => tracing::info!("Failure joining load image thread"),
-            }
-        } else {
-            self.load_image_handle = Some(lih);
-        }
-    }
+    // pub fn finish_img_loading(&mut self) {
+    //     if self.load_image_handle.is_none() {
+    //         return;
+    //     };
+    //
+    //     //not ideal can't match because of problem case #3 in https://rust-lang.github.io/rfcs/2094-nll.html
+    //     let lih = self.load_image_handle.take().unwrap();
+    //     if lih.is_finished() {
+    //         match lih.join() {
+    //             Ok(image) => {
+    //                 self.image = image;
+    //             }
+    //             Err(_) => tracing::info!("Failure joining load image thread"),
+    //         }
+    //     } else {
+    //         self.load_image_handle = Some(lih);
+    //     }
+    // }
 
     pub fn metadata_ui(&mut self, ui: &mut egui::Ui, tags_to_display: &Vec<String>) {
         if let Some(img) = &mut self.image {
@@ -317,23 +320,31 @@ impl GalleryImage {
     }
 
     pub fn unload(&mut self) {
-        if self.image.is_some() || self.load_image_handle.is_some() {
+        if self.image.is_some()/* || self.load_image_handle.is_some()*/ {
             tracing::info!("{} -> Unloading image", self.name);
         }
 
         self.image = None;
-        self.load_image_handle = None;
+        // self.load_image_handle = None;
     }
 
-    pub fn load(&mut self, ctx: &egui::Context) {
-        if self.load_image_handle.is_none() && self.image.is_none() {
+    pub fn load(&mut self, ctx: &egui::Context, image_index: usize) {
+        if /*self.load_image_handle.is_none() &&*/ self.image.is_none() {
             tracing::info!("{} -> Loading image", self.name);
-            self.load_image_handle = Some(Image::load(
-                self.path.clone(),
-                None,
-                self.output_profile.clone(),
-                ctx,
-            ));
+            // self.load_image_handle = Some(Image::load(
+            //     self.path.clone(),
+            //     None,
+            //     self.output_profile.clone(),
+            //     ctx,
+            // ));
+            let preimage = PREIMAGE_CACHE.get().and_then(|cache| cache.get(image_index));
+
+            match preimage {
+                Some(preimage) => { 
+                    self.image = Image::load(preimage.metadata.metadata_map.clone(), &preimage.pixels, preimage.size, ctx, &preimage.file_name)
+                } //TODO do i really need to clone metadata?
+                None => {} //TODO show error image?
+            }
         }
     }
 
@@ -379,6 +390,7 @@ impl GalleryImage {
     }
 
     pub fn is_loading(&self) -> bool {
-        self.load_image_handle.is_some()
+        // self.load_image_handle.is_some()
+        self.image.is_none()
     }
 }

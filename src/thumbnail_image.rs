@@ -134,12 +134,12 @@ impl ThumbnailImage {
         if self.load_image_handle.is_none() && self.image.is_none() {
             tracing::info!("Loading image -> {}", self.path.display());
             self.should_unload = false;
-            self.load_image_handle = Some(Image::load(
-                self.path.clone(),
-                Some(image_size),
-                self.output_profile.clone(),
-                ctx,
-            ));
+            // self.load_image_handle = Some(Image::load(
+            //     self.path.clone(),
+            //     Some(image_size),
+            //     self.output_profile.clone(),
+            //     ctx,
+            // ));
             true
         } else {
             false
