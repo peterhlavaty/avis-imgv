@@ -1,11 +1,7 @@
 #!/bin/bash
 
-if ! which cmake >/dev/null 2>&1; then
-  echo "Please install cmake"
-  exit
-fi
-
-if ! RUSTFLAGS="-C target-cpu=native" cargo build --release; then
+# Pass any extra cargo flags through, e.g. ./install.sh --features jxl
+if ! RUSTFLAGS="-C target-cpu=native" cargo build --release "$@"; then
   echo "Build failed -> exiting"
   exit
 fi

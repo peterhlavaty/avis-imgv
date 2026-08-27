@@ -1,15 +1,20 @@
 {
   "image_view": {
-    "nr_loaded_images": 120,
+    "nr_loaded_images": 64,
+    "gpu_resident_images": 8,
+    "max_image_edge": 0,
+    "nr_images_shown": 1,
     "should_wait": true,
     "frame_size_relative_to_image": 0.2,
     "scroll_navigation": true,
     "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
-    "user_actions": [ 
+    "user_actions": [
       {
         "shortcut": {
           "key": "c",
-          "modifiers": [ "shift" ] 
+          "modifiers": [
+            "shift"
+          ]
         },
         "exec": "bash -c 'magick {} png:- | wl-copy && notify-send -i {} \"Copied Image to Clipboard!\" -t 5000'",
         "callback": null
@@ -17,10 +22,10 @@
       {
         "shortcut": {
           "key": "delete",
-          "modifiers": [  ] 
-          },
-          "exec": "bash -c 'mkdir -p $HOME/trash && mv -f {} $HOME/trash && notify-send -i $HOME/trash/{/} \"Moved Image to Trash!\" -t 5000 -u critical'",
-          "callback": "Pop"
+          "modifiers": []
+        },
+        "exec": "bash -c 'mkdir -p $HOME/trash && mv -f {} $HOME/trash && notify-send -i $HOME/trash/{/} \"Moved Image to Trash!\" -t 5000 -u critical'",
+        "callback": "Pop"
       }
     ],
     "context_menu": [
@@ -78,12 +83,21 @@
       "modifiers": [
         "ctrl"
       ]
+    },
+    "sc_more_images_shown": {
+      "key": "Plus",
+      "modifiers": []
+    },
+    "sc_less_images_shown": {
+      "key": "Minus",
+      "modifiers": []
     }
   },
   "grid_view": {
     "images_per_row": 5,
     "preloaded_rows": 1,
-    "simultaneous_load": 8,
+    "thumbnail_resolution": 512,
+    "gpu_resident_thumbnails": 256,
     "context_menu": [
       {
         "description": "Copy to Clipboard",
@@ -110,22 +124,21 @@
     }
   },
   "general": {
-    "limit_cached": 1000000,
     "output_icc_profile": "srgb",
     "text_scaling": 1.25,
     "metadata_tags": [
+      "File Name",
       "Date/Time Original",
-      "Created Date",
       "Camera Model Name",
       "Lens Model",
       "Focal Length",
-      "Aperture Value",
-      "Exposure Time",
+      "Aperture",
+      "Shutter Speed",
       "ISO",
       "Image Size",
+      "File Size",
       "Color Space",
-      "Directory",
-      "Software"
+      "Directory"
     ],
     "sc_toggle_gallery": {
       "key": "Backspace",
@@ -168,7 +181,15 @@
       "modifiers": []
     }
   },
-  "filter": {
-    "exif_tags": []
+  "cache": {
+    "ram_budget_mb": 4096,
+    "decode_threads": 0,
+    "uploads_per_frame": 4
+  },
+  "slideshow": {
+    "seconds_per_image": 15,
+    "percent_zoom": 25.0,
+    "start_with_frame_enabled": false,
+    "image_frame_background_color_override": null
   }
 }

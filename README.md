@@ -4,185 +4,264 @@
 
 # avis-imgv
 
-avis-imgv is a fast, configurable and color managed image viewer built with Rust
-and [egui](https://github.com/emilk/egui). My goal was for it to be fast and to be able to adapt to any kind of hardware
-power through user configuration.
+A GPU accelerated image viewer for people with more RAM than patience.
 
-As of now it's only been tested in Linux, but I don't see why it wouldn't work in Windows/macOS. Configuration and cache
-directories are obtained through the `directories` crate which is platform-agnostic.
+Open a folder and avis-imgv starts decoding **all** of it on background threads,
+keeps as much as your budget allows resident in RAM as ready-to-upload pixels,
+and holds the images around the one you are looking at on the **GPU** as live
+textures. Moving to the next photograph is then a texture swap: no file read, no
+decode, no upload. Zoom and pan cost nothing beyond four numbers handed to the
+GPU, because they are a UV rectangle rather than a resample.
+
+Built with Rust and [egui](https://github.com/emilk/egui)/wgpu.
 
 [Changelog](docs/changelog.md)
 
+## How it works
+
+Three tiers, from cheap to instant:
+
+| Tier | Holds | Bounded by |
+|------|-------|------------|
+| Disk | every path the crawler found | the folder |
+| RAM | decoded, oriented, colour converted RGBA8 | `cache.ram_budget_mb` |
+| GPU | textures ready to draw | `gpu_resident_images` / `gpu_resident_thumbnails` |
+
+A pool of decode workers pulls from a **priority queue** ordered by distance
+from the image on screen, so the one you are about to reach is always decoded
+first — and requests you have navigated away from are dropped before they cost
+anything. Both caches evict the image furthest from the cursor, wrapping around
+the ends of the collection.
+
+The preload radius is trimmed automatically to what the RAM budget can hold. A
+folder of 60 megapixel raws will not be decoded only to be evicted; the viewer
+simply keeps a smaller window resident.
+
+Nothing in the draw path waits on I/O or on a decoder.
+
+### Metadata
+
+EXIF, ICC profiles and raw previews are read **in process**, from the same
+buffer the file was read into for decoding — no `exiftool`, no subprocess, no
+second read of the file. Reading the metadata of a JPEG takes tens of
+microseconds.
+
+Supported containers: JPEG (APP1/APP2), PNG (`eXIf`, `iCCP`), WebP (RIFF `EXIF`,
+`ICCP`), TIFF, TIFF derived raws (DNG, NEF, CR2, ARW, ORF, RW2, PEF, …), Fuji
+RAF, and Canon CR3 (ISO base media). Tag names follow exiftool's, so existing
+`metadata_tags` and `name_format` settings keep working.
+
 ## Dependencies
 
-- coreutils (for installation)
-- exiftool
-- libwebp for WebP
-- libdav1d for AVIF if you enable it in cargo.toml
-- libjpegxl for JPEG-XL
+- A C toolchain for `lcms2` (colour management)
+- `cmake` and a C++ toolchain **only** if you enable the `jxl` feature
+- coreutils, for `install.sh`
+
+No runtime dependency on exiftool.
 
 ## Build
 
-With rust [installed](https://rustup.rs/) simply run:
+With Rust [installed](https://rustup.rs/):
 
-`cargo build --release`
+```sh
+cargo build --release
+```
+
+JPEG XL support builds libjxl from source and is therefore off by default:
+
+```sh
+cargo build --release --features jxl
+```
 
 ## Install
 
-Take a look at the `install.sh` script. Works in most systems but might need to be adapted. It's still in a rudimentary
-state and untested in most systems. Linux only for now.
+`install.sh` builds and installs to `~/.local/bin` and creates a `.desktop`
+entry. Linux only, and still rudimentary.
 
-You can also install with cargo: `cargo install avis-imgv`. This will not create .desktop files and run the other
-necessary procedures to integrate the application into your DE. You will need to always start it in the shell.
+`cargo install avis-imgv` also works but does not integrate with your desktop.
 
-## Import Library
+## Usage
 
-You can recursively import your image library with `avis-imgv --import <path>`. Images are also imported every time you
-open a new
-directory. This will allow you to search your images using their exif data.
+```
+avis-imgv [OPTIONS] [PATH]
 
-## Color Management
+  PATH          An image to open, or a directory to open the first image of.
+                Defaults to the working directory.
 
-Color management is done through `lcms2`.
+  --slideshow   Start in slideshow mode. Useful as a photo frame.
+  --fullscreen  Start fullscreen.
+  --help        Show this message.
+```
 
-As of now avis-imgv is shipped with three(sRGB, Adobe RGB and Display P3) profiles. A profile is chosen based on the
-exiftool tag "Profile Description" through a `contains` function. This is pretty lax as we can match more specific
-profiles like `RT_sRGB` with srgb. Open to suggestions on this behaviour. If no profile is matched an extraction will be
-attempted, although it isn't optimal for maximum performance. For this reason it is suggested opening a PR with
-additional profiles.
+## Supported image formats
 
-Output Profile is sRGB by default and only supports built in profiles. If you need extra profiles either open a PR or
-edit `icc.rs` and add whichever ones you need for your local builds. It can be configured in `config.json`.
+JPEG, PNG, WebP, GIF, BMP and TIFF, through the
+[image](https://github.com/image-rs/image) crate's default features. JPEG XL
+through libjxl behind the `jxl` feature.
 
-sRGB and Adobe RGB(ClayRGB) were taken from [elles_icc_profiles](https://github.com/ellelstone/elles_icc_profiles).
+### Raw files
 
-## Supported Image Formats.
+Raw files are not developed. The viewer extracts and displays the full size JPEG
+preview the camera embedded, which is what you see on the back of the camera and
+is orders of magnitude cheaper to produce than demosaicing. Extraction is native:
+TIFF derived raws are read through their IFD chain, Fuji RAF through its header,
+Canon CR3 through its box tree, and anything unrecognised falls back to a scan
+for the largest embedded JPEG stream.
 
-Supported image formats can be found [here](https://github.com/image-rs/image/blob/master/README.md)
-and [here](https://docs.rs/crate/image/latest/features).
+CR3 previews are 1620x1080, which is all Canon stores.
 
-Default feature flag for the `image` crate is used by default.
+## Colour management
 
-JPEG-XL is also supported through `libjpegxl`.
+Done with `lcms2`. The input profile is the one embedded in the file when there
+is one; otherwise the closest of the three bundled profiles (sRGB, Adobe RGB,
+Display P3) is matched by name against the `Profile Description` tag. The match
+is deliberately lax, so `RT_sRGB` resolves to sRGB. Images already in the output
+profile skip conversion entirely.
 
-### Raw File Support
+The output profile is sRGB by default and must be one of the bundled ones. To
+add more, edit `src/metadata/icc.rs`, or open a PR.
 
-There is some RAW file support. Preview images are extracted using exiftool. As long as your images contain an embedded preview image and exiftool can extract it, it should work.
-
-## Planned Features
-
-- Theme Configuration
-
-## User Actions and Context Menu
-
-avis-imgv supports adding user actions, both with a shortcut or a context menu when right-clicking on an image.
-User actions are simple commands which will be spawned and take in parameters.
-
-As of now three parameters are supported:
-
-- {} Full path
-- {.} Path without extension
-- {/} File name only
-- {/.} File stem only
-- {//} Path (without file name and slash)
-- {.//} Parent Path (without file name and slash)
-
-It is recommended to use simple commands. If you need more complex behaviour, you can use a script and pass the path as
-a param.
-
-#### Examples
-
-- 'gimp {}' - Opens the file in GIMP.
-- 'darktable {.}.RAF' - Opens adjacent Fujifilm raw file in darktable. This one will work best with a script that checks
-  if the file exists.
-- 'rate.sh {.}.RAF 5' - Run script which writes a base xmp with image rating. Provided in the examples folder.
-
-#### Callbacks
-
-After successfully executing a user action, we can choose to automatically run a function by specifying a callback. For
-this just add an entry under either a context menu or a user action. An example is provided under the example config.
-
-- Pop - Removes the selected image from the collection
-- Reload - Reloads the selected image
-- ReloadAll - Reloads the entire collection
-- Advance - Advances to the next image in the collection
+sRGB and Adobe RGB (ClayRGB) come from
+[elles_icc_profiles](https://github.com/ellelstone/elles_icc_profiles).
 
 ## Configuration
 
-Configuration file should be: `~/.config/avis-imgv/config.json`. An example is provided under examples/config.json.
+`~/.config/avis-imgv/config.json`, created with the defaults on first run. A
+fully populated example is in `examples/config.json`; valid key and modifier
+names are in `examples/keys.txt`.
+
+### Cache
+
+These are the knobs that decide how far ahead of you the viewer runs.
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `ram_budget_mb` | Ceiling on decoded pixels held in RAM, shared by both views. An eighth goes to thumbnails. | 4096 |
+| `decode_threads` | Decode workers. `0` picks one per core, less one for the UI, capped at 8. | 0 |
+| `uploads_per_frame` | Textures uploaded per frame, so a burst of finished decodes cannot stall a frame. | 4 |
+
+A decoded image costs `width × height × 4` bytes: about 96 MB for a 24
+megapixel photograph. The default budget therefore holds roughly 35 of them.
 
 ### General
 
-| Keys               | Values                                                             | Default                                                                                                                                               |
-|--------------------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| limit_cached       | Maximum number of cached files metadata                            | 100000                                                                                                                                                |
-| output_icc_profile | Output icc profile                                                 | srgb                                                                                                                                                  |
-| text_scaling       | Text Scaling                                                       | 1.25                                                                                                                                                  |
-| metadata_tags      | Metadata visible in the Image Information side pannel(when opened) | Date/Time Original, Created Date, Camera Model Name, Lens Model, Focal Length, Aperture Value, Exposure Time, ISO, Image Size, Color Space, Directory |
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `output_icc_profile` | Display profile to convert into | `srgb` |
+| `text_scaling` | Interface text scale | 1.25 |
+| `metadata_tags` | Tags shown in the side panel, in order | File Name, Date/Time Original, Camera Model Name, Lens Model, Focal Length, Aperture, Shutter Speed, ISO, Image Size, File Size, Color Space, Directory |
 
-### Image View
+### Image view
 
-| Keys                         | Values                                                                                                                                                                                                                                                     | Default |
-|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|
-| loaded_images                | Number of loaded images in each direction. Adjust based on how much RAM you want to use. Having more preloaded images increases application speed, to a certain point, when scrolling.                                                                     | 5       |
-| should_wait                  | Should wait for image to finish loading before advancing to it                                                                                                                                                                                             | true    |
-| frame_size_relative_to_image | White frame size relative to smallest image side                                                                                                                                                                                                           | 0.2     |
-| scroll_navigation            | Should scroll be used for navigation                                                                                                                                                                                                                       | true    |
-| name_format                  | Format for file name in bottom bar. Uses `$(#exif_tag#)` expressions. If exif tag is not found the entire expression will be ignored. Ex: `$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` -> `DSCF6114.JPG • ƒ5.6 • 1/500 • 200 ISO` |         |
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `nr_loaded_images` | Images decoded either side of the one on screen | 64 |
+| `gpu_resident_images` | Images kept as GPU textures | 8 |
+| `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. | 0 |
+| `nr_images_shown` | Images displayed side by side | 1 |
+| `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
+| `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
+| `scroll_navigation` | Use the scroll wheel to change image | true |
+| `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • ƒ5.6 • 1/500 • 200 ISO` | as above |
 
-### Grid View
+### Grid view
 
-| Keys              | Values                                                                           | Default                                                                 |
-|-------------------|----------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| images_per_row    | How many images should be displayed per row                                      | 3                                                                       |
-| preloaded_rows    | How many off-screen rows in each direction should be loaded and remain in memory | 2                                                                       |
-| simultaneous_load | How many images should be allowed to load at the same time                       | 8 (Adjust according to core count or how much you want to work your PC) |
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `images_per_row` | Thumbnails per row | 5 |
+| `preloaded_rows` | Off-screen rows decoded in each direction | 1 |
+| `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
+| `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
 
-## Default Shortcuts
+### Slideshow
 
-Shortcuts can be configured in the settings. Check examples/config.json for an example and keys.txt for valid keys and
-modifiers.
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `seconds_per_image` | How long each image is held | 15 |
+| `percent_zoom` | How far it drifts in over that time. `0` disables the movement. | 25 |
+| `start_with_frame_enabled` | Start with the white frame on | false |
+| `image_frame_background_color_override` | Hex backdrop while in slideshow mode | null |
+
+## Default shortcuts
 
 ### General
 
-| Key       | Action                                              |
-|-----------|-----------------------------------------------------|
-| Backspace | Toggle between Image View and Grid View             |
-| Q         | Exit                                                |
-| F1        | Toggles the menu                                    |
-| Ctrl + L  | Shows navigation bar                                |
-| T         | Show Directory Tree                                 |
-| Ctrl + F  | Flatten (read files from all sub dirs)              |
-| Ctrl + W  | Watch a directory for file changes (create, update) |
-| I         | Toggle: Display side tab with image metadata        |
+| Key | Action |
+|-----|--------|
+| Backspace | Toggle between image view and grid view |
+| Alt + Q | Exit |
+| F1 | Toggle the menu |
+| Ctrl + L | Navigation bar |
+| T | Directory tree |
+| Ctrl + F | Flatten (read files from all sub directories) |
+| Ctrl + W | Watch the directory for new and changed files |
+| I | Toggle the side panel: metadata and cache occupancy |
+| F10 | Toggle frame timings |
 
-### Image View
+### Image view
 
-| Key         | Action                                        |
-|-------------|-----------------------------------------------|
-| F           | Fit image to screen                           |
-| G           | Toggle: White frame around the image          |
-| Spacebar    | Zoom                                          |
-| Ctrl+Scroll | Zoom image                                    |
-| Scroll      | Next or Previous                              |
-| Arrow Keys  | Next or Previous                              |
-| Alt + 1     | Set Magnification at 100%                     |
-| H           | Fit Horizontal                                |
-| V           | Fit Vertical                                  |
-| M           | Maximize (Center image)                       |
-| Ctrl+M      | Toggle: Maximize automatically when scrolling |
+| Key | Action |
+|-----|--------|
+| Arrow keys / Scroll | Next or previous |
+| F | Fit the image to the screen |
+| M | Fill the screen |
+| Ctrl + M | Toggle: keep filling the screen while navigating |
+| H / V | Fit horizontal / vertical |
+| Alt + 1 | 100% magnification |
+| Space | Zoom step |
+| Ctrl + Scroll | Zoom |
+| Drag | Pan |
+| G | Toggle the white frame |
+| + / - | More or fewer images side by side |
 
-### Grid View
+### Grid view
 
-| Key          | Action                                 |
-|--------------|----------------------------------------|
-| Spacebar     | Scroll down                            |
-| Double Click | Open Image View on selected image      |
-| Ctrl+Scroll  | Increase/Decrease nr of images per row |
-| \+           | Increase nr of images per row          |
-| \-           | Decrease nr of images per row          |
+| Key | Action |
+|-----|--------|
+| Space | Scroll down |
+| Click | Open that image in the image view |
+| Ctrl + Scroll | More or fewer thumbnails per row |
+| + / - | More or fewer thumbnails per row |
 
+## User actions and context menu
+
+Actions are external commands, bound either to a shortcut or to a right-click
+menu entry. Supported placeholders:
+
+- `{}` full path
+- `{.}` path without extension
+- `{/}` file name
+- `{/.}` file stem
+- `{//}` parent directory
+- `{.//}` grandparent directory
+
+Keep the commands simple; for anything involved, call a script and pass it the
+path.
+
+Examples:
+
+- `gimp {}` — open the file in GIMP
+- `darktable {.}.RAF` — open the adjacent Fujifilm raw in darktable
+- `rate.sh {.}.RAF 5` — write a base XMP with a rating (see `examples/rate.sh`)
+
+### Callbacks
+
+A user action or menu entry may name a callback to run after the command
+succeeds:
+
+- `Pop` — remove the image from the collection
+- `Reload` — decode the image again
+- `ReloadAll` — reopen the whole directory
+- `Advance` — move to the next image
 
 ## Font
 
-The software is shipped with a custom font: `Atkinson Hyperlegible Next`. If you wish to disable it, remove it from the default features in `Cargo.toml`. If you wish to use another font, edit `theme.rs` and replace the path with the font path to your desired font. Currently we don't support loading custom fonts on runtime but that may change in the future as more theming options are added.
+The viewer ships with `Atkinson Hyperlegible Next`. Remove `custom_font` from
+the default features to use the system font, or edit `src/ui/theme.rs` to point
+at another one.
+
+## Tools
+
+`cargo run --example dump_metadata -- <path>...` prints everything the metadata
+reader finds in a file, which is the quickest way to compare against exiftool
+when adding tags.

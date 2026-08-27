@@ -1,5 +1,27 @@
 # Change Log
 
+## 2026-08-27
+
+- The viewer now decodes a whole folder into RAM on a pool of background
+  workers and keeps a configurable number of images resident on the GPU, so
+  navigation is a texture swap rather than a load. See `cache` in the
+  configuration.
+- BREAKING: metadata is read in process instead of through `exiftool`, which is
+  no longer a dependency. EXIF, ICC profiles and raw previews are parsed from
+  the same buffer the file was read into. Tag names still follow exiftool's.
+- BREAKING: the SQLite metadata database and the exif filter panel are gone,
+  along with the `--import` and `--clean` arguments. The side panel now shows
+  metadata and cache occupancy.
+- BREAKING: configuration changes. `general.limit_cached` and
+  `grid_view.simultaneous_load` were removed; `cache`,
+  `image_view.gpu_resident_images`, `image_view.max_image_edge`,
+  `grid_view.thumbnail_resolution` and `grid_view.gpu_resident_thumbnails` were
+  added. Let the application recreate the file and move your settings over.
+- Canon CR3 previews and metadata are now supported.
+- JPEG XL moved behind the optional `jxl` feature, so a default build no longer
+  needs cmake and a C++ toolchain.
+- The dark theme is now applied regardless of the desktop's preference.
+
 ## 2025-07-06
 
 - BREAKING: Improved database operations and storage footprint by using JSONB column type
