@@ -1,0 +1,170 @@
+//! XMP sidecar files: where they live, and reading and writing them.
+//!
+//! Ratings and keywords go beside the image rather than into it. Rewriting a
+//! photograph to change a star is both slow and risky, and every raw converter
+//! already looks for a sidecar.
+
+use std::path::{Path, PathBuf};
+
+use crate::metadata::xmp::{self, Xmp};
+
+/// Where a sidecar for `image` is written.
+///
+/// The whole file name is kept, so `DSC001.jpg.xmp` and `DSC001.cr2.xmp` stay
+/// apart — a raw and a JPEG of the same frame are different images with
+/// possibly different keywords.
+pub fn path_for(image: &Path) -> PathBuf {
+    let mut name = image.file_name().unwrap_or_default().to_os_string();
+    name.push(".xmp");
+
+    image.with_file_name(name)
+}
+
+/// Sidecars to look for, most specific first.
+///
+/// Adobe writes `DSC001.xmp` next to a raw file; darktable and exiftool write
+/// `DSC001.cr2.xmp`. Both are read, and the more specific one wins.
+pub fn candidates(image: &Path) -> Vec<PathBuf> {
+    let mut paths = vec![path_for(image)];
+
+    if let Some(stem) = image.file_stem() {
+        let adobe = image.with_file_name(stem).with_extension("xmp");
+
+        // The image is never its own sidecar, which it would be if it were
+        // itself an .xmp file.
+        if adobe != paths[0] && adobe != image {
+            paths.push(adobe);
+        }
+    }
+
+    paths
+}
+
+/// Reads the first sidecar that exists and parses.
+pub fn read(image: &Path) -> Option<Xmp> {
+    candidates(image)
+        .into_iter()
+        .filter_map(|path| std::fs::read_to_string(path).ok())
+        .find_map(|document| xmp::read(&document))
+}
+
+/// Writes `annotations` to the sidecar, preserving whatever else it holds.
+pub fn write(image: &Path, annotations: &Xmp) -> std::io::Result<()> {
+    // Edit whichever sidecar is already there rather than adding a second one
+    // beside it.
+    let target = candidates(image)
+        .into_iter()
+        .find(|path| path.exists())
+        .unwrap_or_else(|| path_for(image));
+
+    let existing = std::fs::read_to_string(&target).ok();
+    let document = xmp::update(existing.as_deref(), annotations);
+
+    std::fs::write(&target, document)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A unique directory for one test, cleaned up by the caller.
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("avis-sidecar-{name}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        dir
+    }
+
+    fn annotations(rating: u8, keywords: &[&str]) -> Xmp {
+        Xmp {
+            rating,
+            keywords: keywords.iter().map(|k| k.to_string()).collect(),
+        }
+    }
+
+    /// A path built with the separator of the host platform.
+    fn photos(name: &str) -> PathBuf {
+        PathBuf::from("photos").join(name)
+    }
+
+    #[test]
+    fn the_sidecar_keeps_the_whole_file_name() {
+        assert_eq!(path_for(&photos("DSC001.cr2")), photos("DSC001.cr2.xmp"));
+    }
+
+    #[test]
+    fn both_conventions_are_looked_for() {
+        let paths = candidates(&photos("DSC001.cr2"));
+
+        assert_eq!(paths, vec![photos("DSC001.cr2.xmp"), photos("DSC001.xmp")]);
+    }
+
+    #[test]
+    fn a_sidecar_is_never_its_own_sidecar() {
+        let paths = candidates(&photos("DSC001.xmp"));
+
+        assert_eq!(paths, vec![photos("DSC001.xmp.xmp")]);
+    }
+
+    #[test]
+    fn writing_then_reading_round_trips() {
+        let dir = temp_dir("round-trip");
+        let image = dir.join("photo.jpg");
+        std::fs::write(&image, b"pretend this is a photograph").unwrap();
+
+        write(&image, &annotations(4, &["Slovakia"])).unwrap();
+        let back = read(&image).expect("reads back");
+
+        assert_eq!(back.rating, 4);
+        assert_eq!(back.keywords, vec!["Slovakia"]);
+        assert!(dir.join("photo.jpg.xmp").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_image_without_a_sidecar_has_nothing_to_read() {
+        let dir = temp_dir("missing");
+        let image = dir.join("photo.jpg");
+
+        assert!(read(&image).is_none());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_existing_adobe_sidecar_is_edited_rather_than_duplicated() {
+        let dir = temp_dir("adobe");
+        let image = dir.join("photo.cr2");
+        let adobe = dir.join("photo.xmp");
+        std::fs::write(&adobe, xmp::update(None, &annotations(1, &["Old"]))).unwrap();
+
+        write(&image, &annotations(5, &["New"])).unwrap();
+
+        assert!(!dir.join("photo.cr2.xmp").exists());
+        assert_eq!(read(&image).unwrap().rating, 5);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_more_specific_sidecar_wins() {
+        let dir = temp_dir("both");
+        let image = dir.join("photo.cr2");
+        std::fs::write(
+            dir.join("photo.xmp"),
+            xmp::update(None, &annotations(1, &[])),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("photo.cr2.xmp"),
+            xmp::update(None, &annotations(5, &[])),
+        )
+        .unwrap();
+
+        assert_eq!(read(&image).unwrap().rating, 5);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

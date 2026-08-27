@@ -4,7 +4,7 @@
 //! readable and the shape of the configuration is visible at a glance.
 
 use super::shortcut::{Shortcut, MOD_ALT, MOD_CTRL};
-use super::{ContextMenuEntry, UserAction};
+use super::{ContextMenuEntry, TagCategory, UserAction};
 
 /// Four gigabytes of decoded pixels: generous on a modern machine and still
 /// small enough not to push a 16 GB laptop into swap.
@@ -170,6 +170,47 @@ pub fn default_sc_more_per_row() -> Shortcut {
 }
 pub fn default_sc_less_per_row() -> Shortcut {
     Shortcut::new("Minus", &[])
+}
+
+//Tags
+/// A starting point that shows what categories are for without presuming what
+/// anyone photographs.
+pub fn default_tag_categories() -> Vec<TagCategory> {
+    vec![
+        TagCategory {
+            name: "Status".to_string(),
+            tags: ["Keeper", "Portfolio", "To edit", "Sent"]
+                .iter()
+                .map(|tag| tag.to_string())
+                .collect(),
+        },
+        TagCategory {
+            name: "Subject".to_string(),
+            tags: ["Portrait", "Landscape", "Macro", "Wildlife", "Architecture"]
+                .iter()
+                .map(|tag| tag.to_string())
+                .collect(),
+        },
+    ]
+}
+
+pub fn default_recent_tags() -> usize {
+    12
+}
+
+pub fn default_tag_panel_width() -> f32 {
+    260.
+}
+
+pub fn default_sc_toggle_tag_panel() -> Shortcut {
+    Shortcut::new("k", &[])
+}
+
+/// The digit keys, so a rating is one keystroke away. Index 0 clears it.
+pub fn default_sc_rating() -> Vec<Shortcut> {
+    (0..=5)
+        .map(|stars| Shortcut::new(&stars.to_string(), &[]))
+        .collect()
 }
 
 //Slideshow

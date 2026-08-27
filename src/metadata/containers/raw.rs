@@ -61,6 +61,8 @@ fn tiff_based<'a>(tiff: &Tiff<'a>, data: &'a [u8]) -> Extracted<'a> {
         exif: vec![ExifBlock::root(data)],
         icc,
         preview: best.filter(|p| p.len() >= MIN_PREVIEW_BYTES),
+        // The packet lives in a tag, which the directory walk picks up.
+        xmp: None,
     }
 }
 

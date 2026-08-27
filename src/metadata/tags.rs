@@ -24,6 +24,9 @@ pub const SUB_IFDS: u16 = 0x014A;
 // Tags read by the pipeline rather than merely displayed.
 pub const ORIENTATION: u16 = 0x0112;
 pub const ICC_PROFILE: u16 = 0x8773;
+pub const XMP_PACKET: u16 = 0x02BC;
+/// Windows Explorer's star rating, when there is no XMP packet.
+pub const RATING: u16 = 0x4746;
 pub const MAKER_NOTE: u16 = 0x927C;
 pub const COLOR_SPACE: u16 = 0xA001;
 pub const IMAGE_WIDTH: u16 = 0x0100;
@@ -74,6 +77,9 @@ const ROOT_NAMES: &[(u16, &str)] = &[
     (0x0211, "Y Cb Cr Coefficients"),
     (0x0213, "Y Cb Cr Positioning"),
     (0x0214, "Reference Black White"),
+    (0x02BC, "XMP Packet"),
+    (0x4746, "Rating"),
+    (0x4749, "Rating Percent"),
     (0x8298, "Copyright"),
     (0x8773, "Inter Color Profile"),
     (0xC612, "DNG Version"),
@@ -168,6 +174,7 @@ const INTEROP_NAMES: &[(u16, &str)] = &[
 /// Tags whose payload is uninteresting to display: version blobs, offsets into
 /// the file, and vendor binary data.
 const HIDDEN: &[u16] = &[
+    XMP_PACKET,
     EXIF_IFD_POINTER,
     GPS_IFD_POINTER,
     INTEROP_IFD_POINTER,

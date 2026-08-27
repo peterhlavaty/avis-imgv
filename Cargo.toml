@@ -27,6 +27,7 @@ itertools = "0.14.0"
 rayon = "1.11.0"
 flate2 = "1.1.2"
 jpegxl-rs = { version = "0.11.2", features = ["vendored"], optional = true }
+quick-xml = "0.42.0"
 
 # Decoding, resampling and colour conversion all happen in dependencies, and
 # an unoptimised build of them makes a debug build of the viewer unusable.

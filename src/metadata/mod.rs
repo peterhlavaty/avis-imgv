@@ -14,6 +14,7 @@ pub mod tags;
 pub mod text;
 pub mod tiff;
 pub mod value;
+pub mod xmp;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -36,6 +37,9 @@ pub struct Metadata {
     pub orientation: Orientation,
     /// Embedded ICC profile, when the file carries one.
     pub icc: Option<Vec<u8>>,
+    /// Star rating and keywords the file itself carries, which a sidecar may
+    /// then override.
+    pub xmp: xmp::Xmp,
 }
 
 impl Metadata {
@@ -55,6 +59,7 @@ impl Metadata {
 
         let mut metadata = Metadata::default();
         let mut embedded_icc = found.icc;
+        let mut embedded_xmp = found.xmp;
 
         for block in &found.exif {
             let Some(tiff) = Tiff::new(block.bytes) else {
@@ -62,11 +67,13 @@ impl Metadata {
             };
 
             metadata.read_block(&tiff, block.kind);
-            embedded_icc = embedded_icc.or_else(|| icc_from_tiff(&tiff));
+            embedded_icc = embedded_icc.or_else(|| bytes_of_tag(&tiff, tags::ICC_PROFILE));
+            embedded_xmp = embedded_xmp.or_else(|| bytes_of_tag(&tiff, tags::XMP_PACKET));
         }
 
         metadata.add_composite_tags();
         metadata.icc = embedded_icc;
+        metadata.read_annotations(embedded_xmp.as_deref());
         metadata.resolve_profile_description();
 
         (metadata, found.preview)
@@ -91,6 +98,26 @@ impl Metadata {
             "Megapixels",
             value::format_f64(((width as f64 * height as f64) / 1_000_000.0 * 10.0).round() / 10.0),
         );
+    }
+
+    /// Reads the rating and keywords the file carries.
+    ///
+    /// XMP is authoritative; the EXIF rating tag is what Windows Explorer
+    /// writes and is only consulted when there is no packet.
+    fn read_annotations(&mut self, packet: Option<&[u8]>) {
+        let parsed = packet
+            .map(String::from_utf8_lossy)
+            .and_then(|document| xmp::read(&document));
+
+        if let Some(parsed) = parsed {
+            self.xmp = parsed;
+        }
+
+        if self.xmp.rating == 0 {
+            if let Some(rating) = self.tags.get("Rating").and_then(|r| xmp::parse_rating(r)) {
+                self.xmp.rating = rating;
+            }
+        }
     }
 
     /// The colour profile name, used to pick an input profile for conversion.
@@ -199,11 +226,12 @@ impl Metadata {
     }
 }
 
-/// TIFF and DNG store the profile in a tag rather than a container chunk.
-fn icc_from_tiff(tiff: &Tiff<'_>) -> Option<Vec<u8>> {
+/// TIFF and DNG keep blobs such as the ICC profile and the XMP packet in tags
+/// rather than in container chunks.
+fn bytes_of_tag(tiff: &Tiff<'_>, tag: u16) -> Option<Vec<u8>> {
     tiff.ifds()
         .iter()
-        .find_map(|ifd| ifd.entry(tags::ICC_PROFILE))
+        .find_map(|ifd| ifd.entry(tag))
         .and_then(|entry| tiff.entry_bytes(entry))
         .map(<[u8]>::to_vec)
 }
@@ -289,6 +317,45 @@ mod tests {
             metadata.tags.get("Aperture").map(String::as_str),
             Some("5.6")
         );
+    }
+
+    #[test]
+    fn reads_a_rating_and_keywords_from_an_embedded_packet() {
+        let packet = crate::metadata::xmp::update(
+            None,
+            &xmp::Xmp {
+                rating: 4,
+                keywords: vec!["Keeper".to_string()],
+            },
+        );
+
+        let mut payload = b"http://ns.adobe.com/xap/1.0/ ".to_vec();
+        payload.extend_from_slice(packet.as_bytes());
+
+        let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE1];
+        jpeg.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+        jpeg.extend_from_slice(&payload);
+        jpeg.extend_from_slice(&[0xFF, 0xDA, 0, 2]);
+
+        let (metadata, _) = Metadata::parse(&jpeg, Some(Format::Jpeg));
+
+        assert_eq!(metadata.xmp.rating, 4);
+        assert_eq!(metadata.xmp.keywords, vec!["Keeper"]);
+    }
+
+    #[test]
+    fn the_exif_rating_tag_stands_in_for_a_missing_packet() {
+        let block = build_tiff(&[(
+            tags::RATING,
+            FieldType::Short,
+            1,
+            3u16.to_le_bytes().to_vec(),
+        )]);
+
+        let jpeg = jpeg_with_exif(&block);
+        let (metadata, _) = Metadata::parse(&jpeg, Some(Format::Jpeg));
+
+        assert_eq!(metadata.xmp.rating, 3);
     }
 
     #[test]

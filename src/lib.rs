@@ -8,9 +8,12 @@
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
 //! - [`cache`] decides what lives in RAM and what lives on the GPU,
-//! - [`view`] draws it, [`app`] wires it together.
+//! - [`view`] draws it, [`app`] wires it together,
+//! - [`annotations`] holds what the user puts on an image: stars and tags,
+//!   kept in XMP sidecars.
 
 pub mod actions;
+pub mod annotations;
 pub mod app;
 pub mod cache;
 pub mod config;

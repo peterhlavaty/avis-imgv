@@ -3,6 +3,7 @@
 use super::{ExifBlock, Extracted};
 
 const EXIF_SIGNATURE: &[u8] = b"Exif\0\0";
+const XMP_SIGNATURE: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
 const ICC_SIGNATURE: &[u8] = b"ICC_PROFILE\0";
 
 const MARKER_PREFIX: u8 = 0xFF;
@@ -30,6 +31,9 @@ pub fn extract(data: &[u8]) -> Extracted<'_> {
             APP1 if payload.starts_with(EXIF_SIGNATURE) && out.exif.is_empty() => {
                 out.exif
                     .push(ExifBlock::root(&payload[EXIF_SIGNATURE.len()..]));
+            }
+            APP1 if payload.starts_with(XMP_SIGNATURE) && out.xmp.is_none() => {
+                out.xmp = Some(payload[XMP_SIGNATURE.len()..].to_vec());
             }
             // Profiles over 64KB are split across numbered APP2 segments; the
             // two byte header is the sequence number and total count.
@@ -144,6 +148,16 @@ mod tests {
 
         assert_eq!(found.root_exif(), Some(&b"II*\0"[..]));
         assert_eq!(found.icc.as_deref(), Some(&b"profile-bytes"[..]));
+    }
+
+    #[test]
+    fn finds_an_xmp_packet() {
+        let mut payload = XMP_SIGNATURE.to_vec();
+        payload.extend_from_slice(b"<x:xmpmeta/>");
+
+        let data = jpeg_with(&[segment(APP1, &payload)]);
+
+        assert_eq!(extract(&data).xmp.as_deref(), Some(&b"<x:xmpmeta/>"[..]));
     }
 
     #[test]

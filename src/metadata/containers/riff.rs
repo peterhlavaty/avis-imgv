@@ -26,6 +26,7 @@ pub fn extract(data: &[u8]) -> Extracted<'_> {
                 ));
             }
             b"ICCP" if out.icc.is_none() => out.icc = Some(payload.to_vec()),
+            b"XMP " if out.xmp.is_none() => out.xmp = Some(payload.to_vec()),
             _ => {}
         }
     }
@@ -98,6 +99,13 @@ mod tests {
         let found = extract(&data);
         assert_eq!(found.root_exif(), Some(&b"II*\0body"[..]));
         assert_eq!(found.icc.as_deref(), Some(&b"profile"[..]));
+    }
+
+    #[test]
+    fn finds_an_xmp_chunk() {
+        let data = webp_with(&[chunk(b"XMP ", b"<x:xmpmeta/>")]);
+
+        assert_eq!(extract(&data).xmp.as_deref(), Some(&b"<x:xmpmeta/>"[..]));
     }
 
     #[test]

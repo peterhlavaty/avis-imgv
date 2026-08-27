@@ -47,6 +47,8 @@ pub struct Extracted<'a> {
     pub icc: Option<Vec<u8>>,
     /// Embedded JPEG to decode instead of the file itself.
     pub preview: Option<&'a [u8]>,
+    /// XMP packet, holding the rating and keywords other tools wrote.
+    pub xmp: Option<Vec<u8>>,
 }
 
 impl<'a> Extracted<'a> {
@@ -100,6 +102,7 @@ fn tiff_block(data: &[u8]) -> Extracted<'_> {
     Extracted {
         exif: vec![ExifBlock::root(data)],
         icc: extracted.icc,
+        xmp: extracted.xmp,
         // The file itself decodes, so an embedded preview is of no use.
         preview: None,
     }
@@ -132,6 +135,7 @@ mod tests {
         assert!(found.exif.is_empty());
         assert!(found.icc.is_none());
         assert!(found.preview.is_none());
+        assert!(found.xmp.is_none());
     }
 
     #[test]

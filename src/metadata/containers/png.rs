@@ -7,11 +7,14 @@ use flate2::read::ZlibDecoder;
 use super::{ExifBlock, Extracted};
 
 const SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
+/// The keyword PNG reserves for an XMP packet in an `iTXt` chunk.
+const XMP_KEYWORD: &[u8] = b"XML:com.adobe.xmp";
 const CHUNK_HEADER: usize = 8;
 const CHUNK_CRC: usize = 4;
 
-/// Refuse to inflate a bomb: real ICC profiles are a few hundred kilobytes.
-const MAX_ICC_BYTES: u64 = 16 * 1024 * 1024;
+/// Refuse to inflate a bomb: real profiles and packets are a few hundred
+/// kilobytes at most.
+const MAX_INFLATED_BYTES: u64 = 16 * 1024 * 1024;
 
 /// True when `data` carries the PNG signature.
 pub fn is_png(data: &[u8]) -> bool {
@@ -26,6 +29,7 @@ pub fn extract(data: &[u8]) -> Extracted<'_> {
         match &kind {
             b"eXIf" if out.exif.is_empty() => out.exif.push(ExifBlock::root(payload)),
             b"iCCP" if out.icc.is_none() => out.icc = inflate_iccp(payload),
+            b"iTXt" if out.xmp.is_none() => out.xmp = xmp_from_itxt(payload),
             // Everything worth reading precedes the pixel data.
             b"IDAT" => break,
             _ => {}
@@ -38,18 +42,45 @@ pub fn extract(data: &[u8]) -> Extracted<'_> {
 /// An `iCCP` chunk is `name \0 compression_method zlib_data`.
 fn inflate_iccp(payload: &[u8]) -> Option<Vec<u8>> {
     let name_end = payload.iter().position(|b| *b == 0)?;
-    let compressed = payload.get(name_end + 2..)?;
 
-    let mut profile = Vec::new();
+    inflate(payload.get(name_end + 2..)?)
+}
+
+fn inflate(compressed: &[u8]) -> Option<Vec<u8>> {
+    let mut out = Vec::new();
+
     match ZlibDecoder::new(compressed)
-        .take(MAX_ICC_BYTES)
-        .read_to_end(&mut profile)
+        .take(MAX_INFLATED_BYTES)
+        .read_to_end(&mut out)
     {
-        Ok(_) => Some(profile),
+        Ok(_) => Some(out),
         Err(e) => {
-            tracing::debug!("Failure inflating PNG ICC profile -> {e}");
+            tracing::debug!("Failure inflating a PNG chunk -> {e}");
             None
         }
+    }
+}
+
+/// An `iTXt` chunk is `keyword \0 compressed? method language \0 translated \0
+/// text`, and only the one holding an XMP packet interests us.
+fn xmp_from_itxt(payload: &[u8]) -> Option<Vec<u8>> {
+    let keyword_end = payload.iter().position(|b| *b == 0)?;
+    if &payload[..keyword_end] != XMP_KEYWORD {
+        return None;
+    }
+
+    let compressed = *payload.get(keyword_end + 1)? == 1;
+    // Skip the compression method, then the language and translated keyword.
+    let rest = payload.get(keyword_end + 3..)?;
+    let language_end = rest.iter().position(|b| *b == 0)?;
+    let rest = rest.get(language_end + 1..)?;
+    let translated_end = rest.iter().position(|b| *b == 0)?;
+    let text = rest.get(translated_end + 1..)?;
+
+    if compressed {
+        inflate(text)
+    } else {
+        Some(text.to_vec())
     }
 }
 
@@ -131,6 +162,29 @@ mod tests {
 
         let data = png_with(&[chunk(b"iCCP", &payload)]);
         assert_eq!(extract(&data).icc.as_deref(), Some(&b"the-profile"[..]));
+    }
+
+    #[test]
+    fn finds_an_xmp_packet() {
+        let mut payload = XMP_KEYWORD.to_vec();
+        // Uncompressed, method 0, no language, no translated keyword.
+        payload.extend_from_slice(&[0, 0, 0, 0, 0]);
+        payload.extend_from_slice(b"<x:xmpmeta/>");
+
+        let data = png_with(&[chunk(b"iTXt", &payload)]);
+
+        assert_eq!(extract(&data).xmp.as_deref(), Some(&b"<x:xmpmeta/>"[..]));
+    }
+
+    #[test]
+    fn a_text_chunk_that_is_not_xmp_is_ignored() {
+        let mut payload = b"Comment".to_vec();
+        payload.extend_from_slice(&[0, 0, 0, 0, 0]);
+        payload.extend_from_slice(b"hello");
+
+        let data = png_with(&[chunk(b"iTXt", &payload)]);
+
+        assert!(extract(&data).xmp.is_none());
     }
 
     #[test]

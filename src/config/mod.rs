@@ -19,6 +19,35 @@ pub struct Config {
     pub general: GeneralConfig,
     pub cache: CacheConfig,
     pub slideshow: SlideshowConfig,
+    pub tags: TagConfig,
+}
+
+/// The star rating and tagging panel.
+#[derive(Deserialize, Serialize, Clone)]
+pub struct TagConfig {
+    /// Tags kept permanently to hand, grouped into categories. The panel lists
+    /// them in the order given here and searches both tag and category names.
+    #[serde(default = "default_tag_categories")]
+    pub categories: Vec<TagCategory>,
+    /// How many recently used tags to remember between sessions.
+    #[serde(default = "default_recent_tags")]
+    pub recent_tags: usize,
+    /// Starting width of the panel, in points.
+    #[serde(default = "default_tag_panel_width")]
+    pub panel_width: f32,
+
+    #[serde(default = "default_sc_toggle_tag_panel")]
+    pub sc_toggle_tag_panel: Shortcut,
+    /// Applying a rating with a keystroke, from no stars to five.
+    #[serde(default = "default_sc_rating")]
+    pub sc_rating: Vec<Shortcut>,
+}
+
+/// A named group of tags.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub struct TagCategory {
+    pub name: String,
+    pub tags: Vec<String>,
 }
 
 /// How much of the machine the viewer is allowed to use to stay ahead of the
@@ -226,6 +255,18 @@ impl Default for GridViewConfig {
             sc_scroll: default_sc_scroll(),
             sc_more_per_row: default_sc_more_per_row(),
             sc_less_per_row: default_sc_less_per_row(),
+        }
+    }
+}
+
+impl Default for TagConfig {
+    fn default() -> Self {
+        TagConfig {
+            categories: default_tag_categories(),
+            recent_tags: default_recent_tags(),
+            panel_width: default_tag_panel_width(),
+            sc_toggle_tag_panel: default_sc_toggle_tag_panel(),
+            sc_rating: default_sc_rating(),
         }
     }
 }
