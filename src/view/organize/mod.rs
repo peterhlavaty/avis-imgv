@@ -6,16 +6,18 @@
 //! here rather than in two separate views.
 
 mod controls;
+mod group;
 mod rename;
 mod table;
 mod timeshift;
 
 use std::collections::BTreeSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use eframe::egui;
 
 use crate::app::mode::Mode;
+use crate::organize::group::{Group, Settings as Grouping};
 use crate::organize::{self, rename as renaming, timeshift as shifting};
 use crate::organize::{Direction, Entry, Filter, Scan, SortKey};
 
@@ -50,6 +52,16 @@ pub struct OrganizeView {
     /// Which timestamps to move. Empty means all of them.
     chosen_fields: BTreeSet<String>,
 
+    grouping: Grouping,
+    /// The proposed groups, as the user has since edited them.
+    groups: Vec<Group>,
+    /// The frames that belong to none of them.
+    loose: Vec<Entry>,
+    /// Set when the selection or the grouping settings have moved on, so the
+    /// groups are read again — but not on every frame, which would throw away
+    /// every correction the user had made.
+    groups_stale: bool,
+
     /// The last thing that happened, shown under the buttons.
     status: String,
 }
@@ -75,6 +87,10 @@ impl OrganizeView {
             rename: renaming::Options::default(),
             offset: shifting::Offset::default(),
             chosen_fields: BTreeSet::new(),
+            grouping: Grouping::default(),
+            groups: Vec::new(),
+            loose: Vec::new(),
+            groups_stale: true,
             status: String::new(),
         }
     }
@@ -86,6 +102,7 @@ impl OrganizeView {
         self.scan = Some(Scan::start(paths));
         self.status.clear();
         self.stale = true;
+        self.groups_stale = true;
     }
 
     /// Whether the folder has already been read into this view.
@@ -120,6 +137,7 @@ impl OrganizeView {
             done = match mode {
                 Mode::Rename => rename::show(ui, self),
                 Mode::TimeShift => timeshift::show(ui, self),
+                Mode::Group => group::show(ui, self),
                 // The application only reaches here in a folder mode.
                 _ => None,
             };
@@ -137,6 +155,7 @@ impl OrganizeView {
         let arrived = scan.collect_into(&mut self.all);
         if arrived {
             self.stale = true;
+            self.groups_stale = true;
         }
 
         if scan.is_finished() && !arrived {
@@ -159,6 +178,31 @@ impl OrganizeView {
         organize::sort::sort(&mut self.selection, &key, self.direction);
 
         self.stale = false;
+    }
+
+    /// Reads the selection into groups again, if something has moved.
+    ///
+    /// Only when it has: the groups carry the user's corrections, and redoing
+    /// the detection every frame would undo them as fast as they were made.
+    fn regroup_if_stale(&mut self) {
+        if !self.groups_stale {
+            return;
+        }
+
+        let (groups, loose) = group::regrouped(&self.selection, &self.grouping);
+
+        self.groups = groups;
+        self.loose = loose;
+        self.groups_stale = false;
+    }
+
+    /// The folder the pictures are in, which is where new folders are made.
+    fn folder(&self) -> PathBuf {
+        self.all
+            .first()
+            .and_then(|entry| entry.path.parent())
+            .map(Path::to_path_buf)
+            .unwrap_or_default()
     }
 
     /// The sort key as chosen, with the typed tag folded in.

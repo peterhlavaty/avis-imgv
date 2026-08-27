@@ -22,6 +22,7 @@ use crate::metadata::dates::{self, DateField};
 use crate::metadata::xmp::Xmp;
 use crate::metadata::Metadata;
 
+use super::similarity::{self, Fingerprint};
 use super::Entry;
 
 /// How many files are read before the batch is sent.
@@ -37,6 +38,7 @@ pub struct Read {
     pub metadata: Metadata,
     pub annotations: Xmp,
     pub dates: Vec<DateField>,
+    pub fingerprint: Option<Fingerprint>,
 }
 
 /// A folder being read, in the background.
@@ -108,6 +110,7 @@ impl Scan {
                 entry.metadata = Some(read.metadata);
                 entry.annotations = read.annotations;
                 entry.dates = read.dates;
+                entry.fingerprint = read.fingerprint;
             }
 
             arrived = true;
@@ -146,7 +149,10 @@ fn read(path: &PathBuf) -> Option<Read> {
     let head = crate::decoder::preview::head(path)?;
     let format = Format::from_path(path);
 
-    let mut metadata = crate::metadata::Metadata::parse(&head, format).metadata;
+    let parsed = crate::metadata::Metadata::parse(&head, format);
+    let fingerprint = parsed.thumbnail.and_then(summarise);
+
+    let mut metadata = parsed.metadata;
     metadata.add_file_tags(path, size as usize);
 
     // The sidecar wins over what the file carries, the same way it does when
@@ -159,7 +165,18 @@ fn read(path: &PathBuf) -> Option<Read> {
         metadata,
         annotations,
         dates: dates::fields(&head, format),
+        fingerprint,
     })
+}
+
+/// Summarises what a picture looks like, from the thumbnail the camera wrote.
+///
+/// A hundred and sixty by a hundred and twenty pixels decode in well under a
+/// millisecond, which is what makes it affordable to do for a whole folder.
+fn summarise(thumbnail: &[u8]) -> Option<Fingerprint> {
+    let image = crate::decoder::codec::decode(thumbnail, Some(Format::Jpeg)).ok()?;
+
+    similarity::fingerprint(&image)
 }
 
 #[cfg(test)]

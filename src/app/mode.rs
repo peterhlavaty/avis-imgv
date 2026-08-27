@@ -16,12 +16,20 @@ pub enum Mode {
     Rename,
     /// Correcting a camera clock across the whole folder.
     TimeShift,
+    /// Finding the brackets, stacks and bursts and tidying them away.
+    Group,
 }
 
 impl Mode {
     /// Every mode, in the order the menu lists them and the order the key
     /// cycles through them.
-    pub const ALL: &'static [Mode] = &[Mode::Image, Mode::Grid, Mode::Rename, Mode::TimeShift];
+    pub const ALL: &'static [Mode] = &[
+        Mode::Image,
+        Mode::Grid,
+        Mode::Rename,
+        Mode::TimeShift,
+        Mode::Group,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -29,6 +37,7 @@ impl Mode {
             Mode::Grid => "Gallery",
             Mode::Rename => "Bulk rename",
             Mode::TimeShift => "Shift capture time",
+            Mode::Group => "Group shots",
         }
     }
 
@@ -44,7 +53,7 @@ impl Mode {
     /// These are the ones that need the whole folder's metadata read, and the
     /// ones where the image caches can be left alone.
     pub fn is_folder_job(self) -> bool {
-        matches!(self, Mode::Rename | Mode::TimeShift)
+        matches!(self, Mode::Rename | Mode::TimeShift | Mode::Group)
     }
 }
 
@@ -77,7 +86,7 @@ mod tests {
             assert!(!mode.label().is_empty());
         }
 
-        assert_eq!(Mode::ALL.len(), 4);
+        assert_eq!(Mode::ALL.len(), 5);
     }
 
     #[test]
@@ -86,5 +95,6 @@ mod tests {
         assert!(!Mode::Grid.is_folder_job());
         assert!(Mode::Rename.is_folder_job());
         assert!(Mode::TimeShift.is_folder_job());
+        assert!(Mode::Group.is_folder_job());
     }
 }

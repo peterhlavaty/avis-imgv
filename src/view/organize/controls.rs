@@ -34,6 +34,7 @@ pub fn show(ui: &mut egui::Ui, view: &mut OrganizeView) {
 
     if before != after {
         view.stale = true;
+        view.groups_stale = true;
     }
 }
 

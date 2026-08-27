@@ -210,9 +210,9 @@ down stage by stage.
 
 ## Working on the whole folder
 
-Two of the four modes act on the folder rather than on one picture. The menu
-lists them under **Mode**, and `F2` cycles through image, gallery, and the two
-below.
+Three of the five modes act on the folder rather than on one picture. The menu
+lists them under **Mode**, and `F2` cycles through image, gallery, and the
+three below.
 
 Both start by reading the folder — the front of every file, for its metadata,
 and its sidecar, for the rating and keywords — which takes a couple of
@@ -269,6 +269,43 @@ file has to be recomputed, and the maker notes, the embedded preview and the
 pixels are all left byte for byte as they were. Each file is written to a
 temporary copy and renamed over the original, so an interrupted run cannot
 leave half a photograph behind.
+
+### Group shots
+
+A photographer rarely takes one frame of anything worth taking. A bracket for a
+high dynamic range merge is three or five frames of the same view at different
+exposures; a focus stack is a dozen at different distances; a timelapse is
+hundreds at a steady interval; and a burst is however many it took. They all
+arrive in one folder, interleaved with the single frames.
+
+This mode finds them and offers to tidy each one into a folder of its own —
+`hdr1`, `hdr2`, `stack1`, `timelapse1`, `series1`. A number already taken on
+disk is stepped over rather than tipped into, so running it again on a folder
+that has grown does not mix new frames in among the old.
+
+Frames belong to the same group when they were taken close enough together
+**and** show the same thing. Both halves matter: the clock alone joins two
+unrelated pictures taken a second apart, and the picture alone joins two visits
+to the same view a week apart. What they look like comes from a sixty-four bit
+summary of the camera's own thumbnail — shrink it to a grid of brightness and
+record which cells are brighter than their neighbours — so a frame two stops
+darker still matches the one before it, and a different scene does not.
+
+What kind of group it is follows from what the photographer changed:
+
+| Reading | What it looks like |
+|---------|--------------------|
+| HDR bracket | three or more frames within half a minute, the exposure moving and the aperture and focus not |
+| Focus stack | three or more with the focus distance moving and the exposure not |
+| Timelapse | eight or more at an interval steady enough to be a timer rather than a finger |
+| Series | everything else: the same thing, more than once |
+
+Every one of those is a proposal. The kind is a dropdown, **Not a group** puts
+a whole run back among the loose frames, `×` takes one frame out, and anything
+loose can be put into any group from the bottom of the list — where it lands in
+the order it was taken, not at the end. Three numbers at the top decide how the
+folder is read at all: the gap that ends a run, how alike two frames have to
+be, and the fewest frames worth calling a group.
 
 ## Supported image formats
 
@@ -413,7 +450,7 @@ viewer logs that it is showing previews instead.
 | Key | Action |
 |-----|--------|
 | Backspace | Toggle between image view and grid view |
-| F2 | Next mode: image, gallery, bulk rename, shift capture time |
+| F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots |
 | Alt + Q | Exit |
 | F1 | Toggle the menu |
 | Ctrl + L | Navigation bar |

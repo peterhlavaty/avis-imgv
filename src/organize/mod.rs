@@ -6,9 +6,13 @@
 //! deciding and the working out are here, as plain functions over a list; the
 //! touching is a separate step that can be refused.
 
+pub mod files;
 pub mod filter;
+pub mod gather;
+pub mod group;
 pub mod rename;
 pub mod scan;
+pub mod similarity;
 pub mod sort;
 pub mod timeshift;
 
@@ -18,6 +22,7 @@ use crate::metadata::dates::DateField;
 use crate::metadata::datetime::Timestamp;
 use crate::metadata::xmp::Xmp;
 use crate::metadata::Metadata;
+use similarity::Fingerprint;
 
 pub use filter::Filter;
 pub use scan::Scan;
@@ -41,6 +46,9 @@ pub struct Entry {
     /// used to decide what can be shifted; the shift itself locates them again
     /// in the file it is about to write.
     pub dates: Vec<DateField>,
+    /// A summary of what the picture looks like, from the camera's thumbnail.
+    /// Absent for a file that embeds none.
+    pub fingerprint: Option<Fingerprint>,
 }
 
 impl Entry {
@@ -153,6 +161,7 @@ pub(crate) mod test_support {
             }),
             annotations: Xmp::default(),
             dates: Vec::new(),
+            fingerprint: None,
         }
     }
 

@@ -2,6 +2,26 @@
 
 ## 2026-08-27
 
+- A fifth mode, **Group shots**, for the runs of frames that belong together:
+  brackets, focus stacks, timelapses and bursts.
+  - Frames group when they were taken close enough together and show the same
+    thing. What they look like comes from a difference hash of the camera's own
+    thumbnail, so a frame two stops darker still matches the one before it and
+    a different scene taken a second later does not.
+  - What kind of run it is follows from what changed across it: the exposure
+    for a bracket, the focus distance for a stack, a steady interval and enough
+    frames for a timelapse, and a series for everything else.
+  - Every reading is a proposal. The kind is a dropdown, a run can be told it
+    is not a group at all, single frames can be taken out, and loose frames can
+    be put into any group — landing in the order they were taken.
+  - Confirming tidies each group into `hdr1`, `stack1`, `timelapse1`,
+    `series1` and so on, sidecars included. A number already on disk is stepped
+    over rather than merged into.
+  - The folder sweep now also summarises each thumbnail, which costs well under
+    a millisecond a file and is what makes the similarity test affordable.
+
+## 2026-08-27
+
 - Two new modes that work on the folder rather than on one picture. The menu
   lists them under Mode, and `F2` cycles through all four.
   - **Bulk rename.** A name is a template — literal text with `{name}`,

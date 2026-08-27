@@ -6,8 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::annotations::sidecar;
-
+use super::super::files;
 use super::Planned;
 
 /// Carries out a plan, skipping anything with a problem.
@@ -26,14 +25,14 @@ pub fn apply(planned: &[Planned]) -> Outcome {
     for plan in wanted {
         let temporary = temporary_name(&plan.from, parked.len());
 
-        match rename(&plan.from, &temporary) {
+        match files::move_file(&plan.from, &temporary) {
             Ok(()) => parked.push((temporary, plan)),
             Err(e) => outcome.failed.push((plan.from.clone(), e.to_string())),
         }
     }
 
     for (temporary, plan) in parked {
-        match rename(&temporary, &plan.to) {
+        match files::move_file(&temporary, &plan.to) {
             Ok(()) => outcome.renamed.push((plan.from.clone(), plan.to.clone())),
             Err(e) => {
                 // Put it back rather than leaving a file under a name nobody
@@ -65,59 +64,6 @@ impl Outcome {
             (0, failed) => format!("{failed} file(s) could not be renamed"),
             (renamed, failed) => format!("Renamed {renamed}, {failed} could not be"),
         }
-    }
-}
-
-/// Moves a file and whatever sidecar belongs to it.
-///
-/// A rating left behind under the old name would be lost, which is worse than
-/// the rename failing.
-fn rename(from: &Path, to: &Path) -> std::io::Result<()> {
-    std::fs::rename(from, to)?;
-
-    for candidate in sidecar::candidates(from) {
-        if !candidate.exists() {
-            continue;
-        }
-
-        // The sidecar is a convenience, so a failure to move it is worth a
-        // line in the log and not worth undoing the rename over.
-        let wanted = sidecar_beside(&candidate, from, to);
-        if let Err(e) = std::fs::rename(&candidate, &wanted) {
-            tracing::warn!("Could not move {}: {e}", candidate.display());
-        }
-    }
-
-    Ok(())
-}
-
-/// Where a sidecar of `image` ends up when the image becomes `renamed`.
-///
-/// Sidecars are named either `photo.jpg.xmp` or `photo.xmp`, and which of the
-/// two this one is decides how much of its name is the image's.
-fn sidecar_beside(candidate: &Path, image: &Path, renamed: &Path) -> PathBuf {
-    let suffix = candidate
-        .file_name()
-        .and_then(|name| name.to_str())
-        .and_then(|name| {
-            let image_name = image.file_name()?.to_str()?;
-            name.strip_prefix(image_name)
-        });
-
-    match suffix {
-        // `photo.jpg` + `.xmp`
-        Some(suffix) => {
-            let mut name = renamed.file_name().unwrap_or_default().to_os_string();
-            name.push(suffix);
-            renamed.with_file_name(name)
-        }
-        // `photo` + `.xmp`, which is what the extension replacing form gives.
-        None => renamed.with_extension(
-            candidate
-                .extension()
-                .map(|ext| ext.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "xmp".to_string()),
-        ),
     }
 }
 
@@ -332,27 +278,5 @@ mod tests {
             .summary(),
             "Renamed 1 file(s)"
         );
-    }
-
-    #[test]
-    fn a_sidecar_named_after_the_whole_file_follows_it() {
-        let moved = sidecar_beside(
-            Path::new("/photos/a.jpg.xmp"),
-            Path::new("/photos/a.jpg"),
-            Path::new("/photos/b.jpg"),
-        );
-
-        assert_eq!(moved, Path::new("/photos/b.jpg.xmp"));
-    }
-
-    #[test]
-    fn a_sidecar_named_after_the_stem_follows_it_too() {
-        let moved = sidecar_beside(
-            Path::new("/photos/a.xmp"),
-            Path::new("/photos/a.jpg"),
-            Path::new("/photos/b.jpg"),
-        );
-
-        assert_eq!(moved, Path::new("/photos/b.xmp"));
     }
 }
