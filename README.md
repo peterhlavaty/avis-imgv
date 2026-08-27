@@ -107,6 +107,17 @@ JPEG XL support builds libjxl from source and is therefore off by default:
 cargo build --release --features jxl
 ```
 
+It needs `cmake` and a C++ compiler. On Windows `jpegxl-src` asks MSBuild for
+the `ClangCL` platform toolset specifically, which is a Visual Studio component
+rather than part of the default C++ workload; without it the build stops at
+`error MSB8020`. Add it from an elevated prompt:
+
+```
+"C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify ^
+  --installPath "C:\Program Files (x86)\Microsoft Visual Studio2\BuildTools" ^
+  --add Microsoft.VisualStudio.Component.VC.Llvm.ClangToolset --passive
+```
+
 ## Install
 
 `install.sh` builds and installs to `~/.local/bin` and creates a `.desktop`
