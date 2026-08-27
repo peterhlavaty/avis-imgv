@@ -2,6 +2,33 @@
 
 ## 2026-08-27
 
+- Two new modes that work on the folder rather than on one picture. The menu
+  lists them under Mode, and `F2` cycles through all four.
+  - **Bulk rename.** A name is a template — literal text with `{name}`,
+    `{counter}`, `{date}`, `{tag:ISO}` and the rest — and what every file would
+    become is shown before anything is written. The counter's start, step and
+    width are all settable, and it follows the order the folder is sorted in.
+    A rename that shifts a numbered sequence onto itself works, and so does
+    swapping two names: every file goes through a temporary name first.
+    Sidecars follow the pictures they belong to.
+  - **Shift capture time**, for a camera whose clock was wrong. An offset in
+    days, hours, minutes and seconds, forwards or backwards, applied to
+    whichever timestamps the files carry and you tick. The dates are rewritten
+    in place — an EXIF timestamp is a fixed nineteen characters whatever it
+    says — so nothing else in the file moves and the maker notes, the preview
+    and the pixels are untouched. Each file is written to a temporary copy and
+    renamed over the original.
+  - Both modes sort and filter the folder first: by name, capture time, type,
+    size, rating or any metadata tag, and filtered on the same things plus
+    keywords and stars. Names sort the way a person reads them, so `IMG_9`
+    comes before `IMG_10`.
+  - Opening either reads the folder in the background — the front of every file
+    and its sidecar — and the list is usable from the first frame, filling in
+    as it goes.
+- New: `general.sc_next_mode`, `F2` by default.
+
+## 2026-08-27
+
 - Memory now holds a whole folder rather than a window of it, and zooming shows
   the photograph rather than a magnified copy of it.
   - What is kept for every image is the screen sized copy: eleven megabytes for

@@ -172,6 +172,10 @@
       "key": "Backspace",
       "modifiers": []
     },
+    "sc_next_mode": {
+      "key": "F2",
+      "modifiers": []
+    },
     "sc_exit": {
       "key": "q",
       "modifiers": [

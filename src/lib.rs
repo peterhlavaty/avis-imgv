@@ -9,6 +9,8 @@
 //!   buffer instead of shelling out,
 //! - [`cache`] decides what lives in RAM and what lives on the GPU,
 //! - [`view`] draws it, [`app`] wires it together,
+//! - [`organize`] works on the folder rather than the image: bulk renaming
+//!   and correcting a camera clock,
 //! - [`annotations`] holds what the user puts on an image: stars and tags,
 //!   kept in XMP sidecars.
 
@@ -21,6 +23,7 @@ pub mod crawler;
 pub mod decoder;
 pub mod formats;
 pub mod metadata;
+pub mod organize;
 pub mod ui;
 pub mod utils;
 pub mod view;

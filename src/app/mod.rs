@@ -3,6 +3,7 @@
 
 pub mod benchmark;
 pub mod input;
+pub mod mode;
 pub mod panels;
 pub mod stores;
 pub mod tagging;
@@ -22,10 +23,12 @@ use crate::formats;
 use crate::ui::tag_panel;
 use crate::ui::{navigator, perf_metrics::PerfMetrics, theme, tree};
 use crate::view::image_view::bottom_bar::Flags;
+use crate::view::organize::{Done, OrganizeView};
 use crate::view::{GridView, ImageView};
 
 use benchmark::Benchmark;
 use input::{Command, Overlay};
+use mode::Mode;
 use panels::MenuAction;
 
 /// Images a benchmark run walks through before reporting.
@@ -34,12 +37,15 @@ const BENCHMARK_IMAGES: usize = 500;
 pub struct App {
     image_view: ImageView,
     grid_view: GridView,
+    /// The folder jobs: renaming, and correcting a camera clock. Built lazily,
+    /// because most sessions never open one and starting it reads the folder.
+    organize_view: OrganizeView,
+    mode: Mode,
     /// The images currently open, before either view partitions them.
     paths: Vec<PathBuf>,
     base_path: PathBuf,
     /// Whether sub-directories are folded into the open collection.
     flattened: bool,
-    grid_visible: bool,
     menu_visible: bool,
     side_panel_visible: bool,
     metrics_visible: bool,
@@ -111,7 +117,8 @@ impl App {
             navigator_path: String::new(),
             paths: Vec::new(),
             flattened: false,
-            grid_visible: false,
+            organize_view: OrganizeView::new(),
+            mode: Mode::default(),
             menu_visible: false,
             side_panel_visible: false,
             metrics_visible: false,
@@ -152,7 +159,14 @@ impl App {
     fn apply(&mut self, command: Command, ctx: &egui::Context) {
         match command {
             Command::Exit => ctx.send_viewport_cmd(ViewportCommand::Close),
-            Command::ToggleGrid => self.grid_visible = !self.grid_visible,
+            Command::ToggleGrid => {
+                self.set_mode(match self.mode {
+                    Mode::Grid => Mode::Image,
+                    _ => Mode::Grid,
+                });
+            }
+            Command::NextMode => self.set_mode(self.mode.next()),
+            Command::SetMode(mode) => self.set_mode(mode),
             Command::ToggleMenu => self.menu_visible = !self.menu_visible,
             Command::ToggleSidePanel => self.side_panel_visible = !self.side_panel_visible,
             Command::ToggleMetrics => self.metrics_visible = !self.metrics_visible,
@@ -162,6 +176,19 @@ impl App {
             }
             Command::ToggleTagPanel => self.tag_panel_visible = !self.tag_panel_visible,
             Command::SetRating(stars) => self.rate(stars),
+        }
+    }
+
+    /// Switches what the window is for.
+    ///
+    /// Entering a folder job reads the folder, which is why it happens here
+    /// rather than every frame: the sweep is only worth starting when the mode
+    /// is actually opened, and only when it is not already holding the folder.
+    fn set_mode(&mut self, mode: Mode) {
+        self.mode = mode;
+
+        if mode.is_folder_job() && !self.organize_view.holds(&self.paths) {
+            self.organize_view.set_images(self.paths.clone());
         }
     }
 
@@ -222,6 +249,7 @@ impl App {
                     }
                 }
             }
+            MenuAction::Mode(mode) => self.set_mode(mode),
         }
     }
 
@@ -322,26 +350,35 @@ impl App {
         ctx.send_viewport_cmd(ViewportCommand::Close);
     }
 
-    /// Draws whichever view is on screen, and keeps the other one's caches
-    /// filling in behind it.
+    /// Draws whichever view is on screen, and keeps the others' caches filling
+    /// in behind it.
     fn show_views(&mut self, ctx: &egui::Context) {
-        let warmed = if self.grid_visible {
-            self.image_view.warm()
-        } else {
-            self.grid_view.warm(self.image_view.selected_index())
+        // A folder job draws no images, so both caches carry on filling in
+        // behind it and the viewer is ready the moment it is left.
+        let warmed = match self.mode {
+            Mode::Image => self.grid_view.warm(self.image_view.selected_index()),
+            _ => self.image_view.warm(),
         };
 
         if warmed {
             ctx.request_repaint();
         }
 
-        if self.grid_visible {
+        if self.mode.is_folder_job() {
+            if let Some(done) = self.organize_view.ui(ctx, self.mode) {
+                self.finish_folder_job(done);
+            }
+
+            return;
+        }
+
+        if self.mode == Mode::Grid {
             self.grid_view
                 .ui(ctx, Some(self.image_view.selected_index()));
 
             if let Some(path) = self.grid_view.take_selected() {
                 self.image_view.select_path(&path);
-                self.grid_visible = false;
+                self.mode = Mode::Image;
             }
 
             if let Some(callback) = self.grid_view.take_callback() {
@@ -371,6 +408,27 @@ impl App {
             self.execute_callback(callback);
         }
     }
+
+    /// Picks the folder up again after a job has changed it.
+    ///
+    /// A rename moves every path the caches are keyed by, and a time shift
+    /// changes what the metadata says, so in both cases the collection is read
+    /// again from scratch. It costs a folder's worth of decoding, and it
+    /// happens once, when the user asked for something that changed the files.
+    fn finish_folder_job(&mut self, done: Done) {
+        tracing::info!("Folder job finished: {done:?}");
+
+        let base = self.base_path.clone();
+        let selected = match done {
+            // The name it had is gone, so there is nothing to return to.
+            Done::Renamed => None,
+            Done::Shifted => self.image_view.active_path(),
+        };
+
+        self.annotations.forget_all();
+        self.open_directory(&base, selected.as_deref());
+        self.organize_view.set_images(self.paths.clone());
+    }
 }
 
 impl eframe::App for App {
@@ -393,7 +451,7 @@ impl eframe::App for App {
                 self.perf_metrics.display_metrics(ui)
             });
 
-        if let Some(action) = panels::top_menu(ctx, self.menu_visible) {
+        if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode) {
             self.handle_menu(action);
         }
 

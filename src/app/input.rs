@@ -2,6 +2,7 @@
 
 use eframe::egui;
 
+use crate::app::mode::Mode;
 use crate::config::{GeneralConfig, TagConfig};
 use crate::utils;
 
@@ -10,6 +11,10 @@ use crate::utils;
 pub enum Command {
     Exit,
     ToggleGrid,
+    /// Move to the next mode round.
+    NextMode,
+    /// Go straight to one, as the menu does.
+    SetMode(Mode),
     ToggleMenu,
     ToggleSidePanel,
     ToggleMetrics,
@@ -46,6 +51,7 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
 
     let bindings = [
         (&config.sc_toggle_gallery, Command::ToggleGrid),
+        (&config.sc_next_mode, Command::NextMode),
         (&config.sc_menu, Command::ToggleMenu),
         (&config.sc_toggle_side_panel, Command::ToggleSidePanel),
         (&config.sc_flatten_dir, Command::ToggleFlatten),

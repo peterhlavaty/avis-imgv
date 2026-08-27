@@ -124,6 +124,15 @@ impl AnnotationStore {
         self.entries.remove(image);
     }
 
+    /// Forgets everything, for when the whole folder has moved underneath us.
+    ///
+    /// A bulk rename leaves every entry keyed by a name nothing is called any
+    /// more, and a stale rating shown against the wrong photograph would be
+    /// worse than reading them all again.
+    pub fn forget_all(&mut self) {
+        self.entries.clear();
+    }
+
     /// Every keyword seen on the images visited so far.
     pub fn known_tags(&self) -> Vec<&str> {
         let mut tags: Vec<&str> = self

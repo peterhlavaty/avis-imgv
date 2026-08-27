@@ -77,6 +77,16 @@ pub fn load(path: &Path) -> Option<Preview> {
     })
 }
 
+/// The front of a file, for a caller that wants to read more than one thing
+/// out of it.
+///
+/// What the folder modes want: sorting, filtering and listing the timestamps
+/// of a thousand files needs what every one of them says, and nothing at all
+/// of what they look like.
+pub fn head(path: &Path) -> Option<Vec<u8>> {
+    read_head(path)
+}
+
 /// Reads at most [`HEAD_BYTES`] from the front of the file.
 fn read_head(path: &Path) -> Option<Vec<u8>> {
     let file = File::open(path)

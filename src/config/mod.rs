@@ -130,6 +130,9 @@ pub struct GeneralConfig {
 
     #[serde(default = "default_sc_toggle_gallery")]
     pub sc_toggle_gallery: Shortcut,
+    /// Cycles through the modes: image, gallery, rename, time shift.
+    #[serde(default = "default_sc_next_mode")]
+    pub sc_next_mode: Shortcut,
     #[serde(default = "default_sc_exit")]
     pub sc_exit: Shortcut,
     #[serde(default = "default_sc_menu")]
@@ -269,6 +272,7 @@ impl Default for GeneralConfig {
             text_scaling: default_text_scaling(),
             metadata_tags: default_metadata_tags(),
             sc_toggle_gallery: default_sc_toggle_gallery(),
+            sc_next_mode: default_sc_next_mode(),
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
             sc_exit: default_sc_exit(),
             sc_menu: default_sc_menu(),

@@ -49,6 +49,13 @@ pub fn default_sc_toggle_gallery() -> Shortcut {
     Shortcut::new("Backspace", &[])
 }
 
+/// Not Tab, however much it looks like the key for this: egui gives Tab to
+/// whatever widget is next in line, and a mode with a text box in it would
+/// swallow the key on the way past.
+pub fn default_sc_next_mode() -> Shortcut {
+    Shortcut::new("F2", &[])
+}
+
 pub fn default_sc_exit() -> Shortcut {
     Shortcut::new("q", &[MOD_ALT])
 }

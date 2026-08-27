@@ -2,6 +2,7 @@
 
 use eframe::egui::{self, RichText};
 
+use crate::app::mode::Mode;
 use crate::cache::StoreStats;
 use crate::metadata::Metadata;
 
@@ -10,25 +11,40 @@ use crate::metadata::Metadata;
 pub enum MenuAction {
     OpenFolder,
     OpenFiles,
+    /// Switch what the window is for.
+    Mode(Mode),
 }
 
 /// Draws the menu bar, returning what the user picked.
-pub fn top_menu(ctx: &egui::Context, visible: bool) -> Option<MenuAction> {
+pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAction> {
     let mut action = None;
 
     egui::TopBottomPanel::top("menu")
         .show_separator_line(false)
         .show_animated(ctx, visible, |ui| {
-            ui.menu_button("File", |ui| {
-                for (label, picked) in [
-                    ("Open Folder", MenuAction::OpenFolder),
-                    ("Open Files", MenuAction::OpenFiles),
-                ] {
-                    if ui.button(label).clicked() {
-                        action = Some(picked);
-                        ui.close();
+            ui.horizontal(|ui| {
+                ui.menu_button("File", |ui| {
+                    for (label, picked) in [
+                        ("Open Folder", MenuAction::OpenFolder),
+                        ("Open Files", MenuAction::OpenFiles),
+                    ] {
+                        if ui.button(label).clicked() {
+                            action = Some(picked);
+                            ui.close();
+                        }
                     }
-                }
+                });
+
+                ui.menu_button("Mode", |ui| {
+                    for wanted in Mode::ALL {
+                        // Radio rather than plain buttons: the menu is also
+                        // where the user finds out which mode they are in.
+                        if ui.radio(mode == *wanted, wanted.label()).clicked() {
+                            action = Some(MenuAction::Mode(*wanted));
+                            ui.close();
+                        }
+                    }
+                });
             });
         });
 

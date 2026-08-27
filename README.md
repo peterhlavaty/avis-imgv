@@ -208,6 +208,68 @@ The numbers are there to be checked on your own machine and your own files.
 `cargo run --release --example bench_decode -- <files>` breaks a single image
 down stage by stage.
 
+## Working on the whole folder
+
+Two of the four modes act on the folder rather than on one picture. The menu
+lists them under **Mode**, and `F2` cycles through image, gallery, and the two
+below.
+
+Both start by reading the folder — the front of every file, for its metadata,
+and its sidecar, for the rating and keywords — which takes a couple of
+milliseconds a file across every core and does not stop you working while it
+happens. Both then narrow it down, put it in an order, and show you exactly
+what would happen to every file. Nothing is written until you say so.
+
+**Sorting** is by name, capture time, type, size, rating, or any metadata tag.
+Names sort the way a person reads them, so `IMG_9` comes before `IMG_10`, and
+tags that mean numbers sort as numbers, so ISO 200 comes before ISO 1000. The
+order matters: it is what the counter in a rename follows.
+
+**Filtering** narrows by name, type, size, a metadata tag and what it says,
+star rating, and keywords the file must or must not carry. Every rule is empty
+by default, and rules combine with "and".
+
+### Bulk rename
+
+A name is a template: literal text, with `{...}` for the parts that differ.
+
+| Placeholder | Becomes |
+|-------------|---------|
+| `{name}` | the name it has now, without the extension |
+| `{counter}` | the number, padded to the digits you set |
+| `{date}` `{time}` `{datetime}` | the capture time, as `2024-11-06`, `22-07-19`, or both |
+| `{year}` `{month}` `{day}` | parts of the capture date |
+| `{tag:Name}` | any metadata tag, such as `{tag:ISO}` |
+| `{{` `}}` | a literal brace |
+
+`holiday_{date}_{counter}` gives `holiday_2024-11-06_0001.jpg`. The counter's
+first number, its step and its width are all set beside the template, and the
+extension can be kept as it is or folded to one case.
+
+Anything that cannot happen is shown in red and left alone: a template that
+leaves a file with no name at all, two files that would end up with the same
+one, or a name something else on disk already has. A rename that shifts a
+numbered sequence onto itself works, and so does swapping two names, because
+every file goes through a temporary name first. Sidecars follow the pictures
+they belong to.
+
+### Shift capture time
+
+For a camera whose clock was wrong. Set an offset in days, hours, minutes and
+seconds, forwards or backwards, and every selected photograph moves by it.
+
+Which timestamps move is up to you: the boxes list the ones the selected files
+actually carry — the moment the shutter opened, the moment the file was
+written, and whatever else is there — and all of them are ticked to begin with.
+
+The dates are rewritten where they already are rather than by rebuilding the
+file. An EXIF timestamp is a fixed nineteen characters whatever it says, so a
+shifted one takes exactly as much room as the one it replaces: no offset in the
+file has to be recomputed, and the maker notes, the embedded preview and the
+pixels are all left byte for byte as they were. Each file is written to a
+temporary copy and renamed over the original, so an interrupted run cannot
+leave half a photograph behind.
+
 ## Supported image formats
 
 JPEG, PNG, WebP, GIF, BMP and TIFF, through the
@@ -351,6 +413,7 @@ viewer logs that it is showing previews instead.
 | Key | Action |
 |-----|--------|
 | Backspace | Toggle between image view and grid view |
+| F2 | Next mode: image, gallery, bulk rename, shift capture time |
 | Alt + Q | Exit |
 | F1 | Toggle the menu |
 | Ctrl + L | Navigation bar |
