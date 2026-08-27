@@ -1,10 +1,10 @@
 [package]
 name = "avis-imgv"
-description = "Image viewer based on egui. Makes use of modern RAM amounts by loading images ahead of time for very fast responsiveness. Minimal UI with heavy use of shortcuts."
+description = "GPU accelerated image viewer. Decodes a whole folder into RAM and keeps a configurable window of images resident on the GPU for instant navigation."
 license = "GPL-3.0"
 homepage = "https://github.com/hats-np/avis-imgv"
 repository = "https://github.com/hats-np/avis-imgv"
-version = "0.3.2"
+version = "0.4.0"
 edition = "2021"
 readme = "README.md"
 keywords = ["image_viewer", "image"]
@@ -21,23 +21,30 @@ regex = { version = "1.11.1" }
 rfd = { version = "0.15.3" }
 fast_image_resize = { version = "5.1.4" }
 notify = "8.0.0"
-rusqlite = { version = "0.37.0", features = ["bundled"] }
-uuid = { version = "1.0", features = ["v4"] }
-jpegxl-rs = { version = "0.11.2", features = ["vendored"] }
-tempfile = "3.22.0"
 tracing-subscriber = { version = "0.3", default-features = true }
 tracing = "0.1.41"
 itertools = "0.14.0"
-pollster = "0.4.0"
 rayon = "1.11.0"
-globals = "1.0.5"
+flate2 = "1.1.2"
+jpegxl-rs = { version = "0.11.2", features = ["vendored"], optional = true }
 
-[profile.dev.package.image]
+# Decoding, resampling and colour conversion all happen in dependencies, and
+# an unoptimised build of them makes a debug build of the viewer unusable.
+[profile.dev.package."*"]
 opt-level = 3
 
-[profile.dev.package.fast_image_resize]
-opt-level = 3
+# Generic code from those dependencies is instantiated here, so the viewer's
+# own crate needs some optimisation too; level 1 keeps debugging workable while
+# decoding a 24 megapixel photograph stays roughly twice as fast.
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
 
 [features]
 default = ["custom_font"]
 custom_font = []
+# JPEG XL support. Requires cmake and a C++ toolchain to build libjxl from source.
+jxl = ["dep:jpegxl-rs"]

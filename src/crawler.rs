@@ -1,129 +1,178 @@
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-};
+//! Finding the images to open, from the command line or from a directory.
 
-use crate::{STARTER_STATE_ARGS, VALID_EXTENSIONS};
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
+use crate::formats;
+use crate::STARTER_STATE_ARGS;
+
+/// Reads the command line and returns the collection to open, plus the image
+/// to land on when one was named directly.
 pub fn paths_from_args() -> (Vec<PathBuf>, Option<PathBuf>) {
-    let mut args: Vec<String> = env::args().collect();
-
-    tracing::info!("Crawling with args {:?}", args);
-
-    //This could be a little more elegant, but works for now.
-    //We should consume the other args at startup
-    let mut crawl_args = vec![];
-    for arg in &args {
-        if !STARTER_STATE_ARGS.contains(&arg.as_str()) {
-            crawl_args.push(arg.to_string());
-        }
-    }
-
-    args = crawl_args;
-
-    tracing::info!("Crawling with args after cleanup: {:?}", args);
-
-    if args.len() <= 2 {
-        let mut path = if args.len() >= 2 {
-            PathBuf::from(args.last().unwrap().clone()) //Not very thorough but at the moment path is always the last arg.
-        } else {
-            match env::current_dir() {
-                Ok(dir) => dir,
-                Err(_) => return (vec![], None),
-            }
-        };
-
-        let current_dir = match env::current_dir() {
-            Ok(dir) => dir,
-            Err(_) => return (vec![path], None),
-        };
-
-        if path.is_dir() {
-            if path == PathBuf::from(".") {
-                path = current_dir;
-            } else if !path.has_root() {
-                path = current_dir.join(path.strip_prefix(PathBuf::from(".")).unwrap_or(&path));
-            }
-
-            let paths = crawl(&path, false);
-            return (paths, None);
-        }
-
-        if !path.has_root() {
-            path = current_dir.join(path.strip_prefix(PathBuf::from(".")).unwrap_or(&path));
-        }
-
-        let parent = match path.parent() {
-            Some(parent) => parent,
-            None => return (vec![path], None),
-        };
-
-        let paths = crawl(parent, false);
-        return (paths, Some(path));
-    }
-
-    let paths = args[1..]
-        .iter()
-        .filter_map(|x| {
-            let path = PathBuf::from(x);
-            match !VALID_EXTENSIONS.contains(&path.extension()?.to_str()?.to_lowercase().as_str()) {
-                true => Some(path),
-                false => None,
-            }
-        })
+    let args: Vec<String> = env::args()
+        .skip(1)
+        .filter(|arg| !STARTER_STATE_ARGS.contains(&arg.as_str()))
         .collect();
 
-    (paths, None)
+    tracing::info!("Opening {args:?}");
+
+    match args.len() {
+        0 => (crawl_current_dir(), None),
+        1 => from_single_arg(&args[0]),
+        // Several paths: treat them as the collection itself.
+        _ => (
+            args.iter()
+                .map(PathBuf::from)
+                .filter(|path| formats::is_supported(path))
+                .collect(),
+            None,
+        ),
+    }
 }
 
-pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = Vec::new();
-
-    let mut paths_to_check: Vec<PathBuf> = vec![path.to_path_buf()];
-
-    loop {
-        if paths_to_check.is_empty() {
-            break;
+fn crawl_current_dir() -> Vec<PathBuf> {
+    match env::current_dir() {
+        Ok(dir) => crawl(&dir, false),
+        Err(e) => {
+            tracing::error!("Failure reading the working directory -> {e}");
+            Vec::new()
         }
+    }
+}
 
-        //safe since we checked if the vec is empty
-        let current_path = paths_to_check.pop().unwrap();
-        let dir_info = match fs::read_dir(current_path) {
-            Ok(dir_info) => dir_info,
+/// A single argument is either a directory to open or an image to land on.
+fn from_single_arg(arg: &str) -> (Vec<PathBuf>, Option<PathBuf>) {
+    let path = absolute(PathBuf::from(arg));
+
+    if path.is_dir() {
+        return (crawl(&path, false), None);
+    }
+
+    match path.parent() {
+        Some(parent) => (crawl(parent, false), Some(path.clone())),
+        None => (vec![path], None),
+    }
+}
+
+/// Resolves a relative path against the working directory.
+fn absolute(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        return path;
+    }
+
+    match env::current_dir() {
+        Ok(dir) => dir.join(path),
+        Err(_) => path,
+    }
+}
+
+/// Collects every image in `path`, descending into sub-directories when
+/// `flatten` is set.
+pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
+    let mut images = Vec::new();
+    let mut directories = vec![path.to_path_buf()];
+
+    while let Some(directory) = directories.pop() {
+        let entries = match fs::read_dir(&directory) {
+            Ok(entries) => entries,
             Err(e) => {
-                tracing::error!("Failure reading directory -> {e}");
-                return files;
+                tracing::error!("Failure reading {} -> {e}", directory.display());
+                continue;
             }
         };
 
-        for file in dir_info {
-            match file {
-                Ok(f) => {
-                    let path = f.path();
+        for entry in entries.flatten() {
+            let path = entry.path();
 
-                    if flatten && path.is_dir() {
-                        paths_to_check.push(f.path());
-                        continue;
-                    } else if VALID_EXTENSIONS.contains(
-                        &path
-                            .extension()
-                            .unwrap_or_default()
-                            .to_str()
-                            .unwrap_or("")
-                            .to_lowercase()
-                            .as_str(),
-                    ) {
-                        files.push(path);
-                        continue;
-                    }
+            if path.is_dir() {
+                if flatten {
+                    directories.push(path);
                 }
-                Err(e) => {
-                    tracing::error!("Failure reading file info -> {e}");
-                    continue;
-                }
-            };
+            } else if formats::is_supported(&path) {
+                images.push(path);
+            }
         }
     }
 
-    files
+    tracing::info!("Found {} images in {}", images.len(), path.display());
+    images
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Builds a small directory tree in a unique temporary directory.
+    fn fixture(name: &str) -> PathBuf {
+        let root = env::temp_dir().join(format!("avis-crawler-{name}"));
+        let _ = fs::remove_dir_all(&root);
+
+        fs::create_dir_all(root.join("nested")).unwrap();
+        for file in ["a.jpg", "b.PNG", "notes.txt"] {
+            fs::write(root.join(file), b"x").unwrap();
+        }
+        fs::write(root.join("nested/c.jpg"), b"x").unwrap();
+
+        root
+    }
+
+    #[test]
+    fn finds_images_and_skips_everything_else() {
+        let root = fixture("flat");
+        let mut found = crawl(&root, false);
+        found.sort();
+
+        assert_eq!(found, vec![root.join("a.jpg"), root.join("b.PNG")]);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn descends_when_flattened() {
+        let root = fixture("deep");
+        let mut found = crawl(&root, true);
+        found.sort();
+
+        assert_eq!(
+            found,
+            vec![
+                root.join("a.jpg"),
+                root.join("b.PNG"),
+                root.join("nested/c.jpg")
+            ]
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_missing_directory_yields_nothing() {
+        assert!(crawl(Path::new("/definitely/not/here"), false).is_empty());
+    }
+
+    #[test]
+    fn naming_an_image_opens_its_folder_on_it() {
+        let root = fixture("single");
+        let image = root.join("a.jpg");
+
+        let (paths, selected) = from_single_arg(&image.to_string_lossy());
+
+        assert_eq!(paths.len(), 2);
+        assert_eq!(selected, Some(image));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn naming_a_directory_opens_all_of_it() {
+        let root = fixture("dir");
+        let (paths, selected) = from_single_arg(&root.to_string_lossy());
+
+        assert_eq!(paths.len(), 2);
+        assert_eq!(selected, None);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn relative_paths_resolve_against_the_working_directory() {
+        let resolved = absolute(PathBuf::from("photo.jpg"));
+        assert!(resolved.is_absolute());
+    }
 }

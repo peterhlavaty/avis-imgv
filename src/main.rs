@@ -1,107 +1,71 @@
-use avis_imgv::app::App;
-// use avis_imgv::db::Db;
-use eframe::egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew};
-use eframe::{
-    wgpu::{self},
-    NativeOptions,
-};
 use std::env;
-use std::path::PathBuf;
 use std::sync::Arc;
+
+use avis_imgv::app::App;
+use eframe::egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew};
+use eframe::{wgpu, NativeOptions};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
 const DEVICE_LABEL: &str = "avis-imgv-device";
 
+const HELP: &str = "\
+Usage: avis-imgv [OPTIONS] [PATH]
+
+  PATH          An image to open, or a directory to open the first image of.
+                Defaults to the working directory.
+
+Options:
+  --slideshow   Start in slideshow mode. Useful as a photo frame.
+  --fullscreen  Start fullscreen.
+  --help        Show this message.";
+
 fn main() {
-    let mut slideshow = false;
-    let mut fullscreen = false;
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
-        .finish();
-
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-
     let args: Vec<String> = env::args().collect();
 
-    tracing::info!("Starting avis-imgv with args: {}", args.join(","));
-
-    if args.len() > 1 && args[1] == "--import" {
-        if args.len() < 3 {
-            tracing::error!("Usage: avis-imgv --import <path>");
-            return;
-        }
-        let path_str = &args[2];
-        let path = PathBuf::from(path_str);
-
-        if !path.exists() {
-            tracing::error!("Error: Path does not exist: {path_str}");
-            return;
-        }
-
-        tracing::info!("Starting recursive crawl from: {path:?}");
-        let image_paths = avis_imgv::crawler::crawl(&path, true);
-        tracing::info!("Found {} images. Caching metadata...", image_paths.len());
-        // match Db::init_db() {
-        //     Ok(_) => {}
-        //     Err(e) => {
-        //         panic!("Failure initializing database {e}");
-        //     }
-        // }
-        //
-        // avis_imgv::metadata::Metadata::cache_metadata_for_images(&image_paths);
-        // avis_imgv::metadata::Metadata::clean_moved_files();
-        tracing::info!("Metadata caching finished. Exiting.");
+    if args.iter().any(|arg| arg == "--help") {
+        println!("{HELP}");
         return;
     }
-    if args.len() > 1 && args[1] == "--help" {
-        tracing::info!("Usage:");
-        tracing::info!("\t --help");
-        tracing::info!("\t --slideshow <path> \n \t\t Starts in slideshow mode. Useful as a photoframe, screen saver, etc.");
-        tracing::info!("\t --import <path> \n \t\t Imports all images in the directory and sub directories into the database");
-        tracing::info!("\t --clean <path> \n \t\t Removes moved/deleted files from the database");
-        return;
-    }
-    if args.len() > 1 && args[1] == "--clean" {
-        // avis_imgv::metadata::Metadata::clean_moved_files();
-        return;
-    }
-    if args.len() > 1 && args.contains(&"--slideshow".to_string()) {
-        slideshow = true;
-        tracing::info!("Starting with slideshow enabled");
-    }
-    if args.len() > 1 && args.contains(&"--fullscreen".to_string()) {
-        fullscreen = true;
-        tracing::info!("Starting with fullscreen enabled");
-    }
 
-    match eframe::run_native(
+    init_tracing();
+    tracing::info!("Starting avis-imgv with args: {}", args.join(" "));
+
+    let slideshow = args.iter().any(|arg| arg == "--slideshow");
+    let fullscreen = args.iter().any(|arg| arg == "--fullscreen");
+
+    if let Err(e) = eframe::run_native(
         "Avis Image Viewer",
-        get_native_options(),
-        Box::new(|cc| Ok(Box::new(App::new(cc, slideshow, fullscreen)))),
+        native_options(),
+        Box::new(move |cc| Ok(Box::new(App::new(cc, slideshow, fullscreen)))),
     ) {
-        Ok(_) => {}
-        Err(e) => tracing::error!("{e}"),
+        tracing::error!("{e}");
     }
 }
 
-//Some low powered pcs like raspberry pis can only handle small texture sizes
-//The default for egui w/ wgpu seems to be 8192, which is too high for the
-//RPi5 which can only handle 4096,
-fn get_native_options() -> NativeOptions {
-    let device_descriptor_fn = Arc::new(|adapter: &wgpu::Adapter| {
-        let adapter_limits = adapter.limits();
+fn init_tracing() {
+    let level = if cfg!(debug_assertions) {
+        Level::DEBUG
+    } else {
+        Level::INFO
+    };
 
-        let limits = wgpu::Limits {
-            max_texture_dimension_2d: adapter_limits.max_texture_dimension_2d,
-            max_texture_array_layers: adapter_limits.max_texture_array_layers,
-            ..adapter_limits.clone()
-        };
+    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
 
-        tracing::info!(
-            "Max 2D texture size: {}",
-            adapter_limits.max_texture_dimension_2d
-        );
+    if tracing::subscriber::set_global_default(subscriber).is_err() {
+        eprintln!("Failure installing the log subscriber; continuing without logs");
+    }
+}
+
+/// Asks wgpu for everything the adapter offers.
+///
+/// Low powered hardware caps texture sizes well below the 8192 egui assumes —
+/// a Raspberry Pi 5 stops at 4096 — and the decoder needs the real number to
+/// know how far to downscale.
+fn native_options() -> NativeOptions {
+    let device_descriptor = Arc::new(|adapter: &wgpu::Adapter| {
+        let limits = adapter.limits();
+        tracing::info!("Max 2D texture size: {}", limits.max_texture_dimension_2d);
 
         wgpu::DeviceDescriptor {
             label: Some(DEVICE_LABEL),
@@ -113,7 +77,7 @@ fn get_native_options() -> NativeOptions {
     NativeOptions {
         wgpu_options: WgpuConfiguration {
             wgpu_setup: WgpuSetup::CreateNew(WgpuSetupCreateNew {
-                device_descriptor: device_descriptor_fn,
+                device_descriptor,
                 ..Default::default()
             }),
             ..Default::default()

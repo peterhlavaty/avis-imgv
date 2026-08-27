@@ -1,8 +1,10 @@
+//! Small helpers shared by the UI: input muting and path predicates.
+
 use std::path::Path;
 
 use eframe::egui::{self, Id, Response};
 
-use crate::VALID_EXTENSIONS;
+use crate::formats;
 
 pub fn textedit_move_cursor_to_end(resp: &Response, ui: &mut egui::Ui, len: usize) {
     if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), resp.id) {
@@ -42,7 +44,7 @@ pub fn is_valid_path(path: &Path) -> bool {
     };
 
     for path in dir_info.flatten() {
-        if is_valid_file(&path.path()) {
+        if formats::is_supported(&path.path()) {
             return true;
         }
     }
@@ -50,23 +52,7 @@ pub fn is_valid_path(path: &Path) -> bool {
     false
 }
 
-pub fn is_valid_file(path: &Path) -> bool {
-    VALID_EXTENSIONS.contains(
-        &path
-            .extension()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default()
-            .to_lowercase()
-            .as_str(),
-    )
-}
-
-pub fn is_invalid_file(path: &Path) -> bool {
-    !is_valid_file(path)
-}
-
-///Return true if directory starts with '.'
+/// True when a directory name starts with a dot.
 pub fn is_dir_hidden(path: &Path) -> bool {
     path.file_name()
         .unwrap_or_default()
