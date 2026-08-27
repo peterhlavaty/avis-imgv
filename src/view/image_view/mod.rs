@@ -5,11 +5,12 @@ pub mod canvas;
 pub mod input;
 pub mod interaction;
 pub mod layout;
+pub mod navigate;
 pub mod slideshow;
 pub mod viewports;
 pub mod zoom;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use eframe::egui::{self, Response};
@@ -18,16 +19,15 @@ use eframe::epaint::{Color32, Vec2};
 
 use crate::actions::Callback;
 use crate::cache::loader::Loader;
-use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
-use crate::config::{ImageViewConfig, SlideshowConfig};
-use crate::metadata::Metadata;
+use crate::cache::{ImageState, ImageStore, StoreConfig};
+use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 
 use bottom_bar::{Flags, Status};
-use canvas::{FrameStyle, Metrics, Viewport};
+use canvas::{travelled, FrameStyle, Metrics, Viewport};
 use input::Command;
 use layout::BACKGROUND;
 use slideshow::Slideshow;
-use viewports::Viewports;
+use viewports::{Place, Viewports};
 
 /// Most images the view will place side by side. Beyond a handful they are too
 /// small to read, and each one costs a texture.
@@ -42,6 +42,9 @@ pub struct ImageView {
     /// Where the user got to in each image they zoomed, so coming back to one
     /// shows the same corner at the same magnification.
     viewports: Viewports,
+    /// Where the image before this one was left, whether or not it was worth
+    /// remembering. What "repeat the last view" repeats.
+    previous_place: Place,
     images_shown: usize,
     jump_to: String,
     callback: Option<Callback>,
@@ -76,6 +79,7 @@ impl ImageView {
             },
             metrics: Metrics::default(),
             viewports: Viewports::default(),
+            previous_place: Place::UNTOUCHED,
             images_shown: config.nr_images_shown.clamp(1, MAX_IMAGES_SHOWN),
             jump_to: String::new(),
             callback: None,
@@ -85,123 +89,6 @@ impl ImageView {
         }
     }
 
-    /// Opens a new collection, optionally starting on a specific image.
-    pub fn set_images(&mut self, paths: Vec<PathBuf>, selected: Option<&Path>) {
-        let selected = selected
-            .and_then(|path| paths.iter().position(|candidate| candidate == path))
-            .unwrap_or(0);
-
-        self.store.set_paths(paths);
-        self.viewports.clear();
-        self.select(selected);
-    }
-
-    pub fn selected_index(&self) -> usize {
-        self.cursor
-    }
-
-    pub fn active_path(&self) -> Option<PathBuf> {
-        self.store.path(self.cursor).map(Path::to_path_buf)
-    }
-
-    pub fn active_metadata(&self) -> Option<&Metadata> {
-        self.store.metadata(self.cursor)
-    }
-
-    /// Metadata read from the whole of the active file, once it is decoded.
-    pub fn active_decoded_metadata(&self) -> Option<&Metadata> {
-        self.store.decoded_metadata(self.cursor)
-    }
-
-    pub fn stats(&self) -> StoreStats {
-        self.store.stats()
-    }
-
-    pub fn take_callback(&mut self) -> Option<Callback> {
-        self.callback.take()
-    }
-
-    /// Moves to `index`, which is where the caches centre themselves.
-    ///
-    /// The image being left keeps its zoom and pan, and the one arrived at
-    /// gets whatever it was left at, so a folder can be walked without losing
-    /// the place found in each picture.
-    pub fn select(&mut self, index: usize) {
-        let previous = self.cursor;
-        self.cursor = if self.store.is_empty() {
-            0
-        } else {
-            index.min(self.store.len() - 1)
-        };
-
-        self.store.set_cursor(self.cursor);
-
-        if self.cursor == previous {
-            return;
-        }
-
-        // Cloned rather than borrowed: the viewports outlive the borrow of
-        // the store that produced the path.
-        if let Some(path) = self.store.path(previous).map(Path::to_path_buf) {
-            self.viewports.save(&path, &self.viewport);
-        }
-
-        self.viewport.reset_for_new_image();
-        if let Some(path) = self.active_path() {
-            self.viewports.restore(&path, &mut self.viewport);
-        }
-
-        if let Some(slideshow) = &mut self.slideshow {
-            slideshow.restart();
-        }
-    }
-
-    pub fn select_path(&mut self, path: &Path) {
-        if let Some(index) = self.store.index_of(path) {
-            self.select(index);
-        }
-    }
-
-    /// Removes an image from the collection, staying on the same position.
-    pub fn pop(&mut self, path: &Path) {
-        let Some(index) = self.store.index_of(path) else {
-            return;
-        };
-
-        self.store.remove(index);
-        self.viewports.forget(path);
-        self.select(self.cursor.min(self.store.len().saturating_sub(1)));
-    }
-
-    pub fn reload(&mut self, path: &Path) {
-        if let Some(index) = self.store.index_of(path) {
-            self.store.reload(index);
-        }
-    }
-
-    pub fn next_image(&mut self) {
-        if self.store.is_empty() || self.should_wait() {
-            return;
-        }
-
-        self.select((self.cursor + 1) % self.store.len());
-    }
-
-    pub fn previous_image(&mut self) {
-        if self.store.is_empty() {
-            return;
-        }
-
-        let last = self.store.len() - 1;
-        self.select(if self.cursor == 0 {
-            last
-        } else {
-            self.cursor - 1
-        });
-    }
-
-    /// Services the caches without drawing, so the view is ready the moment it
-    /// is shown again.
     /// Tells the store how many pixels the screen can show, so decoders can
     /// stop at that size instead of producing a hundred megabytes nothing can
     /// display.
@@ -209,6 +96,8 @@ impl ImageView {
         self.store.set_display_edge(edge);
     }
 
+    /// Services the caches without drawing, so the view is ready the moment it
+    /// is shown again.
     pub fn warm(&mut self) -> bool {
         self.store.tick()
     }
@@ -253,6 +142,7 @@ impl ImageView {
             Command::ZoomToPercent(percent) => {
                 zoom::to_percent(&mut self.viewport, &self.metrics, percent)
             }
+            Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,
             Command::ShowMoreImages => {
                 self.images_shown = (self.images_shown + 1).min(MAX_IMAGES_SHOWN);
@@ -361,16 +251,35 @@ impl ImageView {
         };
 
         let step = slideshow.tick();
-        let zooms = slideshow.zooms();
+        let motion = slideshow.motion();
 
         if step.advance {
             self.next_image();
-        } else if zooms {
-            // The base zoom fills the panel; the slideshow drifts in from there.
-            let base = canvas::fill_zoom(self.metrics.fit_size, self.metrics.available_size);
-            self.viewport.zoom = base * step.zoom_scale;
+        } else {
+            self.animate(motion, step.zoom_scale, step.progress);
         }
 
         ctx.request_repaint_after(step.repaint_after);
+    }
+
+    /// Moves the viewport for this frame of the slideshow.
+    fn animate(&mut self, motion: Motion, zoom_scale: f32, progress: f32) {
+        // Filling the panel is the base every motion but the still one starts
+        // from: the picture keeps its shape and covers the screen, cropping
+        // whichever side is too long.
+        let filling = canvas::fill_zoom(self.metrics.fit_size, self.metrics.available_size);
+
+        match motion {
+            Motion::Still => {}
+            Motion::Zoom => self.viewport.zoom = filling * zoom_scale,
+            Motion::Reveal => {
+                self.viewport.zoom = filling;
+                self.viewport.pan = travelled(
+                    self.metrics.fit_size * filling,
+                    self.metrics.available_size,
+                    progress,
+                );
+            }
+        }
     }
 }

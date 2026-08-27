@@ -53,6 +53,16 @@ pub fn wanted(resident: Detail, covered: f32, drawn: f32) -> Detail {
     }
 }
 
+/// Whether an image has two copies to choose between at all.
+///
+/// An image no larger than the screen was never reduced, so its screen sized
+/// copy *is* the image. Swapping between the two would upload the same pixels
+/// again — and again every frame, each time freeing the texture the frame had
+/// already drawn with, which leaves the image invisible.
+pub fn has_two_copies(screen_resolution: f32) -> bool {
+    screen_resolution < 1.0
+}
+
 impl ImageStore {
     /// Tells the store how wide `index` is being drawn, in the pixels the
     /// screen actually has.
@@ -61,6 +71,11 @@ impl ImageStore {
     /// width it stays resident, above it the image's own pixels go up instead.
     /// Safe to call every frame — it only acts when the answer changes.
     pub fn set_drawn_width(&mut self, index: usize, drawn: f32) {
+        let screen = self.screen_resolution(index);
+        if !has_two_copies(screen) {
+            return;
+        }
+
         let Some(texture) = self.gpu.get(index) else {
             return;
         };
@@ -72,7 +87,7 @@ impl ImageStore {
         };
 
         // The screen sized copy drawn at this zoom, in the same pixels.
-        let covered = texture.size.x * self.screen_resolution(index);
+        let covered = texture.size.x * screen;
 
         match wanted(resident, covered, drawn) {
             Detail::Full if resident != Detail::Full => self.upload_full(index),
@@ -114,6 +129,17 @@ impl ImageStore {
         let Some(image) = self.ram.get(index).cloned() else {
             return;
         };
+
+        // Never replace a texture with the same pixels: the one on the GPU is
+        // the one this frame has already been drawn with, and freeing it mid
+        // frame leaves nothing to draw.
+        if self
+            .gpu
+            .get(index)
+            .is_some_and(|texture| texture.resolution >= image.resolution())
+        {
+            return;
+        }
 
         self.gpu
             .upload(index, &image, self.cursor, self.paths.len());
@@ -225,6 +251,14 @@ mod tests {
         // Just above and just below the copy's own width, from either state.
         assert_eq!(wanted(Detail::Screen, 2048.0, 2090.0), Detail::Screen);
         assert_eq!(wanted(Detail::Full, 2048.0, 2000.0), Detail::Full);
+    }
+
+    #[test]
+    fn an_image_no_larger_than_the_screen_has_nothing_to_swap_to() {
+        // Its screen sized copy is the image, so asking for one or the other
+        // is asking for the same texture twice.
+        assert!(!has_two_copies(1.0));
+        assert!(has_two_copies(2048.0 / 6000.0));
     }
 
     #[test]

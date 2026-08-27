@@ -60,6 +60,10 @@
       "key": "ArrowLeft",
       "modifiers": []
     },
+    "sc_repeat_place": {
+      "key": "r",
+      "modifiers": []
+    },
     "sc_one_to_one": {
       "key": "1",
       "modifiers": [
@@ -223,6 +227,7 @@
   "slideshow": {
     "seconds_per_image": 15,
     "percent_zoom": 25.0,
+    "motion": "zoom",
     "start_with_frame_enabled": false,
     "image_frame_background_color_override": null
   },

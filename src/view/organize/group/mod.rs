@@ -10,6 +10,7 @@ use eframe::egui::{self, Color32, RichText};
 use crate::organize::gather;
 use crate::organize::group::{Group, Kind};
 
+use super::thumbnails;
 use super::{Done, OrganizeView};
 
 mod edit;
@@ -70,6 +71,16 @@ fn settings(ui: &mut egui::Ui, view: &mut OrganizeView) {
         ui.label("At least:");
         ui.add(egui::DragValue::new(&mut view.grouping.min_frames).range(2..=50));
         ui.label("frames");
+
+        ui.separator();
+        ui.label("Thumbnails:");
+        egui::ComboBox::from_id_salt("organize thumbnail size")
+            .selected_text(thumbnails::label(view.thumbnail_height))
+            .show_ui(ui, |ui| {
+                for (label, height) in thumbnails::SIZES {
+                    ui.selectable_value(&mut view.thumbnail_height, *height, *label);
+                }
+            });
     });
 
     if before != view.grouping {
@@ -146,21 +157,36 @@ fn one_group(ui: &mut egui::Ui, view: &mut OrganizeView, index: usize) -> Option
                 }
             });
 
-            for (member, entry) in view.groups[index].members.iter().enumerate() {
-                ui.horizontal(|ui| {
-                    if ui.small_button("×").on_hover_text("Take out").clicked() {
-                        change = Some(Change::Remove {
-                            group: index,
-                            member,
-                        });
-                    }
+            let height = view.thumbnail_height;
 
-                    ui.label(entry.name());
-                    if let Some(taken) = entry.captured() {
-                        ui.weak(taken.to_exif());
-                    }
-                });
-            }
+            // The frames of a group are what the eye compares, so they go
+            // side by side and wrap rather than down a list.
+            ui.horizontal_wrapped(|ui| {
+                for member in 0..view.groups[index].members.len() {
+                    let entry = view.groups[index].members[member].clone();
+
+                    ui.vertical(|ui| {
+                        view.thumbnails
+                            .show(ui, &entry.path, entry.thumbnail.as_ref(), height);
+
+                        ui.horizontal(|ui| {
+                            if ui.small_button("×").on_hover_text("Take out").clicked() {
+                                change = Some(Change::Remove {
+                                    group: index,
+                                    member,
+                                });
+                            }
+
+                            ui.label(entry.name()).on_hover_text(
+                                entry
+                                    .captured()
+                                    .map(|taken| taken.to_exif())
+                                    .unwrap_or_else(|| "no capture time".to_string()),
+                            );
+                        });
+                    });
+                }
+            });
         });
 
     change
@@ -178,36 +204,49 @@ fn loose(ui: &mut egui::Ui, view: &mut OrganizeView) -> Option<Change> {
         .id_salt("organize loose")
         .default_open(false)
         .show(ui, |ui| {
-            for (index, entry) in view.loose.iter().enumerate() {
-                ui.horizontal(|ui| {
-                    ui.label(entry.name());
-                    if let Some(taken) = entry.captured() {
-                        ui.weak(taken.to_exif());
-                    }
+            let height = view.thumbnail_height;
 
-                    if view.groups.is_empty() {
-                        return;
-                    }
+            ui.horizontal_wrapped(|ui| {
+                for index in 0..view.loose.len() {
+                    let entry = view.loose[index].clone();
 
-                    ui.menu_button("Put into…", |ui| {
-                        for group in 0..view.groups.len() {
-                            let label = format!(
-                                "{}  ·  {}",
-                                folder_name(view, group),
-                                view.groups[group].describe()
+                    ui.vertical(|ui| {
+                        view.thumbnails
+                            .show(ui, &entry.path, entry.thumbnail.as_ref(), height);
+
+                        ui.horizontal(|ui| {
+                            ui.label(entry.name()).on_hover_text(
+                                entry
+                                    .captured()
+                                    .map(|taken| taken.to_exif())
+                                    .unwrap_or_else(|| "no capture time".to_string()),
                             );
 
-                            if ui.button(label).clicked() {
-                                change = Some(Change::Add {
-                                    group,
-                                    loose: index,
-                                });
-                                ui.close();
+                            if view.groups.is_empty() {
+                                return;
                             }
-                        }
+
+                            ui.menu_button("Put into…", |ui| {
+                                for group in 0..view.groups.len() {
+                                    let label = format!(
+                                        "{}  ·  {}",
+                                        folder_name(view, group),
+                                        view.groups[group].describe()
+                                    );
+
+                                    if ui.button(label).clicked() {
+                                        change = Some(Change::Add {
+                                            group,
+                                            loose: index,
+                                        });
+                                        ui.close();
+                                    }
+                                }
+                            });
+                        });
                     });
-                });
-            }
+                }
+            });
         });
 
     change

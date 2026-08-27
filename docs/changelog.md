@@ -2,6 +2,32 @@
 
 ## 2026-08-27
 
+- Fixed: an image drawn smaller than the copy on the GPU went invisible, which
+  showed as an empty grey window. The two resolutions the viewer keeps were
+  being swapped for one another every frame for any picture no larger than the
+  screen — including the previews inside raw files — and each swap freed the
+  texture the frame had already been drawn with. Now it only swaps when there
+  are genuinely two copies to choose between.
+- Fixed: the gallery would not scroll. It was being told to jump to the open
+  image on every frame rather than only when it opened, so it snapped back the
+  instant it was scrolled.
+- New: `R` puts the picture on screen at the zoom and position the last one was
+  left at, for comparing two frames of the same thing.
+- New: **Settings → Keyboard…** lists every shortcut with a sentence saying
+  what it does, and lets any of them be changed. Click a key, press the one you
+  want; it is written to the configuration file at once. Keys already spoken
+  for within the same section are pointed out rather than refused.
+- New: a **Slideshow** mode, which fills the screen and runs its own clock
+  while the arrow keys still work. **Settings → Slideshow…** sets the interval
+  and what happens while a picture is up: hold still, drift inwards, or travel
+  across — the last fills the screen at the picture's own shape and moves along
+  it, so a panorama is seen whole rather than shrunk into a strip.
+- The group panel now shows the pictures, at a size set at the top of it. They
+  are the thumbnails the folder sweep already decoded to compare frames by, so
+  showing them costs nothing new.
+
+## 2026-08-27
+
 - A fifth mode, **Group shots**, for the runs of frames that belong together:
   brackets, focus stacks, timelapses and bursts.
   - Frames group when they were taken close enough together and show the same

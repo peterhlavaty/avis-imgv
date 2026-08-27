@@ -152,6 +152,12 @@ pub fn default_sc_next() -> Shortcut {
 pub fn default_sc_prev() -> Shortcut {
     Shortcut::new("ArrowLeft", &[])
 }
+/// `r` for repeat: the zoom and position of the image just left, applied to
+/// this one, which is how two frames of the same thing get compared.
+pub fn default_sc_repeat_place() -> Shortcut {
+    Shortcut::new("r", &[])
+}
+
 pub fn default_sc_one_to_one() -> Shortcut {
     Shortcut::new("1", &[MOD_ALT])
 }

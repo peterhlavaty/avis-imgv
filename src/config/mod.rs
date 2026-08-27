@@ -1,5 +1,6 @@
 //! The configuration file: its shape, its defaults, and how it is loaded.
 
+pub mod bindings;
 pub mod defaults;
 pub mod load;
 pub mod shortcut;
@@ -11,7 +12,7 @@ use crate::actions::Callback;
 pub use defaults::*;
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Serialize, Default, Clone)]
 pub struct Config {
     pub image_view: ImageViewConfig,
     pub grid_view: GridViewConfig,
@@ -188,6 +189,9 @@ pub struct ImageViewConfig {
     pub sc_prev: Shortcut,
     #[serde(default = "default_sc_one_to_one")]
     pub sc_one_to_one: Shortcut,
+    /// Puts this image at the zoom and position the last one was left at.
+    #[serde(default = "default_sc_repeat_place")]
+    pub sc_repeat_place: Shortcut,
     #[serde(default = "default_sc_fit_horizontal")]
     pub sc_fit_horizontal: Shortcut,
     #[serde(default = "default_sc_fit_vertical")]
@@ -239,12 +243,51 @@ pub struct GridViewConfig {
     pub sc_less_per_row: Shortcut,
 }
 
+/// What the slideshow does with a picture while it is up.
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Motion {
+    /// Show the whole picture and leave it alone.
+    Still,
+    /// Fill the screen and drift slowly further in.
+    #[default]
+    Zoom,
+    /// Fill the screen and travel across, so the whole picture has been seen
+    /// by the time the next one comes up.
+    Reveal,
+}
+
+impl Motion {
+    pub const ALL: &'static [Motion] = &[Motion::Still, Motion::Zoom, Motion::Reveal];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Motion::Still => "Hold still",
+            Motion::Zoom => "Drift inwards",
+            Motion::Reveal => "Travel across",
+        }
+    }
+
+    pub fn description(self) -> &'static str {
+        match self {
+            Motion::Still => "The whole picture, fitted to the screen, not moving.",
+            Motion::Zoom => "Fills the screen and creeps closer while it is up.",
+            Motion::Reveal => {
+                "Fills the screen at its own shape and travels across it, so the whole \
+                 picture has been seen by the time the next one comes up."
+            }
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 pub struct SlideshowConfig {
     #[serde(default = "default_seconds_per_image")]
     pub seconds_per_image: u64,
     #[serde(default = "default_percent_zoom")]
     pub percent_zoom: f32,
+    #[serde(default)]
+    pub motion: Motion,
     #[serde(default = "default_start_with_frame_enabled")]
     pub start_with_frame_enabled: bool,
     #[serde(default = "default_image_frame_background_color_override")]
@@ -304,6 +347,7 @@ impl Default for ImageViewConfig {
             sc_next: default_sc_next(),
             sc_prev: default_sc_prev(),
             sc_one_to_one: default_sc_one_to_one(),
+            sc_repeat_place: default_sc_repeat_place(),
             sc_fit_vertical: default_sc_fit_vertical(),
             sc_fit_horizontal: default_sc_fit_horizontal(),
             sc_fit_maximize: default_sc_fit_maximize(),
@@ -376,6 +420,7 @@ impl Default for SlideshowConfig {
     fn default() -> Self {
         SlideshowConfig {
             seconds_per_image: default_seconds_per_image(),
+            motion: Motion::default(),
             percent_zoom: default_percent_zoom(),
             start_with_frame_enabled: default_start_with_frame_enabled(),
             image_frame_background_color_override: default_image_frame_background_color_override(),

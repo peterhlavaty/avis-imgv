@@ -10,6 +10,35 @@ impl Config {
         Self::fetch_cfg()
     }
 
+    /// Where the configuration file lives, whether or not it exists yet.
+    pub fn path() -> Option<PathBuf> {
+        directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
+            .map(|dirs| dirs.config_dir().join("config.json"))
+    }
+
+    /// Writes the configuration back out.
+    ///
+    /// Pretty printed, unlike the one line the viewer used to write on first
+    /// run: a file people are now edited from inside the viewer is a file they
+    /// will also want to read.
+    pub fn save(&self) -> std::io::Result<()> {
+        let path = Self::path().ok_or_else(|| {
+            std::io::Error::new(ErrorKind::NotFound, "no configuration directory")
+        })?;
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let json = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))?;
+
+        fs::write(&path, json)?;
+        tracing::info!("Wrote config -> {}", path.display());
+
+        Ok(())
+    }
+
     pub fn fetch_cfg() -> Config {
         let config_dir = match directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
         {

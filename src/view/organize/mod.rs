@@ -9,6 +9,7 @@ mod controls;
 mod group;
 mod rename;
 mod table;
+mod thumbnails;
 mod timeshift;
 
 use std::collections::BTreeSet;
@@ -53,6 +54,10 @@ pub struct OrganizeView {
     chosen_fields: BTreeSet<String>,
 
     grouping: Grouping,
+    /// Height of the thumbnails in the group panel, in points. Zero shows the
+    /// names alone.
+    thumbnail_height: f32,
+    thumbnails: thumbnails::Thumbnails,
     /// The proposed groups, as the user has since edited them.
     groups: Vec<Group>,
     /// The frames that belong to none of them.
@@ -88,6 +93,8 @@ impl OrganizeView {
             offset: shifting::Offset::default(),
             chosen_fields: BTreeSet::new(),
             grouping: Grouping::default(),
+            thumbnail_height: thumbnails::SIZES[2].1,
+            thumbnails: thumbnails::Thumbnails::default(),
             groups: Vec::new(),
             loose: Vec::new(),
             groups_stale: true,
@@ -103,6 +110,7 @@ impl OrganizeView {
         self.status.clear();
         self.stale = true;
         self.groups_stale = true;
+        self.thumbnails.clear();
     }
 
     /// Whether the folder has already been read into this view.

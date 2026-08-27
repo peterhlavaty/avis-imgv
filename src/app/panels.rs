@@ -4,6 +4,7 @@ use eframe::egui::{self, RichText};
 
 use crate::app::mode::Mode;
 use crate::cache::StoreStats;
+use crate::config::{Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
 /// Something picked from the menu bar.
@@ -13,6 +14,10 @@ pub enum MenuAction {
     OpenFiles,
     /// Switch what the window is for.
     Mode(Mode),
+    /// Open the editor for the keyboard map.
+    Keyboard,
+    /// Open the slideshow settings.
+    Slideshow,
 }
 
 /// Draws the menu bar, returning what the user picked.
@@ -45,10 +50,78 @@ pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAc
                         }
                     }
                 });
+
+                ui.menu_button("Settings", |ui| {
+                    if ui.button("Keyboard…").clicked() {
+                        action = Some(MenuAction::Keyboard);
+                        ui.close();
+                    }
+
+                    if ui.button("Slideshow…").clicked() {
+                        action = Some(MenuAction::Slideshow);
+                        ui.close();
+                    }
+                });
             });
         });
 
     action
+}
+
+/// Draws the slideshow settings, returning whether anything changed.
+pub fn slideshow_settings(
+    ctx: &egui::Context,
+    open: &mut bool,
+    config: &mut SlideshowConfig,
+) -> bool {
+    let mut changed = false;
+
+    egui::Window::new("Slideshow")
+        .open(open)
+        .default_width(420.0)
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Hold each picture for:");
+                changed |= ui
+                    .add(
+                        egui::DragValue::new(&mut config.seconds_per_image)
+                            .range(1..=600)
+                            .suffix(" s"),
+                    )
+                    .changed();
+            });
+
+            ui.add_space(6.0);
+            ui.label("While it is up:");
+
+            for motion in Motion::ALL {
+                let picked = ui.radio_value(&mut config.motion, *motion, motion.label());
+                changed |= picked.changed();
+
+                ui.indent(("motion", motion.label()), |ui| {
+                    ui.weak(motion.description());
+                });
+            }
+
+            if config.motion == Motion::Zoom {
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    ui.label("Creep closer by:");
+                    changed |= ui
+                        .add(
+                            egui::DragValue::new(&mut config.percent_zoom)
+                                .range(0.0..=200.0)
+                                .suffix(" %"),
+                        )
+                        .changed();
+                });
+            }
+
+            ui.add_space(6.0);
+            ui.weak("The arrow keys still work; moving by hand restarts the clock.");
+        });
+
+    changed
 }
 
 /// Draws the metadata of the open image, in the order the configuration lists.

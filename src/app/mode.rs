@@ -18,6 +18,8 @@ pub enum Mode {
     TimeShift,
     /// Finding the brackets, stacks and bursts and tidying them away.
     Group,
+    /// Unattended playback, filling the screen.
+    Slideshow,
 }
 
 impl Mode {
@@ -29,6 +31,7 @@ impl Mode {
         Mode::Rename,
         Mode::TimeShift,
         Mode::Group,
+        Mode::Slideshow,
     ];
 
     pub fn label(self) -> &'static str {
@@ -38,7 +41,13 @@ impl Mode {
             Mode::Rename => "Bulk rename",
             Mode::TimeShift => "Shift capture time",
             Mode::Group => "Group shots",
+            Mode::Slideshow => "Slideshow",
         }
+    }
+
+    /// Whether this mode takes over the whole screen.
+    pub fn is_fullscreen(self) -> bool {
+        self == Mode::Slideshow
     }
 
     /// The next mode round, for the key that cycles them.
@@ -86,7 +95,7 @@ mod tests {
             assert!(!mode.label().is_empty());
         }
 
-        assert_eq!(Mode::ALL.len(), 5);
+        assert_eq!(Mode::ALL.len(), 6);
     }
 
     #[test]
@@ -96,5 +105,17 @@ mod tests {
         assert!(Mode::Rename.is_folder_job());
         assert!(Mode::TimeShift.is_folder_job());
         assert!(Mode::Group.is_folder_job());
+        assert!(!Mode::Slideshow.is_folder_job());
+    }
+
+    #[test]
+    fn only_the_slideshow_takes_the_whole_screen() {
+        let fullscreen: Vec<Mode> = Mode::ALL
+            .iter()
+            .copied()
+            .filter(|mode| mode.is_fullscreen())
+            .collect();
+
+        assert_eq!(fullscreen, vec![Mode::Slideshow]);
     }
 }

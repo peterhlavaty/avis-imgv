@@ -29,7 +29,8 @@ impl Place {
         pan: Vec2::ZERO,
     };
 
-    fn of(viewport: &Viewport) -> Place {
+    /// Where a viewport currently is.
+    pub fn of(viewport: &Viewport) -> Place {
         Place {
             zoom: viewport.zoom,
             pan: viewport.pan,
@@ -69,8 +70,11 @@ impl Viewports {
 
     /// Puts `viewport` back where `path` was left.
     pub fn restore(&self, path: &Path, viewport: &mut Viewport) {
-        let place = self.place(path);
+        Self::put(viewport, self.place(path));
+    }
 
+    /// Moves a viewport to a place, wherever the place came from.
+    pub fn put(viewport: &mut Viewport, place: Place) {
         viewport.zoom = place.zoom;
         viewport.pan = place.pan;
         viewport.scroll_delta = Vec2::ZERO;
@@ -164,6 +168,17 @@ mod tests {
         viewports.restore(Path::new("a.jpg"), &mut viewport);
 
         assert_eq!(viewport.scroll_delta, Vec2::ZERO);
+    }
+
+    #[test]
+    fn a_place_can_be_put_on_a_viewport_from_anywhere() {
+        // What repeating the last view does: the place of the picture just
+        // left, applied to this one.
+        let mut viewport = Viewport::default();
+        Viewports::put(&mut viewport, Place::of(&zoomed(3.0, Vec2::new(8.0, 9.0))));
+
+        assert_eq!(viewport.zoom, 3.0);
+        assert_eq!(viewport.pan, Vec2::new(8.0, 9.0));
     }
 
     #[test]

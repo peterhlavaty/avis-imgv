@@ -210,9 +210,8 @@ down stage by stage.
 
 ## Working on the whole folder
 
-Three of the five modes act on the folder rather than on one picture. The menu
-lists them under **Mode**, and `F2` cycles through image, gallery, and the
-three below.
+Three of the six modes act on the folder rather than on one picture. The menu
+lists them under **Mode**, and `F2` cycles through them all.
 
 Both start by reading the folder — the front of every file, for its metadata,
 and its sidecar, for the rating and keywords — which takes a couple of
@@ -306,6 +305,34 @@ loose can be put into any group from the bottom of the list — where it lands i
 the order it was taken, not at the end. Three numbers at the top decide how the
 folder is read at all: the gap that ends a run, how alike two frames have to
 be, and the fewest frames worth calling a group.
+
+## Slideshow
+
+A mode of its own: the window goes fullscreen, the status bar goes away, and
+the pictures change themselves. The arrow keys still work — moving by hand just
+restarts the clock — and leaving the mode puts the window back the way it was.
+
+**Settings → Slideshow…** sets how long each picture is held and what happens
+while it is up:
+
+| | |
+|---|---|
+| Hold still | The whole picture, fitted to the screen, not moving. |
+| Drift inwards | Fills the screen and creeps closer while it is up. |
+| Travel across | Fills the screen at its own shape and travels across it, so the whole picture has been seen by the time the next one comes up. |
+
+The last is for pictures that do not match the shape of the screen: rather than
+letterboxing a panorama into a strip down the middle, it fills the screen at
+the picture's own proportions and moves along the overflowing side, arriving at
+the far edge exactly as the picture's turn ends.
+
+## Changing the keys
+
+**Settings → Keyboard…** lists every key the viewer listens for, grouped by
+where it applies and each with a sentence saying what it does. Click a key,
+press the one you want, and it is written to the configuration file straight
+away; escape leaves it alone. Two things on one key are not refused — sometimes
+that is what a person means — but they are pointed out.
 
 ## Supported image formats
 
@@ -450,7 +477,7 @@ viewer logs that it is showing previews instead.
 | Key | Action |
 |-----|--------|
 | Backspace | Toggle between image view and grid view |
-| F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots |
+| F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots, slideshow |
 | Alt + Q | Exit |
 | F1 | Toggle the menu |
 | Ctrl + L | Navigation bar |
@@ -472,6 +499,7 @@ viewer logs that it is showing previews instead.
 | Ctrl + M | Toggle: keep filling the screen while navigating |
 | H / V | Fit horizontal / vertical |
 | Alt + 1 | 100% magnification |
+| R | Put this picture where the last one was left |
 | Space | Zoom step |
 | + / - | Zoom in or out |
 | Ctrl + Scroll | Zoom |

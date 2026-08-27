@@ -123,6 +123,20 @@ pub fn draw(
     metrics
 }
 
+/// Where the view sits `progress` of the way across a picture larger than the
+/// panel.
+///
+/// Nought puts the near edge of the picture against the near edge of the
+/// screen and one puts the far edge against the far one, so a picture that
+/// overflows is entirely seen by the time its turn is up. The axis that fits
+/// exactly has no slack and does not move.
+pub fn travelled(scaled: Vec2, available: Vec2, progress: f32) -> Vec2 {
+    let slack = scaled - available;
+    let along = progress.clamp(0.0, 1.0) - 0.5;
+
+    Vec2::new(slack.x.max(0.0) * along, slack.y.max(0.0) * along)
+}
+
 /// Largest size with the image's aspect ratio that fits inside `available`.
 ///
 /// Never enlarges: a small image is shown at its own size until zoomed.
@@ -216,6 +230,37 @@ fn paint_frame(ui: &mut egui::Ui, display_size: Vec2, relative_size: f32) -> Vec
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn travelling_starts_at_one_edge_and_ends_at_the_other() {
+        // A picture filling an 800x600 panel and overflowing by 400 across.
+        let scaled = Vec2::new(1200.0, 600.0);
+        let panel = Vec2::new(800.0, 600.0);
+
+        assert_eq!(travelled(scaled, panel, 0.0), Vec2::new(-200.0, 0.0));
+        assert_eq!(travelled(scaled, panel, 0.5), Vec2::ZERO);
+        assert_eq!(travelled(scaled, panel, 1.0), Vec2::new(200.0, 0.0));
+    }
+
+    #[test]
+    fn a_picture_that_fits_exactly_does_not_travel() {
+        let exact = Vec2::new(800.0, 600.0);
+
+        assert_eq!(travelled(exact, exact, 0.0), Vec2::ZERO);
+        assert_eq!(travelled(exact, exact, 1.0), Vec2::ZERO);
+    }
+
+    #[test]
+    fn travelling_past_the_end_stops_at_the_end() {
+        let scaled = Vec2::new(1200.0, 600.0);
+        let panel = Vec2::new(800.0, 600.0);
+
+        assert_eq!(travelled(scaled, panel, 3.0), travelled(scaled, panel, 1.0));
+        assert_eq!(
+            travelled(scaled, panel, -1.0),
+            travelled(scaled, panel, 0.0)
+        );
+    }
 
     #[test]
     fn fitting_preserves_the_aspect_ratio() {

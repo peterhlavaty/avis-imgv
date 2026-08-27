@@ -25,6 +25,8 @@ use crate::metadata::Metadata;
 use super::similarity::{self, Fingerprint};
 use super::Entry;
 
+use image::RgbaImage;
+
 /// How many files are read before the batch is sent.
 ///
 /// Small enough that a folder starts filling in immediately, large enough that
@@ -39,6 +41,7 @@ pub struct Read {
     pub annotations: Xmp,
     pub dates: Vec<DateField>,
     pub fingerprint: Option<Fingerprint>,
+    pub thumbnail: Option<Arc<RgbaImage>>,
 }
 
 /// A folder being read, in the background.
@@ -111,6 +114,7 @@ impl Scan {
                 entry.annotations = read.annotations;
                 entry.dates = read.dates;
                 entry.fingerprint = read.fingerprint;
+                entry.thumbnail = read.thumbnail;
             }
 
             arrived = true;
@@ -150,7 +154,8 @@ fn read(path: &PathBuf) -> Option<Read> {
     let format = Format::from_path(path);
 
     let parsed = crate::metadata::Metadata::parse(&head, format);
-    let fingerprint = parsed.thumbnail.and_then(summarise);
+    let thumbnail = parsed.thumbnail.and_then(decode_thumbnail).map(Arc::new);
+    let fingerprint = thumbnail.as_deref().and_then(similarity::fingerprint);
 
     let mut metadata = parsed.metadata;
     metadata.add_file_tags(path, size as usize);
@@ -166,17 +171,18 @@ fn read(path: &PathBuf) -> Option<Read> {
         annotations,
         dates: dates::fields(&head, format),
         fingerprint,
+        thumbnail,
     })
 }
 
-/// Summarises what a picture looks like, from the thumbnail the camera wrote.
+/// The thumbnail the camera wrote, decoded.
 ///
 /// A hundred and sixty by a hundred and twenty pixels decode in well under a
-/// millisecond, which is what makes it affordable to do for a whole folder.
-fn summarise(thumbnail: &[u8]) -> Option<Fingerprint> {
-    let image = crate::decoder::codec::decode(thumbnail, Some(Format::Jpeg)).ok()?;
-
-    similarity::fingerprint(&image)
+/// millisecond, which is what makes it affordable to do for a whole folder —
+/// and it earns its keep twice, once as the summary the grouping compares
+/// frames by and once as the picture the group panel shows.
+fn decode_thumbnail(bytes: &[u8]) -> Option<RgbaImage> {
+    crate::decoder::codec::decode(bytes, Some(Format::Jpeg)).ok()
 }
 
 #[cfg(test)]

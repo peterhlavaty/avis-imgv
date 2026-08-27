@@ -99,13 +99,26 @@ impl GridView {
         self.store.tick()
     }
 
-    /// Draws the grid. `focus` scrolls to an image when the view is opened.
-    pub fn ui(&mut self, ctx: &egui::Context, focus: Option<usize>) {
+    /// Takes a changed configuration, for when the keyboard map is edited.
+    pub fn set_config(&mut self, config: GridViewConfig) {
+        self.config = config;
+    }
+
+    /// Scrolls to `index` on the next frame drawn.
+    ///
+    /// Asked for when the gallery is opened, and only then: doing it every
+    /// frame would drag the view back to the open image the instant the user
+    /// scrolled away from it.
+    pub fn focus_on(&mut self, index: usize) {
+        self.scroll_to = Some(index);
+    }
+
+    /// Draws the grid.
+    pub fn ui(&mut self, ctx: &egui::Context) {
         if self.store.tick() {
             ctx.request_repaint();
         }
 
-        self.scroll_to = self.scroll_to.or(focus);
         self.handle_input(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {

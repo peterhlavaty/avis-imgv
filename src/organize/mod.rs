@@ -18,6 +18,10 @@ pub mod timeshift;
 
 use std::path::{Path, PathBuf};
 
+use std::sync::Arc;
+
+use image::RgbaImage;
+
 use crate::metadata::dates::DateField;
 use crate::metadata::datetime::Timestamp;
 use crate::metadata::xmp::Xmp;
@@ -49,6 +53,9 @@ pub struct Entry {
     /// A summary of what the picture looks like, from the camera's thumbnail.
     /// Absent for a file that embeds none.
     pub fingerprint: Option<Fingerprint>,
+    /// The camera's thumbnail itself, for the panels that show it. Shared
+    /// rather than copied: the entries are cloned into every filtered list.
+    pub thumbnail: Option<Arc<RgbaImage>>,
 }
 
 impl Entry {
@@ -162,6 +169,7 @@ pub(crate) mod test_support {
             annotations: Xmp::default(),
             dates: Vec::new(),
             fingerprint: None,
+            thumbnail: None,
         }
     }
 

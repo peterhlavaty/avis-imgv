@@ -39,6 +39,8 @@ pub enum Command {
     ZoomBy(f32),
     /// Magnify to a percentage of the image's own pixels.
     ZoomToPercent(f32),
+    /// Put this image where the last one was left.
+    RepeatPlace,
     ToggleFrame,
     ShowMoreImages,
     ShowFewerImages,
@@ -67,6 +69,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_zoom_in, Command::ZoomBy(ZOOM_STEP)),
         (&config.sc_zoom_out, Command::ZoomBy(1.0 / ZOOM_STEP)),
         (&config.sc_one_to_one, Command::ZoomToPercent(100.0)),
+        (&config.sc_repeat_place, Command::RepeatPlace),
         (&config.sc_frame, Command::ToggleFrame),
         (&config.sc_more_images_shown, Command::ShowMoreImages),
         (&config.sc_less_images_shown, Command::ShowFewerImages),
@@ -215,6 +218,14 @@ mod tests {
         let ctx = context_with(vec![]);
         assert_eq!(scroll_navigation(&ctx, false), None);
         assert_eq!(scroll_navigation(&ctx, true), None);
+    }
+
+    #[test]
+    fn r_repeats_the_last_view() {
+        let config = ImageViewConfig::default();
+        let ctx = context_with(vec![key_press(Key::R)]);
+
+        assert_eq!(collect(&ctx, &config), vec![Command::RepeatPlace]);
     }
 
     #[test]
