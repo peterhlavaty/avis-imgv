@@ -45,8 +45,12 @@ fn image_format(format: Format) -> Option<ImageFormat> {
 ///
 /// Single threaded on purpose: the loader already decodes one image per
 /// thread, so a parallel runner here would only fight it for cores.
+///
+/// Only compiled with the `jxl` feature, which builds libjxl from source.
 #[cfg(feature = "jxl")]
 fn decode_jpeg_xl(bytes: &[u8]) -> Result<RgbaImage, DecodeError> {
+    use image::{GrayAlphaImage, GrayImage, RgbImage};
+
     let decoder = jpegxl_rs::decoder_builder()
         .build()
         .map_err(|e| DecodeError::Unsupported(format!("JPEG XL decoder: {e}")))?;
@@ -55,16 +59,27 @@ fn decode_jpeg_xl(bytes: &[u8]) -> Result<RgbaImage, DecodeError> {
         .decode_with::<u8>(bytes)
         .map_err(|e| DecodeError::Unsupported(format!("JPEG XL: {e}")))?;
 
-    let channels = pixels.len() / (metadata.width as usize * metadata.height as usize).max(1);
+    let (width, height) = (metadata.width, metadata.height);
+    let channels = metadata.num_color_channels + u32::from(metadata.has_alpha_channel);
 
+    // Grayscale and colour, with or without alpha; everything ends up RGBA8.
     let rgba = match channels {
-        4 => RgbaImage::from_raw(metadata.width, metadata.height, pixels),
-        3 => image::RgbImage::from_raw(metadata.width, metadata.height, pixels)
-            .map(|rgb| image::DynamicImage::from(rgb).into_rgba8()),
+        4 => RgbaImage::from_raw(width, height, pixels),
+        3 => RgbImage::from_raw(width, height, pixels).map(into_rgba),
+        2 => GrayAlphaImage::from_raw(width, height, pixels).map(into_rgba),
+        1 => GrayImage::from_raw(width, height, pixels).map(into_rgba),
         _ => None,
     };
 
-    rgba.ok_or_else(|| DecodeError::Unsupported("unexpected JPEG XL channel layout".into()))
+    rgba.ok_or_else(|| {
+        DecodeError::Unsupported(format!("JPEG XL with {channels} channels is not supported"))
+    })
+}
+
+/// Every layout libjxl can hand back converts into RGBA8.
+#[cfg(feature = "jxl")]
+fn into_rgba(image: impl Into<image::DynamicImage>) -> RgbaImage {
+    image.into().into_rgba8()
 }
 
 #[cfg(not(feature = "jxl"))]

@@ -26,3 +26,16 @@ jobs:
       run: cargo clippy --all-targets -- -D warnings
     - name: Formatting
       run: cargo fmt --check
+
+  # JPEG XL is optional because it builds libjxl from source, so it needs a
+  # job of its own to stay compiled.
+  jpeg-xl:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install system dependencies
+      run: sudo apt-get install libgtk-3-dev cmake
+    - name: Build with JPEG XL
+      run: cargo build --features jxl --verbose
