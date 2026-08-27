@@ -113,9 +113,12 @@ mod tests {
 
     fn image(bytes: usize) -> Arc<DecodedImage> {
         Arc::new(DecodedImage {
-            pixels: vec![0u8; bytes].into_boxed_slice(),
-            width: 1,
-            height: (bytes / 4) as u32,
+            full: crate::decoder::Surface {
+                pixels: vec![0u8; bytes].into_boxed_slice(),
+                width: 1,
+                height: (bytes / 4) as u32,
+            },
+            display: None,
             orientation: crate::metadata::Orientation::Normal,
             metadata: Metadata::default(),
         })

@@ -17,6 +17,13 @@ pub fn default_decode_threads() -> usize {
     0
 }
 
+/// A thumbnail only has to cover the moment between an image being asked for
+/// and its decode landing, so a narrow window around the cursor is enough.
+/// Reading further ahead would take disk bandwidth from the decoders.
+pub fn default_previews_resident() -> usize {
+    16
+}
+
 /// Half a frame at sixty a second, which leaves the rest for drawing.
 pub fn default_upload_budget_ms() -> u64 {
     8

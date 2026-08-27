@@ -377,6 +377,11 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.perf_metrics.new_frame();
 
+        // Before anything is requested, so the first decodes are already the
+        // right size rather than a screenful of wasted megapixels.
+        self.image_view
+            .set_display_edge(longest_edge_in_pixels(ctx));
+
         input::update_overlay(ctx, &mut self.overlay, &self.config);
         for command in input::collect(ctx, &self.config, &self.tag_config) {
             self.apply(command, ctx);
@@ -405,6 +410,19 @@ impl eframe::App for App {
         self.run_benchmark(ctx);
         self.perf_metrics.end_frame();
     }
+}
+
+/// The most pixels an image could ever be shown across on this screen.
+///
+/// The monitor rather than the window, because the answer travels with every
+/// decode request: sizing to the window would mean re-decoding a folder every
+/// time one is dragged bigger, and maximising is exactly when a viewer must
+/// not stutter. Falls back to the window where the monitor is not known.
+fn longest_edge_in_pixels(ctx: &egui::Context) -> u32 {
+    let monitor = ctx.input(|input| input.viewport().monitor_size);
+    let size = monitor.unwrap_or_else(|| ctx.content_rect().size()) * ctx.pixels_per_point();
+
+    size.x.max(size.y).max(1.0) as u32
 }
 
 fn apply_text_scaling(ctx: &egui::Context, scaling: f32) {

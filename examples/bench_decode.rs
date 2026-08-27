@@ -108,8 +108,10 @@ fn run(path: &Path) -> Option<Timing> {
     let format = Format::from_path(path);
 
     let started = Instant::now();
-    let (metadata, preview) = Metadata::parse(&bytes, format);
+    let parsed = Metadata::parse(&bytes, format);
     timing.metadata = started.elapsed();
+
+    let (metadata, preview) = (parsed.metadata, parsed.preview);
 
     let (source, source_format) = match preview {
         Some(preview) => (preview, Some(Format::Jpeg)),

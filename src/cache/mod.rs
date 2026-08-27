@@ -13,6 +13,7 @@
 pub mod gpu;
 pub mod loader;
 pub mod policy;
+pub mod preview;
 pub mod ram;
 pub mod store;
 
@@ -32,6 +33,9 @@ pub struct StoreConfig {
     /// Cap on the longest edge of a decoded image, before the GPU's own limit
     /// is applied.
     pub max_edge: Option<u32>,
+    /// How many camera thumbnails to keep on the GPU, to stand in for images
+    /// that are still being decoded. Zero turns previews off.
+    pub previews_resident: usize,
     /// How long one frame may spend moving images onto the GPU.
     ///
     /// A budget rather than a count, because the cost is the size of the
@@ -55,6 +59,7 @@ impl Default for StoreConfig {
             gpu_resident: 8,
             preload_radius: 32,
             max_edge: None,
+            previews_resident: 16,
             upload_budget: Duration::from_millis(8),
             priority_bias: 0,
             raw: crate::decoder::raw::Options::default(),
@@ -67,6 +72,8 @@ impl Default for StoreConfig {
 pub enum ImageState {
     /// A texture is ready to draw.
     Ready,
+    /// The camera's thumbnail is showing while the real image is decoded.
+    Previewed,
     /// Decoded and waiting for its turn to be uploaded.
     Decoded,
     /// Queued or being decoded.

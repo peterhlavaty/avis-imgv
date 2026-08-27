@@ -100,6 +100,11 @@ impl ImageView {
         self.store.metadata(self.cursor)
     }
 
+    /// Metadata read from the whole of the active file, once it is decoded.
+    pub fn active_decoded_metadata(&self) -> Option<&Metadata> {
+        self.store.decoded_metadata(self.cursor)
+    }
+
     pub fn stats(&self) -> StoreStats {
         self.store.stats()
     }
@@ -172,6 +177,13 @@ impl ImageView {
 
     /// Services the caches without drawing, so the view is ready the moment it
     /// is shown again.
+    /// Tells the store how many pixels the screen can show, so decoders can
+    /// stop at that size instead of producing a hundred megabytes nothing can
+    /// display.
+    pub fn set_display_edge(&mut self, edge: u32) {
+        self.store.set_display_edge(edge);
+    }
+
     pub fn warm(&mut self) -> bool {
         self.store.tick()
     }
@@ -231,7 +243,8 @@ impl ImageView {
             && matches!(
                 self.store
                     .state((self.cursor + 1) % self.store.len().max(1)),
-                ImageState::Loading
+                // A thumbnail standing in is not the image being ready.
+                ImageState::Loading | ImageState::Previewed
             )
     }
 

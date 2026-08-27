@@ -7,6 +7,7 @@
 
 pub mod codec;
 pub mod color;
+pub mod preview;
 pub mod raw;
 pub mod resize;
 
@@ -23,12 +24,39 @@ use crate::metadata::{Metadata, Orientation};
 /// Bytes per pixel in a decoded image.
 pub const BYTES_PER_PIXEL: usize = 4;
 
-/// An image in memory, ready for texture upload.
-pub struct DecodedImage {
-    /// Tightly packed RGBA8, `width * height * 4` bytes.
+/// Pixels at one resolution, tightly packed RGBA8.
+pub struct Surface {
+    /// `width * height * 4` bytes.
     pub pixels: Box<[u8]>,
     pub width: u32,
     pub height: u32,
+}
+
+impl Surface {
+    fn from_image(image: RgbaImage) -> Surface {
+        Surface {
+            width: image.width(),
+            height: image.height(),
+            pixels: image.into_raw().into_boxed_slice(),
+        }
+    }
+
+    pub fn byte_len(&self) -> usize {
+        self.pixels.len()
+    }
+}
+
+/// An image in memory, ready for texture upload.
+pub struct DecodedImage {
+    /// The image at its own resolution, which is what zooming in needs.
+    pub full: Surface,
+    /// A copy no larger than the screen.
+    ///
+    /// This is what is uploaded: moving ninety megabytes into VRAM costs
+    /// fifteen milliseconds, and a monitor cannot show more pixels than it
+    /// has. The full resolution is uploaded instead the moment the user zooms
+    /// in far enough to tell the difference.
+    pub display: Option<Surface>,
     /// How the pixels have to be turned to be shown upright.
     ///
     /// The turn is left to the GPU, which does it by sampling the texture in a
@@ -38,13 +66,37 @@ pub struct DecodedImage {
 }
 
 impl DecodedImage {
-    /// Bytes this image occupies in RAM.
+    /// Bytes this image occupies in RAM, both copies counted.
     pub fn byte_len(&self) -> usize {
-        self.pixels.len()
+        self.full.byte_len() + self.display.as_ref().map_or(0, Surface::byte_len)
+    }
+
+    pub fn width(&self) -> u32 {
+        self.full.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.full.height
     }
 
     pub fn size(&self) -> [u32; 2] {
-        [self.width, self.height]
+        [self.full.width, self.full.height]
+    }
+
+    /// The copy to upload, which is the reduced one when there is one.
+    pub fn for_upload(&self) -> &Surface {
+        self.display.as_ref().unwrap_or(&self.full)
+    }
+
+    /// How much of the image's own resolution [`Self::for_upload`] holds.
+    ///
+    /// One when the full image is uploaded; the view compares this against how
+    /// large the image is being drawn to notice that it needs the rest.
+    pub fn upload_resolution(&self) -> f32 {
+        match &self.display {
+            Some(display) => display.width as f32 / self.full.width.max(1) as f32,
+            None => 1.0,
+        }
     }
 
     /// Name shown in logs and as a texture label.
@@ -61,8 +113,8 @@ impl fmt::Debug for DecodedImage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("DecodedImage")
             .field("file_name", &self.file_name())
-            .field("width", &self.width)
-            .field("height", &self.height)
+            .field("width", &self.width())
+            .field("height", &self.height())
             .finish()
     }
 }
@@ -73,6 +125,10 @@ pub struct DecodeOptions {
     /// Cap on the longest edge, used for thumbnails and to stay within the
     /// GPU's maximum texture size. `None` keeps the original resolution.
     pub max_edge: Option<u32>,
+    /// Longest edge worth uploading, which is as many pixels as the screen can
+    /// show. A reduced copy is made alongside the full one; `None` uploads the
+    /// image at its own resolution.
+    pub display_edge: Option<u32>,
     /// Name of the display profile to convert into.
     pub output_profile: Arc<str>,
     /// What to do with camera raw files.
@@ -83,6 +139,7 @@ impl DecodeOptions {
     pub fn new(output_profile: Arc<str>) -> Self {
         Self {
             max_edge: None,
+            display_edge: None,
             output_profile,
             raw: raw::Options::default(),
         }
@@ -90,6 +147,11 @@ impl DecodeOptions {
 
     pub fn with_max_edge(mut self, max_edge: Option<u32>) -> Self {
         self.max_edge = max_edge;
+        self
+    }
+
+    pub fn with_display_edge(mut self, display_edge: Option<u32>) -> Self {
+        self.display_edge = display_edge;
         self
     }
 
@@ -125,10 +187,14 @@ pub fn load(path: &Path, options: &DecodeOptions) -> Result<DecodedImage, Decode
     let decoded = decode(&bytes, path, options)?;
 
     tracing::debug!(
-        "{} -> decoded {}x{} in {}ms",
+        "{} -> decoded {}x{}{} in {}ms",
         decoded.file_name(),
-        decoded.width,
-        decoded.height,
+        decoded.width(),
+        decoded.height(),
+        match &decoded.display {
+            Some(display) => format!(" (shown at {}x{})", display.width, display.height),
+            None => String::new(),
+        },
         started.elapsed().as_millis()
     );
 
@@ -144,7 +210,8 @@ pub fn decode(
     options: &DecodeOptions,
 ) -> Result<DecodedImage, DecodeError> {
     let format = Format::from_path(path);
-    let (mut metadata, preview) = Metadata::parse(bytes, format);
+    let parsed = Metadata::parse(bytes, format);
+    let (mut metadata, preview) = (parsed.metadata, parsed.preview);
 
     let mut image = match develop_raw(bytes, format, options) {
         Some(developed) => {
@@ -180,7 +247,7 @@ pub fn decode(
         displayed_height(&image, metadata.orientation),
     );
 
-    Ok(into_decoded(image, metadata))
+    Ok(into_decoded(image, metadata, options.display_edge))
 }
 
 /// Width the image is shown at, which a quarter turn swaps.
@@ -220,12 +287,16 @@ fn develop_raw(bytes: &[u8], format: Option<Format>, options: &DecodeOptions) ->
     }
 }
 
-fn into_decoded(image: RgbaImage, metadata: Metadata) -> DecodedImage {
+fn into_decoded(image: RgbaImage, metadata: Metadata, display_edge: Option<u32>) -> DecodedImage {
+    // Made here, on the worker, rather than at upload time: there are a dozen
+    // workers and one UI thread, and the UI thread is the one that has to keep
+    // up with the user.
+    let display = display_edge.and_then(|edge| resize::reduced(&image, edge));
+
     DecodedImage {
-        width: image.width(),
-        height: image.height(),
         orientation: metadata.orientation,
-        pixels: image.into_raw().into_boxed_slice(),
+        full: Surface::from_image(image),
+        display: display.map(Surface::from_image),
         metadata,
     }
 }
@@ -268,7 +339,7 @@ mod tests {
 
         assert_eq!(decoded.size(), [4, 2]);
         assert_eq!(decoded.byte_len(), 4 * 2 * BYTES_PER_PIXEL);
-        assert_eq!(&decoded.pixels[..4], &[10, 20, 30, 255]);
+        assert_eq!(&decoded.full.pixels[..4], &[10, 20, 30, 255]);
     }
 
     #[test]

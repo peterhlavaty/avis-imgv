@@ -37,6 +37,18 @@ pub fn extract(data: &[u8]) -> Extracted<'_> {
     }
 }
 
+/// The small JPEG a camera files in IFD1, which is what a thumbnail is.
+///
+/// Every directory is looked at rather than only IFD1, because raw files put
+/// theirs wherever they like; the smallest candidate is the thumbnail and the
+/// largest is the preview.
+pub fn thumbnail<'a>(tiff: &Tiff<'a>) -> Option<&'a [u8]> {
+    directories(tiff)
+        .iter()
+        .flat_map(|ifd| jpeg_candidates(tiff, ifd))
+        .min_by_key(|candidate| candidate.len())
+}
+
 /// Extracts from a TIFF derived raw (DNG, NEF, CR2, ARW, ORF, ...).
 fn tiff_based<'a>(tiff: &Tiff<'a>, data: &'a [u8]) -> Extracted<'a> {
     let mut best: Option<&'a [u8]> = None;
@@ -61,6 +73,7 @@ fn tiff_based<'a>(tiff: &Tiff<'a>, data: &'a [u8]) -> Extracted<'a> {
         exif: vec![ExifBlock::root(data)],
         icc,
         preview: best.filter(|p| p.len() >= MIN_PREVIEW_BYTES),
+        thumbnail: thumbnail(tiff),
         // The packet lives in a tag, which the directory walk picks up.
         xmp: None,
     }
@@ -194,6 +207,43 @@ mod tests {
         let found = extract(&data);
         assert_eq!(found.preview.map(<[u8]>::len), Some(preview.len()));
         assert!(found.root_exif().is_some());
+    }
+
+    #[test]
+    fn the_thumbnail_is_the_smaller_of_the_two() {
+        let thumbnail = fake_jpeg(MIN_PREVIEW_BYTES * 2);
+        let preview = fake_jpeg(MIN_PREVIEW_BYTES * 8);
+
+        let mut data = build_tiff(&[
+            (tags::JPEG_INTERCHANGE_FORMAT, FieldType::Long, 1, vec![]),
+            (
+                tags::JPEG_INTERCHANGE_FORMAT_LENGTH,
+                FieldType::Long,
+                1,
+                vec![],
+            ),
+            (tags::STRIP_OFFSETS, FieldType::Long, 1, vec![]),
+            (tags::STRIP_BYTE_COUNTS, FieldType::Long, 1, vec![]),
+        ]);
+
+        let thumbnail_at = data.len();
+        data.extend_from_slice(&thumbnail);
+        let preview_at = data.len();
+        data.extend_from_slice(&preview);
+
+        let entry_value = |index: usize| 8 + 2 + index * 12 + 8;
+        for (index, value) in [thumbnail_at, thumbnail.len(), preview_at, preview.len()]
+            .iter()
+            .enumerate()
+        {
+            let at = entry_value(index);
+            data[at..at + 4].copy_from_slice(&(*value as u32).to_le_bytes());
+        }
+
+        let found = extract(&data);
+
+        assert_eq!(found.thumbnail.map(<[u8]>::len), Some(thumbnail.len()));
+        assert_eq!(found.preview.map(<[u8]>::len), Some(preview.len()));
     }
 
     #[test]

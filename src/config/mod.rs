@@ -104,6 +104,11 @@ pub struct CacheConfig {
     /// Decode worker threads. Zero picks one per core, less one for the UI.
     #[serde(default = "default_decode_threads")]
     pub decode_threads: usize,
+    /// How many camera thumbnails to keep on the GPU, so an image that is
+    /// still being decoded has something standing in for it rather than a
+    /// spinner. Zero turns that off.
+    #[serde(default = "default_previews_resident")]
+    pub previews_resident: usize,
     /// How long a frame may spend moving decoded images onto the GPU.
     ///
     /// A 24 megapixel texture takes about 12ms, so this is the difference
@@ -334,6 +339,7 @@ impl Default for CacheConfig {
         CacheConfig {
             ram_budget_mb: default_ram_budget_mb(),
             decode_threads: default_decode_threads(),
+            previews_resident: default_previews_resident(),
             upload_budget_ms: default_upload_budget_ms(),
         }
     }

@@ -29,6 +29,17 @@ pub use text::{format_string_with_metadata, group_raw_jpg_paths};
 /// Display name of the tag holding the colour profile name.
 pub const PROFILE_DESCRIPTION: &str = "Profile Description";
 
+/// What reading a file's metadata turned up.
+pub struct Parsed<'a> {
+    pub metadata: Metadata,
+    /// A full size JPEG a raw file embeds, to decode instead of the sensor
+    /// data.
+    pub preview: Option<&'a [u8]>,
+    /// The small JPEG a camera embeds, for putting something on screen while
+    /// the real image is still being decoded.
+    pub thumbnail: Option<&'a [u8]>,
+}
+
 /// Everything the viewer knows about an image file.
 #[derive(Debug, Default, Clone)]
 pub struct Metadata {
@@ -47,7 +58,7 @@ impl Metadata {
     ///
     /// `format` is the extension based guess; the container walk falls back to
     /// sniffing when it does not match the bytes.
-    pub fn parse(data: &[u8], format: Option<Format>) -> (Metadata, Option<&[u8]>) {
+    pub fn parse(data: &[u8], format: Option<Format>) -> Parsed<'_> {
         let mut found = containers::extract(data, format);
 
         // Fuji raws keep their EXIF inside the embedded preview's own APP1.
@@ -76,7 +87,11 @@ impl Metadata {
         metadata.read_annotations(embedded_xmp.as_deref());
         metadata.resolve_profile_description();
 
-        (metadata, found.preview)
+        Parsed {
+            metadata,
+            preview: found.preview,
+            thumbnail: found.thumbnail,
+        }
     }
 
     /// Reads the rating and keywords the file carries.
@@ -235,14 +250,18 @@ mod tests {
         ]);
 
         let jpeg = jpeg_with_exif(&block);
-        let (metadata, preview) = Metadata::parse(&jpeg, Some(Format::Jpeg));
+        let parsed = Metadata::parse(&jpeg, Some(Format::Jpeg));
 
         assert_eq!(
-            metadata.tags.get("Camera Model Name").map(String::as_str),
+            parsed
+                .metadata
+                .tags
+                .get("Camera Model Name")
+                .map(String::as_str),
             Some("X-T5")
         );
-        assert_eq!(metadata.orientation, Orientation::Rotate90Cw);
-        assert!(preview.is_none());
+        assert_eq!(parsed.metadata.orientation, Orientation::Rotate90Cw);
+        assert!(parsed.preview.is_none());
     }
 
     #[test]
@@ -258,7 +277,7 @@ mod tests {
         );
 
         let jpeg = jpeg_with_exif(&block);
-        let (metadata, _) = Metadata::parse(&jpeg, Some(Format::Jpeg));
+        let metadata = Metadata::parse(&jpeg, Some(Format::Jpeg)).metadata;
 
         assert_eq!(metadata.tags.get("ISO").map(String::as_str), Some("400"));
         assert_eq!(
@@ -289,7 +308,7 @@ mod tests {
         jpeg.extend_from_slice(&payload);
         jpeg.extend_from_slice(&[0xFF, 0xDA, 0, 2]);
 
-        let (metadata, _) = Metadata::parse(&jpeg, Some(Format::Jpeg));
+        let metadata = Metadata::parse(&jpeg, Some(Format::Jpeg)).metadata;
 
         assert_eq!(metadata.xmp.rating, 4);
         assert_eq!(metadata.xmp.keywords, vec!["Keeper"]);
@@ -305,7 +324,7 @@ mod tests {
         )]);
 
         let jpeg = jpeg_with_exif(&block);
-        let (metadata, _) = Metadata::parse(&jpeg, Some(Format::Jpeg));
+        let metadata = Metadata::parse(&jpeg, Some(Format::Jpeg)).metadata;
 
         assert_eq!(metadata.xmp.rating, 3);
     }
@@ -338,9 +357,11 @@ mod tests {
 
     #[test]
     fn files_without_metadata_parse_to_defaults() {
-        let (metadata, preview) = Metadata::parse(b"not an image", None);
-        assert!(metadata.tags.is_empty());
-        assert_eq!(metadata.orientation, Orientation::Normal);
-        assert!(preview.is_none());
+        let parsed = Metadata::parse(b"not an image", None);
+
+        assert!(parsed.metadata.tags.is_empty());
+        assert_eq!(parsed.metadata.orientation, Orientation::Normal);
+        assert!(parsed.preview.is_none());
+        assert!(parsed.thumbnail.is_none());
     }
 }

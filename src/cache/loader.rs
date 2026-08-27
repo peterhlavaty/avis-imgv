@@ -266,11 +266,13 @@ fn next_request(shared: &Shared) -> Option<Request> {
 
 /// Ceiling on the default worker count.
 ///
-/// Every worker holds a whole decoded image while it works — about 130MB for a
-/// 24 megapixel photograph — so on a 24 core machine an unbounded pool would
-/// briefly need several gigabytes. Twelve is a compromise; `decode_threads`
-/// overrides it either way.
-const MAX_DEFAULT_WORKERS: usize = 12;
+/// Decoding a photograph is not compute bound past a handful of threads: a 24
+/// megapixel image is a hundred megabytes of output, and the decoders saturate
+/// memory bandwidth long before they run out of cores. Measured on a 24 core
+/// machine, eight workers sustained 42 images a second and twelve sustained
+/// 39, while each worker holding a whole decoded image cost another 130MB of
+/// peak memory. `decode_threads` overrides this either way.
+const MAX_DEFAULT_WORKERS: usize = 8;
 
 /// Leaves a core for the UI thread so navigation stays responsive while a
 /// folder is being read.

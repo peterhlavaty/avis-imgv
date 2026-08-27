@@ -87,13 +87,20 @@ fn show_one(
         store.texture(index)
     };
 
-    match texture {
-        Some(texture) => Some(canvas::draw(ui, texture, viewport, frame)),
-        None => {
-            placeholder(ui, store.state(index));
-            None
-        }
+    let Some(texture) = texture else {
+        placeholder(ui, store.state(index));
+        return None;
+    };
+
+    let metrics = canvas::draw(ui, texture, viewport, frame);
+
+    // Zoomed in past what the screen sized copy holds, or standing in with a
+    // thumbnail: either way the image itself is now worth its upload.
+    if texture.is_short_for(metrics.drawn_width) {
+        store.upload_full(index);
     }
+
+    Some(metrics)
 }
 
 /// Shows why an image is not on screen yet.

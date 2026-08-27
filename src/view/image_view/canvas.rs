@@ -66,6 +66,12 @@ pub struct Metrics {
     pub fit_size: Vec2,
     /// Magnification relative to the image's own pixels.
     pub percentage_zoom: f32,
+    /// Width the whole image would take at the current zoom, before it is
+    /// clipped to the panel, in the pixels the screen actually has.
+    ///
+    /// What the uploaded resolution has to cover, so it is measured in the
+    /// same physical pixels a texture is.
+    pub drawn_width: f32,
 }
 
 /// Draws `texture` into the current `ui`, returning the geometry it used.
@@ -102,6 +108,7 @@ pub fn draw(
         } else {
             0.0
         },
+        drawn_width: scaled.x * ui.ctx().pixels_per_point(),
     };
 
     let display_size = if frame.enabled {

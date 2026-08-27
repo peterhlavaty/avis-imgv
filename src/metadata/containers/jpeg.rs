@@ -7,6 +7,12 @@ const XMP_SIGNATURE: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
 const ICC_SIGNATURE: &[u8] = b"ICC_PROFILE\0";
 
 const MARKER_PREFIX: u8 = 0xFF;
+/// Start of frame markers, which carry the image's dimensions. The three gaps
+/// are the Huffman table, arithmetic coding table and restart interval
+/// markers, which share the range but are not frame headers.
+const START_OF_FRAME: [u8; 13] = [
+    0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF,
+];
 const SOI: u8 = 0xD8;
 const EOI: u8 = 0xD9;
 const SOS: u8 = 0xDA;
@@ -50,7 +56,30 @@ pub fn extract(data: &[u8]) -> Extracted<'_> {
         out.icc = Some(icc_chunks.concat());
     }
 
+    out.thumbnail = out
+        .root_exif()
+        .and_then(crate::metadata::tiff::Tiff::new)
+        .as_ref()
+        .and_then(super::raw::thumbnail);
+
     out
+}
+
+/// The dimensions a JPEG declares, without decoding any of it.
+///
+/// Read from the frame header, which every JPEG has and which sits before the
+/// pixels — so a thumbnail can stand in for the full image at the right size
+/// long before the full image exists.
+pub fn dimensions(data: &[u8]) -> Option<(u32, u32)> {
+    Segments::new(data)
+        .find(|(marker, payload)| START_OF_FRAME.contains(marker) && payload.len() >= 5)
+        .map(|(_, payload)| {
+            // One byte of sample precision, then height and width.
+            let height = u16::from_be_bytes([payload[1], payload[2]]);
+            let width = u16::from_be_bytes([payload[3], payload[4]]);
+
+            (u32::from(width), u32::from(height))
+        })
 }
 
 /// Iterator over `(marker, payload)` of a JPEG's segments.
@@ -158,6 +187,33 @@ mod tests {
         let data = jpeg_with(&[segment(APP1, &payload)]);
 
         assert_eq!(extract(&data).xmp.as_deref(), Some(&b"<x:xmpmeta/>"[..]));
+    }
+
+    #[test]
+    fn reads_the_dimensions_from_the_frame_header() {
+        // A frame header for a 300x200 image.
+        let mut frame = vec![8];
+        frame.extend_from_slice(&200u16.to_be_bytes());
+        frame.extend_from_slice(&300u16.to_be_bytes());
+        frame.extend_from_slice(&[3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
+
+        let data = jpeg_with(&[segment(0xC0, &frame)]);
+
+        assert_eq!(dimensions(&data), Some((300, 200)));
+    }
+
+    #[test]
+    fn something_without_a_frame_header_has_no_dimensions() {
+        assert_eq!(dimensions(&jpeg_with(&[])), None);
+        assert_eq!(dimensions(b"not a jpeg"), None);
+    }
+
+    #[test]
+    fn a_huffman_table_is_not_mistaken_for_a_frame_header() {
+        // 0xC4 shares the range with the frame markers but is not one.
+        let data = jpeg_with(&[segment(0xC4, &[0u8; 20])]);
+
+        assert_eq!(dimensions(&data), None);
     }
 
     #[test]

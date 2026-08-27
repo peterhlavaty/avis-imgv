@@ -35,6 +35,7 @@ pub fn image_store(cache: &CacheConfig, view: &ImageViewConfig, raw: &RawConfig)
         gpu_resident: view.gpu_resident_images,
         preload_radius: view.nr_loaded_images,
         max_edge: non_zero(view.max_image_edge),
+        previews_resident: cache.previews_resident,
         upload_budget: Duration::from_millis(cache.upload_budget_ms),
         priority_bias: 0,
         raw: raw_options(raw),
@@ -49,6 +50,9 @@ pub fn thumbnail_store(cache: &CacheConfig, view: &GridViewConfig) -> StoreConfi
         // The grid scrolls in rows, so its window is measured in rows too.
         preload_radius: (view.preloaded_rows + VISIBLE_ROWS) * view.images_per_row.max(1),
         max_edge: non_zero(view.thumbnail_resolution),
+        // The grid draws thumbnails already; standing in for one with a
+        // smaller thumbnail would buy nothing.
+        previews_resident: 0,
         upload_budget: Duration::from_millis(cache.upload_budget_ms),
         priority_bias: THUMBNAIL_PRIORITY_BIAS,
         // Thumbnails always come from the embedded preview. Developing a

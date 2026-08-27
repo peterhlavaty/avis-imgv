@@ -11,7 +11,8 @@ use eframe::egui_wgpu::RenderState;
 use eframe::wgpu;
 use epaint::{TextureId, Vec2};
 
-use crate::decoder::{DecodedImage, BYTES_PER_PIXEL};
+use crate::decoder::preview::Preview;
+use crate::decoder::{DecodedImage, Surface, BYTES_PER_PIXEL};
 use crate::metadata::Orientation;
 
 use super::policy;
@@ -23,7 +24,47 @@ pub struct GpuTexture {
     pub size: Vec2,
     /// The turn the rasteriser still has to make.
     pub orientation: Orientation,
+    /// How much of the image's own resolution these texels hold: one for the
+    /// image itself, less for a reduced copy or a camera thumbnail.
+    ///
+    /// The view reads it to notice that it is drawing the image larger than
+    /// what has been uploaded, and asks for the rest.
+    pub resolution: f32,
     render_state: RenderState,
+}
+
+/// One texture's worth of pixels and what they stand for.
+struct Upload<'a> {
+    pixels: &'a [u8],
+    width: u32,
+    height: u32,
+    /// Size the image is shown at, whatever resolution these pixels are.
+    shown: Vec2,
+    resolution: f32,
+    orientation: Orientation,
+    label: &'a str,
+}
+
+impl GpuTexture {
+    /// Whether these texels are the image itself rather than a reduced copy.
+    pub fn is_full(&self) -> bool {
+        self.resolution >= 1.0
+    }
+
+    /// Whether drawing the image `width` points across would magnify what has
+    /// been uploaded.
+    pub fn is_short_for(&self, width: f32) -> bool {
+        is_short(self.resolution, self.size.x, width)
+    }
+}
+
+/// Whether a texture holding `resolution` of an image shown `shown` wide is
+/// being magnified by drawing it `drawn` wide.
+///
+/// The tolerance keeps a copy that is a rounded pixel short of the drawn size
+/// from asking for the full image on every frame.
+fn is_short(resolution: f32, shown: f32, drawn: f32) -> bool {
+    resolution < 1.0 && drawn > shown * resolution * 1.05
 }
 
 impl Drop for GpuTexture {
@@ -78,10 +119,51 @@ impl GpuCache {
         self.capacity = capacity.max(1);
     }
 
-    /// Uploads `image` and evicts the texture furthest from `cursor` if the
-    /// cache is over capacity.
+    /// Uploads `image` at screen resolution and evicts the texture furthest
+    /// from `cursor` if the cache is over capacity.
     pub fn upload(&mut self, index: usize, image: &DecodedImage, cursor: usize, total: usize) {
-        let Some(texture) = self.create_texture(image) else {
+        let upload = describe(image, image.for_upload(), image.upload_resolution());
+        self.put(index, upload, cursor, total);
+    }
+
+    /// Uploads `image` at its own resolution, for when the user has zoomed in
+    /// past what the reduced copy can show.
+    pub fn upload_full(&mut self, index: usize, image: &DecodedImage, cursor: usize, total: usize) {
+        let upload = describe(image, &image.full, 1.0);
+        self.put(index, upload, cursor, total);
+    }
+
+    /// Uploads a camera thumbnail that stands in for a larger image.
+    ///
+    /// It reports the size of the image it stands for rather than its own, so
+    /// the layout is already right and nothing moves when the real one lands.
+    pub fn upload_preview(&mut self, index: usize, preview: &Preview, cursor: usize, total: usize) {
+        let Some(image) = &preview.image else {
+            return;
+        };
+
+        let full = Vec2::new(preview.full_size.0 as f32, preview.full_size.1 as f32);
+        let shown = crate::view::texture::displayed_size(full, preview.orientation);
+
+        self.put(
+            index,
+            Upload {
+                pixels: image,
+                width: image.width(),
+                height: image.height(),
+                shown,
+                resolution: image.width() as f32 / preview.full_size.0.max(1) as f32,
+                orientation: preview.orientation,
+                label: "preview",
+            },
+            cursor,
+            total,
+        );
+    }
+
+    /// Uploads pixels and makes room for them.
+    fn put(&mut self, index: usize, upload: Upload<'_>, cursor: usize, total: usize) {
+        let Some(texture) = self.create_texture(upload) else {
             return;
         };
 
@@ -117,14 +199,24 @@ impl GpuCache {
         }
     }
 
-    fn create_texture(&self, image: &DecodedImage) -> Option<GpuTexture> {
-        if image.width == 0 || image.height == 0 {
+    fn create_texture(&self, upload: Upload<'_>) -> Option<GpuTexture> {
+        let Upload {
+            pixels,
+            width,
+            height,
+            shown,
+            resolution,
+            orientation,
+            label,
+        } = upload;
+
+        if width == 0 || height == 0 {
             return None;
         }
 
         let size = wgpu::Extent3d {
-            width: image.width,
-            height: image.height,
+            width,
+            height,
             depth_or_array_layers: 1,
         };
 
@@ -132,7 +224,7 @@ impl GpuCache {
             .render_state
             .device
             .create_texture(&wgpu::TextureDescriptor {
-                label: Some(image.file_name()),
+                label: Some(label),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -149,11 +241,11 @@ impl GpuCache {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &image.pixels,
+            pixels,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(image.width * BYTES_PER_PIXEL as u32),
-                rows_per_image: Some(image.height),
+                bytes_per_row: Some(width * BYTES_PER_PIXEL as u32),
+                rows_per_image: Some(height),
             },
             size,
         );
@@ -165,13 +257,62 @@ impl GpuCache {
             wgpu::FilterMode::Linear,
         );
 
-        let stored = Vec2::new(image.width as f32, image.height as f32);
-
         Some(GpuTexture {
             id,
-            size: crate::view::texture::displayed_size(stored, image.orientation),
-            orientation: image.orientation,
+            size: shown,
+            orientation,
+            resolution,
             render_state: self.render_state.clone(),
         })
+    }
+}
+
+/// Describes one of an image's surfaces as an upload.
+fn describe<'a>(image: &'a DecodedImage, surface: &'a Surface, resolution: f32) -> Upload<'a> {
+    let stored = Vec2::new(image.width() as f32, image.height() as f32);
+
+    Upload {
+        pixels: &surface.pixels,
+        width: surface.width,
+        height: surface.height,
+        // The size the image is shown at does not depend on how much of it has
+        // been uploaded, so nothing moves when the rest arrives.
+        shown: crate::view::texture::displayed_size(stored, image.orientation),
+        resolution,
+        orientation: image.orientation,
+        label: image.file_name(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_short;
+
+    /// A 6000 pixel wide image uploaded at 2560, shown fitted at 2560 points.
+    #[test]
+    fn a_reduced_copy_is_enough_at_the_size_it_was_made_for() {
+        assert!(!is_short(2560.0 / 6000.0, 6000.0, 2560.0));
+    }
+
+    #[test]
+    fn zooming_past_the_reduced_copy_asks_for_the_image_itself() {
+        assert!(is_short(2560.0 / 6000.0, 6000.0, 4000.0));
+    }
+
+    #[test]
+    fn a_rounding_error_does_not_ask_for_a_re_upload_every_frame() {
+        assert!(!is_short(2560.0 / 6000.0, 6000.0, 2561.0));
+    }
+
+    #[test]
+    fn a_full_resolution_texture_is_never_short() {
+        assert!(!is_short(1.0, 6000.0, 60_000.0));
+    }
+
+    /// A camera thumbnail standing in for the image is short at any size worth
+    /// looking at, so the real one is asked for as soon as it exists.
+    #[test]
+    fn a_thumbnail_is_short_as_soon_as_it_is_shown() {
+        assert!(is_short(160.0 / 6000.0, 6000.0, 800.0));
     }
 }

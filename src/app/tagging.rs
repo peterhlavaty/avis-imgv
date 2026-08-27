@@ -82,7 +82,11 @@ impl App {
             return;
         }
 
-        let Some(embedded) = self.image_view.active_metadata().map(|m| m.xmp.clone()) else {
+        let Some(embedded) = self
+            .image_view
+            .active_decoded_metadata()
+            .map(|m| m.xmp.clone())
+        else {
             return;
         };
 

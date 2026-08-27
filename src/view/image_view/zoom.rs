@@ -87,6 +87,7 @@ mod tests {
             available_size: Vec2::new(800.0, 800.0),
             fit_size: Vec2::new(800.0, 400.0),
             percentage_zoom: 20.0,
+            drawn_width: 800.0,
         }
     }
 

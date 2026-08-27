@@ -19,13 +19,27 @@ Built with Rust and [egui](https://github.com/emilk/egui)/wgpu.
 
 ## How it works
 
-Three tiers, from cheap to instant:
+Four tiers, from cheap to instant:
 
 | Tier | Holds | Bounded by |
 |------|-------|------------|
 | Disk | every path the crawler found | the folder |
+| Preview | metadata and the camera's thumbnail, read from the first 512 KB | `cache.previews_resident` |
 | RAM | decoded, oriented, colour converted RGBA8 | `cache.ram_budget_mb` |
 | GPU | textures ready to draw | `gpu_resident_images` / `gpu_resident_thumbnails` |
+
+The preview tier is what puts something on screen immediately. A dedicated
+thread reads the front of each file near the cursor, which takes a couple of
+milliseconds and yields both the metadata for the side panel and the thumbnail
+the camera stored. The thumbnail is uploaded reporting the size of the image it
+stands for, so the layout is already right and nothing moves when the real
+decode lands.
+
+What goes to the GPU is a copy no larger than the screen, made on the decode
+worker. A 24 megapixel photograph is 96 MB of RGBA8 and a 1080p monitor can
+show three of those megapixels: uploading all of it costs fifteen milliseconds
+of the UI thread to no visible effect. The full resolution stays in RAM and is
+uploaded the moment you zoom in far enough to tell the difference.
 
 A pool of decode workers pulls from a **priority queue** ordered by distance
 from the image on screen, so the one you are about to reach is always decoded
@@ -163,17 +177,22 @@ avis-imgv [OPTIONS] [PATH]
 
 `--benchmark` walks a folder one image per frame and reports what it managed,
 which folds in decoding, waiting, uploading and drawing. On a folder of 120
-24-megapixel JPEGs, larger than the cache, on a Ryzen with twelve decode
-workers:
+24-megapixel JPEGs, larger than the cache, on a 24 core Ryzen with a 1080p
+monitor:
 
 ```
-Benchmark: 501 images in 15.15s — 33.1 images/s, median frame 23.63ms
+Benchmark: 501 images in 13.96s — 35.9 images/s, median frame 0.87ms
 ```
 
-That is at full resolution, so every frame moves 91 MiB onto the GPU. Capping
-`max_image_edge` trades decoding time for upload time and is not usually worth
-it; the numbers are there to be checked on your own machine and your own
-files.
+The frame time is what the viewer costs you; the images a second is what the
+decoders can supply. Past about eight workers the decoders stop scaling — a 24
+megapixel image is a hundred megabytes of output and they saturate memory
+bandwidth long before they run out of cores — which is why `decode_threads`
+defaults to eight rather than to a core count.
+
+The numbers are there to be checked on your own machine and your own files.
+`cargo run --release --example bench_decode -- <files>` breaks a single image
+down stage by stage.
 
 ## Supported image formats
 
@@ -239,11 +258,13 @@ These are the knobs that decide how far ahead of you the viewer runs.
 | Key | Meaning | Default |
 |-----|---------|---------|
 | `ram_budget_mb` | Ceiling on decoded pixels held in RAM, shared by both views. An eighth goes to thumbnails. | 4096 |
-| `decode_threads` | Decode workers. `0` picks one per core, less one for the UI, capped at 8. | 0 |
-| `upload_budget_ms` | How long a frame may spend moving decoded images onto the GPU. A 24 megapixel texture takes about 12ms, so this is what keeps the frame rate steady while the cache fills. | 8 |
+| `decode_threads` | Decode workers. `0` picks one per core, less one for the UI, capped at 8 — past which they saturate memory bandwidth rather than adding throughput. | 0 |
+| `previews_resident` | Camera thumbnails kept on the GPU to stand in for images still decoding, and how far either side of the cursor their files are read. `0` turns the preview tier off. | 16 |
+| `upload_budget_ms` | How long a frame may spend moving decoded images onto the GPU. | 8 |
 
 A decoded image costs `width × height × 4` bytes: about 96 MB for a 24
-megapixel photograph. The default budget therefore holds roughly 35 of them.
+megapixel photograph, plus the screen sized copy that is what actually gets
+uploaded. The default budget therefore holds roughly 30 of them.
 
 ### General
 
@@ -259,7 +280,7 @@ megapixel photograph. The default budget therefore holds roughly 35 of them.
 |-----|---------|---------|
 | `nr_loaded_images` | Images decoded either side of the one on screen | 64 |
 | `gpu_resident_images` | Images kept as GPU textures | 8 |
-| `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. | 0 |
+| `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. Unrelated to the screen sized copy, which is worked out from your monitor and needs no setting. | 0 |
 | `nr_images_shown` | Images displayed side by side | 1 |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |

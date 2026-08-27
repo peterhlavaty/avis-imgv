@@ -184,6 +184,7 @@
   "cache": {
     "ram_budget_mb": 4096,
     "decode_threads": 0,
+    "previews_resident": 16,
     "upload_budget_ms": 8
   },
   "slideshow": {

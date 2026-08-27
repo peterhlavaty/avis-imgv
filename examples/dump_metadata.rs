@@ -21,14 +21,17 @@ fn main() {
         };
 
         let started = std::time::Instant::now();
-        let (mut metadata, preview) = Metadata::parse(&bytes, Format::from_path(&path));
+        let parsed = Metadata::parse(&bytes, Format::from_path(&path));
         let elapsed = started.elapsed();
+        let (mut metadata, preview, thumbnail) =
+            (parsed.metadata, parsed.preview, parsed.thumbnail);
         metadata.add_file_tags(&path, bytes.len());
 
         println!("=== {arg} ({:?} in {elapsed:?})", Format::from_path(&path));
         println!("  orientation: {:?}", metadata.orientation);
         println!("  icc bytes:   {:?}", metadata.icc.as_ref().map(Vec::len));
         println!("  preview:     {:?}", preview.map(<[u8]>::len));
+        println!("  thumbnail:   {:?}", thumbnail.map(<[u8]>::len));
 
         if let Some(preview) = preview {
             match image::load_from_memory(preview) {

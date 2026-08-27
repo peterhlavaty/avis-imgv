@@ -47,6 +47,9 @@ pub struct Extracted<'a> {
     pub icc: Option<Vec<u8>>,
     /// Embedded JPEG to decode instead of the file itself.
     pub preview: Option<&'a [u8]>,
+    /// The small JPEG a camera embeds, for putting something on screen while
+    /// the real one is still being decoded.
+    pub thumbnail: Option<&'a [u8]>,
     /// XMP packet, holding the rating and keywords other tools wrote.
     pub xmp: Option<Vec<u8>>,
 }
@@ -103,6 +106,7 @@ fn tiff_block(data: &[u8]) -> Extracted<'_> {
         exif: vec![ExifBlock::root(data)],
         icc: extracted.icc,
         xmp: extracted.xmp,
+        thumbnail: extracted.thumbnail,
         // The file itself decodes, so an embedded preview is of no use.
         preview: None,
     }

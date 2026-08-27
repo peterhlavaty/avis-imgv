@@ -2,6 +2,34 @@
 
 ## 2026-08-27
 
+- An image now appears as soon as the file is opened rather than when it has
+  been decoded, and the viewer's own cost per frame fell from 23.6ms to 0.9ms.
+  - A preview tier: one thread reads the first 512 KB of each file near the
+    cursor, which gives the metadata for the side panel in about two
+    milliseconds and the thumbnail the camera embedded. The thumbnail is shown
+    at the size of the image it stands for, so nothing moves when the real
+    decode arrives. `cache.previews_resident` sizes it; `0` turns it off.
+  - The side panel fills in from that read, so it is no longer blank while a
+    photograph decodes. Ratings and tags still wait for the whole file, since a
+    sidecar seeded from a truncated read would drop what it could not see.
+  - What goes to the GPU is now a copy no larger than the monitor, made on the
+    decode worker rather than the UI thread. A 24 megapixel texture is 96 MB
+    and takes fifteen milliseconds to upload; the screen sized copy takes two,
+    and nothing on screen can tell the difference. The full resolution stays in
+    RAM and is uploaded as soon as you zoom in past what the copy holds.
+  - `decode_threads` now defaults to eight rather than to a core count. Past
+    that the decoders saturate memory bandwidth instead of adding throughput:
+    measured on 24 cores, eight workers sustained 42 images a second and twelve
+    sustained 39.
+  - Sustained browsing of 24 megapixel JPEGs went from 33 to 36 images a
+    second, and the frame times behind it from 23.63ms to 0.87ms.
+  - Measured and rejected: a DCT scaled JPEG decode. `jpeg-decoder` at half
+    size costs 102ms against zune-jpeg's 90ms at full size, so the saving is
+    not there in pure Rust. libjpeg-turbo through FFI is the only route left
+    and would be a build dependency for perhaps a factor of two.
+
+## 2026-08-27
+
 - Browsing a folder larger than the cache went from 3.2 images a second to 33,
   and the pipeline for a 24 megapixel JPEG from 258ms to 145ms.
   - Fixed the cache: a worker that abandoned a request the viewer had
