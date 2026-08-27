@@ -47,16 +47,19 @@ impl Surface {
 }
 
 /// An image in memory, ready for texture upload.
+///
+/// The pixels held are not necessarily the image's own: browsing keeps a copy
+/// no larger than the screen, because a 24 megapixel photograph is a hundred
+/// megabytes and a monitor can show three of those megapixels. [`full_size`]
+/// records what the image really is, so everything downstream — the layout,
+/// the metadata, the zoom arithmetic — works in the image's own coordinates
+/// whatever resolution arrived.
+///
+/// [`full_size`]: Self::full_size
 pub struct DecodedImage {
-    /// The image at its own resolution, which is what zooming in needs.
-    pub full: Surface,
-    /// A copy no larger than the screen.
-    ///
-    /// This is what is uploaded: moving ninety megabytes into VRAM costs
-    /// fifteen milliseconds, and a monitor cannot show more pixels than it
-    /// has. The full resolution is uploaded instead the moment the user zooms
-    /// in far enough to tell the difference.
-    pub display: Option<Surface>,
+    pub surface: Surface,
+    /// Size of the image itself, which `surface` may be a reduction of.
+    pub full_size: (u32, u32),
     /// How the pixels have to be turned to be shown upright.
     ///
     /// The turn is left to the GPU, which does it by sampling the texture in a
@@ -66,37 +69,32 @@ pub struct DecodedImage {
 }
 
 impl DecodedImage {
-    /// Bytes this image occupies in RAM, both copies counted.
+    /// Bytes this image occupies in RAM.
     pub fn byte_len(&self) -> usize {
-        self.full.byte_len() + self.display.as_ref().map_or(0, Surface::byte_len)
+        self.surface.byte_len()
     }
 
     pub fn width(&self) -> u32 {
-        self.full.width
+        self.full_size.0
     }
 
     pub fn height(&self) -> u32 {
-        self.full.height
+        self.full_size.1
     }
 
     pub fn size(&self) -> [u32; 2] {
-        [self.full.width, self.full.height]
+        [self.full_size.0, self.full_size.1]
     }
 
-    /// The copy to upload, which is the reduced one when there is one.
-    pub fn for_upload(&self) -> &Surface {
-        self.display.as_ref().unwrap_or(&self.full)
+    /// How much of the image's own resolution these pixels hold: one for the
+    /// image itself, less for a copy made to fit a screen.
+    pub fn resolution(&self) -> f32 {
+        self.surface.width as f32 / self.full_size.0.max(1) as f32
     }
 
-    /// How much of the image's own resolution [`Self::for_upload`] holds.
-    ///
-    /// One when the full image is uploaded; the view compares this against how
-    /// large the image is being drawn to notice that it needs the rest.
-    pub fn upload_resolution(&self) -> f32 {
-        match &self.display {
-            Some(display) => display.width as f32 / self.full.width.max(1) as f32,
-            None => 1.0,
-        }
+    /// Whether these are the image's own pixels rather than a reduction.
+    pub fn is_full(&self) -> bool {
+        self.surface.width >= self.full_size.0
     }
 
     /// Name shown in logs and as a texture label.
@@ -125,9 +123,9 @@ pub struct DecodeOptions {
     /// Cap on the longest edge, used for thumbnails and to stay within the
     /// GPU's maximum texture size. `None` keeps the original resolution.
     pub max_edge: Option<u32>,
-    /// Longest edge worth uploading, which is as many pixels as the screen can
-    /// show. A reduced copy is made alongside the full one; `None` uploads the
-    /// image at its own resolution.
+    /// Longest edge worth keeping, which is as many pixels as the screen can
+    /// show. The full sized buffer is dropped once the copy is made; `None`
+    /// keeps the image at its own resolution, for zooming into.
     pub display_edge: Option<u32>,
     /// Name of the display profile to convert into.
     pub output_profile: Arc<str>,
@@ -191,9 +189,13 @@ pub fn load(path: &Path, options: &DecodeOptions) -> Result<DecodedImage, Decode
         decoded.file_name(),
         decoded.width(),
         decoded.height(),
-        match &decoded.display {
-            Some(display) => format!(" (shown at {}x{})", display.width, display.height),
-            None => String::new(),
+        if decoded.is_full() {
+            String::new()
+        } else {
+            format!(
+                " (kept at {}x{})",
+                decoded.surface.width, decoded.surface.height
+            )
         },
         started.elapsed().as_millis()
     );
@@ -288,15 +290,21 @@ fn develop_raw(bytes: &[u8], format: Option<Format>, options: &DecodeOptions) ->
 }
 
 fn into_decoded(image: RgbaImage, metadata: Metadata, display_edge: Option<u32>) -> DecodedImage {
-    // Made here, on the worker, rather than at upload time: there are a dozen
+    let full_size = (image.width(), image.height());
+
+    // Reduced here, on the worker, rather than at upload time: there are eight
     // workers and one UI thread, and the UI thread is the one that has to keep
-    // up with the user.
-    let display = display_edge.and_then(|edge| resize::reduced(&image, edge));
+    // up with the user. The full sized buffer is dropped with `image`, which
+    // is the point — a folder of these is what fills memory.
+    let surface = match display_edge.and_then(|edge| resize::reduced(&image, edge)) {
+        Some(reduced) => Surface::from_image(reduced),
+        None => Surface::from_image(image),
+    };
 
     DecodedImage {
         orientation: metadata.orientation,
-        full: Surface::from_image(image),
-        display: display.map(Surface::from_image),
+        surface,
+        full_size,
         metadata,
     }
 }
@@ -339,7 +347,7 @@ mod tests {
 
         assert_eq!(decoded.size(), [4, 2]);
         assert_eq!(decoded.byte_len(), 4 * 2 * BYTES_PER_PIXEL);
-        assert_eq!(&decoded.full.pixels[..4], &[10, 20, 30, 255]);
+        assert_eq!(&decoded.surface.pixels[..4], &[10, 20, 30, 255]);
     }
 
     #[test]

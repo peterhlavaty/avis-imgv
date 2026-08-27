@@ -112,13 +112,15 @@ mod tests {
     use crate::metadata::Metadata;
 
     fn image(bytes: usize) -> Arc<DecodedImage> {
+        let height = (bytes / 4) as u32;
+
         Arc::new(DecodedImage {
-            full: crate::decoder::Surface {
+            surface: crate::decoder::Surface {
                 pixels: vec![0u8; bytes].into_boxed_slice(),
                 width: 1,
-                height: (bytes / 4) as u32,
+                height,
             },
-            display: None,
+            full_size: (1, height),
             orientation: crate::metadata::Orientation::Normal,
             metadata: Metadata::default(),
         })

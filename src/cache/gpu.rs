@@ -12,9 +12,10 @@ use eframe::wgpu;
 use epaint::{TextureId, Vec2};
 
 use crate::decoder::preview::Preview;
-use crate::decoder::{DecodedImage, Surface, BYTES_PER_PIXEL};
+use crate::decoder::{DecodedImage, BYTES_PER_PIXEL};
 use crate::metadata::Orientation;
 
+use super::mipmap::{self, MipGenerator};
 use super::policy;
 
 /// A texture owned by the viewer, freed when dropped.
@@ -78,15 +79,21 @@ pub struct GpuCache {
     entries: HashMap<usize, GpuTexture>,
     render_state: RenderState,
     capacity: usize,
+    /// Shared by every upload; building it costs a pipeline compile, which is
+    /// not something to do per image.
+    mipmaps: MipGenerator,
 }
 
 impl GpuCache {
     /// `capacity` is the number of textures to keep resident.
     pub fn new(render_state: RenderState, capacity: usize) -> GpuCache {
+        let mipmaps = MipGenerator::new(&render_state.device);
+
         GpuCache {
             entries: HashMap::new(),
             render_state,
             capacity: capacity.max(1),
+            mipmaps,
         }
     }
 
@@ -119,18 +126,28 @@ impl GpuCache {
         self.capacity = capacity.max(1);
     }
 
-    /// Uploads `image` at screen resolution and evicts the texture furthest
-    /// from `cursor` if the cache is over capacity.
+    /// Uploads whatever resolution `image` holds and evicts the texture
+    /// furthest from `cursor` if the cache is over capacity.
     pub fn upload(&mut self, index: usize, image: &DecodedImage, cursor: usize, total: usize) {
-        let upload = describe(image, image.for_upload(), image.upload_resolution());
-        self.put(index, upload, cursor, total);
-    }
+        let stored = Vec2::new(image.width() as f32, image.height() as f32);
 
-    /// Uploads `image` at its own resolution, for when the user has zoomed in
-    /// past what the reduced copy can show.
-    pub fn upload_full(&mut self, index: usize, image: &DecodedImage, cursor: usize, total: usize) {
-        let upload = describe(image, &image.full, 1.0);
-        self.put(index, upload, cursor, total);
+        self.put(
+            index,
+            Upload {
+                pixels: &image.surface.pixels,
+                width: image.surface.width,
+                height: image.surface.height,
+                // The size the image is shown at does not depend on how much
+                // of it has been uploaded, so nothing moves when the rest
+                // arrives.
+                shown: crate::view::texture::displayed_size(stored, image.orientation),
+                resolution: image.resolution(),
+                orientation: image.orientation,
+                label: image.file_name(),
+            },
+            cursor,
+            total,
+        );
     }
 
     /// Uploads a camera thumbnail that stands in for a larger image.
@@ -220,17 +237,23 @@ impl GpuCache {
             depth_or_array_layers: 1,
         };
 
+        // Photographs are nearly always drawn smaller than they are stored, so
+        // every texture carries its own shrunken copies.
+        let mip_level_count = mipmap::levels(width, height);
+
         let texture = self
             .render_state
             .device
             .create_texture(&wgpu::TextureDescriptor {
                 label: Some(label),
                 size,
-                mip_level_count: 1,
+                mip_level_count,
                 sample_count: 1,
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Rgba8Unorm,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST
+                    | wgpu::TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
             });
 
@@ -250,12 +273,34 @@ impl GpuCache {
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let id = self.render_state.renderer.write().register_native_texture(
+        self.mipmaps.generate(
             &self.render_state.device,
-            &view,
-            wgpu::FilterMode::Linear,
+            &self.render_state.queue,
+            &texture,
+            mip_level_count,
         );
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let id = self
+            .render_state
+            .renderer
+            .write()
+            .register_native_texture_with_sampler_options(
+                &self.render_state.device,
+                &view,
+                wgpu::SamplerDescriptor {
+                    label: Some("avis image"),
+                    address_mode_u: wgpu::AddressMode::ClampToEdge,
+                    address_mode_v: wgpu::AddressMode::ClampToEdge,
+                    address_mode_w: wgpu::AddressMode::ClampToEdge,
+                    mag_filter: wgpu::FilterMode::Linear,
+                    min_filter: wgpu::FilterMode::Linear,
+                    // The whole point of the chain: blend between the two
+                    // levels either side of the size being drawn.
+                    mipmap_filter: wgpu::FilterMode::Linear,
+                    ..Default::default()
+                },
+            );
 
         Some(GpuTexture {
             id,
@@ -264,23 +309,6 @@ impl GpuCache {
             resolution,
             render_state: self.render_state.clone(),
         })
-    }
-}
-
-/// Describes one of an image's surfaces as an upload.
-fn describe<'a>(image: &'a DecodedImage, surface: &'a Surface, resolution: f32) -> Upload<'a> {
-    let stored = Vec2::new(image.width() as f32, image.height() as f32);
-
-    Upload {
-        pixels: &surface.pixels,
-        width: surface.width,
-        height: surface.height,
-        // The size the image is shown at does not depend on how much of it has
-        // been uploaded, so nothing moves when the rest arrives.
-        shown: crate::view::texture::displayed_size(stored, image.orientation),
-        resolution,
-        orientation: image.orientation,
-        label: image.file_name(),
     }
 }
 

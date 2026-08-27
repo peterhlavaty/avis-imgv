@@ -10,8 +10,10 @@
 //! Drawing only ever reads tier three, so a frame never waits on I/O or on a
 //! decoder.
 
+pub mod focus;
 pub mod gpu;
 pub mod loader;
+pub mod mipmap;
 pub mod policy;
 pub mod preview;
 pub mod ram;
@@ -36,6 +38,9 @@ pub struct StoreConfig {
     /// How many camera thumbnails to keep on the GPU, to stand in for images
     /// that are still being decoded. Zero turns previews off.
     pub previews_resident: usize,
+    /// How far either side of the cursor images are also decoded at their own
+    /// resolution, ready to be zoomed into. Zero turns that off.
+    pub full_resolution_neighbours: usize,
     /// How long one frame may spend moving images onto the GPU.
     ///
     /// A budget rather than a count, because the cost is the size of the
@@ -60,6 +65,7 @@ impl Default for StoreConfig {
             preload_radius: 32,
             max_edge: None,
             previews_resident: 16,
+            full_resolution_neighbours: 1,
             upload_budget: Duration::from_millis(8),
             priority_bias: 0,
             raw: crate::decoder::raw::Options::default(),
@@ -87,6 +93,8 @@ pub enum ImageState {
 pub struct StoreStats {
     pub total: usize,
     pub in_ram: usize,
+    /// Of those, how many are also held at their own resolution for zooming.
+    pub at_full_resolution: usize,
     pub on_gpu: usize,
     pub resident_bytes: usize,
     pub budget_bytes: usize,

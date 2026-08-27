@@ -2,6 +2,35 @@
 
 ## 2026-08-27
 
+- Memory now holds a whole folder rather than a window of it, and zooming shows
+  the photograph rather than a magnified copy of it.
+  - What is kept for every image is the screen sized copy: eleven megabytes for
+    a 24 megapixel photograph on a 1080p monitor instead of ninety-six, so a
+    few hundred of them are resident at once instead of thirty.
+  - The image on screen and the two either side are also decoded at full
+    resolution and held ready. Which copy is on the GPU follows how wide the
+    image is being drawn and swaps back when you zoom out, so a hundred
+    megabyte texture is never held for something being shown small.
+  - Zoom and pan belong to the image. Leaving a photograph half way into a
+    corner and coming back to it finds it exactly there; images that were
+    zoomed keep their full sized copy until something nearer needs the room.
+  - `+` and `-` zoom, and `W` `A` `S` `D` pan for as long as they are held.
+    Showing more or fewer images side by side moved to `Ctrl` `+` and `Ctrl`
+    `-`.
+  - Every texture now carries a mip chain, built on the GPU in one pass per
+    level. A photograph is nearly always drawn smaller than it is stored, and a
+    bilinear sampler reads four texels of every nine it should — which is what
+    made fine detail sparkle and crawl as an image was panned.
+  - Fixed a cache that had been thrashing since it was written: the upload
+    window was as wide as the GPU cache could hold, so every upload evicted a
+    texture the same window still wanted, and the next frame uploaded it again.
+  - Sustained browsing of 24 megapixel JPEGs went from 36 images a second
+    to 43.6.
+- BREAKING: `+` and `-` in the image view now zoom. `Ctrl` `+` and `Ctrl` `-`
+  show more or fewer images side by side.
+
+## 2026-08-27
+
 - An image now appears as soon as the file is opened rather than when it has
   been decoded, and the viewer's own cost per frame fell from 23.6ms to 0.9ms.
   - A preview tier: one thread reads the first 512 KB of each file near the

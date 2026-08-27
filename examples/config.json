@@ -1,6 +1,6 @@
 {
   "image_view": {
-    "nr_loaded_images": 64,
+    "nr_loaded_images": 512,
     "gpu_resident_images": 8,
     "max_image_edge": 0,
     "nr_images_shown": 1,
@@ -86,10 +86,38 @@
     },
     "sc_more_images_shown": {
       "key": "Plus",
-      "modifiers": []
+      "modifiers": [
+        "ctrl"
+      ]
     },
     "sc_less_images_shown": {
       "key": "Minus",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_zoom_in": {
+      "key": "Plus",
+      "modifiers": []
+    },
+    "sc_zoom_out": {
+      "key": "Minus",
+      "modifiers": []
+    },
+    "sc_pan_up": {
+      "key": "w",
+      "modifiers": []
+    },
+    "sc_pan_down": {
+      "key": "s",
+      "modifiers": []
+    },
+    "sc_pan_left": {
+      "key": "a",
+      "modifiers": []
+    },
+    "sc_pan_right": {
+      "key": "d",
       "modifiers": []
     }
   },
@@ -185,6 +213,7 @@
     "ram_budget_mb": 4096,
     "decode_threads": 0,
     "previews_resident": 16,
+    "full_resolution_neighbours": 1,
     "upload_budget_ms": 8
   },
   "slideshow": {

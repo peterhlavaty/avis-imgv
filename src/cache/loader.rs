@@ -8,14 +8,13 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 
 use crate::decoder::{self, DecodeError, DecodeOptions, DecodedImage};
 
-use super::policy::distance;
+pub use super::focus::Focus;
 
 /// Identifies a request across the queue, the workers and the store.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -46,62 +45,33 @@ pub struct LoadResult {
     pub outcome: Loaded,
 }
 
-/// What the viewer currently cares about, shared with the workers so they can
-/// abandon requests that went stale while queued.
-#[derive(Debug, Default)]
-pub struct Focus {
-    generation: AtomicUsize,
-    cursor: AtomicUsize,
-    total: AtomicUsize,
-    window: AtomicUsize,
-}
-
-impl Focus {
-    /// Records the collection the viewer moved to.
-    pub fn set_collection(&self, generation: u64, total: usize) {
-        self.generation
-            .store(generation as usize, Ordering::Relaxed);
-        self.total.store(total, Ordering::Relaxed);
-    }
-
-    /// Records where the viewer is and how far around it work is still useful.
-    pub fn set_position(&self, cursor: usize, window: usize) {
-        self.cursor.store(cursor, Ordering::Relaxed);
-        self.window.store(window, Ordering::Relaxed);
-    }
-
-    /// Whether a queued request is still worth decoding.
-    pub fn accepts(&self, key: ImageKey) -> bool {
-        if key.generation as usize != self.generation.load(Ordering::Relaxed) {
-            return false;
-        }
-
-        let total = self.total.load(Ordering::Relaxed);
-        let window = self.window.load(Ordering::Relaxed);
-
-        window == 0
-            || total == 0
-            || distance(self.cursor.load(Ordering::Relaxed), key.index, total) <= window
-    }
-}
-
-/// One unit of work.
-struct Request {
-    key: ImageKey,
-    priority: usize,
-    path: PathBuf,
-    options: DecodeOptions,
-    /// The store's view of what is still worth decoding. Held per request so
+/// One image to decode, and everything needed to decide whether it still
+/// should be by the time a worker reaches it.
+pub struct Job {
+    pub key: ImageKey,
+    /// A rank; lower runs first.
+    pub priority: usize,
+    /// How far the viewer may move before this is no longer worth decoding.
+    /// `None` follows the store's preload window.
+    pub radius: Option<usize>,
+    pub path: PathBuf,
+    pub options: DecodeOptions,
+    /// The store's view of what is still worth decoding. Held per job so
     /// several stores can share one pool.
-    focus: Arc<Focus>,
-    responder: Sender<LoadResult>,
+    pub focus: Arc<Focus>,
+    pub responder: Sender<LoadResult>,
+}
+
+/// One unit of work, as the queue holds it.
+struct Request {
+    job: Job,
 }
 
 // The heap orders by priority alone; ties are broken arbitrarily, which is
 // fine because equally distant images are equally urgent.
 impl PartialEq for Request {
     fn eq(&self, other: &Self) -> bool {
-        self.priority == other.priority
+        self.job.priority == other.job.priority
     }
 }
 impl Eq for Request {}
@@ -112,7 +82,7 @@ impl PartialOrd for Request {
 }
 impl Ord for Request {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.priority.cmp(&other.priority)
+        self.job.priority.cmp(&other.job.priority)
     }
 }
 
@@ -162,27 +132,10 @@ impl Loader {
         Loader { shared, workers }
     }
 
-    /// Queues an image for decoding. `priority` is a rank; lower runs first.
-    pub fn submit(
-        &self,
-        key: ImageKey,
-        priority: usize,
-        path: PathBuf,
-        options: DecodeOptions,
-        focus: Arc<Focus>,
-        responder: Sender<LoadResult>,
-    ) {
-        let request = Request {
-            key,
-            priority,
-            path,
-            options,
-            focus,
-            responder,
-        };
-
+    /// Queues an image for decoding.
+    pub fn submit(&self, job: Job) {
         if let Ok(mut queue) = self.shared.queue.lock() {
-            queue.pending.push(Reverse(request));
+            queue.pending.push(Reverse(Request { job }));
             self.shared.ready.notify_one();
         }
     }
@@ -225,23 +178,25 @@ fn worker_loop(shared: &Shared) {
             return;
         };
 
-        // The viewer may have moved on while this request sat in the queue.
-        let outcome = if request.focus.accepts(request.key) {
-            match decoder::load(&request.path, &request.options) {
+        let job = request.job;
+
+        // The viewer may have moved on while this job sat in the queue.
+        let outcome = if job.focus.accepts(job.key, job.radius) {
+            match decoder::load(&job.path, &job.options) {
                 Ok(image) => Loaded::Decoded(image),
                 Err(e) => {
-                    tracing::warn!("{} {e}", request.path.display());
+                    tracing::warn!("{} {e}", job.path.display());
                     Loaded::Failed(e)
                 }
             }
         } else {
-            tracing::trace!("Abandoning {}", request.path.display());
+            tracing::trace!("Abandoning {}", job.path.display());
             Loaded::Abandoned
         };
 
         // A closed channel just means the store was dropped or replaced.
-        let _ = request.responder.send(LoadResult {
-            key: request.key,
+        let _ = job.responder.send(LoadResult {
+            key: job.key,
             outcome,
         });
     }
@@ -285,51 +240,11 @@ fn default_worker_count() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn key(generation: u64, index: usize) -> ImageKey {
+        ImageKey { generation, index }
+    }
     use std::sync::mpsc::channel;
-
-    #[test]
-    fn focus_rejects_other_generations() {
-        let focus = Focus::default();
-        focus.set_collection(7, 100);
-        focus.set_position(0, 10);
-
-        assert!(focus.accepts(ImageKey {
-            generation: 7,
-            index: 3
-        }));
-        assert!(!focus.accepts(ImageKey {
-            generation: 6,
-            index: 3
-        }));
-    }
-
-    #[test]
-    fn focus_rejects_indices_outside_the_window() {
-        let focus = Focus::default();
-        focus.set_collection(1, 100);
-        focus.set_position(50, 5);
-
-        assert!(focus.accepts(ImageKey {
-            generation: 1,
-            index: 55
-        }));
-        assert!(!focus.accepts(ImageKey {
-            generation: 1,
-            index: 70
-        }));
-    }
-
-    #[test]
-    fn a_zero_window_accepts_everything() {
-        let focus = Focus::default();
-        focus.set_collection(1, 100);
-        focus.set_position(0, 0);
-
-        assert!(focus.accepts(ImageKey {
-            generation: 1,
-            index: 99
-        }));
-    }
 
     #[test]
     fn decodes_submitted_work() {
@@ -346,24 +261,22 @@ mod tests {
         let loader = Loader::new(2);
 
         let (tx, rx) = channel();
-        let key = ImageKey {
-            generation: 1,
-            index: 0,
-        };
-        loader.submit(
-            key,
-            0,
-            path.clone(),
-            DecodeOptions::new(Arc::from("srgb")),
+        let wanted = key(1, 0);
+        loader.submit(Job {
+            key: wanted,
+            priority: 0,
+            radius: None,
+            path: path.clone(),
+            options: DecodeOptions::new(Arc::from("srgb")),
             focus,
-            tx,
-        );
+            responder: tx,
+        });
 
         let result = rx
             .recv_timeout(std::time::Duration::from_secs(10))
             .expect("worker produced a result");
 
-        assert_eq!(result.key, key);
+        assert_eq!(result.key, wanted);
         match result.outcome {
             Loaded::Decoded(image) => assert_eq!(image.size(), [4, 4]),
             _ => panic!("the image should have been decoded"),
@@ -379,17 +292,15 @@ mod tests {
         let loader = Loader::new(1);
 
         let (tx, rx) = channel();
-        loader.submit(
-            ImageKey {
-                generation: 1,
-                index: 0,
-            },
-            0,
-            PathBuf::from("never-read.png"),
-            DecodeOptions::new(Arc::from("srgb")),
+        loader.submit(Job {
+            key: key(1, 0),
+            priority: 0,
+            radius: None,
+            path: PathBuf::from("never-read.png"),
+            options: DecodeOptions::new(Arc::from("srgb")),
             focus,
-            tx,
-        );
+            responder: tx,
+        });
 
         // Abandoned rather than silently dropped, so the store learns it may
         // ask again.

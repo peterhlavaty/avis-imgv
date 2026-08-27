@@ -19,14 +19,15 @@ Built with Rust and [egui](https://github.com/emilk/egui)/wgpu.
 
 ## How it works
 
-Four tiers, from cheap to instant:
+Five tiers, from cheap to instant:
 
 | Tier | Holds | Bounded by |
 |------|-------|------------|
 | Disk | every path the crawler found | the folder |
 | Preview | metadata and the camera's thumbnail, read from the first 512 KB | `cache.previews_resident` |
-| RAM | decoded, oriented, colour converted RGBA8 | `cache.ram_budget_mb` |
-| GPU | textures ready to draw | `gpu_resident_images` / `gpu_resident_thumbnails` |
+| RAM | one screen sized copy of every image in the folder | `cache.ram_budget_mb` |
+| RAM, full size | the images within reach, ready to be zoomed into | `cache.full_resolution_neighbours` |
+| GPU | textures ready to draw, with their mip chains | `gpu_resident_images` / `gpu_resident_thumbnails` |
 
 The preview tier is what puts something on screen immediately. A dedicated
 thread reads the front of each file near the cursor, which takes a couple of
@@ -35,11 +36,24 @@ the camera stored. The thumbnail is uploaded reporting the size of the image it
 stands for, so the layout is already right and nothing moves when the real
 decode lands.
 
-What goes to the GPU is a copy no larger than the screen, made on the decode
-worker. A 24 megapixel photograph is 96 MB of RGBA8 and a 1080p monitor can
-show three of those megapixels: uploading all of it costs fifteen milliseconds
-of the UI thread to no visible effect. The full resolution stays in RAM and is
-uploaded the moment you zoom in far enough to tell the difference.
+What is kept for every image in the folder is a copy no larger than the
+screen, made on the decode worker. A 24 megapixel photograph is 96 MB of RGBA8
+and a 1080p monitor can show three of those megapixels: holding all of it costs
+a tenth of the memory budget per image and fifteen milliseconds of the UI
+thread to upload, to no visible effect. Eleven megabytes each instead means a
+folder of a few hundred photographs is resident all at once.
+
+The image on screen and the two either side of it are *also* decoded at their
+own resolution and kept ready, so zooming in shows the photograph rather than a
+magnified copy of it. Which of the two is on the GPU follows how wide the image
+is being drawn, and swaps back when you zoom out. Images you zoomed into keep
+their full sized copy until something nearer needs the room, so walking back
+through a folder finds them still sharp.
+
+Every texture carries a mip chain, built on the GPU in one pass per level. A
+photograph is nearly always drawn smaller than it is stored, and a plain
+bilinear sampler reads four texels of every nine it should — which is what
+makes fine detail sparkle and crawl as an image is panned.
 
 A pool of decode workers pulls from a **priority queue** ordered by distance
 from the image on screen, so the one you are about to reach is always decoded
@@ -181,7 +195,7 @@ which folds in decoding, waiting, uploading and drawing. On a folder of 120
 monitor:
 
 ```
-Benchmark: 501 images in 13.96s — 35.9 images/s, median frame 0.87ms
+Benchmark: 501 images in 11.50s — 43.6 images/s, median frame 2.70ms
 ```
 
 The frame time is what the viewer costs you; the images a second is what the
@@ -260,11 +274,13 @@ These are the knobs that decide how far ahead of you the viewer runs.
 | `ram_budget_mb` | Ceiling on decoded pixels held in RAM, shared by both views. An eighth goes to thumbnails. | 4096 |
 | `decode_threads` | Decode workers. `0` picks one per core, less one for the UI, capped at 8 — past which they saturate memory bandwidth rather than adding throughput. | 0 |
 | `previews_resident` | Camera thumbnails kept on the GPU to stand in for images still decoding, and how far either side of the cursor their files are read. `0` turns the preview tier off. | 16 |
+| `full_resolution_neighbours` | How far either side of the image on screen to also decode at full resolution, ready to be zoomed into. Each one is a whole decoded photograph in memory. `0` turns that off. | 1 |
 | `upload_budget_ms` | How long a frame may spend moving decoded images onto the GPU. | 8 |
 
-A decoded image costs `width × height × 4` bytes: about 96 MB for a 24
-megapixel photograph, plus the screen sized copy that is what actually gets
-uploaded. The default budget therefore holds roughly 30 of them.
+A screen sized copy costs `width × height × 4` bytes at the size of your
+monitor: about 11 MB for a 24 megapixel photograph on a 1080p screen, so the
+default budget holds a couple of hundred of them. A quarter of the budget is
+set aside for the full resolution copies, which are 96 MB each.
 
 ### General
 
@@ -278,7 +294,7 @@ uploaded. The default budget therefore holds roughly 30 of them.
 
 | Key | Meaning | Default |
 |-----|---------|---------|
-| `nr_loaded_images` | Images decoded either side of the one on screen | 64 |
+| `nr_loaded_images` | Images decoded either side of the one on screen. Trimmed to what the RAM budget can hold, so the default is deliberately more than any budget will grant. | 512 |
 | `gpu_resident_images` | Images kept as GPU textures | 8 |
 | `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. Unrelated to the screen sized copy, which is worked out from your monitor and needs no setting. | 0 |
 | `nr_images_shown` | Images displayed side by side | 1 |
@@ -357,10 +373,15 @@ viewer logs that it is showing previews instead.
 | H / V | Fit horizontal / vertical |
 | Alt + 1 | 100% magnification |
 | Space | Zoom step |
+| + / - | Zoom in or out |
 | Ctrl + Scroll | Zoom |
+| W A S D | Pan, while the key is held |
 | Drag | Pan |
 | G | Toggle the white frame |
-| + / - | More or fewer images side by side |
+| Ctrl + / Ctrl - | More or fewer images side by side |
+
+Zoom and pan belong to the image, not to the window: leaving a photograph
+half way into a corner and coming back to it later finds it exactly there.
 
 ### Grid view
 

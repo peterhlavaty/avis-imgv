@@ -94,11 +94,10 @@ fn show_one(
 
     let metrics = canvas::draw(ui, texture, viewport, frame);
 
-    // Zoomed in past what the screen sized copy holds, or standing in with a
-    // thumbnail: either way the image itself is now worth its upload.
-    if texture.is_short_for(metrics.drawn_width) {
-        store.upload_full(index);
-    }
+    // How wide it ended up being drawn decides which copy of it should be on
+    // the GPU: the screen sized one while it fits, the image's own pixels once
+    // the user magnifies past that.
+    store.set_drawn_width(index, metrics.drawn_width);
 
     Some(metrics)
 }

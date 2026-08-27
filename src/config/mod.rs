@@ -109,6 +109,8 @@ pub struct CacheConfig {
     /// spinner. Zero turns that off.
     #[serde(default = "default_previews_resident")]
     pub previews_resident: usize,
+    #[serde(default = "default_full_resolution_neighbours")]
+    pub full_resolution_neighbours: usize,
     /// How long a frame may spend moving decoded images onto the GPU.
     ///
     /// A 24 megapixel texture takes about 12ms, so this is the difference
@@ -195,6 +197,20 @@ pub struct ImageViewConfig {
     pub sc_more_images_shown: Shortcut,
     #[serde(default = "default_sc_less_images_shown")]
     pub sc_less_images_shown: Shortcut,
+    #[serde(default = "default_sc_zoom_in")]
+    pub sc_zoom_in: Shortcut,
+    #[serde(default = "default_sc_zoom_out")]
+    pub sc_zoom_out: Shortcut,
+    /// Held rather than tapped: panning follows the key for as long as it is
+    /// down, which is why these are read separately from the shortcuts.
+    #[serde(default = "default_sc_pan_up")]
+    pub sc_pan_up: Shortcut,
+    #[serde(default = "default_sc_pan_down")]
+    pub sc_pan_down: Shortcut,
+    #[serde(default = "default_sc_pan_left")]
+    pub sc_pan_left: Shortcut,
+    #[serde(default = "default_sc_pan_right")]
+    pub sc_pan_right: Shortcut,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -290,6 +306,12 @@ impl Default for ImageViewConfig {
             sc_latch_fit_maximize: default_sc_latch_fit_maximize(),
             sc_more_images_shown: default_sc_more_images_shown(),
             sc_less_images_shown: default_sc_less_images_shown(),
+            sc_zoom_in: default_sc_zoom_in(),
+            sc_zoom_out: default_sc_zoom_out(),
+            sc_pan_up: default_sc_pan_up(),
+            sc_pan_down: default_sc_pan_down(),
+            sc_pan_left: default_sc_pan_left(),
+            sc_pan_right: default_sc_pan_right(),
         }
     }
 }
@@ -340,6 +362,7 @@ impl Default for CacheConfig {
             ram_budget_mb: default_ram_budget_mb(),
             decode_threads: default_decode_threads(),
             previews_resident: default_previews_resident(),
+            full_resolution_neighbours: default_full_resolution_neighbours(),
             upload_budget_ms: default_upload_budget_ms(),
         }
     }

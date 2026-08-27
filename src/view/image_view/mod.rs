@@ -3,8 +3,10 @@
 pub mod bottom_bar;
 pub mod canvas;
 pub mod input;
+pub mod interaction;
 pub mod layout;
 pub mod slideshow;
+pub mod viewports;
 pub mod zoom;
 
 use std::path::{Path, PathBuf};
@@ -14,7 +16,7 @@ use eframe::egui::{self, Response};
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::{Color32, Vec2};
 
-use crate::actions::{self, Callback};
+use crate::actions::Callback;
 use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
 use crate::config::{ImageViewConfig, SlideshowConfig};
@@ -25,6 +27,7 @@ use canvas::{FrameStyle, Metrics, Viewport};
 use input::Command;
 use layout::BACKGROUND;
 use slideshow::Slideshow;
+use viewports::Viewports;
 
 /// Most images the view will place side by side. Beyond a handful they are too
 /// small to read, and each one costs a texture.
@@ -36,6 +39,9 @@ pub struct ImageView {
     viewport: Viewport,
     frame: FrameStyle,
     metrics: Metrics,
+    /// Where the user got to in each image they zoomed, so coming back to one
+    /// shows the same corner at the same magnification.
+    viewports: Viewports,
     images_shown: usize,
     jump_to: String,
     callback: Option<Callback>,
@@ -69,6 +75,7 @@ impl ImageView {
                 relative_size: config.frame_size_relative_to_image,
             },
             metrics: Metrics::default(),
+            viewports: Viewports::default(),
             images_shown: config.nr_images_shown.clamp(1, MAX_IMAGES_SHOWN),
             jump_to: String::new(),
             callback: None,
@@ -85,6 +92,7 @@ impl ImageView {
             .unwrap_or(0);
 
         self.store.set_paths(paths);
+        self.viewports.clear();
         self.select(selected);
     }
 
@@ -114,6 +122,10 @@ impl ImageView {
     }
 
     /// Moves to `index`, which is where the caches centre themselves.
+    ///
+    /// The image being left keeps its zoom and pan, and the one arrived at
+    /// gets whatever it was left at, so a folder can be walked without losing
+    /// the place found in each picture.
     pub fn select(&mut self, index: usize) {
         let previous = self.cursor;
         self.cursor = if self.store.is_empty() {
@@ -124,11 +136,23 @@ impl ImageView {
 
         self.store.set_cursor(self.cursor);
 
-        if self.cursor != previous {
-            self.viewport.reset_for_new_image();
-            if let Some(slideshow) = &mut self.slideshow {
-                slideshow.restart();
-            }
+        if self.cursor == previous {
+            return;
+        }
+
+        // Cloned rather than borrowed: the viewports outlive the borrow of
+        // the store that produced the path.
+        if let Some(path) = self.store.path(previous).map(Path::to_path_buf) {
+            self.viewports.save(&path, &self.viewport);
+        }
+
+        self.viewport.reset_for_new_image();
+        if let Some(path) = self.active_path() {
+            self.viewports.restore(&path, &mut self.viewport);
+        }
+
+        if let Some(slideshow) = &mut self.slideshow {
+            slideshow.restart();
         }
     }
 
@@ -145,6 +169,7 @@ impl ImageView {
         };
 
         self.store.remove(index);
+        self.viewports.forget(path);
         self.select(self.cursor.min(self.store.len().saturating_sub(1)));
     }
 
@@ -224,6 +249,7 @@ impl ImageView {
             Command::FitHorizontal => zoom::fit_horizontal(&mut self.viewport, &self.metrics),
             Command::FitVertical => zoom::fit_vertical(&mut self.viewport, &self.metrics),
             Command::ZoomStep => zoom::step(&mut self.viewport),
+            Command::ZoomBy(factor) => zoom::by(&mut self.viewport, factor),
             Command::ZoomToPercent(percent) => {
                 zoom::to_percent(&mut self.viewport, &self.metrics, percent)
             }
@@ -248,24 +274,6 @@ impl ImageView {
             )
     }
 
-    fn run_user_action(&mut self, index: usize, ctx: &egui::Context) {
-        let (Some(action), Some(path)) = (self.config.user_actions.get(index), self.active_path())
-        else {
-            return;
-        };
-
-        if !actions::execute(&action.exec, &path) {
-            return;
-        }
-
-        if let Some(callback) = action.callback.clone() {
-            self.callback = Some(Callback::from_callback(callback, Some(path)));
-        }
-
-        ctx.request_repaint();
-    }
-
-    /// Lays out the visible images side by side and draws each.
     fn show_images(&mut self, ctx: &egui::Context) -> Response {
         let background = self.background_colour();
         let shown = layout::show(
@@ -347,47 +355,6 @@ impl ImageView {
     }
 
     /// Scroll and drag over the image: navigation, zoom and panning.
-    fn handle_pointer(&mut self, ctx: &egui::Context, response: &Response) {
-        let hovered = response.contains_pointer();
-
-        if self.config.scroll_navigation {
-            if let Some(command) = input::scroll_navigation(ctx, hovered) {
-                self.apply(command, ctx);
-            }
-        }
-
-        let zoom_delta = ctx.input(|i| i.zoom_delta());
-        if zoom_delta != 1.0 {
-            zoom::by(&mut self.viewport, zoom_delta);
-        }
-
-        if !hovered {
-            // Losing the pointer mid-scroll would otherwise leave the last
-            // delta applied every frame.
-            self.viewport.scroll_delta = Vec2::ZERO;
-            return;
-        }
-
-        let mut delta = ctx.input(|i| i.smooth_scroll_delta);
-        if ctx.input(|i| i.pointer.is_decidedly_dragging()) {
-            delta += ctx.input(|i| i.pointer.delta()) * ctx.pixels_per_point();
-        }
-
-        self.viewport.scroll_delta = delta;
-    }
-
-    fn handle_context_menu(&mut self, response: &Response) {
-        let Some(path) = self.active_path() else {
-            return;
-        };
-
-        if let Some(callback) =
-            actions::show_context_menu(&self.config.context_menu, response, &path)
-        {
-            self.callback = Some(Callback::from_callback(callback, Some(path)));
-        }
-    }
-
     fn run_slideshow(&mut self, ctx: &egui::Context) {
         let Some(slideshow) = &mut self.slideshow else {
             return;

@@ -1,10 +1,15 @@
 //! The store itself: what is on disk, what is decoded, what is on the GPU.
 
+mod decode;
+mod detail;
+mod previews;
+
+pub use detail::Detail;
+
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::time::Instant;
 
 use eframe::egui_wgpu::RenderState;
 
@@ -12,7 +17,7 @@ use crate::decoder::DecodeOptions;
 use crate::metadata::Metadata;
 
 use super::gpu::{GpuCache, GpuTexture};
-use super::loader::{Focus, ImageKey, LoadResult, Loaded, Loader};
+use super::loader::{Focus, LoadResult, Loaded, Loader};
 use super::policy;
 use super::preview::{self, PreviewLoader};
 use super::ram::RamCache;
@@ -23,6 +28,14 @@ use super::{ImageState, StoreConfig, StoreStats};
 /// Coarse on purpose: a resized window should not invalidate what is already
 /// decoded, and half a step of extra resolution costs almost nothing.
 const DISPLAY_EDGE_STEP: u32 = 512;
+
+/// Share of the RAM budget spent on full resolution copies.
+///
+/// The screen sized copies are the point of the budget — they are what lets a
+/// whole folder stay resident — so the copies kept for zooming get a slice
+/// rather than a half. A quarter of four gigabytes still holds several 24
+/// megapixel images, which is more than the three that are always wanted.
+const FULL_RESOLUTION_SHARE: usize = 4;
 
 /// One collection of images and everything cached about it.
 pub struct ImageStore {
@@ -40,6 +53,14 @@ pub struct ImageStore {
     responder: Sender<LoadResult>,
     requested: HashSet<usize>,
     failed: HashSet<usize>,
+    /// The images near the cursor at their own resolution, ready to be zoomed
+    /// into. Bounded by its own slice of the budget, so an image the user
+    /// zoomed into and left behind stays until something nearer needs the
+    /// room.
+    full: RamCache,
+    full_results: Receiver<LoadResult>,
+    full_responder: Sender<LoadResult>,
+    full_requested: HashSet<usize>,
     /// The camera's thumbnails, which stand in for images still being decoded.
     previews: GpuCache,
     preview_loader: PreviewLoader,
@@ -62,7 +83,14 @@ impl ImageStore {
         let gpu = GpuCache::new(render_state.clone(), config.gpu_resident);
         let previews = GpuCache::new(render_state, config.previews_resident.max(1));
         let (responder, results) = channel();
+        let (full_responder, full_results) = channel();
         let (preview_responder, preview_results) = preview::channel_pair();
+
+        let full_budget = if config.full_resolution_neighbours > 0 {
+            config.ram_budget_bytes / FULL_RESOLUTION_SHARE
+        } else {
+            0
+        };
 
         // A texture larger than the adapter allows cannot be uploaded at all,
         // so the hardware limit always wins over the configured one.
@@ -78,7 +106,7 @@ impl ImageStore {
             options: DecodeOptions::new(output_profile)
                 .with_max_edge(max_edge)
                 .with_raw(config.raw),
-            ram: RamCache::new(config.ram_budget_bytes),
+            ram: RamCache::new(config.ram_budget_bytes - full_budget),
             gpu,
             loader,
             focus: Arc::new(Focus::default()),
@@ -86,6 +114,10 @@ impl ImageStore {
             responder,
             requested: HashSet::new(),
             failed: HashSet::new(),
+            full: RamCache::new(full_budget),
+            full_results,
+            full_responder,
+            full_requested: HashSet::new(),
             previews,
             preview_loader: PreviewLoader::new(),
             preview_results,
@@ -121,14 +153,17 @@ impl ImageStore {
         self.loader.clear();
         self.preview_loader.clear();
         self.ram.clear();
+        self.full.clear();
         self.gpu.clear();
         self.previews.clear();
         self.requested.clear();
+        self.full_requested.clear();
         self.preview_requested.clear();
         self.failed.clear();
 
         // Drain results belonging to the previous collection.
         while self.results.try_recv().is_ok() {}
+        while self.full_results.try_recv().is_ok() {}
         while self.preview_results.try_recv().is_ok() {}
 
         self.focus.set_collection(self.generation, self.paths.len());
@@ -166,27 +201,6 @@ impl ImageStore {
         }
     }
 
-    /// Replaces the resident texture for `index` with the image at its own
-    /// resolution.
-    ///
-    /// Called when the view notices it is drawing an image larger than what
-    /// has been uploaded. Does nothing if the full resolution is already up,
-    /// so it is safe to call every frame.
-    pub fn upload_full(&mut self, index: usize) {
-        if self.gpu.get(index).is_some_and(|texture| texture.is_full()) {
-            return;
-        }
-
-        let Some(image) = self.ram.get(index).cloned() else {
-            return;
-        };
-
-        tracing::debug!("{} -> uploading at full resolution", image.file_name());
-        self.gpu
-            .upload_full(index, &image, self.cursor, self.paths.len());
-        self.previews.remove(index);
-    }
-
     /// One frame's worth of cache maintenance: collect finished work, queue
     /// what is missing, and move decoded images onto the GPU.
     ///
@@ -194,11 +208,12 @@ impl ImageStore {
     /// a repaint.
     pub fn tick(&mut self) -> bool {
         let collected = self.collect_results();
+        let detailed = self.collect_full();
         let scanned = self.collect_previews();
         self.request_window();
         let uploaded = self.upload_window();
 
-        collected || scanned || uploaded
+        collected || detailed || scanned || uploaded
     }
 
     /// State of one image, for the UI to decide between drawing and waiting.
@@ -263,9 +278,11 @@ impl ImageStore {
     /// Forgets everything cached about one image so it is decoded again.
     pub fn reload(&mut self, index: usize) {
         self.ram.remove(index);
+        self.full.remove(index);
         self.gpu.remove(index);
         self.previews.remove(index);
         self.requested.remove(&index);
+        self.full_requested.remove(&index);
         self.preview_requested.remove(&index);
         self.failed.remove(&index);
 
@@ -283,9 +300,11 @@ impl ImageStore {
 
         self.paths.remove(index);
         self.ram.remove_shifting(index);
+        self.full.remove_shifting(index);
         self.gpu.remove_shifting(index);
         self.previews.remove_shifting(index);
         self.requested = shift_indices(&self.requested, index);
+        self.full_requested = shift_indices(&self.full_requested, index);
         self.preview_requested = shift_indices(&self.preview_requested, index);
         self.failed = shift_indices(&self.failed, index);
 
@@ -297,9 +316,10 @@ impl ImageStore {
         StoreStats {
             total: self.paths.len(),
             in_ram: self.ram.len(),
+            at_full_resolution: self.full.len(),
             on_gpu: self.gpu.len(),
-            resident_bytes: self.ram.resident_bytes(),
-            budget_bytes: self.ram.budget_bytes(),
+            resident_bytes: self.ram.resident_bytes() + self.full.resident_bytes(),
+            budget_bytes: self.ram.budget_bytes() + self.full.budget_bytes(),
             loading: self.requested.len(),
             failed: self.failed.len(),
         }
@@ -317,198 +337,6 @@ impl ImageStore {
             self.ram.resident_bytes(),
             self.ram.len(),
         )
-    }
-
-    /// The images a thumbnail is worth reading for.
-    ///
-    /// Much narrower than the decode window: a thumbnail only earns its keep
-    /// in the moment between an image being asked for and its decode landing,
-    /// and reading the front of every file in a wide window would take disk
-    /// bandwidth away from the decoders that actually need it.
-    fn preview_window(&self) -> Vec<usize> {
-        policy::window(
-            self.cursor,
-            self.paths.len(),
-            self.config.previews_resident / 2,
-        )
-    }
-
-    /// Reads the front of the files around the cursor, which gives their
-    /// metadata and a thumbnail long before a decoder gets to them.
-    fn request_previews(&mut self) {
-        if self.config.previews_resident == 0 {
-            return;
-        }
-
-        for index in &self.preview_window() {
-            // Once the real image is decoded a thumbnail is no longer wanted.
-            if self.preview_requested.contains(index) || self.ram.contains(*index) {
-                continue;
-            }
-
-            let Some(path) = self.paths.get(*index) else {
-                continue;
-            };
-
-            self.preview_requested.insert(*index);
-            self.preview_loader.submit(
-                ImageKey {
-                    generation: self.generation,
-                    index: *index,
-                },
-                path.clone(),
-                self.preview_responder.clone(),
-            );
-        }
-    }
-
-    /// Takes in the previews that have been read.
-    fn collect_previews(&mut self) -> bool {
-        let mut collected = false;
-        let total = self.paths.len();
-
-        while let Ok(read) = self.preview_results.try_recv() {
-            if read.key.generation != self.generation {
-                continue;
-            }
-
-            let index = read.key.index;
-            if let Some(path) = self.paths.get(index) {
-                self.scanned
-                    .insert(path.clone(), read.preview.metadata.clone());
-            }
-
-            // The real image may have arrived while this was being read.
-            if read.preview.has_image() && !self.gpu.contains(index) {
-                self.previews
-                    .upload_preview(index, &read.preview, self.cursor, total);
-            }
-
-            collected = true;
-        }
-
-        collected
-    }
-
-    /// Queues everything in the window that is neither cached nor in flight.
-    fn request_window(&mut self) {
-        let window = self.window();
-        if window.is_empty() {
-            return;
-        }
-
-        // Previews first: they are cheap, they run on a thread of their own,
-        // and they are what puts something on screen.
-        self.request_previews();
-
-        // Requests decoded past the window are dropped by the workers.
-        self.focus.set_position(self.cursor, window.len());
-
-        for (priority, index) in window.into_iter().enumerate() {
-            if self.ram.contains(index)
-                || self.requested.contains(&index)
-                || self.failed.contains(&index)
-            {
-                continue;
-            }
-
-            let Some(path) = self.paths.get(index) else {
-                continue;
-            };
-
-            self.requested.insert(index);
-            self.loader.submit(
-                ImageKey {
-                    generation: self.generation,
-                    index,
-                },
-                priority + self.config.priority_bias,
-                path.clone(),
-                self.options.clone(),
-                Arc::clone(&self.focus),
-                self.responder.clone(),
-            );
-        }
-    }
-
-    /// Moves finished decodes into the RAM cache.
-    fn collect_results(&mut self) -> bool {
-        let mut collected = false;
-
-        while let Ok(result) = self.results.try_recv() {
-            if result.key.generation != self.generation {
-                continue;
-            }
-
-            let index = result.key.index;
-            self.requested.remove(&index);
-
-            match result.outcome {
-                Loaded::Decoded(image) => {
-                    self.ram
-                        .insert(index, Arc::new(image), self.cursor, self.paths.len());
-                    collected = true;
-                }
-                Loaded::Failed(_) => {
-                    // The worker already logged the reason.
-                    self.failed.insert(index);
-                    collected = true;
-                }
-                // Nothing was decoded, and taking it out of `requested` above
-                // is the whole point: the image can be asked for again if it
-                // is still wanted.
-                Loaded::Abandoned => {}
-            }
-        }
-
-        collected
-    }
-
-    /// Uploads the nearest decoded images that are not yet resident, within
-    /// this frame's budget.
-    fn upload_window(&mut self) -> bool {
-        let total = self.paths.len();
-        if total == 0 {
-            return false;
-        }
-
-        // Nearest first, so the per-frame budget is spent where it shows.
-        let wanted = policy::window(self.cursor, total, self.gpu.capacity() / 2);
-        let resident: HashSet<usize> = wanted.iter().copied().collect();
-
-        // Textures outside the window are dropped so capacity is spent on what
-        // the user is about to see rather than on where they have been.
-        self.gpu.retain(|index| resident.contains(&index));
-
-        // Thumbnails are kept over the same narrow window they are read for.
-        let previewed: HashSet<usize> = self.preview_window().into_iter().collect();
-        self.previews.retain(|index| previewed.contains(&index));
-
-        let started = Instant::now();
-        let mut uploaded = 0;
-
-        for index in wanted {
-            if self.gpu.contains(index) {
-                continue;
-            }
-
-            let Some(image) = self.ram.get(index).cloned() else {
-                continue;
-            };
-
-            self.gpu.upload(index, &image, self.cursor, total);
-            // The thumbnail has been superseded; its texture is dead weight.
-            self.previews.remove(index);
-            uploaded += 1;
-
-            // Always upload one, so a budget smaller than a single image
-            // still makes progress, and stop once the frame has spent enough.
-            if started.elapsed() >= self.config.upload_budget {
-                break;
-            }
-        }
-
-        uploaded > 0
     }
 }
 

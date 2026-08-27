@@ -74,6 +74,13 @@ pub fn cache_stats(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreSta
         });
     }
 
+    if images.at_full_resolution > 0 {
+        ui.label(format!(
+            "{} ready to zoom into at full resolution",
+            images.at_full_resolution
+        ));
+    }
+
     ui.label(format!(
         "{} of {} budget",
         format_mib(images.resident_bytes + thumbnails.resident_bytes),

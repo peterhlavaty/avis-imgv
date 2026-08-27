@@ -24,6 +24,14 @@ pub fn default_previews_resident() -> usize {
     16
 }
 
+/// The image on screen and the two a single key press away.
+///
+/// Each of these is a full sized decode held in memory, so this is a number to
+/// raise only if there is memory going spare.
+pub fn default_full_resolution_neighbours() -> usize {
+    1
+}
+
 /// Half a frame at sixty a second, which leaves the rest for drawing.
 pub fn default_upload_budget_ms() -> u64 {
     8
@@ -66,8 +74,14 @@ pub fn default_sc_watch_directory() -> Shortcut {
 }
 
 //Image view
+
+/// Deliberately more than any budget will grant: what is actually held is
+/// trimmed to what fits, so this only has to be large enough not to be the
+/// limit itself. A screen sized copy of a 24 megapixel photograph is eleven
+/// megabytes, so a four gigabyte budget reaches a couple of hundred images —
+/// most folders, entirely resident.
 pub fn default_nr_loaded_images() -> usize {
-    64
+    512
 }
 pub fn default_gpu_resident_images() -> usize {
     8
@@ -150,11 +164,34 @@ pub fn default_sc_latch_fit_maximize() -> Shortcut {
 pub fn default_nr_images_shown() -> usize {
     1
 }
+/// Plus and minus belong to the zoom, so showing more images side by side
+/// moved onto the same keys with control held.
 pub fn default_sc_more_images_shown() -> Shortcut {
-    Shortcut::new("Plus", &[])
+    Shortcut::new("Plus", &[MOD_CTRL])
 }
 pub fn default_sc_less_images_shown() -> Shortcut {
+    Shortcut::new("Minus", &[MOD_CTRL])
+}
+pub fn default_sc_zoom_in() -> Shortcut {
+    Shortcut::new("Plus", &[])
+}
+pub fn default_sc_zoom_out() -> Shortcut {
     Shortcut::new("Minus", &[])
+}
+
+/// The four keys under the left hand, which is where they are wanted: the
+/// right hand is on the mouse or the arrow keys.
+pub fn default_sc_pan_up() -> Shortcut {
+    Shortcut::new("w", &[])
+}
+pub fn default_sc_pan_down() -> Shortcut {
+    Shortcut::new("s", &[])
+}
+pub fn default_sc_pan_left() -> Shortcut {
+    Shortcut::new("a", &[])
+}
+pub fn default_sc_pan_right() -> Shortcut {
+    Shortcut::new("d", &[])
 }
 
 //Multi Gallery
