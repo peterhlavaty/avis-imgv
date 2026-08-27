@@ -37,6 +37,8 @@ pub struct StoreConfig {
     /// The decode pool is shared, so this is how a store that is merely
     /// warming up in the background yields to the one the user is looking at.
     pub priority_bias: usize,
+    /// What to do with camera raw files.
+    pub raw: crate::decoder::raw::Options,
 }
 
 impl Default for StoreConfig {
@@ -48,6 +50,7 @@ impl Default for StoreConfig {
             max_edge: None,
             uploads_per_frame: 4,
             priority_bias: 0,
+            raw: crate::decoder::raw::Options::default(),
         }
     }
 }

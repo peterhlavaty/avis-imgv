@@ -31,6 +31,11 @@ fn main() {
     init_tracing();
     tracing::info!("Starting avis-imgv with args: {}", args.join(" "));
 
+    match avis_imgv::decoder::raw::version() {
+        Some(version) => tracing::info!("Raw development available, LibRaw {version}"),
+        None => tracing::info!("Built without LibRaw; raw files show their embedded preview"),
+    }
+
     let slideshow = args.iter().any(|arg| arg == "--slideshow");
     let fullscreen = args.iter().any(|arg| arg == "--fullscreen");
 

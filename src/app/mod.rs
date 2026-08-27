@@ -1,9 +1,9 @@
 //! The application: which folder is open, which view shows it, and the wiring
 //! between them.
 
-pub mod budget;
 pub mod input;
 pub mod panels;
+pub mod stores;
 pub mod tagging;
 pub mod watcher;
 
@@ -71,8 +71,8 @@ impl App {
 
         let loader = Arc::new(Loader::new(config.cache.decode_threads));
         let output_profile: Arc<str> = Arc::from(config.general.output_icc_profile.as_str());
-        let image_budget = budget::image_store(&config.cache, &config.image_view);
-        let thumbnail_budget = budget::thumbnail_store(&config.cache, &config.grid_view);
+        let image_budget = stores::image_store(&config.cache, &config.image_view, &config.raw);
+        let thumbnail_budget = stores::thumbnail_store(&config.cache, &config.grid_view);
 
         let (mut paths, opened) = crawler::paths_from_args();
         paths.sort();

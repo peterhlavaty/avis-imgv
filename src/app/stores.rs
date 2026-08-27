@@ -1,7 +1,10 @@
-//! Turning the configuration into the budgets each store runs on.
+//! Turning the configuration into the settings each store runs on.
 
 use crate::cache::StoreConfig;
-use crate::config::{CacheConfig, GridViewConfig, ImageViewConfig};
+use crate::config::{
+    CacheConfig, GridViewConfig, ImageViewConfig, RawConfig, RawQuality, RawSource,
+};
+use crate::decoder::raw;
 
 /// Share of the RAM budget the thumbnail grid may use.
 ///
@@ -23,8 +26,8 @@ const VISIBLE_ROWS: usize = 8;
 /// at is never behind a thumbnail in the queue.
 const THUMBNAIL_PRIORITY_BIAS: usize = 10_000;
 
-/// Budgets for the full size image view.
-pub fn image_store(cache: &CacheConfig, view: &ImageViewConfig) -> StoreConfig {
+/// Settings for the full size image view.
+pub fn image_store(cache: &CacheConfig, view: &ImageViewConfig, raw: &RawConfig) -> StoreConfig {
     StoreConfig {
         ram_budget_bytes: split(cache.ram_budget_mb).0,
         gpu_resident: view.gpu_resident_images,
@@ -32,10 +35,11 @@ pub fn image_store(cache: &CacheConfig, view: &ImageViewConfig) -> StoreConfig {
         max_edge: non_zero(view.max_image_edge),
         uploads_per_frame: cache.uploads_per_frame,
         priority_bias: 0,
+        raw: raw_options(raw),
     }
 }
 
-/// Budgets for the thumbnail grid.
+/// Settings for the thumbnail grid.
 pub fn thumbnail_store(cache: &CacheConfig, view: &GridViewConfig) -> StoreConfig {
     StoreConfig {
         ram_budget_bytes: split(cache.ram_budget_mb).1,
@@ -45,6 +49,24 @@ pub fn thumbnail_store(cache: &CacheConfig, view: &GridViewConfig) -> StoreConfi
         max_edge: non_zero(view.thumbnail_resolution),
         uploads_per_frame: cache.uploads_per_frame,
         priority_bias: THUMBNAIL_PRIORITY_BIAS,
+        // Thumbnails always come from the embedded preview. Developing a
+        // whole folder of raws to fill a contact sheet would take minutes.
+        raw: raw::Options::default(),
+    }
+}
+
+/// Translates the raw settings into what the developer takes.
+fn raw_options(raw: &RawConfig) -> raw::Options {
+    raw::Options {
+        develop: raw.source == RawSource::Develop,
+        demosaic: match raw.quality {
+            RawQuality::Fast => raw::Demosaic::Fast,
+            RawQuality::Balanced => raw::Demosaic::Balanced,
+            RawQuality::Best => raw::Demosaic::Best,
+        },
+        camera_white_balance: raw.camera_white_balance,
+        auto_brighten: raw.auto_brighten,
+        highlight_mode: raw.highlight_mode,
     }
 }
 
@@ -115,7 +137,7 @@ mod tests {
     #[test]
     fn thumbnails_yield_to_full_size_images() {
         let cache = CacheConfig::default();
-        let images = image_store(&cache, &ImageViewConfig::default());
+        let images = image_store(&cache, &ImageViewConfig::default(), &RawConfig::default());
         let thumbnails = thumbnail_store(&cache, &GridViewConfig::default());
 
         // The furthest full size image must still outrank the nearest
@@ -124,9 +146,46 @@ mod tests {
     }
 
     #[test]
+    fn the_grid_never_develops_raws() {
+        let developing = RawConfig {
+            source: RawSource::Develop,
+            ..Default::default()
+        };
+
+        assert!(
+            image_store(
+                &CacheConfig::default(),
+                &ImageViewConfig::default(),
+                &developing
+            )
+            .raw
+            .develop
+        );
+        assert!(
+            !thumbnail_store(&CacheConfig::default(), &GridViewConfig::default())
+                .raw
+                .develop
+        );
+    }
+
+    #[test]
+    fn the_quality_setting_reaches_the_developer() {
+        let best = RawConfig {
+            quality: RawQuality::Best,
+            ..Default::default()
+        };
+
+        assert_eq!(raw_options(&best).demosaic, raw::Demosaic::Best);
+        assert_eq!(
+            raw_options(&RawConfig::default()).demosaic,
+            raw::Demosaic::Balanced
+        );
+    }
+
+    #[test]
     fn the_two_stores_share_one_budget() {
         let cache = CacheConfig::default();
-        let images = image_store(&cache, &ImageViewConfig::default());
+        let images = image_store(&cache, &ImageViewConfig::default(), &RawConfig::default());
         let thumbnails = thumbnail_store(&cache, &GridViewConfig::default());
 
         assert_eq!(

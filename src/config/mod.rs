@@ -19,6 +19,51 @@ pub struct Config {
     pub cache: CacheConfig,
     pub slideshow: SlideshowConfig,
     pub tags: TagConfig,
+    pub raw: RawConfig,
+}
+
+/// What to do with camera raw files.
+#[derive(Deserialize, Serialize, Clone)]
+pub struct RawConfig {
+    /// Whether to show the JPEG preview the camera embedded, or develop the
+    /// sensor data. Developing gives the full resolution and dynamic range and
+    /// costs about a second per image.
+    #[serde(default = "default_raw_source")]
+    pub source: RawSource,
+    /// How much work to spend demosaicing.
+    #[serde(default = "default_raw_quality")]
+    pub quality: RawQuality,
+    /// Use the white balance the camera recorded. Without it colours come out
+    /// noticeably wrong.
+    #[serde(default = "default_camera_white_balance")]
+    pub camera_white_balance: bool,
+    /// Stretch the histogram to use the whole range.
+    #[serde(default = "default_auto_brighten")]
+    pub auto_brighten: bool,
+    /// 0 clips blown highlights, 1 leaves them unclipped, 2 blends, and 3
+    /// upwards rebuild them.
+    #[serde(default = "default_highlight_mode")]
+    pub highlight_mode: u8,
+}
+
+/// Which of the two pictures inside a raw file to show.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RawSource {
+    /// The JPEG the camera embedded: what it showed you on its own screen,
+    /// and almost free to decode.
+    Preview,
+    /// The sensor data, developed.
+    Develop,
+}
+
+/// How much work to spend demosaicing, which is most of the cost.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RawQuality {
+    Fast,
+    Balanced,
+    Best,
 }
 
 /// The star rating and tagging panel.
@@ -254,6 +299,18 @@ impl Default for GridViewConfig {
             sc_scroll: default_sc_scroll(),
             sc_more_per_row: default_sc_more_per_row(),
             sc_less_per_row: default_sc_less_per_row(),
+        }
+    }
+}
+
+impl Default for RawConfig {
+    fn default() -> Self {
+        RawConfig {
+            source: default_raw_source(),
+            quality: default_raw_quality(),
+            camera_white_balance: default_camera_white_balance(),
+            auto_brighten: default_auto_brighten(),
+            highlight_mode: default_highlight_mode(),
         }
     }
 }

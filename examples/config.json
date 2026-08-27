@@ -262,5 +262,12 @@
         "modifiers": []
       }
     ]
+  },
+  "raw": {
+    "source": "preview",
+    "quality": "balanced",
+    "camera_white_balance": true,
+    "auto_brighten": true,
+    "highlight_mode": 0
   }
 }

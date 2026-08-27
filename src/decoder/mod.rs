@@ -8,6 +8,7 @@
 pub mod codec;
 pub mod color;
 pub mod orientation;
+pub mod raw;
 pub mod resize;
 
 use std::fmt;
@@ -70,6 +71,8 @@ pub struct DecodeOptions {
     pub max_edge: Option<u32>,
     /// Name of the display profile to convert into.
     pub output_profile: Arc<str>,
+    /// What to do with camera raw files.
+    pub raw: raw::Options,
 }
 
 impl DecodeOptions {
@@ -77,11 +80,17 @@ impl DecodeOptions {
         Self {
             max_edge: None,
             output_profile,
+            raw: raw::Options::default(),
         }
     }
 
     pub fn with_max_edge(mut self, max_edge: Option<u32>) -> Self {
         self.max_edge = max_edge;
+        self
+    }
+
+    pub fn with_raw(mut self, raw: raw::Options) -> Self {
+        self.raw = raw;
         self
     }
 }
@@ -133,13 +142,25 @@ pub fn decode(
     let format = Format::from_path(path);
     let (mut metadata, preview) = Metadata::parse(bytes, format);
 
-    // Raw files are not developed; their embedded preview is what we show.
-    let (source, source_format) = match preview {
-        Some(preview) => (preview, Some(Format::Jpeg)),
-        None => (bytes, format),
+    let mut image = match develop_raw(bytes, format, options) {
+        Some(developed) => {
+            // The developer applied the camera's orientation and handed back
+            // sRGB, so the two steps below have nothing left to do.
+            metadata.already_developed();
+            developed
+        }
+        // Otherwise a raw shows the preview the camera embedded, and every
+        // other format decodes itself.
+        None => {
+            let (source, source_format) = match preview {
+                Some(preview) => (preview, Some(Format::Jpeg)),
+                None => (bytes, format),
+            };
+
+            codec::decode(source, source_format)?
+        }
     };
 
-    let mut image = codec::decode(source, source_format)?;
     image = resize::to_max_edge(image, options.max_edge);
 
     if !format.is_some_and(Format::ignores_exif_orientation) {
@@ -152,6 +173,25 @@ pub fn decode(
     metadata.add_size_tags(image.width(), image.height());
 
     Ok(into_decoded(image, metadata))
+}
+
+/// Develops a raw file, or returns nothing so the preview is used instead.
+///
+/// A failure is deliberately not fatal: a raw LibRaw cannot read still has a
+/// preview worth showing, and a folder should not become unopenable because
+/// one file in it is unusual.
+fn develop_raw(bytes: &[u8], format: Option<Format>, options: &DecodeOptions) -> Option<RgbaImage> {
+    if format != Some(Format::Raw) || !options.raw.develop {
+        return None;
+    }
+
+    match raw::develop(bytes, &options.raw) {
+        Ok(developed) => Some(developed),
+        Err(e) => {
+            tracing::warn!("Showing the embedded preview instead: {e}");
+            None
+        }
+    }
 }
 
 fn into_decoded(image: RgbaImage, metadata: Metadata) -> DecodedImage {

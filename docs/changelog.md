@@ -2,6 +2,13 @@
 
 ## 2026-08-27
 
+- Raw files can now be developed rather than only previewed. `raw.source` picks
+  between the JPEG the camera embedded, which is free and low resolution, and
+  the sensor data demosaiced with LibRaw, which is full resolution and costs
+  about a second an image. The bindings are hand written against LibRaw's C
+  API; the feature is `libraw` and it is off by default because it links
+  against a system library.
+
 - Added star ratings and tagging. `K` opens a resizable panel with the stars
   for the open image, the tags on it, the tags used most recently, and a
   configurable catalog organised into categories and searchable by either. The

@@ -4,7 +4,7 @@
 //! readable and the shape of the configuration is visible at a glance.
 
 use super::shortcut::{Shortcut, MOD_ALT, MOD_CTRL};
-use super::{ContextMenuEntry, TagCategory, UserAction};
+use super::{ContextMenuEntry, RawQuality, RawSource, TagCategory, UserAction};
 
 /// Four gigabytes of decoded pixels: generous on a modern machine and still
 /// small enough not to push a 16 GB laptop into swap.
@@ -211,6 +211,29 @@ pub fn default_sc_rating() -> Vec<Shortcut> {
     (0..=5)
         .map(|stars| Shortcut::new(&stars.to_string(), &[]))
         .collect()
+}
+
+//Raw
+/// The preview, because it is what makes opening a folder of raws instant.
+/// Developing is a deliberate choice.
+pub fn default_raw_source() -> RawSource {
+    RawSource::Preview
+}
+
+pub fn default_raw_quality() -> RawQuality {
+    RawQuality::Balanced
+}
+
+pub fn default_camera_white_balance() -> bool {
+    true
+}
+
+pub fn default_auto_brighten() -> bool {
+    true
+}
+
+pub fn default_highlight_mode() -> u8 {
+    0
 }
 
 //Slideshow

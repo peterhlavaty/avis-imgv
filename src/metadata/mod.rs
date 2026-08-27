@@ -120,6 +120,17 @@ impl Metadata {
         }
     }
 
+    /// Records that the pixels arrived already upright and already in sRGB,
+    /// which is what a raw developer hands back.
+    ///
+    /// The displayed tags still say what the file says; only the fields the
+    /// pipeline acts on are cleared.
+    pub fn already_developed(&mut self) {
+        self.orientation = Orientation::Normal;
+        self.icc = None;
+        self.insert(PROFILE_DESCRIPTION, "sRGB");
+    }
+
     /// The colour profile name, used to pick an input profile for conversion.
     pub fn profile_description(&self) -> Option<&str> {
         self.tags.get(PROFILE_DESCRIPTION).map(String::as_str)
@@ -356,6 +367,21 @@ mod tests {
         let (metadata, _) = Metadata::parse(&jpeg, Some(Format::Jpeg));
 
         assert_eq!(metadata.xmp.rating, 3);
+    }
+
+    #[test]
+    fn a_developed_image_needs_no_further_transforming() {
+        let mut metadata = Metadata {
+            orientation: Orientation::Rotate90Cw,
+            icc: Some(vec![1, 2, 3]),
+            ..Default::default()
+        };
+
+        metadata.already_developed();
+
+        assert_eq!(metadata.orientation, Orientation::Normal);
+        assert!(metadata.icc.is_none());
+        assert_eq!(metadata.profile_description(), Some("sRGB"));
     }
 
     #[test]

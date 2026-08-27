@@ -88,7 +88,10 @@ the disk.
 ## Dependencies
 
 - A C toolchain for `lcms2` (colour management)
-- `cmake` and a C++ toolchain **only** if you enable the `jxl` feature
+- [LibRaw](https://www.libraw.org/) for the `libraw` feature: `libraw-dev` on
+  Debian and Ubuntu, `libraw` on Arch and Homebrew, `vcpkg install libraw` on
+  Windows
+- `cmake` and a C++ toolchain for the `jxl` feature
 - coreutils, for `install.sh`
 
 No runtime dependency on exiftool.
@@ -101,7 +104,23 @@ With Rust [installed](https://rustup.rs/):
 cargo build --release
 ```
 
-JPEG XL support builds libjxl from source and is therefore off by default:
+Developing raw files rather than showing their embedded preview links against
+LibRaw, so it is a feature you turn on:
+
+```sh
+cargo build --release --features libraw
+```
+
+build.rs looks for LibRaw with pkg-config, then vcpkg, then `LIBRAW_LIB_DIR` if
+you point it somewhere yourself. On Windows that means setting `VCPKG_ROOT`:
+
+```
+set VCPKG_ROOT=C:\path\to\vcpkg
+set VCPKGRS_TRIPLET=x64-windows-static-md
+cargo build --release --features libraw
+```
+
+JPEG XL support builds libjxl from source and is therefore off by default too:
 
 ```sh
 cargo build --release --features jxl
@@ -146,14 +165,34 @@ through libjxl behind the `jxl` feature.
 
 ### Raw files
 
-Raw files are not developed. The viewer extracts and displays the full size JPEG
-preview the camera embedded, which is what you see on the back of the camera and
-is orders of magnitude cheaper to produce than demosaicing. Extraction is native:
-TIFF derived raws are read through their IFD chain, Fuji RAF through its header,
-Canon CR3 through its box tree, and anything unrecognised falls back to a scan
-for the largest embedded JPEG stream.
+A raw file holds two pictures: the JPEG preview the camera embedded, and the
+sensor data it was made from. `raw.source` decides which one you get.
 
-CR3 previews are 1620x1080, which is all Canon stores.
+**`"preview"`** (the default) extracts the embedded JPEG, which is what the
+camera showed you on its own screen and costs almost nothing to decode.
+Extraction is native: TIFF derived raws are read through their IFD chain, Fuji
+RAF through its header, Canon CR3 through its box tree, and anything
+unrecognised falls back to a scan for the largest embedded JPEG stream. The
+catch is resolution — a CR3 preview is 1620x1080, which is all Canon stores.
+
+**`"develop"`** demosaics the sensor data with [LibRaw](https://www.libraw.org/),
+giving the full resolution and the full dynamic range. The same CR3 comes out at
+6022x4024. It costs about a second per image, so it needs the `libraw` feature
+and it is off by default.
+
+The bindings are hand written against LibRaw's C API (`src/decoder/raw/ffi.rs`),
+which keeps `libraw_data_t` opaque: its layout changes between releases while
+the setters and getters do not.
+
+Two things worth knowing about developing:
+
+- Thumbnails always use the preview. Developing a whole folder to fill a
+  contact sheet would take minutes.
+- It is memory hungry. A 24 megapixel raw needs a few hundred megabytes while
+  it is being developed, times however many `cache.decode_threads` are running.
+  Lower that number if the machine starts swapping.
+- If LibRaw cannot read a particular file, the viewer falls back to its preview
+  rather than showing nothing.
 
 ## Colour management
 
@@ -217,6 +256,19 @@ megapixel photograph. The default budget therefore holds roughly 35 of them.
 | `preloaded_rows` | Off-screen rows decoded in each direction | 1 |
 | `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
+
+### Raw
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `source` | `"preview"` shows the JPEG the camera embedded; `"develop"` demosaics the sensor data with LibRaw | `preview` |
+| `quality` | Demosaic effort: `"fast"` is bilinear, `"balanced"` is PPG, `"best"` is AHD | `balanced` |
+| `camera_white_balance` | Use the white balance the camera recorded. Without it colours come out noticeably wrong. | true |
+| `auto_brighten` | Stretch the histogram to use the whole range | true |
+| `highlight_mode` | 0 clips blown highlights, 1 leaves them unclipped, 2 blends, 3 and up rebuild | 0 |
+
+`source: "develop"` needs a build with `--features libraw`; without it the
+viewer logs that it is showing previews instead.
 
 ### Tags
 
@@ -322,3 +374,7 @@ at another one.
 `cargo run --example dump_metadata -- <path>...` prints everything the metadata
 reader finds in a file, which is the quickest way to compare against exiftool
 when adding tags.
+
+`cargo run --features libraw --example develop_raw -- <path>...` develops a raw
+at each quality setting and reports the size and the time, which is how to see
+what the setting is worth on your own files and your own machine.

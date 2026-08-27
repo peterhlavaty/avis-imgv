@@ -56,7 +56,9 @@ impl ImageStore {
             paths: Vec::new(),
             generation: 0,
             cursor: 0,
-            options: DecodeOptions::new(output_profile).with_max_edge(max_edge),
+            options: DecodeOptions::new(output_profile)
+                .with_max_edge(max_edge)
+                .with_raw(config.raw),
             ram: RamCache::new(config.ram_budget_bytes),
             gpu,
             loader,
