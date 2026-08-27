@@ -191,5 +191,76 @@
     "percent_zoom": 25.0,
     "start_with_frame_enabled": false,
     "image_frame_background_color_override": null
+  },
+  "tags": {
+    "categories": [
+      {
+        "name": "Status",
+        "tags": [
+          "Keeper",
+          "Portfolio",
+          "To edit",
+          "Sent",
+          "Reject"
+        ]
+      },
+      {
+        "name": "Subject",
+        "tags": [
+          "Portrait",
+          "Landscape",
+          "Macro",
+          "Wildlife",
+          "Architecture"
+        ]
+      },
+      {
+        "name": "Places",
+        "tags": [
+          "Slovakia",
+          "Tatras",
+          "Bratislava"
+        ]
+      },
+      {
+        "name": "Client",
+        "tags": [
+          "Personal",
+          "Commissioned"
+        ]
+      }
+    ],
+    "recent_tags": 12,
+    "panel_width": 260.0,
+    "sc_toggle_tag_panel": {
+      "key": "k",
+      "modifiers": []
+    },
+    "sc_rating": [
+      {
+        "key": "0",
+        "modifiers": []
+      },
+      {
+        "key": "1",
+        "modifiers": []
+      },
+      {
+        "key": "2",
+        "modifiers": []
+      },
+      {
+        "key": "3",
+        "modifiers": []
+      },
+      {
+        "key": "4",
+        "modifiers": []
+      },
+      {
+        "key": "5",
+        "modifiers": []
+      }
+    ]
   }
 }

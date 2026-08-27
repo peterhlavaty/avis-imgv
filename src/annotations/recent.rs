@@ -20,6 +20,15 @@ pub struct RecentTags {
 }
 
 impl RecentTags {
+    /// An empty list that is never read from disk.
+    pub fn with_limit(limit: usize) -> RecentTags {
+        RecentTags {
+            tags: VecDeque::new(),
+            limit: limit.max(1),
+            dirty: false,
+        }
+    }
+
     /// Loads the list, or starts an empty one if there is nothing to load.
     pub fn load(limit: usize) -> RecentTags {
         let tags = path()
@@ -27,11 +36,7 @@ impl RecentTags {
             .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
             .unwrap_or_default();
 
-        let mut recent = RecentTags {
-            tags: VecDeque::new(),
-            limit: limit.max(1),
-            dirty: false,
-        };
+        let mut recent = RecentTags::with_limit(limit);
 
         // Rebuilt through `remember` so a hand-edited file cannot exceed the
         // limit or hold duplicates.
@@ -109,11 +114,7 @@ mod tests {
 
     /// A list that is never read from or written to disk.
     fn detached(limit: usize) -> RecentTags {
-        RecentTags {
-            tags: VecDeque::new(),
-            limit,
-            dirty: false,
-        }
+        RecentTags::with_limit(limit)
     }
 
     #[test]
@@ -167,7 +168,7 @@ mod tests {
 
     #[test]
     fn a_zero_limit_still_holds_one() {
-        let mut recent = detached(1);
+        let mut recent = detached(0);
         recent.remember("A");
 
         assert_eq!(recent.tags().count(), 1);

@@ -25,6 +25,8 @@ pub struct Status<'a> {
     pub total: usize,
     pub name: String,
     pub percentage_zoom: f32,
+    /// Stars on the image, so rating it with the panel closed still shows.
+    pub rating: u8,
     pub flags: Flags,
 }
 
@@ -61,6 +63,10 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     }
                 }
 
+                if status.rating > 0 {
+                    ui.label(stars(status.rating));
+                }
+
                 // Leave room for the zoom controls pinned to the right.
                 let name_width = (ui.available_width() - 245.).max(20.);
                 ui.add_sized(
@@ -85,6 +91,12 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
         });
 
     outcome
+}
+
+/// A rating as filled stars, without the empty ones: the bar is a summary,
+/// not a control.
+fn stars(rating: u8) -> String {
+    "★".repeat(rating as usize)
 }
 
 fn jump_field(ui: &mut egui::Ui, status: &mut Status<'_>) -> Option<usize> {
@@ -138,4 +150,16 @@ fn zoom_label(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
     });
 
     commands
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_rating_is_shown_as_filled_stars() {
+        assert_eq!(stars(0), "");
+        assert_eq!(stars(3), "★★★");
+        assert_eq!(stars(5).chars().count(), 5);
+    }
 }

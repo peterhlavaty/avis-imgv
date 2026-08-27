@@ -177,7 +177,10 @@ impl ImageView {
     }
 
     /// Draws the view and services its caches.
-    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags) {
+    ///
+    /// `rating` is the star rating of the image on screen, which the status
+    /// bar shows so rating with the panel closed is not silent.
+    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags, rating: u8) {
         if self.warm() {
             ctx.request_repaint();
         }
@@ -187,7 +190,7 @@ impl ImageView {
         }
 
         if self.slideshow.is_none() {
-            self.show_bottom_bar(ctx, flags);
+            self.show_bottom_bar(ctx, flags, rating);
         }
 
         let response = self.show_images(ctx);
@@ -283,7 +286,7 @@ impl ImageView {
             .unwrap_or(BACKGROUND)
     }
 
-    fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags) {
+    fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags, rating: u8) {
         let name = self.display_name();
         let total = self.store.len();
         let mut status = Status {
@@ -294,6 +297,7 @@ impl ImageView {
             total,
             name,
             percentage_zoom: self.metrics.percentage_zoom,
+            rating,
             flags: Flags {
                 filling: self.viewport.maximize,
                 ..flags

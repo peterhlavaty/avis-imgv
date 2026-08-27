@@ -2,5 +2,6 @@
 
 pub mod navigator;
 pub mod perf_metrics;
+pub mod tag_panel;
 pub mod theme;
 pub mod tree;

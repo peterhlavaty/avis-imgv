@@ -2,7 +2,7 @@
 
 use eframe::egui;
 
-use crate::config::GeneralConfig;
+use crate::config::{GeneralConfig, TagConfig};
 use crate::utils;
 
 /// Something the application can be asked to do.
@@ -15,6 +15,9 @@ pub enum Command {
     ToggleMetrics,
     ToggleFlatten,
     ToggleWatcher,
+    ToggleTagPanel,
+    /// Put this many stars on the image on screen.
+    SetRating(u8),
 }
 
 /// Overlays that take over the keyboard while open.
@@ -25,7 +28,7 @@ pub enum Overlay {
 }
 
 /// Reads this frame's input and returns the commands it maps to.
-pub fn collect(ctx: &egui::Context, config: &GeneralConfig) -> Vec<Command> {
+pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) -> Vec<Command> {
     let mut commands = Vec::new();
 
     // Quitting must work even while typing in the navigator.
@@ -55,6 +58,20 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig) -> Vec<Command> {
                 .iter()
                 .filter(|(shortcut, _)| input.consume_shortcut(&shortcut.kbd_shortcut))
                 .map(|(_, command)| *command),
+        );
+
+        if input.consume_shortcut(&tags.sc_toggle_tag_panel.kbd_shortcut) {
+            commands.push(Command::ToggleTagPanel);
+        }
+
+        // The rating shortcuts are listed from no stars upwards, so a
+        // shortcut's position is the rating it applies.
+        commands.extend(
+            tags.sc_rating
+                .iter()
+                .enumerate()
+                .filter(|(_, shortcut)| input.consume_shortcut(&shortcut.kbd_shortcut))
+                .map(|(stars, _)| Command::SetRating(stars as u8)),
         );
     });
 
@@ -128,28 +145,54 @@ mod tests {
 
     #[test]
     fn maps_the_default_shortcuts() {
-        let config = GeneralConfig::default();
         let ctx = context_with(vec![key_press(Key::Backspace, Modifiers::NONE)]);
 
-        assert_eq!(collect(&ctx, &config), vec![Command::ToggleGrid]);
+        assert_eq!(collected(&ctx), vec![Command::ToggleGrid]);
+    }
+
+    /// Collects with the default configuration.
+    fn collected(ctx: &egui::Context) -> Vec<Command> {
+        collect(ctx, &GeneralConfig::default(), &TagConfig::default())
+    }
+
+    #[test]
+    fn a_digit_key_sets_that_many_stars() {
+        let ctx = context_with(vec![key_press(Key::Num4, Modifiers::NONE)]);
+        assert_eq!(collected(&ctx), vec![Command::SetRating(4)]);
+
+        let ctx = context_with(vec![key_press(Key::Num0, Modifiers::NONE)]);
+        assert_eq!(collected(&ctx), vec![Command::SetRating(0)]);
+    }
+
+    #[test]
+    fn the_tag_panel_has_a_shortcut_of_its_own() {
+        let ctx = context_with(vec![key_press(Key::K, Modifiers::NONE)]);
+
+        assert_eq!(collected(&ctx), vec![Command::ToggleTagPanel]);
     }
 
     #[test]
     fn quitting_works_even_while_typing() {
-        let config = GeneralConfig::default();
         let ctx = context_with(vec![key_press(Key::Q, Modifiers::ALT)]);
         utils::set_mute_state(&ctx, true);
 
-        assert_eq!(collect(&ctx, &config), vec![Command::Exit]);
+        assert_eq!(collected(&ctx), vec![Command::Exit]);
     }
 
     #[test]
     fn other_shortcuts_are_muted_while_typing() {
-        let config = GeneralConfig::default();
         let ctx = context_with(vec![key_press(Key::Backspace, Modifiers::NONE)]);
         utils::set_mute_state(&ctx, true);
 
-        assert!(collect(&ctx, &config).is_empty());
+        assert!(collected(&ctx).is_empty());
+    }
+
+    #[test]
+    fn typing_a_digit_in_the_search_box_does_not_rate_the_image() {
+        let ctx = context_with(vec![key_press(Key::Num3, Modifiers::NONE)]);
+        utils::set_mute_state(&ctx, true);
+
+        assert!(collected(&ctx).is_empty());
     }
 
     #[test]

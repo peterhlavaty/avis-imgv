@@ -41,15 +41,49 @@ Nothing in the draw path waits on I/O or on a decoder.
 
 ### Metadata
 
-EXIF, ICC profiles and raw previews are read **in process**, from the same
-buffer the file was read into for decoding — no `exiftool`, no subprocess, no
-second read of the file. Reading the metadata of a JPEG takes tens of
-microseconds.
+EXIF, ICC profiles, XMP packets and raw previews are read **in process**, from
+the same buffer the file was read into for decoding — no `exiftool`, no
+subprocess, no second read of the file. Reading the metadata of a JPEG takes
+tens of microseconds.
 
 Supported containers: JPEG (APP1/APP2), PNG (`eXIf`, `iCCP`), WebP (RIFF `EXIF`,
 `ICCP`), TIFF, TIFF derived raws (DNG, NEF, CR2, ARW, ORF, RW2, PEF, …), Fuji
 RAF, and Canon CR3 (ISO base media). Tag names follow exiftool's, so existing
 `metadata_tags` and `name_format` settings keep working.
+
+## Ratings and tags
+
+Press `K` for the rating and tagging panel: a resizable, hideable side panel
+holding the stars for the open image, the tags on it, the tags you used most
+recently, and the catalog you configured — searchable by tag name or by the
+name of the category a tag is filed under.
+
+- **Stars.** `0` to `5` set the rating from the keyboard, with or without the
+  panel open; the status bar shows it either way. Clicking the star a rating
+  already ends on clears it.
+- **Recent tags.** Whatever you applied last, one click away, remembered
+  between sessions.
+- **Your catalog.** `tags.categories` in the configuration is the list you
+  always want to hand. Searching matches a category name too, so typing
+  "places" offers everything filed under Places.
+- **Anything already used.** Tags found on the other images of the folder are
+  offered as well, so a tag typed once does not have to be configured.
+- Typing something new offers to create it.
+
+### Where they are stored
+
+In XMP sidecars beside the image — `DSC001.cr2.xmp` — as `xmp:Rating` and
+`dc:subject`, which is what every raw converter reads. Adobe's `DSC001.xmp` is
+read too, and whichever sidecar is already there is the one edited: a develop
+history written by another tool survives untouched.
+
+Ratings and keywords **inside** the image are read as well (JPEG `APP1`, PNG
+`iTXt`, WebP, TIFF, and Windows Explorer's EXIF rating), so an image rated
+elsewhere shows up already rated. Nothing is ever written back into the image
+file itself.
+
+Saves happen on a thread of their own, so rating a photograph never waits on
+the disk.
 
 ## Dependencies
 
@@ -173,6 +207,16 @@ megapixel photograph. The default budget therefore holds roughly 35 of them.
 | `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
 
+### Tags
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `categories` | The tags you always want to hand, grouped. Searching matches category names as well as tag names. | Status, Subject |
+| `recent_tags` | How many recently used tags to remember | 12 |
+| `panel_width` | Starting width of the panel, in points | 260 |
+| `sc_toggle_tag_panel` | Shortcut that opens the panel | `K` |
+| `sc_rating` | Shortcuts that set a rating, listed from no stars upwards | `0` – `5` |
+
 ### Slideshow
 
 | Key | Meaning | Default |
@@ -196,6 +240,8 @@ megapixel photograph. The default budget therefore holds roughly 35 of them.
 | Ctrl + F | Flatten (read files from all sub directories) |
 | Ctrl + W | Watch the directory for new and changed files |
 | I | Toggle the side panel: metadata and cache occupancy |
+| K | Toggle the rating and tagging panel |
+| 0 – 5 | Set the star rating of the open image |
 | F10 | Toggle frame timings |
 
 ### Image view

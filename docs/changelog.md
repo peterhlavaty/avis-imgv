@@ -2,6 +2,17 @@
 
 ## 2026-08-27
 
+- Added star ratings and tagging. `K` opens a resizable panel with the stars
+  for the open image, the tags on it, the tags used most recently, and a
+  configurable catalog organised into categories and searchable by either. The
+  digit keys rate the open image with or without the panel open.
+  - Both live in XMP sidecars beside the image, as `xmp:Rating` and
+    `dc:subject`. An existing sidecar is edited rather than replaced, so a
+    develop history written by another tool survives.
+  - Ratings and keywords already inside the image are read too, from a JPEG
+    APP1 segment, a PNG iTXt chunk, a WebP chunk, a TIFF tag, or Windows
+    Explorer's EXIF rating.
+
 - The viewer now decodes a whole folder into RAM on a pool of background
   workers and keeps a configurable number of images resident on the GPU, so
   navigation is a texture swap rather than a load. See `cache` in the
