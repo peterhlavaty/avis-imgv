@@ -6,6 +6,7 @@
 
 pub mod bytes;
 pub mod containers;
+pub mod derived;
 pub mod icc;
 pub mod labels;
 pub mod orientation;
@@ -17,7 +18,6 @@ pub mod value;
 pub mod xmp;
 
 use std::collections::BTreeMap;
-use std::path::Path;
 
 use crate::formats::Format;
 use tags::IfdKind;
@@ -79,31 +79,10 @@ impl Metadata {
         (metadata, found.preview)
     }
 
-    /// Adds the tags derived from the file itself rather than its contents.
-    pub fn add_file_tags(&mut self, path: &Path, byte_len: usize) {
-        if let Some(name) = path.file_name() {
-            self.insert("File Name", name.to_string_lossy());
-        }
-        if let Some(parent) = path.parent() {
-            self.insert("Directory", parent.to_string_lossy());
-        }
-
-        self.insert("File Size", format_byte_size(byte_len));
-    }
-
-    /// Records the dimensions of the decoded image.
-    pub fn add_size_tags(&mut self, width: u32, height: u32) {
-        self.insert("Image Size", format!("{width}x{height}"));
-        self.insert(
-            "Megapixels",
-            value::format_f64(((width as f64 * height as f64) / 1_000_000.0 * 10.0).round() / 10.0),
-        );
-    }
-
     /// Reads the rating and keywords the file carries.
     ///
     /// XMP is authoritative; the EXIF rating tag is what Windows Explorer
-    /// writes and is only consulted when there is no packet.
+    /// writes, and is only consulted when there is no packet.
     fn read_annotations(&mut self, packet: Option<&[u8]>) {
         let parsed = packet
             .map(String::from_utf8_lossy)
@@ -199,28 +178,6 @@ impl Metadata {
         }
     }
 
-    /// Tags exiftool computes rather than reads, and which the default name
-    /// format relies on.
-    fn add_composite_tags(&mut self) {
-        if let Some(aperture) = self
-            .tags
-            .get("F Number")
-            .or_else(|| self.tags.get("Aperture Value"))
-            .cloned()
-        {
-            self.insert("Aperture", aperture);
-        }
-
-        if let Some(shutter) = self
-            .tags
-            .get("Exposure Time")
-            .or_else(|| self.tags.get("Shutter Speed Value"))
-            .cloned()
-        {
-            self.insert("Shutter Speed", shutter);
-        }
-    }
-
     /// Names the colour profile, preferring the embedded one over the hint in
     /// the `Color Space` tag.
     fn resolve_profile_description(&mut self) {
@@ -245,22 +202,6 @@ fn bytes_of_tag(tiff: &Tiff<'_>, tag: u16) -> Option<Vec<u8>> {
         .find_map(|ifd| ifd.entry(tag))
         .and_then(|entry| tiff.entry_bytes(entry))
         .map(<[u8]>::to_vec)
-}
-
-fn format_byte_size(bytes: usize) -> String {
-    const UNITS: &[(f64, &str)] = &[(1e9, "GB"), (1e6, "MB"), (1e3, "kB")];
-    let bytes = bytes as f64;
-
-    for (scale, unit) in UNITS {
-        if bytes >= *scale {
-            return format!(
-                "{} {unit}",
-                value::format_f64((bytes / scale * 10.0).round() / 10.0)
-            );
-        }
-    }
-
-    format!("{} bytes", bytes as u64)
 }
 
 #[cfg(test)]
@@ -382,34 +323,6 @@ mod tests {
         assert_eq!(metadata.orientation, Orientation::Normal);
         assert!(metadata.icc.is_none());
         assert_eq!(metadata.profile_description(), Some("sRGB"));
-    }
-
-    #[test]
-    fn file_and_size_tags_are_added() {
-        let mut metadata = Metadata::default();
-        metadata.add_file_tags(Path::new("/photos/trip/DSCF0001.JPG"), 5_400_000);
-        metadata.add_size_tags(6000, 4000);
-
-        assert_eq!(
-            metadata.tags.get("File Name").map(String::as_str),
-            Some("DSCF0001.JPG")
-        );
-        assert!(metadata
-            .tags
-            .get("Directory")
-            .is_some_and(|d| d.ends_with("trip")));
-        assert_eq!(
-            metadata.tags.get("File Size").map(String::as_str),
-            Some("5.4 MB")
-        );
-        assert_eq!(
-            metadata.tags.get("Image Size").map(String::as_str),
-            Some("6000x4000")
-        );
-        assert_eq!(
-            metadata.tags.get("Megapixels").map(String::as_str),
-            Some("24")
-        );
     }
 
     #[test]
