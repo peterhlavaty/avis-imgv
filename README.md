@@ -154,8 +154,26 @@ avis-imgv [OPTIONS] [PATH]
 
   --slideshow   Start in slideshow mode. Useful as a photo frame.
   --fullscreen  Start fullscreen.
+  --benchmark   Walk the folder as fast as it will go, report how many images
+                a second that was, and quit.
   --help        Show this message.
 ```
+
+### How fast is it
+
+`--benchmark` walks a folder one image per frame and reports what it managed,
+which folds in decoding, waiting, uploading and drawing. On a folder of 120
+24-megapixel JPEGs, larger than the cache, on a Ryzen with twelve decode
+workers:
+
+```
+Benchmark: 501 images in 15.15s — 33.1 images/s, median frame 23.63ms
+```
+
+That is at full resolution, so every frame moves 91 MiB onto the GPU. Capping
+`max_image_edge` trades decoding time for upload time and is not usually worth
+it; the numbers are there to be checked on your own machine and your own
+files.
 
 ## Supported image formats
 
@@ -222,7 +240,7 @@ These are the knobs that decide how far ahead of you the viewer runs.
 |-----|---------|---------|
 | `ram_budget_mb` | Ceiling on decoded pixels held in RAM, shared by both views. An eighth goes to thumbnails. | 4096 |
 | `decode_threads` | Decode workers. `0` picks one per core, less one for the UI, capped at 8. | 0 |
-| `uploads_per_frame` | Textures uploaded per frame, so a burst of finished decodes cannot stall a frame. | 4 |
+| `upload_budget_ms` | How long a frame may spend moving decoded images onto the GPU. A 24 megapixel texture takes about 12ms, so this is what keeps the frame rate steady while the cache fills. | 8 |
 
 A decoded image costs `width × height × 4` bytes: about 96 MB for a 24
 megapixel photograph. The default budget therefore holds roughly 35 of them.

@@ -8,7 +8,7 @@ pub mod layout;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use eframe::egui::{self, load::SizedTexture, scroll_area::ScrollSource, Color32, UiBuilder};
+use eframe::egui::{self, scroll_area::ScrollSource, Color32, Rect, Sense, UiBuilder};
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::Vec2;
 
@@ -17,11 +17,18 @@ use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
 use crate::config::GridViewConfig;
 use crate::utils;
+use crate::view::texture;
 
 use layout::Layout;
 
 const CELL_BACKGROUND: Color32 = Color32::from_rgb(119, 119, 119);
 const CELL_BORDER: Color32 = Color32::from_rgb(48, 48, 48);
+
+/// A thumbnail is never cropped, so it always shows all of itself.
+const WHOLE_IMAGE: Rect = Rect {
+    min: eframe::epaint::pos2(0.0, 0.0),
+    max: eframe::epaint::pos2(1.0, 1.0),
+};
 
 /// Widest the grid will go before more images stop fitting usefully.
 const MAX_COLUMNS: usize = 16;
@@ -146,24 +153,26 @@ impl GridView {
         let (_, rect) = ui.allocate_space(Vec2::splat(cell));
         ui.painter().rect_filled(rect, 0, CELL_BACKGROUND);
 
-        let texture = self.store.texture(index).map(|t| (t.id, t.size));
         let name = self.file_name(index);
+        let drawn = self.store.texture(index).is_some();
 
         let response = ui
             .scope_builder(UiBuilder::new().max_rect(rect), |ui| {
-                ui.centered_and_justified(|ui| match texture {
-                    Some((id, size)) => Some(
-                        ui.add(
-                            egui::Image::new(SizedTexture::new(id, size))
-                                .fit_to_exact_size(fit_in_cell(size, cell))
-                                .sense(egui::Sense::CLICK),
-                        )
-                        .on_hover_text_at_pointer(&name),
-                    ),
-                    None => {
+                ui.centered_and_justified(|ui| {
+                    if !drawn {
                         show_placeholder(ui, self.store.state(index), cell);
-                        None
+                        return None;
                     }
+
+                    // Borrowed again inside, because the placeholder branch
+                    // needs the store and the drawing branch needs the
+                    // texture.
+                    let texture = self.store.texture(index)?;
+                    let size = fit_in_cell(texture.size, cell);
+                    let (drawn_rect, response) = ui.allocate_exact_size(size, Sense::click());
+                    texture::draw(ui, drawn_rect, texture, WHOLE_IMAGE);
+
+                    Some(response.on_hover_text_at_pointer(&name))
                 })
                 .inner
             })

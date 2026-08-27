@@ -2,6 +2,25 @@
 
 ## 2026-08-27
 
+- Browsing a folder larger than the cache went from 3.2 images a second to 33,
+  and the pipeline for a 24 megapixel JPEG from 258ms to 145ms.
+  - Fixed the cache: a worker that abandoned a request the viewer had
+    navigated away from reported nothing back, so the image stayed marked as
+    loading for good and was never asked for again. This was most of it.
+  - The preload window now leaves the RAM budget a quarter spare, rather than
+    sitting exactly at the ceiling and evicting images it was about to want.
+  - The camera's orientation is applied by the GPU, by sampling the texture in
+    a different order, instead of copying ninety megabytes on the CPU. Saves
+    86ms on every photograph taken sideways.
+  - JPEGs decode straight to RGBA instead of decoding to RGB and then widening
+    in a second pass over every pixel. Saves 23ms.
+  - Uploads have a time budget per frame rather than a fixed count, because a
+    24 megapixel texture takes 12ms and four of them made a fifty millisecond
+    frame.
+  - `--benchmark` measures all of this, and `cargo run --example bench_decode`
+    breaks the pipeline down stage by stage.
+- BREAKING: `cache.uploads_per_frame` is now `cache.upload_budget_ms`.
+
 - Raw files can now be developed rather than only previewed. `raw.source` picks
   between the JPEG the camera embedded, which is free and low resolution, and
   the sensor data demosaiced with LibRaw, which is full resolution and costs

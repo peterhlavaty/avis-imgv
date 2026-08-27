@@ -17,8 +17,9 @@ pub fn default_decode_threads() -> usize {
     0
 }
 
-pub fn default_uploads_per_frame() -> usize {
-    4
+/// Half a frame at sixty a second, which leaves the rest for drawing.
+pub fn default_upload_budget_ms() -> u64 {
+    8
 }
 
 pub fn default_output_icc_profile() -> String {

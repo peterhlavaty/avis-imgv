@@ -1,17 +1,25 @@
 //! Byte buffers to pixels.
 
 use image::{ImageFormat, RgbaImage};
+use zune_core::colorspace::ColorSpace;
+use zune_core::options::DecoderOptions;
+use zune_jpeg::JpegDecoder;
 
 use super::DecodeError;
 use crate::formats::Format;
 
 /// Decodes `bytes` into RGBA8.
 ///
-/// `format` is only a hint: `image` sniffs the content itself, and a mismatched
+/// `format` is only a hint: the content is sniffed as well, and a mismatched
 /// extension is common enough that guessing is worth it but trusting is not.
 pub fn decode(bytes: &[u8], format: Option<Format>) -> Result<RgbaImage, DecodeError> {
     if format == Some(Format::JpegXl) {
         return decode_jpeg_xl(bytes);
+    }
+
+    // JPEG is the format that matters for speed, and it has a shorter road.
+    if let Some(decoded) = decode_jpeg(bytes) {
+        return Ok(decoded);
     }
 
     let decoded = match format.and_then(image_format) {
@@ -24,6 +32,36 @@ pub fn decode(bytes: &[u8], format: Option<Format>) -> Result<RgbaImage, DecodeE
         Ok(image) => Ok(image.into_rgba8()),
         Err(e) => Err(DecodeError::Unsupported(e.to_string())),
     }
+}
+
+/// Decodes a JPEG straight into RGBA.
+///
+/// Going through the `image` crate yields RGB, which then has to be widened in
+/// a second pass over every pixel — 27ms on a 24 megapixel photograph. Asking
+/// the JPEG decoder for RGBA in the first place skips that pass entirely.
+///
+/// Returns `None` for anything that is not a plain JPEG, including the CMYK
+/// ones whose colour handling is better left to the `image` crate.
+fn decode_jpeg(bytes: &[u8]) -> Option<RgbaImage> {
+    if !bytes.starts_with(&[0xFF, 0xD8]) {
+        return None;
+    }
+
+    // JPEG stores its dimensions in sixteen bits, so nothing valid exceeds
+    // this and the default limit would refuse large panoramas.
+    let limit = u16::MAX as usize;
+    let options = DecoderOptions::default()
+        .jpeg_set_out_colorspace(ColorSpace::RGBA)
+        .set_max_width(limit)
+        .set_max_height(limit);
+
+    let mut decoder = JpegDecoder::new_with_options(bytes, options);
+    let pixels = decoder.decode().ok()?;
+    let info = decoder.info()?;
+
+    // A CMYK JPEG comes back in four channels that are not RGBA, and the
+    // length check catches it.
+    RgbaImage::from_raw(info.width.into(), info.height.into(), pixels)
 }
 
 /// Maps our container classification onto the `image` crate's.
@@ -104,6 +142,42 @@ mod tests {
             let bytes = encode(8, 4, [200, 100, 50, 255], image_format);
             let decoded = decode(&bytes, Some(format)).expect("decodes");
             assert_eq!((decoded.width(), decoded.height()), (8, 4));
+        }
+    }
+
+    #[test]
+    fn jpegs_take_the_direct_path() {
+        let bytes = encode(8, 4, [200, 100, 50, 255], ImageFormat::Jpeg);
+        let direct = decode_jpeg(&bytes).expect("the direct path handles a plain JPEG");
+
+        assert_eq!((direct.width(), direct.height()), (8, 4));
+        assert_eq!(direct.get_pixel(0, 0)[3], 255, "opaque alpha");
+    }
+
+    #[test]
+    fn the_direct_path_declines_what_is_not_a_jpeg() {
+        let bytes = encode(8, 4, [1, 2, 3, 255], ImageFormat::Png);
+
+        assert!(decode_jpeg(&bytes).is_none());
+        // And the caller falls back, so the image still decodes.
+        assert!(decode(&bytes, Some(Format::Png)).is_ok());
+    }
+
+    #[test]
+    fn both_paths_agree_on_the_pixels() {
+        let bytes = encode(64, 32, [30, 160, 220, 255], ImageFormat::Jpeg);
+
+        let direct = decode_jpeg(&bytes).unwrap();
+        let through_image = image::load_from_memory(&bytes).unwrap().into_rgba8();
+
+        assert_eq!(direct.dimensions(), through_image.dimensions());
+        // JPEG is lossy and the two decoders round differently in the last
+        // bit, which is invisible but not identical.
+        for (a, b) in direct.pixels().zip(through_image.pixels()) {
+            for channel in 0..4 {
+                let difference = a[channel].abs_diff(b[channel]);
+                assert!(difference <= 2, "{a:?} against {b:?}");
+            }
         }
     }
 

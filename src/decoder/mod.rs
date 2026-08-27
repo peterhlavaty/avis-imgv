@@ -7,7 +7,6 @@
 
 pub mod codec;
 pub mod color;
-pub mod orientation;
 pub mod raw;
 pub mod resize;
 
@@ -19,7 +18,7 @@ use std::time::Instant;
 use image::RgbaImage;
 
 use crate::formats::Format;
-use crate::metadata::Metadata;
+use crate::metadata::{Metadata, Orientation};
 
 /// Bytes per pixel in a decoded image.
 pub const BYTES_PER_PIXEL: usize = 4;
@@ -30,6 +29,11 @@ pub struct DecodedImage {
     pub pixels: Box<[u8]>,
     pub width: u32,
     pub height: u32,
+    /// How the pixels have to be turned to be shown upright.
+    ///
+    /// The turn is left to the GPU, which does it by sampling the texture in a
+    /// different order rather than by copying ninety megabytes.
+    pub orientation: Orientation,
     pub metadata: Metadata,
 }
 
@@ -145,7 +149,7 @@ pub fn decode(
     let mut image = match develop_raw(bytes, format, options) {
         Some(developed) => {
             // The developer applied the camera's orientation and handed back
-            // sRGB, so the two steps below have nothing left to do.
+            // sRGB, so neither is left for anyone else to do.
             metadata.already_developed();
             developed
         }
@@ -162,17 +166,39 @@ pub fn decode(
     };
 
     image = resize::to_max_edge(image, options.max_edge);
-
-    if !format.is_some_and(Format::ignores_exif_orientation) {
-        image = orientation::apply(image, metadata.orientation);
-    }
-
     color::convert(&mut image, &metadata, &options.output_profile);
 
+    // A format that hands back upright pixels has nothing to turn, whatever
+    // its metadata says.
+    if format.is_some_and(Format::ignores_exif_orientation) {
+        metadata.orientation = Orientation::Normal;
+    }
+
     metadata.add_file_tags(path, bytes.len());
-    metadata.add_size_tags(image.width(), image.height());
+    metadata.add_size_tags(
+        displayed_width(&image, metadata.orientation),
+        displayed_height(&image, metadata.orientation),
+    );
 
     Ok(into_decoded(image, metadata))
+}
+
+/// Width the image is shown at, which a quarter turn swaps.
+fn displayed_width(image: &RgbaImage, orientation: Orientation) -> u32 {
+    if orientation.transposes() {
+        image.height()
+    } else {
+        image.width()
+    }
+}
+
+/// Height the image is shown at.
+fn displayed_height(image: &RgbaImage, orientation: Orientation) -> u32 {
+    if orientation.transposes() {
+        image.width()
+    } else {
+        image.height()
+    }
 }
 
 /// Develops a raw file, or returns nothing so the preview is used instead.
@@ -198,6 +224,7 @@ fn into_decoded(image: RgbaImage, metadata: Metadata) -> DecodedImage {
     DecodedImage {
         width: image.width(),
         height: image.height(),
+        orientation: metadata.orientation,
         pixels: image.into_raw().into_boxed_slice(),
         metadata,
     }
@@ -254,6 +281,16 @@ mod tests {
             decoded.metadata.tags.get("Image Size").map(String::as_str),
             Some("6x3")
         );
+    }
+
+    #[test]
+    fn the_camera_orientation_travels_with_the_pixels() {
+        // A JPEG with no EXIF is upright, and the pixels are left alone.
+        let bytes = encode(4, 2, [10, 20, 30, 255], ImageFormat::Png);
+        let decoded = decode(&bytes, Path::new("a.png"), &options()).unwrap();
+
+        assert_eq!(decoded.orientation, Orientation::Normal);
+        assert_eq!(decoded.size(), [4, 2]);
     }
 
     #[test]

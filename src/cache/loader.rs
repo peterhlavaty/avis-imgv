@@ -26,10 +26,24 @@ pub struct ImageKey {
     pub index: usize,
 }
 
-/// A decoded image, or the reason it could not be decoded.
+/// What became of one request.
+pub enum Loaded {
+    Decoded(DecodedImage),
+    /// Tried and could not be. Not worth trying again until something changes.
+    Failed(DecodeError),
+    /// The viewer moved on before a worker picked it up, so nothing was
+    /// decoded and nothing is wrong.
+    ///
+    /// This has to be reported rather than dropped: the store remembers what
+    /// it has asked for so it does not ask twice, and an answer that never
+    /// arrives would leave the image marked as loading for good.
+    Abandoned,
+}
+
+/// What became of one request, and which one it was.
 pub struct LoadResult {
     pub key: ImageKey,
-    pub outcome: Result<DecodedImage, DecodeError>,
+    pub outcome: Loaded,
 }
 
 /// What the viewer currently cares about, shared with the workers so they can
@@ -212,16 +226,18 @@ fn worker_loop(shared: &Shared) {
         };
 
         // The viewer may have moved on while this request sat in the queue.
-        if !request.focus.accepts(request.key) {
-            tracing::trace!("Skipping stale request for {}", request.path.display());
-            continue;
-        }
-
-        let outcome = decoder::load(&request.path, &request.options);
-
-        if let Err(e) = &outcome {
-            tracing::warn!("{} {e}", request.path.display());
-        }
+        let outcome = if request.focus.accepts(request.key) {
+            match decoder::load(&request.path, &request.options) {
+                Ok(image) => Loaded::Decoded(image),
+                Err(e) => {
+                    tracing::warn!("{} {e}", request.path.display());
+                    Loaded::Failed(e)
+                }
+            }
+        } else {
+            tracing::trace!("Abandoning {}", request.path.display());
+            Loaded::Abandoned
+        };
 
         // A closed channel just means the store was dropped or replaced.
         let _ = request.responder.send(LoadResult {
@@ -250,11 +266,11 @@ fn next_request(shared: &Shared) -> Option<Request> {
 
 /// Ceiling on the default worker count.
 ///
-/// Every worker holds a whole decoded image while it works, so on a 24 core
-/// machine an unbounded pool would briefly need several gigabytes for a folder
-/// of high resolution photographs. Users with the RAM to spare can raise it
-/// through `decode_threads`.
-const MAX_DEFAULT_WORKERS: usize = 8;
+/// Every worker holds a whole decoded image while it works — about 130MB for a
+/// 24 megapixel photograph — so on a 24 core machine an unbounded pool would
+/// briefly need several gigabytes. Twelve is a compromise; `decode_threads`
+/// overrides it either way.
+const MAX_DEFAULT_WORKERS: usize = 12;
 
 /// Leaves a core for the UI thread so navigation stays responsive while a
 /// folder is being read.
@@ -346,13 +362,16 @@ mod tests {
             .expect("worker produced a result");
 
         assert_eq!(result.key, key);
-        assert_eq!(result.outcome.unwrap().size(), [4, 4]);
+        match result.outcome {
+            Loaded::Decoded(image) => assert_eq!(image.size(), [4, 4]),
+            _ => panic!("the image should have been decoded"),
+        }
 
         let _ = std::fs::remove_file(&path);
     }
 
     #[test]
-    fn stale_generations_are_never_decoded() {
+    fn a_stale_request_is_reported_rather_than_decoded() {
         let focus = Arc::new(Focus::default());
         focus.set_collection(2, 1);
         let loader = Loader::new(1);
@@ -370,8 +389,12 @@ mod tests {
             tx,
         );
 
-        assert!(rx
-            .recv_timeout(std::time::Duration::from_millis(500))
-            .is_err());
+        // Abandoned rather than silently dropped, so the store learns it may
+        // ask again.
+        let result = rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("worker reported back");
+
+        assert!(matches!(result.outcome, Loaded::Abandoned));
     }
 }

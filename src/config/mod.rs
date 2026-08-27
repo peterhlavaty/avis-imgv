@@ -104,10 +104,12 @@ pub struct CacheConfig {
     /// Decode worker threads. Zero picks one per core, less one for the UI.
     #[serde(default = "default_decode_threads")]
     pub decode_threads: usize,
-    /// Textures uploaded per frame, so a burst of finished decodes cannot
-    /// stall a frame.
-    #[serde(default = "default_uploads_per_frame")]
-    pub uploads_per_frame: usize,
+    /// How long a frame may spend moving decoded images onto the GPU.
+    ///
+    /// A 24 megapixel texture takes about 12ms, so this is the difference
+    /// between a smooth frame rate and a stuttering one while the cache fills.
+    #[serde(default = "default_upload_budget_ms")]
+    pub upload_budget_ms: u64,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -332,7 +334,7 @@ impl Default for CacheConfig {
         CacheConfig {
             ram_budget_mb: default_ram_budget_mb(),
             decode_threads: default_decode_threads(),
-            uploads_per_frame: default_uploads_per_frame(),
+            upload_budget_ms: default_upload_budget_ms(),
         }
     }
 }

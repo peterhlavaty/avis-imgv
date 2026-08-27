@@ -16,6 +16,8 @@ pub mod policy;
 pub mod ram;
 pub mod store;
 
+use std::time::Duration;
+
 pub use store::ImageStore;
 
 /// Budgets for one store.
@@ -30,8 +32,13 @@ pub struct StoreConfig {
     /// Cap on the longest edge of a decoded image, before the GPU's own limit
     /// is applied.
     pub max_edge: Option<u32>,
-    /// Textures uploaded per frame, to spread the cost of a burst of results.
-    pub uploads_per_frame: usize,
+    /// How long one frame may spend moving images onto the GPU.
+    ///
+    /// A budget rather than a count, because the cost is the size of the
+    /// image: a 24 megapixel texture takes about 12ms to upload, so uploading
+    /// four of them would cost fifty milliseconds and drop a smooth sixty
+    /// frames a second to twenty.
+    pub upload_budget: Duration,
     /// Added to every request's priority.
     ///
     /// The decode pool is shared, so this is how a store that is merely
@@ -48,7 +55,7 @@ impl Default for StoreConfig {
             gpu_resident: 8,
             preload_radius: 32,
             max_edge: None,
-            uploads_per_frame: 4,
+            upload_budget: Duration::from_millis(8),
             priority_bias: 0,
             raw: crate::decoder::raw::Options::default(),
         }

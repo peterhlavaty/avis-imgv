@@ -12,13 +12,17 @@ use eframe::wgpu;
 use epaint::{TextureId, Vec2};
 
 use crate::decoder::{DecodedImage, BYTES_PER_PIXEL};
+use crate::metadata::Orientation;
 
 use super::policy;
 
 /// A texture owned by the viewer, freed when dropped.
 pub struct GpuTexture {
     pub id: TextureId,
+    /// Size the image is shown at, which a quarter turn swaps.
     pub size: Vec2,
+    /// The turn the rasteriser still has to make.
+    pub orientation: Orientation,
     render_state: RenderState,
 }
 
@@ -161,9 +165,12 @@ impl GpuCache {
             wgpu::FilterMode::Linear,
         );
 
+        let stored = Vec2::new(image.width as f32, image.height as f32);
+
         Some(GpuTexture {
             id,
-            size: Vec2::new(image.width as f32, image.height as f32),
+            size: crate::view::texture::displayed_size(stored, image.orientation),
+            orientation: image.orientation,
             render_state: self.render_state.clone(),
         })
     }

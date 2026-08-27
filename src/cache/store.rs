@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::time::Instant;
 
 use eframe::egui_wgpu::RenderState;
 
@@ -11,7 +12,7 @@ use crate::decoder::DecodeOptions;
 use crate::metadata::Metadata;
 
 use super::gpu::{GpuCache, GpuTexture};
-use super::loader::{Focus, ImageKey, LoadResult, Loader};
+use super::loader::{Focus, ImageKey, LoadResult, Loaded, Loader};
 use super::policy;
 use super::ram::RamCache;
 use super::{ImageState, StoreConfig, StoreStats};
@@ -270,16 +271,20 @@ impl ImageStore {
             self.requested.remove(&index);
 
             match result.outcome {
-                Ok(image) => {
+                Loaded::Decoded(image) => {
                     self.ram
                         .insert(index, Arc::new(image), self.cursor, self.paths.len());
                     collected = true;
                 }
-                Err(_) => {
+                Loaded::Failed(_) => {
                     // The worker already logged the reason.
                     self.failed.insert(index);
                     collected = true;
                 }
+                // Nothing was decoded, and taking it out of `requested` above
+                // is the whole point: the image can be asked for again if it
+                // is still wanted.
+                Loaded::Abandoned => {}
             }
         }
 
@@ -302,11 +307,10 @@ impl ImageStore {
         // the user is about to see rather than on where they have been.
         self.gpu.retain(|index| resident.contains(&index));
 
+        let started = Instant::now();
         let mut uploaded = 0;
+
         for index in wanted {
-            if uploaded >= self.config.uploads_per_frame {
-                break;
-            }
             if self.gpu.contains(index) {
                 continue;
             }
@@ -317,6 +321,12 @@ impl ImageStore {
 
             self.gpu.upload(index, &image, self.cursor, total);
             uploaded += 1;
+
+            // Always upload one, so a budget smaller than a single image
+            // still makes progress, and stop once the frame has spent enough.
+            if started.elapsed() >= self.config.upload_budget {
+                break;
+            }
         }
 
         uploaded > 0
@@ -355,6 +365,6 @@ mod tests {
         let config = StoreConfig::default();
         assert!(config.ram_budget_bytes > 0);
         assert!(config.gpu_resident > 0);
-        assert!(config.uploads_per_frame > 0);
+        assert!(!config.upload_budget.is_zero());
     }
 }

@@ -3,6 +3,7 @@
 
 pub mod grid_view;
 pub mod image_view;
+pub mod texture;
 
 pub use grid_view::GridView;
 pub use image_view::ImageView;

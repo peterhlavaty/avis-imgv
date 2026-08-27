@@ -1,6 +1,7 @@
 //! The application: which folder is open, which view shows it, and the wiring
 //! between them.
 
+pub mod benchmark;
 pub mod input;
 pub mod panels;
 pub mod stores;
@@ -23,8 +24,12 @@ use crate::ui::{navigator, perf_metrics::PerfMetrics, theme, tree};
 use crate::view::image_view::bottom_bar::Flags;
 use crate::view::{GridView, ImageView};
 
+use benchmark::Benchmark;
 use input::{Command, Overlay};
 use panels::MenuAction;
+
+/// Images a benchmark run walks through before reporting.
+const BENCHMARK_IMAGES: usize = 500;
 
 pub struct App {
     image_view: ImageView,
@@ -50,10 +55,18 @@ pub struct App {
     tag_panel: tag_panel::State,
     tag_panel_visible: bool,
     tag_config: TagConfig,
+    /// Set by `--benchmark`: walk the folder as fast as it will go, report,
+    /// and quit.
+    benchmark: Option<Benchmark>,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, slideshow: bool, fullscreen: bool) -> App {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        slideshow: bool,
+        fullscreen: bool,
+        benchmark: bool,
+    ) -> App {
         let config = Config::new();
 
         theme::apply_theme(&cc.egui_ctx);
@@ -112,6 +125,7 @@ impl App {
             tag_panel: tag_panel::State::default(),
             tag_panel_visible: false,
             tag_config: config.tags,
+            benchmark: benchmark.then(|| Benchmark::new(BENCHMARK_IMAGES)),
         };
 
         app.open(paths, opened.as_deref());
@@ -287,6 +301,27 @@ impl App {
         }
     }
 
+    /// Walks the folder as fast as it will go, then reports and quits.
+    fn run_benchmark(&mut self, ctx: &egui::Context) {
+        let Some(benchmark) = &mut self.benchmark else {
+            return;
+        };
+
+        // Nothing is idle during a benchmark, so the next frame starts at once.
+        ctx.request_repaint();
+
+        let before = self.image_view.selected_index();
+        self.image_view.next_image();
+        let moved = self.image_view.selected_index() != before;
+
+        if benchmark.frame(self.perf_metrics.last_frame(), moved) {
+            return;
+        }
+
+        benchmark.report().log();
+        ctx.send_viewport_cmd(ViewportCommand::Close);
+    }
+
     /// Draws whichever view is on screen, and keeps the other one's caches
     /// filling in behind it.
     fn show_views(&mut self, ctx: &egui::Context) {
@@ -367,6 +402,7 @@ impl eframe::App for App {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
         }
 
+        self.run_benchmark(ctx);
         self.perf_metrics.end_frame();
     }
 }

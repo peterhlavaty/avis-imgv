@@ -55,11 +55,19 @@ pub fn window(cursor: usize, total: usize, radius: usize) -> Vec<usize> {
     indices
 }
 
-/// Trims a preload radius to what a byte budget can actually hold.
+/// Share of the budget the window is allowed to fill.
+///
+/// The rest is headroom, and it is not optional. A window sized to exactly
+/// what the budget holds evicts an image to make room for the next one and
+/// then immediately asks for the evicted one again, because it is still in the
+/// window — the cache spends all its time redecoding what it just threw away.
+const WINDOW_SHARE: (usize, usize) = (3, 4);
+
+/// Trims a preload radius to what a byte budget can comfortably hold.
 ///
 /// Without this, a folder of 60 megapixel raws would be decoded only to be
 /// evicted before it could be shown, and then requested again on the next
-/// frame — the cache would churn forever and never get ahead of the user.
+/// frame.
 ///
 /// The average size of what is already resident stands in for the size of what
 /// is not; with nothing resident yet the configured radius is used as is.
@@ -74,8 +82,10 @@ pub fn budgeted_radius(
     }
 
     let average = (resident_bytes / resident_count).max(1);
+    let fits = budget_bytes / average * WINDOW_SHARE.0 / WINDOW_SHARE.1;
+
     // The radius reaches in both directions, hence the halving.
-    configured.min(budget_bytes / average / 2)
+    configured.min(fits / 2)
 }
 
 /// Removes `index` and shifts every higher key down by one, keeping a map
@@ -147,10 +157,28 @@ mod tests {
 
     #[test]
     fn the_radius_shrinks_to_fit_the_budget() {
-        // Twenty images of 100 bytes fit in 2000, so ten either side.
-        assert_eq!(budgeted_radius(64, 2000, 500, 5), 10);
+        // Twenty images of 100 bytes fit in 2000; three quarters of that is
+        // fifteen, so seven either side.
+        assert_eq!(budgeted_radius(64, 2000, 500, 5), 7);
         // A generous budget leaves the configured radius alone.
         assert_eq!(budgeted_radius(8, 1_000_000, 500, 5), 8);
+    }
+
+    #[test]
+    fn the_window_leaves_the_budget_room_to_spare() {
+        // Whatever the budget, what the window asks for has to fit inside it
+        // with room left, or every insert evicts something still wanted.
+        for images in 2..200usize {
+            let average = 1_000_000;
+            let budget = images * average;
+            let radius = budgeted_radius(usize::MAX, budget, average, 1);
+            let window = radius * 2 + 1;
+
+            assert!(
+                window * average <= budget,
+                "{images} images: a window of {window} does not fit"
+            );
+        }
     }
 
     #[test]

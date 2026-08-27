@@ -116,6 +116,7 @@ mod tests {
             pixels: vec![0u8; bytes].into_boxed_slice(),
             width: 1,
             height: (bytes / 4) as u32,
+            orientation: crate::metadata::Orientation::Normal,
             metadata: Metadata::default(),
         })
     }

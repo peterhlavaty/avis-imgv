@@ -27,6 +27,10 @@ itertools = "0.14.0"
 rayon = "1.11.0"
 flate2 = "1.1.2"
 quick-xml = "0.42.0"
+# Pinned to what `image` already depends on, so there is one copy of the JPEG
+# decoder rather than two.
+zune-jpeg = "0.4.21"
+zune-core = "0.4.12"
 jpegxl-rs = { version = "0.11.2", features = ["vendored"], optional = true }
 
 [build-dependencies]

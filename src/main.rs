@@ -18,6 +18,8 @@ Usage: avis-imgv [OPTIONS] [PATH]
 Options:
   --slideshow   Start in slideshow mode. Useful as a photo frame.
   --fullscreen  Start fullscreen.
+  --benchmark   Walk the folder as fast as it will go, report how many images
+                a second that was, and quit.
   --help        Show this message.";
 
 fn main() {
@@ -38,11 +40,12 @@ fn main() {
 
     let slideshow = args.iter().any(|arg| arg == "--slideshow");
     let fullscreen = args.iter().any(|arg| arg == "--fullscreen");
+    let benchmark = args.iter().any(|arg| arg == "--benchmark");
 
     if let Err(e) = eframe::run_native(
         "Avis Image Viewer",
         native_options(),
-        Box::new(move |cc| Ok(Box::new(App::new(cc, slideshow, fullscreen)))),
+        Box::new(move |cc| Ok(Box::new(App::new(cc, slideshow, fullscreen, benchmark)))),
     ) {
         tracing::error!("{e}");
     }

@@ -1,12 +1,19 @@
+//! Frame timings, for the overlay and for the benchmark.
+
+use std::time::{Duration, Instant};
+
 use eframe::egui;
-use std::time::Instant;
+
+/// How many recent frames the shown average covers. A second or so at a
+/// healthy frame rate, which is long enough to read and short enough to react.
+const RECENT_FRAMES: usize = 60;
 
 pub struct PerfMetrics {
-    start_of_frame: Instant,
-    longest_frametime: u128,
-    longest_recent_frametime: u128,
-    current_frametime: u128,
-    current_frametime_micros: u128,
+    frame_started: Instant,
+    last: Duration,
+    longest: Duration,
+    /// The most recent frames, oldest first.
+    recent: Vec<Duration>,
 }
 
 impl Default for PerfMetrics {
@@ -18,40 +25,119 @@ impl Default for PerfMetrics {
 impl PerfMetrics {
     pub fn new() -> PerfMetrics {
         PerfMetrics {
-            start_of_frame: Instant::now(),
-            longest_frametime: 0,
-            longest_recent_frametime: 0,
-            current_frametime: 0,
-            current_frametime_micros: 0,
+            frame_started: Instant::now(),
+            last: Duration::ZERO,
+            longest: Duration::ZERO,
+            recent: Vec::with_capacity(RECENT_FRAMES),
         }
     }
 
     pub fn new_frame(&mut self) {
-        self.start_of_frame = Instant::now()
+        self.frame_started = Instant::now();
     }
 
     pub fn end_frame(&mut self) {
-        self.current_frametime = self.start_of_frame.elapsed().as_millis();
-        self.current_frametime_micros = self.start_of_frame.elapsed().as_micros();
+        self.last = self.frame_started.elapsed();
+        self.longest = self.longest.max(self.last);
 
-        if self.current_frametime > self.longest_frametime {
-            self.longest_frametime = self.current_frametime;
+        if self.recent.len() == RECENT_FRAMES {
+            self.recent.remove(0);
+        }
+        self.recent.push(self.last);
+    }
+
+    /// How long the last completed frame took.
+    pub fn last_frame(&self) -> Duration {
+        self.last
+    }
+
+    /// Mean of the recent frames, which is what a frame rate is read from.
+    pub fn recent_mean(&self) -> Duration {
+        if self.recent.is_empty() {
+            return Duration::ZERO;
         }
 
-        if self.current_frametime > 0 {
-            self.longest_recent_frametime = self.current_frametime;
+        self.recent.iter().sum::<Duration>() / self.recent.len() as u32
+    }
+
+    /// Frames a second, from the recent mean.
+    pub fn frames_per_second(&self) -> f64 {
+        let mean = self.recent_mean().as_secs_f64();
+
+        if mean > 0.0 {
+            1.0 / mean
+        } else {
+            0.0
         }
     }
 
     pub fn display_metrics(&mut self, ui: &mut egui::Ui) {
         ui.monospace(format!(
-            "Current: {}mils • {}mics | Recent: {}mils | Longest: {}mils",
-            self.current_frametime,
-            self.current_frametime_micros,
-            self.longest_recent_frametime,
-            self.longest_frametime
+            "{:.0} fps • frame {:.2}ms • recent {:.2}ms • worst {:.2}ms",
+            self.frames_per_second(),
+            millis(self.last),
+            millis(self.recent_mean()),
+            millis(self.longest),
         ));
+    }
+}
 
-        tracing::info!("{}", self.current_frametime);
+fn millis(duration: Duration) -> f64 {
+    duration.as_secs_f64() * 1000.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Records `count` frames of a known length, without waiting for them.
+    fn record(metrics: &mut PerfMetrics, count: usize, each: Duration) {
+        for _ in 0..count {
+            metrics.recent.push(each);
+            metrics.last = each;
+            metrics.longest = metrics.longest.max(each);
+
+            if metrics.recent.len() > RECENT_FRAMES {
+                metrics.recent.remove(0);
+            }
+        }
+    }
+
+    #[test]
+    fn a_fresh_meter_reports_nothing_rather_than_dividing_by_zero() {
+        let metrics = PerfMetrics::new();
+
+        assert_eq!(metrics.recent_mean(), Duration::ZERO);
+        assert_eq!(metrics.frames_per_second(), 0.0);
+    }
+
+    #[test]
+    fn the_frame_rate_comes_from_the_recent_mean() {
+        let mut metrics = PerfMetrics::new();
+        record(&mut metrics, 10, Duration::from_millis(20));
+
+        assert_eq!(metrics.recent_mean(), Duration::from_millis(20));
+        assert!((metrics.frames_per_second() - 50.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn the_window_only_remembers_the_recent_frames() {
+        let mut metrics = PerfMetrics::new();
+        record(&mut metrics, RECENT_FRAMES, Duration::from_millis(100));
+        record(&mut metrics, RECENT_FRAMES, Duration::from_millis(10));
+
+        assert_eq!(metrics.recent_mean(), Duration::from_millis(10));
+        // The worst frame is remembered for the whole session, though.
+        assert_eq!(metrics.longest, Duration::from_millis(100));
+    }
+
+    #[test]
+    fn timing_a_frame_records_it() {
+        let mut metrics = PerfMetrics::new();
+        metrics.new_frame();
+        metrics.end_frame();
+
+        assert!(metrics.last_frame() < Duration::from_millis(100));
+        assert_eq!(metrics.recent.len(), 1);
     }
 }

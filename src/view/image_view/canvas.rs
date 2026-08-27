@@ -4,10 +4,11 @@
 //! cost nothing beyond the four numbers handed to the GPU — no pixels are
 //! touched on the CPU.
 
-use eframe::egui::{self, load::SizedTexture, Rect, Widget};
+use eframe::egui::{self, Rect, Sense};
 use eframe::epaint::{Color32, Pos2, Vec2};
 
 use crate::cache::gpu::GpuTexture;
+use crate::view::texture;
 
 /// The white border some users like around a displayed photo.
 #[derive(Debug, Clone, Copy)]
@@ -109,11 +110,8 @@ pub fn draw(
         display_size
     };
 
-    egui::Image::new(SizedTexture::new(texture.id, texture.size))
-        .uv(uv)
-        .fit_to_exact_size(display_size)
-        .maintain_aspect_ratio(false)
-        .ui(ui);
+    let (rect, _) = ui.allocate_exact_size(display_size, Sense::hover());
+    texture::draw(ui, rect, texture, uv);
 
     metrics
 }
