@@ -8,7 +8,7 @@ pub mod model;
 
 use eframe::egui::{self, RichText};
 
-use crate::metadata::xmp::MAX_RATING;
+use crate::metadata::xmp::{Flag, Label, MAX_RATING};
 
 pub use model::{sections, Sections, Source};
 
@@ -24,6 +24,9 @@ const REMOVE: &str = "×";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     SetRating(u8),
+    SetFlag(Flag),
+    /// A colour label by its position in [`Label::CHOICES`], or none.
+    SetLabel(Option<usize>),
     AddTag(String),
     RemoveTag(String),
 }
@@ -59,7 +62,9 @@ pub fn ui(
                 ui.label(RichText::new("Rating & Tags").heading());
                 ui.add_space(10.);
 
-                actions.extend(stars(ui, source.annotations.rating));
+                actions.extend(stars(ui, source.annotations.stars()));
+                actions.extend(flags(ui, source.annotations.flag()));
+                actions.extend(labels(ui, source.annotations.known_label()));
                 ui.add_space(10.);
 
                 let sections = sections(source, &state.search);
@@ -79,6 +84,7 @@ pub fn ui(
 /// The star row. Clicking the star already at the end of the rating clears it,
 /// which is how every photo application behaves.
 fn stars(ui: &mut egui::Ui, rating: u8) -> Vec<Action> {
+    let rating = rating as i8;
     let mut actions = Vec::new();
 
     ui.horizontal(|ui| {
@@ -92,12 +98,65 @@ fn stars(ui: &mut egui::Ui, rating: u8) -> Vec<Action> {
                 .clicked()
             {
                 let wanted = if star == rating { 0 } else { star };
-                actions.push(Action::SetRating(wanted));
+                actions.push(Action::SetRating(wanted.max(0) as u8));
             }
         }
 
         if rating > 0 {
             ui.label(format!("{rating}/{MAX_RATING}"));
+        }
+    });
+
+    actions
+}
+
+/// Keep, throw out, or neither. Clicking the mark already on the image takes
+/// it off, the same as pressing its key twice.
+fn flags(ui: &mut egui::Ui, current: Flag) -> Vec<Action> {
+    let mut actions = Vec::new();
+
+    ui.horizontal(|ui| {
+        for (flag, label, hint) in [
+            (Flag::Picked, "⚑ Keep", "Mark this one as a keeper"),
+            (Flag::Rejected, "✖ Reject", "Mark this one to be thrown out"),
+        ] {
+            let chosen = current == flag;
+
+            if ui
+                .selectable_label(chosen, label)
+                .on_hover_text(hint)
+                .clicked()
+            {
+                actions.push(Action::SetFlag(if chosen { Flag::Unflagged } else { flag }));
+            }
+        }
+    });
+
+    actions
+}
+
+/// The five colour labels, as swatches. Clicking the one already set clears it.
+fn labels(ui: &mut egui::Ui, current: Option<Label>) -> Vec<Action> {
+    let mut actions = Vec::new();
+
+    ui.add_space(4.);
+    ui.horizontal(|ui| {
+        for (index, label) in Label::CHOICES.iter().enumerate() {
+            let (r, g, b) = label.colour();
+            let chosen = current == Some(*label);
+            let glyph = if chosen { "■" } else { "□" };
+
+            let swatch = RichText::new(glyph)
+                .size(20.)
+                .color(egui::Color32::from_rgb(r, g, b));
+
+            if ui
+                .add(egui::Button::new(swatch).frame(false))
+                .on_hover_text(label.name())
+                .clicked()
+            {
+                actions.push(Action::SetLabel((!chosen).then_some(index)));
+            }
         }
     });
 

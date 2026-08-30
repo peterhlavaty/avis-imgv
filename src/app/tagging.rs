@@ -7,7 +7,8 @@ use std::path::Path;
 
 use eframe::egui;
 
-use crate::metadata::xmp::Xmp;
+use crate::annotations::AnnotationStore;
+use crate::metadata::xmp::{Flag, Label, Xmp};
 use crate::ui::tag_panel::{self, Action};
 
 use super::App;
@@ -15,12 +16,47 @@ use super::App;
 impl App {
     /// Puts `stars` on the image on screen.
     pub(super) fn rate(&mut self, stars: u8) {
+        self.mark(|store, path| {
+            store.set_rating(path, stars);
+        });
+    }
+
+    /// Keeps the image on screen, throws it out, or takes the mark back off.
+    ///
+    /// Pressing the key of the mark it already carries takes that mark off,
+    /// which is what every other program does with these keys.
+    pub(super) fn flag(&mut self, flag: Flag) {
+        self.mark(|store, path| {
+            if flag == Flag::Unflagged {
+                store.set_flag(path, flag);
+            } else {
+                store.toggle_flag(path, flag);
+            }
+        });
+    }
+
+    /// Puts a colour label on the image on screen, or takes it off again.
+    pub(super) fn label(&mut self, index: usize) {
+        let Some(label) = Label::CHOICES.get(index).copied() else {
+            return;
+        };
+
+        self.mark(|store, path| {
+            store.toggle_label(path, label);
+        });
+    }
+
+    /// Applies a mark to the image on screen.
+    ///
+    /// The annotations are read from disk first, because marking an image
+    /// nobody has read is how the keywords on it get lost.
+    fn mark(&mut self, apply: impl FnOnce(&mut AnnotationStore, &Path)) {
         let Some(path) = self.image_view.active_path() else {
             return;
         };
 
         self.load_annotations(&path);
-        self.annotations.set_rating(&path, stars);
+        apply(&mut self.annotations, &path);
     }
 
     /// Draws the rating and tagging panel and applies what was clicked.
@@ -57,6 +93,17 @@ impl App {
                 Action::SetRating(stars) => {
                     self.annotations.set_rating(&path, stars);
                 }
+                Action::SetFlag(flag) => {
+                    self.annotations.set_flag(&path, flag);
+                }
+                Action::SetLabel(index) => match index.and_then(|i| Label::CHOICES.get(i)) {
+                    Some(label) => {
+                        self.annotations.toggle_label(&path, *label);
+                    }
+                    None => {
+                        self.annotations.clear_label(&path);
+                    }
+                },
                 Action::AddTag(tag) => {
                     if self.annotations.add_tag(&path, &tag) {
                         self.recent_tags.remember(tag);

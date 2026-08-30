@@ -3,7 +3,7 @@
 use quick_xml::events::{BytesRef, BytesStart, Event};
 use quick_xml::{NsReader, XmlVersion};
 
-use super::{namespace_of, parse_rating, Namespace, Xmp};
+use super::{namespace_of, parse_pick, parse_rating, Namespace, Xmp};
 
 /// Documents larger than this are not worth walking; a develop history can run
 /// to megabytes and none of it concerns us past the first description.
@@ -56,10 +56,6 @@ pub fn read(document: &str) -> Option<Xmp> {
                     }
                     (Namespace::Rdf, "li") => collected.clear(),
                     (Namespace::Rdf, _) => saw_rdf = true,
-                    (Namespace::Xmp, "Rating") if opening => {
-                        collecting = Some(Collecting::Rating);
-                        collected.clear();
-                    }
                     (Namespace::Dc, "subject") if opening => {
                         collecting = Some(Collecting::Keywords);
                         // Whatever the previous property left behind is not
@@ -67,7 +63,12 @@ pub fn read(document: &str) -> Option<Xmp> {
                         // the front of the first keyword.
                         collected.clear();
                     }
-                    _ => {}
+                    _ => {
+                        if let (true, Some(property)) = (opening, property_of(namespace, name)) {
+                            collecting = Some(Collecting::Scalar(property));
+                            collected.clear();
+                        }
+                    }
                 }
             }
             Event::End(ref element) => {
@@ -75,13 +76,6 @@ pub fn read(document: &str) -> Option<Xmp> {
                 let name: &str = local.as_ref();
 
                 match (namespace, name) {
-                    (Namespace::Xmp, "Rating") => {
-                        if let Some(rating) = parse_rating(&collected) {
-                            found.rating = rating;
-                        }
-                        collected.clear();
-                        collecting = None;
-                    }
                     (Namespace::Rdf, "li") if collecting == Some(Collecting::Keywords) => {
                         push_keyword(&mut found.keywords, &collected);
                         collected.clear();
@@ -93,7 +87,13 @@ pub fn read(document: &str) -> Option<Xmp> {
                         collected.clear();
                         collecting = None;
                     }
-                    _ => {}
+                    _ => {
+                        if let Some(property) = property_of(namespace, name) {
+                            apply(&mut found, property, &collected);
+                            collected.clear();
+                            collecting = None;
+                        }
+                    }
                 }
             }
             Event::Text(ref text) if collecting.is_some() => {
@@ -113,34 +113,69 @@ pub fn read(document: &str) -> Option<Xmp> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Collecting {
-    Rating,
+    Scalar(Property),
     Keywords,
 }
 
-/// The rating may also appear as an attribute of `rdf:Description`, which is
-/// the compact form most writers use for scalars.
+/// The scalar properties may also appear as attributes of `rdf:Description`,
+/// which is the compact form most writers use for them.
 fn read_description_attributes(
     reader: &mut NsReader<&[u8]>,
     element: &BytesStart<'_>,
     found: &mut Xmp,
 ) {
     for attribute in element.attributes().flatten() {
-        let namespace = {
+        let property = {
             let (resolved, local) = reader.resolver_mut().resolve_attribute(attribute.key);
-            let is_rating: bool = local.as_ref() == "Rating";
-            (namespace_of(&resolved) == Namespace::Xmp && is_rating).then_some(())
+            property_of(namespace_of(&resolved), local.as_ref())
         };
 
-        if namespace.is_none() {
+        let Some(property) = property else {
             continue;
-        }
+        };
 
         let Ok(value) = attribute.normalized_value(XmlVersion::Implicit1_0) else {
             continue;
         };
 
-        if let Some(rating) = parse_rating(&value) {
-            found.rating = rating;
+        apply(found, property, &value);
+    }
+}
+
+/// The scalar properties the viewer maintains.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Property {
+    Rating,
+    Label,
+    Pick,
+}
+
+/// Which of them a namespace and a local name is, if any.
+fn property_of(namespace: Namespace, name: &str) -> Option<Property> {
+    match (namespace, name) {
+        (Namespace::Xmp, "Rating") => Some(Property::Rating),
+        (Namespace::Xmp, "Label") => Some(Property::Label),
+        (Namespace::DigiKam, "PickLabel") => Some(Property::Pick),
+        _ => None,
+    }
+}
+
+/// Puts a property's text where it belongs.
+fn apply(found: &mut Xmp, property: Property, text: &str) {
+    match property {
+        Property::Rating => {
+            if let Some(rating) = parse_rating(text) {
+                found.rating = rating;
+            }
+        }
+        Property::Label => {
+            let label = text.trim();
+            found.label = (!label.is_empty()).then(|| label.to_string());
+        }
+        Property::Pick => {
+            if let Some(picked) = parse_pick(text) {
+                found.picked = picked;
+            }
         }
     }
 }

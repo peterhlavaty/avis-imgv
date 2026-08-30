@@ -1,5 +1,27 @@
 # Change Log
 
+## 2026-08-30
+
+- Three ways of saying something about a photograph rather than one, because a
+  cull needs three different answers and every other program keeps them apart.
+  - **Keep and reject** on `P` and `X`, `U` to take either back off, and
+    pressing the key of the mark a picture already carries is the same as `U`.
+    A rejection is written as `xmp:Rating="-1"`, which is what Adobe reserves
+    for it and what Bridge, Lightroom, FastRawViewer and darktable all read;
+    a keep is `digiKam:PickLabel`. Rejecting clears the stars and rating clears
+    the rejection, because they are the same field.
+  - **Colour labels** on `6` to `9` and `Ctrl + 9`, written as `xmp:Label` and
+    always in English whatever the interface ever says. Read back against the
+    names Bridge and Lightroom use as well, and a label from somewhere else is
+    kept as it is rather than thrown away.
+  - The panel shows all three, and so does the status bar, so a key pressed
+    with the panel shut is not a keystroke that appears to do nothing.
+- **Advance after marking**, on `Ctrl + Shift + A` or in the configuration:
+  rating, flagging or labelling moves to the next picture by itself, which is
+  what turns a cull into one keystroke a frame. A mode rather than a held
+  modifier, because on a Slovak or German keyboard the digits are the shifted
+  characters of the top row and every rating would have arrived with shift.
+
 ## 2026-08-27
 
 - Fixed: an image drawn smaller than the copy on the GPU went invisible, which

@@ -22,8 +22,8 @@ pub struct Filter {
     pub metadata_tag: String,
     pub metadata_contains: String,
     /// Stars, as a closed range.
-    pub min_rating: u8,
-    pub max_rating: u8,
+    pub min_rating: i8,
+    pub max_rating: i8,
     /// Comma separated keywords the file has to carry at least one of.
     pub with_any_tag: String,
     /// Comma separated keywords that exclude a file.
@@ -31,7 +31,7 @@ pub struct Filter {
 }
 
 /// The highest rating there is, which is what "no upper bound" means.
-const MAX_RATING: u8 = crate::metadata::xmp::MAX_RATING;
+const MAX_RATING: i8 = crate::metadata::xmp::MAX_RATING;
 
 impl Filter {
     pub fn new() -> Filter {

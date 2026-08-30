@@ -9,7 +9,7 @@ use std::io::Cursor;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::{NsReader, Writer};
 
-use super::{namespace_of, Namespace, Xmp, NS_DC, NS_RDF, NS_XMP};
+use super::{namespace_of, Namespace, Xmp, NS_DC, NS_DIGIKAM, NS_RDF, NS_XMP};
 
 /// Identifies documents this viewer wrote, in the toolkit field every XMP
 /// writer stamps.
@@ -79,10 +79,7 @@ fn edit(document: &str, xmp: &Xmp) -> Option<String> {
                 let local = element.local_name();
                 let name: &str = local.as_ref();
 
-                if matches!(
-                    (namespace, name),
-                    (Namespace::Xmp, "Rating") | (Namespace::Dc, "subject")
-                ) {
+                if is_ours_named(namespace, name) {
                     // An empty element has no subtree to skip.
                     if matches!(event, Event::Start(_)) {
                         skipping = 1;
@@ -149,19 +146,25 @@ fn strip_ours(
     writer.write_event(event)
 }
 
-/// Whether an attribute is one of the two properties the viewer maintains.
+/// Whether an attribute is one of the properties the viewer maintains.
 fn is_ours(
     reader: &mut NsReader<&[u8]>,
     attribute: &quick_xml::events::attributes::Attribute,
 ) -> bool {
     let (resolved, local) = reader.resolver_mut().resolve_attribute(attribute.key);
-    let name: &str = local.as_ref();
 
-    match namespace_of(&resolved) {
-        Namespace::Xmp => name == "Rating",
-        Namespace::Dc => name == "subject",
-        _ => false,
-    }
+    is_ours_named(namespace_of(&resolved), local.as_ref())
+}
+
+/// The same question, asked of an element rather than an attribute.
+fn is_ours_named(namespace: Namespace, name: &str) -> bool {
+    matches!(
+        (namespace, name),
+        (Namespace::Xmp, "Rating")
+            | (Namespace::Xmp, "Label")
+            | (Namespace::Dc, "subject")
+            | (Namespace::DigiKam, "PickLabel")
+    )
 }
 
 /// Writes the description element with our rating on it, followed by the
@@ -176,6 +179,7 @@ fn write_description(
     let name: String = element.name().as_ref().to_string();
     let mut rebuilt = BytesStart::new(name.clone());
     let mut declares_xmp = false;
+    let mut declares_digikam = false;
 
     for attribute in element.attributes().flatten() {
         // Drop anything already there that we are about to write, whatever
@@ -185,17 +189,31 @@ fn write_description(
         }
 
         declares_xmp |= attribute.key.as_ref() == "xmlns:xmp";
+        declares_digikam |= attribute.key.as_ref() == "xmlns:digiKam";
         rebuilt.push_attribute(attribute);
     }
 
-    // The `xmp` prefix has to be in scope for the attribute we are about to
-    // add; declaring it again on this element is harmless if it already is.
+    // The prefixes have to be in scope for the attributes we are about to add;
+    // declaring one again on this element is harmless if it already is.
     if !declares_xmp {
         rebuilt.push_attribute(("xmlns:xmp", NS_XMP));
+    }
+    if xmp.picked && !declares_digikam {
+        rebuilt.push_attribute(("xmlns:digiKam", NS_DIGIKAM));
     }
 
     let rating = xmp.rating.to_string();
     rebuilt.push_attribute(("xmp:Rating", rating.as_str()));
+
+    if let Some(label) = &xmp.label {
+        rebuilt.push_attribute(("xmp:Label", escape(label).as_str()));
+    }
+
+    // Only written when it is set: an unpicked frame should not leave a
+    // digiKam property behind in a sidecar that never had one.
+    if xmp.picked {
+        rebuilt.push_attribute(("digiKam:PickLabel", "3"));
+    }
 
     writer.write_event(Event::Start(rebuilt))?;
     write_keywords(writer, &xmp.keywords)?;
@@ -248,14 +266,28 @@ fn fresh(xmp: &Xmp) -> String {
         format!("   <dc:subject>\n    <rdf:Bag>\n{items}    </rdf:Bag>\n   </dc:subject>\n")
     };
 
+    let label = match &xmp.label {
+        Some(label) => format!("\n   xmp:Label=\"{}\"", escape(label)),
+        None => String::new(),
+    };
+
+    let (digikam_ns, pick) = if xmp.picked {
+        (
+            format!("\n    xmlns:digiKam=\"{NS_DIGIKAM}\""),
+            "\n   digiKam:PickLabel=\"3\"".to_string(),
+        )
+    } else {
+        (String::new(), String::new())
+    };
+
     format!(
         r#"<?xpacket begin="{bom}" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="{MARKER}">
  <rdf:RDF xmlns:rdf="{NS_RDF}">
   <rdf:Description rdf:about=""
     xmlns:xmp="{NS_XMP}"
-    xmlns:dc="{NS_DC}"
-   xmp:Rating="{rating}">
+    xmlns:dc="{NS_DC}"{digikam_ns}
+   xmp:Rating="{rating}"{label}{pick}>
 {subject}  </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
@@ -275,10 +307,11 @@ mod tests {
     use super::super::read;
     use super::*;
 
-    fn xmp(rating: u8, keywords: &[&str]) -> Xmp {
+    fn xmp(rating: i8, keywords: &[&str]) -> Xmp {
         Xmp {
             rating,
             keywords: keywords.iter().map(|k| k.to_string()).collect(),
+            ..Xmp::default()
         }
     }
 
@@ -435,6 +468,75 @@ mod tests {
 
         assert_eq!(back.rating, 0);
         assert!(back.keywords.is_empty());
+    }
+
+    #[test]
+    fn a_label_and_a_pick_round_trip() {
+        let marked = Xmp {
+            rating: 2,
+            picked: true,
+            label: Some("Green".to_string()),
+            keywords: vec!["Keeper".to_string()],
+        };
+
+        let written = updated(None, &marked);
+        assert_eq!(read(&written).unwrap(), marked);
+
+        // And again through an existing document rather than a fresh one.
+        let edited = updated(Some(&written), &marked);
+        assert_eq!(read(&edited).unwrap(), marked);
+    }
+
+    #[test]
+    fn a_rejection_round_trips_as_minus_one() {
+        let rejected = Xmp {
+            rating: super::super::REJECTED,
+            ..Xmp::default()
+        };
+
+        let written = updated(None, &rejected);
+
+        assert!(written.contains(r#"xmp:Rating="-1""#), "{written}");
+        assert_eq!(read(&written).unwrap().rating, super::super::REJECTED);
+    }
+
+    #[test]
+    fn clearing_a_label_removes_it_from_the_document() {
+        let labelled = updated(
+            None,
+            &Xmp {
+                label: Some("Red".to_string()),
+                ..Xmp::default()
+            },
+        );
+
+        let cleared = updated(Some(&labelled), &Xmp::default());
+
+        assert!(!cleared.contains("xmp:Label"), "{cleared}");
+        assert_eq!(read(&cleared).unwrap().label, None);
+    }
+
+    /// An unpicked frame should not leave digiKam's property in a sidecar that
+    /// never had one.
+    #[test]
+    fn nothing_digikam_is_written_for_an_unpicked_frame() {
+        let written = updated(None, &xmp(3, &[]));
+
+        assert!(!written.contains("digiKam"), "{written}");
+    }
+
+    #[test]
+    fn a_label_another_program_wrote_survives_a_round_trip() {
+        let existing = format!(
+            r#"<rdf:RDF xmlns:rdf="{NS_RDF}"><rdf:Description rdf:about=""
+                 xmlns:xmp="{NS_XMP}" xmp:Label="Chartreuse"/></rdf:RDF>"#
+        );
+
+        let read_back = read(&existing).unwrap();
+        assert_eq!(read_back.label.as_deref(), Some("Chartreuse"));
+
+        let edited = updated(Some(&existing), &read_back);
+        assert_eq!(read(&edited).unwrap().label.as_deref(), Some("Chartreuse"));
     }
 
     #[test]

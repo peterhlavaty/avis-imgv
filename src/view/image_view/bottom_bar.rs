@@ -3,10 +3,33 @@
 use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
+use crate::metadata::xmp::{Flag, Label, Xmp};
+
 use super::input::Command;
 
 /// Zoom levels offered in the magnification context menu.
 const PERCENTAGES: &[f32] = &[200., 100., 75., 50., 25.];
+
+/// What the user has said about the photograph on screen.
+///
+/// Drawn in the bar so that rating, flagging or labelling with the panel shut
+/// is not a keystroke that appears to do nothing.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Marks {
+    pub stars: u8,
+    pub flag: Flag,
+    pub label: Option<Label>,
+}
+
+impl Marks {
+    pub fn of(annotations: &Xmp) -> Marks {
+        Marks {
+            stars: annotations.stars(),
+            flag: annotations.flag(),
+            label: annotations.known_label(),
+        }
+    }
+}
 
 /// Modes worth telling the user about.
 #[derive(Debug, Clone, Copy, Default)]
@@ -14,6 +37,8 @@ pub struct Flags {
     pub flattened: bool,
     pub watching: bool,
     pub filling: bool,
+    /// Whether a mark moves on to the next photograph by itself.
+    pub advancing: bool,
 }
 
 /// Everything the bar draws, borrowed from the view.
@@ -25,8 +50,7 @@ pub struct Status<'a> {
     pub total: usize,
     pub name: String,
     pub percentage_zoom: f32,
-    /// Stars on the image, so rating it with the panel closed still shows.
-    pub rating: u8,
+    pub marks: Marks,
     pub flags: Flags,
 }
 
@@ -57,15 +81,14 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     (status.flags.flattened, "Flattened"),
                     (status.flags.watching, "Watching"),
                     (status.flags.filling, "Filling"),
+                    (status.flags.advancing, "Advancing"),
                 ] {
                     if active {
                         ui.label(label);
                     }
                 }
 
-                if status.rating > 0 {
-                    ui.label(stars(status.rating));
-                }
+                marks(ui, &status.marks);
 
                 // Leave room for the zoom controls pinned to the right.
                 let name_width = (ui.available_width() - 245.).max(20.);
@@ -93,8 +116,30 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
     outcome
 }
 
-/// A rating as filled stars, without the empty ones: the bar is a summary,
-/// not a control.
+/// The three marks, drawn only when there is something to draw: the bar is a
+/// summary, not a control, and an unmarked photograph should say nothing.
+fn marks(ui: &mut egui::Ui, marks: &Marks) {
+    if marks.flag != Flag::Unflagged {
+        let colour = match marks.flag {
+            Flag::Rejected => egui::Color32::from_rgb(219, 96, 96),
+            _ => ui.visuals().text_color(),
+        };
+
+        ui.label(egui::RichText::new(marks.flag.glyph()).color(colour));
+    }
+
+    if let Some(label) = marks.label {
+        let (r, g, b) = label.colour();
+        ui.label(egui::RichText::new("■").color(egui::Color32::from_rgb(r, g, b)))
+            .on_hover_text(label.name());
+    }
+
+    if marks.stars > 0 {
+        ui.label(stars(marks.stars));
+    }
+}
+
+/// A rating as filled stars, without the empty ones.
 fn stars(rating: u8) -> String {
     "★".repeat(rating as usize)
 }

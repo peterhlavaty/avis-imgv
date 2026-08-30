@@ -127,10 +127,11 @@ mod tests {
         dir
     }
 
-    fn annotations(rating: u8, keywords: &[&str]) -> Xmp {
+    fn annotations(rating: i8, keywords: &[&str]) -> Xmp {
         Xmp {
             rating,
             keywords: keywords.iter().map(|k| k.to_string()).collect(),
+            ..Xmp::default()
         }
     }
 

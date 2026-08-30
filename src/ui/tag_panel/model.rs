@@ -142,6 +142,7 @@ mod tests {
         Xmp {
             rating: 0,
             keywords: keywords.iter().map(|k| k.to_string()).collect(),
+            ..Xmp::default()
         }
     }
 

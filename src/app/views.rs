@@ -7,7 +7,7 @@
 
 use eframe::egui;
 
-use crate::view::image_view::bottom_bar::Flags;
+use crate::view::image_view::bottom_bar::{Flags, Marks};
 use crate::view::organize::Done;
 
 use super::{App, Mode};
@@ -87,20 +87,21 @@ impl App {
             return;
         }
 
-        let rating = self
+        let marks = self
             .image_view
             .active_path()
-            .and_then(|path| self.annotations.peek(&path).map(|found| found.rating))
-            .unwrap_or(0);
+            .and_then(|path| self.annotations.peek(&path).map(Marks::of))
+            .unwrap_or_default();
 
         self.image_view.ui(
             ctx,
             Flags {
                 flattened: self.flattened,
                 watching: self.watcher.is_active(),
+                advancing: self.advancing,
                 ..Default::default()
             },
-            rating,
+            marks,
         );
 
         if let Some(callback) = self.image_view.take_callback() {

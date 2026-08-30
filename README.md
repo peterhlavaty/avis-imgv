@@ -79,39 +79,60 @@ Supported containers: JPEG (APP1/APP2), PNG (`eXIf`, `iCCP`), WebP (RIFF `EXIF`,
 RAF, and Canon CR3 (ISO base media). Tag names follow exiftool's, so existing
 `metadata_tags` and `name_format` settings keep working.
 
-## Ratings and tags
+## Marks: stars, flags, labels and tags
 
-Press `K` for the rating and tagging panel: a resizable, hideable side panel
-holding the stars for the open image, the tags on it, the tags you used most
-recently, and the catalog you configured — searchable by tag name or by the
-name of the category a tag is filed under.
+Three axes, because a cull needs three different answers, and every other
+program keeps them apart for the same reason. Press `K` for the panel that
+holds all of them, or use the keys with it shut — the status bar shows what a
+photograph carries either way.
 
-- **Stars.** `0` to `5` set the rating from the keyboard, with or without the
-  panel open; the status bar shows it either way. Clicking the star a rating
-  already ends on clears it.
-- **Recent tags.** Whatever you applied last, one click away, remembered
-  between sessions.
-- **Your catalog.** `tags.categories` in the configuration is the list you
-  always want to hand. Searching matches a category name too, so typing
+- **Stars.** `0` to `5`. Clicking the star a rating already ends on clears it.
+  How good it is.
+- **Keep and reject.** `P` keeps, `X` throws out, `U` takes either mark back
+  off, and pressing the key of the mark a photograph already carries is the
+  same as `U`. Whether it stays at all. Nought stars means "not looked at yet";
+  a reject means "looked at, and no".
+- **Colour labels.** `6` red, `7` yellow, `8` green, `9` blue, `Ctrl + 9`
+  purple, and the key of the label already set clears it. What happens next —
+  to retouch, to send, sent.
+- **Tags.** The panel offers the tags you used most recently, the catalog you
+  configured, and anything already on the other photographs of the folder;
+  typing something new offers to create it. `tags.categories` is the list you
+  always want to hand, and searching matches a category name too, so typing
   "places" offers everything filed under Places.
-- **Anything already used.** Tags found on the other images of the folder are
-  offered as well, so a tag typed once does not have to be configured.
-- Typing something new offers to create it.
+
+**Advance after marking.** `Ctrl + Shift + A`, or `tags.advance_after_marking`
+in the configuration, makes a rating, a flag or a label move to the next
+photograph by itself, which is what turns a cull into one keystroke a frame.
+A mode rather than a held modifier, because on a Slovak or German keyboard the
+digits *are* the shifted characters of the top row.
 
 ### Where they are stored
 
-In XMP sidecars beside the image — `DSC001.cr2.xmp` — as `xmp:Rating` and
-`dc:subject`, which is what every raw converter reads. Adobe's `DSC001.xmp` is
-read too, and whichever sidecar is already there is the one edited: a develop
-history written by another tool survives untouched.
+In XMP sidecars beside the image — `DSC001.cr2.xmp` — which is what every raw
+converter reads. Adobe's `DSC001.xmp` is read too, and whichever sidecar is
+already there is the one edited: a develop history written by another tool
+survives untouched, and a sidecar the reader cannot make sense of is left alone
+and reported rather than replaced.
 
-Ratings and keywords **inside** the image are read as well (JPEG `APP1`, PNG
-`iTXt`, WebP, TIFF, and Windows Explorer's EXIF rating), so an image rated
-elsewhere shows up already rated. Nothing is ever written back into the image
-file itself.
+| What | Written as |
+|------|------------|
+| Stars | `xmp:Rating`, 0 to 5 |
+| Reject | `xmp:Rating` = `-1`, which is what Adobe reserves for it and what Bridge, Lightroom, FastRawViewer and darktable all read |
+| Keep | `digiKam:PickLabel` = `3` |
+| Colour label | `xmp:Label`, always the English colour name, and read back against the names Bridge and Lightroom use as well |
+| Tags | `dc:subject`, as an `rdf:Bag` |
+
+Rejecting clears the stars and rating clears the rejection, because they are the
+same field — which is the convention rather than a limitation.
+
+Marks **inside** the image are read as well (JPEG `APP1`, PNG `iTXt`, WebP,
+TIFF, and Windows Explorer's EXIF rating), so a photograph rated elsewhere shows
+up already rated. Nothing is ever written back into the image file itself.
 
 Saves happen on a thread of their own, so rating a photograph never waits on
-the disk.
+the disk — and a save that fails says so on screen rather than in a log nobody
+reads.
 
 ## Dependencies
 
@@ -460,6 +481,10 @@ viewer logs that it is showing previews instead.
 | `panel_width` | Starting width of the panel, in points | 260 |
 | `sc_toggle_tag_panel` | Shortcut that opens the panel | `K` |
 | `sc_rating` | Shortcuts that set a rating, listed from no stars upwards | `0` – `5` |
+| `sc_pick` `sc_reject` `sc_unflag` | Keep, throw out, and take the mark off | `P` `X` `U` |
+| `sc_label` | Shortcuts for the colour labels, in the order red, yellow, green, blue, purple | `6` – `9`, `Ctrl + 9` |
+| `advance_after_marking` | Move to the next picture as soon as one is rated, flagged or labelled | false |
+| `sc_toggle_advance` | Turns that on and off | `Ctrl + Shift + A` |
 
 ### Slideshow
 
@@ -487,6 +512,9 @@ viewer logs that it is showing previews instead.
 | I | Toggle the side panel: metadata and cache occupancy |
 | K | Toggle the rating and tagging panel |
 | 0 – 5 | Set the star rating of the open image |
+| P / X / U | Keep it, throw it out, or take either mark off |
+| 6 – 9, Ctrl + 9 | Colour label: red, yellow, green, blue, purple |
+| Ctrl + Shift + A | Move to the next picture after every mark
 | F10 | Toggle frame timings |
 
 ### Image view

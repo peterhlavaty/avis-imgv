@@ -4,6 +4,7 @@ use eframe::egui;
 
 use crate::app::mode::Mode;
 use crate::config::{GeneralConfig, TagConfig};
+use crate::metadata::xmp::{Flag, Label};
 use crate::utils;
 
 /// Something the application can be asked to do.
@@ -23,6 +24,23 @@ pub enum Command {
     ToggleTagPanel,
     /// Put this many stars on the image on screen.
     SetRating(u8),
+    /// Keep it, throw it out, or take the mark back off.
+    SetFlag(Flag),
+    /// Put this colour label on it, by its position in [`Label::CHOICES`].
+    SetLabel(usize),
+    /// Move to the next photograph after every mark, or stop doing that.
+    ToggleAdvance,
+}
+
+impl Command {
+    /// Whether this is a mark, and so whether it may advance to the next
+    /// photograph once it has been applied.
+    fn is_a_mark(self) -> bool {
+        matches!(
+            self,
+            Command::SetRating(_) | Command::SetFlag(_) | Command::SetLabel(_)
+        )
+    }
 }
 
 /// Overlays that take over the keyboard while open.
@@ -70,6 +88,10 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
             commands.push(Command::ToggleTagPanel);
         }
 
+        if input.consume_shortcut(&tags.sc_toggle_advance.kbd_shortcut) {
+            commands.push(Command::ToggleAdvance);
+        }
+
         // The rating shortcuts are listed from no stars upwards, so a
         // shortcut's position is the rating it applies.
         commands.extend(
@@ -79,9 +101,39 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
                 .filter(|(_, shortcut)| input.consume_shortcut(&shortcut.kbd_shortcut))
                 .map(|(stars, _)| Command::SetRating(stars as u8)),
         );
+
+        for (shortcut, flag) in [
+            (&tags.sc_pick, Flag::Picked),
+            (&tags.sc_reject, Flag::Rejected),
+            (&tags.sc_unflag, Flag::Unflagged),
+        ] {
+            if input.consume_shortcut(&shortcut.kbd_shortcut) {
+                commands.push(Command::SetFlag(flag));
+            }
+        }
+
+        // As with the ratings, a shortcut's position is the label it applies.
+        commands.extend(
+            tags.sc_label
+                .iter()
+                .enumerate()
+                .take(Label::CHOICES.len())
+                .filter(|(_, shortcut)| input.consume_shortcut(&shortcut.kbd_shortcut))
+                .map(|(index, _)| Command::SetLabel(index)),
+        );
     });
 
     commands
+}
+
+/// Whether a mark should be followed by a move to the next photograph.
+///
+/// A mode rather than a modifier, the way Lightroom does it. A modifier would
+/// have been cheaper, and it does not work: on a Slovak or German keyboard the
+/// digits are the shifted characters of the top row, so every rating would
+/// arrive with shift held and every rating would advance.
+pub fn advances(command: Command, advancing: bool) -> bool {
+    advancing && command.is_a_mark()
 }
 
 /// Opens and closes the overlays, keeping the input mute flag in step.
@@ -216,6 +268,53 @@ mod tests {
         update_overlay(&ctx, &mut open, &config);
         assert_eq!(open, None);
         assert!(!utils::are_inputs_muted(&ctx));
+    }
+
+    #[test]
+    fn the_flag_keys_are_lightrooms() {
+        for (key, flag) in [
+            (Key::P, Flag::Picked),
+            (Key::X, Flag::Rejected),
+            (Key::U, Flag::Unflagged),
+        ] {
+            let ctx = context_with(vec![key_press(key, Modifiers::NONE)]);
+            assert_eq!(collected(&ctx), vec![Command::SetFlag(flag)], "{key:?}");
+        }
+    }
+
+    #[test]
+    fn the_digits_above_the_ratings_are_the_colour_labels() {
+        let ctx = context_with(vec![key_press(Key::Num6, Modifiers::NONE)]);
+        assert_eq!(collected(&ctx), vec![Command::SetLabel(0)]);
+
+        let ctx = context_with(vec![key_press(Key::Num9, Modifiers::NONE)]);
+        assert_eq!(collected(&ctx), vec![Command::SetLabel(3)]);
+    }
+
+    #[test]
+    fn a_mark_advances_only_when_it_is_meant_to() {
+        assert!(!advances(Command::SetRating(3), false));
+        assert!(advances(Command::SetRating(3), true));
+        assert!(advances(Command::SetFlag(Flag::Rejected), true));
+        assert!(advances(Command::SetLabel(0), true));
+
+        // Nothing that is not a mark ever advances.
+        assert!(!advances(Command::ToggleGrid, true));
+        assert!(!advances(Command::ToggleAdvance, true));
+    }
+
+    #[test]
+    fn advancing_is_a_mode_with_a_key_of_its_own() {
+        let ctx = context_with(vec![key_press(
+            Key::A,
+            Modifiers {
+                ctrl: true,
+                shift: true,
+                ..Modifiers::NONE
+            },
+        )]);
+
+        assert_eq!(collected(&ctx), vec![Command::ToggleAdvance]);
     }
 
     #[test]

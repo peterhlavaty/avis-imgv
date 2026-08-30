@@ -300,7 +300,51 @@
         "key": "5",
         "modifiers": []
       }
-    ]
+    ],
+    "sc_pick": {
+      "key": "p",
+      "modifiers": []
+    },
+    "sc_reject": {
+      "key": "x",
+      "modifiers": []
+    },
+    "sc_unflag": {
+      "key": "u",
+      "modifiers": []
+    },
+    "sc_label": [
+      {
+        "key": "6",
+        "modifiers": []
+      },
+      {
+        "key": "7",
+        "modifiers": []
+      },
+      {
+        "key": "8",
+        "modifiers": []
+      },
+      {
+        "key": "9",
+        "modifiers": []
+      },
+      {
+        "key": "9",
+        "modifiers": [
+          "ctrl"
+        ]
+      }
+    ],
+    "advance_after_marking": false,
+    "sc_toggle_advance": {
+      "key": "a",
+      "modifiers": [
+        "ctrl",
+        "shift"
+      ]
+    }
   },
   "raw": {
     "source": "preview",

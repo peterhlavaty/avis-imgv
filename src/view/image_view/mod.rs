@@ -22,7 +22,7 @@ use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 
-use bottom_bar::{Flags, Status};
+use bottom_bar::{Flags, Marks, Status};
 use canvas::{travelled, FrameStyle, Metrics, Viewport};
 use input::Command;
 use layout::BACKGROUND;
@@ -104,9 +104,9 @@ impl ImageView {
 
     /// Draws the view and services its caches.
     ///
-    /// `rating` is the star rating of the image on screen, which the status
+    /// `marks` are the stars, flag and label on the image on screen, which the status
     /// bar shows so rating with the panel closed is not silent.
-    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags, rating: u8) {
+    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks) {
         if self.warm() {
             ctx.request_repaint();
         }
@@ -116,7 +116,7 @@ impl ImageView {
         }
 
         if self.slideshow.is_none() {
-            self.show_bottom_bar(ctx, flags, rating);
+            self.show_bottom_bar(ctx, flags, marks);
         }
 
         let response = self.show_images(ctx);
@@ -197,7 +197,7 @@ impl ImageView {
             .unwrap_or(BACKGROUND)
     }
 
-    fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags, rating: u8) {
+    fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks) {
         let name = self.display_name();
         let total = self.store.len();
         let mut status = Status {
@@ -208,7 +208,7 @@ impl ImageView {
             total,
             name,
             percentage_zoom: self.metrics.percentage_zoom,
-            rating,
+            marks,
             flags: Flags {
                 filling: self.viewport.maximize,
                 ..flags

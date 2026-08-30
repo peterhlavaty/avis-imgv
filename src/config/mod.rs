@@ -96,6 +96,28 @@ pub struct TagConfig {
     /// Applying a rating with a keystroke, from no stars to five.
     #[serde(default = "default_sc_rating")]
     pub sc_rating: Vec<Shortcut>,
+    /// Marking a frame as kept.
+    #[serde(default = "default_sc_pick")]
+    pub sc_pick: Shortcut,
+    /// Marking a frame as thrown out. Pressing it again puts it back.
+    #[serde(default = "default_sc_reject")]
+    pub sc_reject: Shortcut,
+    /// Taking whichever mark a frame carries back off it.
+    #[serde(default = "default_sc_unflag")]
+    pub sc_unflag: Shortcut,
+    /// The colour labels, in the order [`crate::metadata::xmp::Label`] lists
+    /// them: red, yellow, green, blue, purple.
+    #[serde(default = "default_sc_label")]
+    pub sc_label: Vec<Shortcut>,
+    /// Move to the next photograph after a rating, a flag or a label.
+    ///
+    /// Holding shift with any of those keys advances once whatever this says,
+    /// so the setting decides which way round the extra keystroke goes.
+    #[serde(default = "default_advance_after_marking")]
+    pub advance_after_marking: bool,
+    /// Turns that on and off without opening the settings.
+    #[serde(default = "default_sc_toggle_advance")]
+    pub sc_toggle_advance: Shortcut,
 }
 
 /// A named group of tags.
@@ -410,6 +432,12 @@ impl Default for TagConfig {
             panel_width: default_tag_panel_width(),
             sc_toggle_tag_panel: default_sc_toggle_tag_panel(),
             sc_rating: default_sc_rating(),
+            sc_pick: default_sc_pick(),
+            sc_reject: default_sc_reject(),
+            sc_unflag: default_sc_unflag(),
+            sc_label: default_sc_label(),
+            advance_after_marking: default_advance_after_marking(),
+            sc_toggle_advance: default_sc_toggle_advance(),
         }
     }
 }

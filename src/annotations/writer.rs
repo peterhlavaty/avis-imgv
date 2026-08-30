@@ -176,6 +176,7 @@ mod tests {
             Xmp {
                 rating: 4,
                 keywords: vec!["Keeper".to_string()],
+                ..Xmp::default()
             },
         );
         writer.flush();
@@ -199,6 +200,7 @@ mod tests {
                 Xmp {
                     rating,
                     keywords: vec![],
+                    ..Xmp::default()
                 },
             );
         }
@@ -228,6 +230,7 @@ mod tests {
                 Xmp {
                     rating: 2,
                     keywords: vec![],
+                    ..Xmp::default()
                 },
             );
             writer.flush();

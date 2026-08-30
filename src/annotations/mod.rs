@@ -14,7 +14,7 @@ pub mod writer;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::metadata::xmp::Xmp;
+use crate::metadata::xmp::{Flag, Label, Xmp};
 
 pub use catalog::Catalog;
 pub use recent::RecentTags;
@@ -65,13 +65,44 @@ impl AnnotationStore {
 
     /// Sets the star rating, saving when it actually changes.
     pub fn set_rating(&mut self, image: &Path, rating: u8) -> bool {
+        self.edit(image, |annotations| annotations.set_rating(rating))
+    }
+
+    /// Sets the pick or reject flag, saving when it actually changes.
+    pub fn set_flag(&mut self, image: &Path, flag: Flag) -> bool {
+        self.edit(image, |annotations| annotations.set_flag(flag))
+    }
+
+    /// Applies a flag, or clears it when the image already carries it.
+    ///
+    /// Pressing reject on something already rejected means "no, put that
+    /// back", which is how every other program reads it.
+    pub fn toggle_flag(&mut self, image: &Path, flag: Flag) -> bool {
+        let wanted = if self.get(image, None).flag() == flag {
+            Flag::Unflagged
+        } else {
+            flag
+        };
+
+        self.set_flag(image, wanted)
+    }
+
+    /// Sets the colour label, or clears it when the image already carries it.
+    pub fn toggle_label(&mut self, image: &Path, label: Label) -> bool {
+        let wanted =
+            (self.get(image, None).known_label() != Some(label)).then(|| label.name().to_string());
+
         self.edit(image, |annotations| {
-            let rating = rating.min(crate::metadata::xmp::MAX_RATING);
-            let changed = annotations.rating != rating;
-            annotations.rating = rating;
+            let changed = annotations.label != wanted;
+            annotations.label = wanted;
 
             changed
         })
+    }
+
+    /// Takes the colour label off, whatever it was.
+    pub fn clear_label(&mut self, image: &Path) -> bool {
+        self.edit(image, |annotations| annotations.label.take().is_some())
     }
 
     /// Adds a keyword. Returns whether it was not already there.
@@ -219,6 +250,7 @@ mod tests {
         let embedded = Xmp {
             rating: 3,
             keywords: vec!["FromTheFile".to_string()],
+            ..Xmp::default()
         };
 
         assert_eq!(store.get(&image(), Some(&embedded)), &embedded);
@@ -302,6 +334,7 @@ mod tests {
             Xmp {
                 rating: 0,
                 keywords: vec!["Shared".to_string(), "One".to_string()],
+                ..Xmp::default()
             },
         );
         seed(
@@ -310,6 +343,7 @@ mod tests {
             Xmp {
                 rating: 0,
                 keywords: vec!["Shared".to_string()],
+                ..Xmp::default()
             },
         );
 

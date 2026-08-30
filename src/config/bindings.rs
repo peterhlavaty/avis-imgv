@@ -20,6 +20,7 @@ use super::{Config, Shortcut};
 enum Field {
     Fixed(fn(&Config) -> &Shortcut, fn(&mut Config) -> &mut Shortcut),
     Rating(usize),
+    Label(usize),
 }
 
 /// One thing a key can be bound to.
@@ -40,6 +41,7 @@ impl Binding {
         match self.field {
             Field::Fixed(read, _) => Some(read(config)),
             Field::Rating(index) => config.tags.sc_rating.get(index),
+            Field::Label(index) => config.tags.sc_label.get(index),
         }
     }
 
@@ -49,6 +51,11 @@ impl Binding {
             Field::Fixed(_, write) => *write(config) = shortcut,
             Field::Rating(index) => {
                 if let Some(field) = config.tags.sc_rating.get_mut(index) {
+                    *field = shortcut;
+                }
+            }
+            Field::Label(index) => {
+                if let Some(field) = config.tags.sc_label.get_mut(index) {
                     *field = shortcut;
                 }
             }
@@ -251,6 +258,42 @@ pub fn all() -> Vec<Binding> {
         ),
     ];
 
+    bindings.extend([
+        binding!(
+            "Ratings and tags",
+            "Keep",
+            "Mark the picture on screen as one to keep. Pressing it again takes the mark off.",
+            tags.sc_pick
+        ),
+        binding!(
+            "Ratings and tags",
+            "Reject",
+            "Mark it as one to throw out. Pressing it again puts it back.",
+            tags.sc_reject
+        ),
+        binding!(
+            "Ratings and tags",
+            "No flag",
+            "Take whichever of those two marks it carries back off it.",
+            tags.sc_unflag
+        ),
+        binding!(
+            "Ratings and tags",
+            "Advance after marking",
+            "Turn on and off moving to the next picture as soon as one is rated, flagged or labelled.",
+            tags.sc_toggle_advance
+        ),
+    ]);
+
+    for (index, label) in crate::metadata::xmp::Label::CHOICES.iter().enumerate() {
+        bindings.push(Binding {
+            section: "Ratings and tags",
+            name: label.name(),
+            description: LABEL_DESCRIPTIONS[index],
+            field: Field::Label(index),
+        });
+    }
+
     for stars in 0..=crate::metadata::xmp::MAX_RATING {
         bindings.push(Binding {
             section: "Ratings and tags",
@@ -262,6 +305,14 @@ pub fn all() -> Vec<Binding> {
 
     bindings
 }
+
+const LABEL_DESCRIPTIONS: &[&str] = &[
+    "Put the red label on the picture on screen. Pressing it again takes it off.",
+    "Put the yellow label on it.",
+    "Put the green label on it.",
+    "Put the blue label on it.",
+    "Put the purple label on it.",
+];
 
 const RATING_NAMES: &[&str] = &[
     "No stars",

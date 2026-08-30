@@ -299,6 +299,7 @@ mod tests {
             &xmp::Xmp {
                 rating: 4,
                 keywords: vec!["Keeper".to_string()],
+                ..xmp::Xmp::default()
             },
         );
 

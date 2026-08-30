@@ -97,7 +97,7 @@ impl Entry {
         self.tag(CAPTURE_TAG).and_then(Timestamp::parse)
     }
 
-    pub fn rating(&self) -> u8 {
+    pub fn rating(&self) -> i8 {
         self.annotations.rating
     }
 
@@ -174,11 +174,12 @@ pub(crate) mod test_support {
     }
 
     /// The same, with a rating and keywords on it.
-    pub fn rated(name: &str, rating: u8, keywords: &[&str]) -> Entry {
+    pub fn rated(name: &str, rating: i8, keywords: &[&str]) -> Entry {
         let mut entry = entry(name, 0, &[]);
         entry.annotations = Xmp {
             rating,
             keywords: keywords.iter().map(|k| k.to_string()).collect(),
+            ..Xmp::default()
         };
 
         entry

@@ -76,6 +76,8 @@ pub struct App {
     was_fullscreen: bool,
     /// What has gone wrong lately, on its way to the user.
     notices: Notices,
+    /// Whether a mark moves on to the next photograph by itself.
+    advancing: bool,
 }
 
 impl App {
@@ -111,6 +113,7 @@ impl App {
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
         let settings = config.clone();
+        let advancing = config.tags.advance_after_marking;
 
         let mut app = App {
             image_view: ImageView::new(
@@ -156,6 +159,7 @@ impl App {
             pending_fullscreen: None,
             was_fullscreen: fullscreen,
             notices: Notices::default(),
+            advancing,
         };
 
         if app.settings.partial {
@@ -206,6 +210,9 @@ impl App {
             }
             Command::ToggleTagPanel => self.tag_panel_visible = !self.tag_panel_visible,
             Command::SetRating(stars) => self.rate(stars),
+            Command::SetFlag(flag) => self.flag(flag),
+            Command::SetLabel(index) => self.label(index),
+            Command::ToggleAdvance => self.advancing = !self.advancing,
         }
     }
 
@@ -269,7 +276,14 @@ impl eframe::App for App {
 
         input::update_overlay(ctx, &mut self.overlay, &self.config);
         for command in input::collect(ctx, &self.config, &self.tag_config) {
+            let advance = input::advances(command, self.advancing);
             self.apply(command, ctx);
+
+            // After the mark, not before it: the mark belongs to the
+            // photograph that was on screen when the key went down.
+            if advance {
+                self.image_view.next_image();
+            }
         }
 
         egui::TopBottomPanel::top("performance_metrics")

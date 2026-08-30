@@ -3,7 +3,7 @@
 //! Kept apart from the structs so serde's `default = "..."` attributes stay
 //! readable and the shape of the configuration is visible at a glance.
 
-use super::shortcut::{Shortcut, MOD_ALT, MOD_CTRL};
+use super::shortcut::{Shortcut, MOD_ALT, MOD_CTRL, MOD_SHIFT};
 use super::{ContextMenuEntry, RawQuality, RawSource, TagCategory, UserAction};
 
 /// Four gigabytes of decoded pixels: generous on a modern machine and still
@@ -269,6 +269,41 @@ pub fn default_sc_rating() -> Vec<Shortcut> {
     (0..=5)
         .map(|stars| Shortcut::new(&stars.to_string(), &[]))
         .collect()
+}
+
+/// Lightroom's keys, which every other program copied.
+pub fn default_sc_pick() -> Shortcut {
+    Shortcut::new("p", &[])
+}
+pub fn default_sc_reject() -> Shortcut {
+    Shortcut::new("x", &[])
+}
+pub fn default_sc_unflag() -> Shortcut {
+    Shortcut::new("u", &[])
+}
+
+/// The digits above the ratings, in the order the labels are listed. Purple
+/// takes control because the row runs out at nine.
+pub fn default_sc_label() -> Vec<Shortcut> {
+    vec![
+        Shortcut::new("6", &[]),
+        Shortcut::new("7", &[]),
+        Shortcut::new("8", &[]),
+        Shortcut::new("9", &[]),
+        Shortcut::new("9", &[MOD_CTRL]),
+    ]
+}
+
+/// Off, because moving by itself is a surprise the first time it happens.
+pub fn default_advance_after_marking() -> bool {
+    false
+}
+
+/// A mode rather than a modifier: on the layouts where the digits are the
+/// shifted characters of the top row, a modifier could not be told apart from
+/// the rating key itself.
+pub fn default_sc_toggle_advance() -> Shortcut {
+    Shortcut::new("a", &[MOD_CTRL, MOD_SHIFT])
 }
 
 //Raw
