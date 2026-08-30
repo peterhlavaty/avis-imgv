@@ -105,8 +105,10 @@ impl AnnotationStore {
     /// Adds a keyword, or removes it when the image already has it.
     pub fn toggle_tag(&mut self, image: &Path, tag: &str) -> bool {
         let present = self
-            .peek(image)
-            .is_some_and(|annotations| annotations.keywords.iter().any(|k| k == tag));
+            .get(image, None)
+            .keywords
+            .iter()
+            .any(|existing| existing == tag);
 
         if present {
             self.remove_tag(image, tag);
@@ -151,9 +153,29 @@ impl AnnotationStore {
         self.writer.flush();
     }
 
+    /// Saves that failed since this was last asked, for the user to be told.
+    pub fn problems(&self) -> Vec<String> {
+        self.writer.problems()
+    }
+
     /// Applies `change`, queueing a save when it reports something changed.
+    ///
+    /// The entry is read from disk first when it is not already known. Editing
+    /// an entry nobody has read is how keywords get lost: the save is built
+    /// from whatever the entry holds, and a fabricated empty one writes a
+    /// sidecar with no `dc:subject` at all. Rating an image the decoder cannot
+    /// read used to do exactly that.
     fn edit(&mut self, image: &Path, change: impl FnOnce(&mut Xmp) -> bool) -> bool {
-        let annotations = self.entries.entry(image.to_path_buf()).or_default();
+        if !self.entries.contains_key(image) {
+            self.entries.insert(
+                image.to_path_buf(),
+                sidecar::read(image).unwrap_or_default(),
+            );
+        }
+
+        let Some(annotations) = self.entries.get_mut(image) else {
+            return false;
+        };
 
         if !change(annotations) {
             return false;

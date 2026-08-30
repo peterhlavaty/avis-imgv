@@ -2,6 +2,7 @@
 
 pub mod keys;
 pub mod navigator;
+pub mod notice;
 pub mod perf_metrics;
 pub mod tag_panel;
 pub mod theme;

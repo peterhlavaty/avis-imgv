@@ -4,7 +4,9 @@
 //! photograph to change a star is both slow and risky, and every raw converter
 //! already looks for a sidecar.
 
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::metadata::xmp::{self, Xmp};
 
@@ -49,6 +51,10 @@ pub fn read(image: &Path) -> Option<Xmp> {
 }
 
 /// Writes `annotations` to the sidecar, preserving whatever else it holds.
+///
+/// A sidecar that cannot be read, or that the writer cannot rewrite without
+/// losing what is in it, is reported rather than replaced: it may be holding a
+/// raw converter's entire develop history.
 pub fn write(image: &Path, annotations: &Xmp) -> std::io::Result<()> {
     // Edit whichever sidecar is already there rather than adding a second one
     // beside it.
@@ -57,10 +63,55 @@ pub fn write(image: &Path, annotations: &Xmp) -> std::io::Result<()> {
         .find(|path| path.exists())
         .unwrap_or_else(|| path_for(image));
 
-    let existing = std::fs::read_to_string(&target).ok();
-    let document = xmp::update(existing.as_deref(), annotations);
+    let existing = match std::fs::read_to_string(&target) {
+        Ok(document) => Some(document),
+        Err(e) if e.kind() == ErrorKind::NotFound => None,
+        Err(e) => return Err(e),
+    };
 
-    std::fs::write(&target, document)
+    let Some(document) = xmp::update(existing.as_deref(), annotations) else {
+        return Err(std::io::Error::new(
+            ErrorKind::InvalidData,
+            "the sidecar could not be rewritten without losing what it holds",
+        ));
+    };
+
+    replace(&target, document.as_bytes())
+}
+
+/// Puts `contents` at `path` in one step.
+///
+/// Written beside the target and renamed over it, so an interrupted write
+/// leaves the old sidecar intact rather than half of a new one. The temporary
+/// carries the process id and a counter, because two viewers may be looking at
+/// the same folder.
+fn replace(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+    let name = path.file_name().unwrap_or_default().to_string_lossy();
+    let temporary = path.with_file_name(format!(
+        ".{name}.{}-{}.tmp",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    let written = (|| {
+        let mut file = std::fs::File::create(&temporary)?;
+        file.write_all(contents)?;
+        file.sync_all()
+    })();
+
+    if let Err(e) = written {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(e);
+    }
+
+    if let Err(e) = std::fs::rename(&temporary, path) {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(e);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -138,7 +189,11 @@ mod tests {
         let dir = temp_dir("adobe");
         let image = dir.join("photo.cr2");
         let adobe = dir.join("photo.xmp");
-        std::fs::write(&adobe, xmp::update(None, &annotations(1, &["Old"]))).unwrap();
+        std::fs::write(
+            &adobe,
+            xmp::update(None, &annotations(1, &["Old"])).unwrap(),
+        )
+        .unwrap();
 
         write(&image, &annotations(5, &["New"])).unwrap();
 
@@ -154,16 +209,65 @@ mod tests {
         let image = dir.join("photo.cr2");
         std::fs::write(
             dir.join("photo.xmp"),
-            xmp::update(None, &annotations(1, &[])),
+            xmp::update(None, &annotations(1, &[])).unwrap(),
         )
         .unwrap();
         std::fs::write(
             dir.join("photo.cr2.xmp"),
-            xmp::update(None, &annotations(5, &[])),
+            xmp::update(None, &annotations(5, &[])).unwrap(),
         )
         .unwrap();
 
         assert_eq!(read(&image).unwrap().rating, 5);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_sidecar_that_cannot_be_rewritten_is_left_alone() {
+        let dir = temp_dir("unreadable");
+        let image = dir.join("photo.cr2");
+        let sidecar = dir.join("photo.cr2.xmp");
+
+        // XML the writer cannot make sense of, standing in for a document
+        // holding somebody else's work.
+        let original = b"<not-xmp>a develop history lives here</not-xmp>";
+        std::fs::write(&sidecar, original).unwrap();
+
+        assert!(write(&image, &annotations(5, &["New"])).is_err());
+        assert_eq!(std::fs::read(&sidecar).unwrap(), original);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_blank_sidecar_is_filled_in() {
+        let dir = temp_dir("blank");
+        let image = dir.join("photo.jpg");
+        std::fs::write(dir.join("photo.jpg.xmp"), b"   \n").unwrap();
+
+        write(&image, &annotations(2, &[])).unwrap();
+
+        assert_eq!(read(&image).unwrap().rating, 2);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writing_leaves_no_temporary_behind() {
+        let dir = temp_dir("temporary");
+        let image = dir.join("photo.jpg");
+
+        write(&image, &annotations(3, &["One"])).unwrap();
+
+        let leftovers: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".tmp"))
+            .collect();
+
+        assert!(leftovers.is_empty(), "{leftovers:?}");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

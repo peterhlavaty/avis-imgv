@@ -42,6 +42,13 @@ pub fn read(document: &str) -> Option<Xmp> {
                 let local = element.local_name();
                 let name: &str = local.as_ref();
 
+                // An empty element has no text and no closing tag, so starting
+                // to collect at one would go on collecting for the rest of the
+                // document: an empty `<dc:subject/>` used to turn every later
+                // `rdf:li` — a hierarchical subject, a tone curve — into a
+                // keyword.
+                let opening = matches!(event, Event::Start(_));
+
                 match (namespace, name) {
                     (Namespace::Rdf, "Description") => {
                         saw_rdf = true;
@@ -49,11 +56,17 @@ pub fn read(document: &str) -> Option<Xmp> {
                     }
                     (Namespace::Rdf, "li") => collected.clear(),
                     (Namespace::Rdf, _) => saw_rdf = true,
-                    (Namespace::Xmp, "Rating") => {
+                    (Namespace::Xmp, "Rating") if opening => {
                         collecting = Some(Collecting::Rating);
                         collected.clear();
                     }
-                    (Namespace::Dc, "subject") => collecting = Some(Collecting::Keywords),
+                    (Namespace::Dc, "subject") if opening => {
+                        collecting = Some(Collecting::Keywords);
+                        // Whatever the previous property left behind is not
+                        // part of this one: a rating used to arrive glued to
+                        // the front of the first keyword.
+                        collected.clear();
+                    }
                     _ => {}
                 }
             }
@@ -66,6 +79,7 @@ pub fn read(document: &str) -> Option<Xmp> {
                         if let Some(rating) = parse_rating(&collected) {
                             found.rating = rating;
                         }
+                        collected.clear();
                         collecting = None;
                     }
                     (Namespace::Rdf, "li") if collecting == Some(Collecting::Keywords) => {
@@ -268,5 +282,46 @@ mod tests {
         let body = "<xmp:CreatorTool>Some Editor</xmp:CreatorTool>";
 
         assert!(read(&document("", body)).unwrap().is_empty());
+    }
+
+    /// The rating's text used to be left in the buffer, so it arrived glued to
+    /// the front of the next thing collected.
+    #[test]
+    fn a_rating_does_not_bleed_into_the_first_keyword() {
+        let body = "<xmp:Rating>3</xmp:Rating><dc:subject>Macro</dc:subject>";
+        let xmp = read(&document("", body)).unwrap();
+
+        assert_eq!(xmp.rating, 3);
+        assert_eq!(xmp.keywords, vec!["Macro"]);
+    }
+
+    /// An empty subject used to leave the reader collecting for the rest of
+    /// the document, so a raw converter's own lists became keywords.
+    #[test]
+    fn an_empty_subject_does_not_swallow_the_rest_of_the_document() {
+        let body = concat!(
+            "<dc:subject/>",
+            r#"<lr:hierarchicalSubject xmlns:lr="http://ns.adobe.com/lightroom/1.0/">"#,
+            "<rdf:Bag><rdf:li>Places|Slovakia</rdf:li></rdf:Bag>",
+            "</lr:hierarchicalSubject>",
+        );
+
+        assert!(read(&document("", body)).unwrap().keywords.is_empty());
+    }
+
+    /// The same, for a rating with no body.
+    #[test]
+    fn an_empty_rating_element_does_not_collect() {
+        let body = concat!(
+            "<xmp:Rating/>",
+            "<crs:ToneCurve xmlns:crs=\"http://ns.adobe.com/camera-raw-settings/1.0/\">",
+            "<rdf:Seq><rdf:li>0, 0</rdf:li></rdf:Seq>",
+            "</crs:ToneCurve>",
+        );
+
+        let xmp = read(&document("", body)).unwrap();
+
+        assert_eq!(xmp.rating, 0);
+        assert!(xmp.keywords.is_empty());
     }
 }

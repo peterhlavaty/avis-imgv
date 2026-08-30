@@ -25,17 +25,25 @@ type Sink = Writer<Cursor<Vec<u8>>>;
 /// Everything the viewer does not understand is passed through untouched and
 /// the original formatting is preserved, so a sidecar shared with another tool
 /// comes back recognisable.
-pub fn update(existing: Option<&str>, xmp: &Xmp) -> String {
-    match existing.and_then(|document| edit(document, xmp)) {
-        Some(edited) => edited,
-        None => fresh(xmp),
+///
+/// Returns nothing when there is a document that cannot be rewritten without
+/// losing what it holds. A sidecar routinely carries an entire develop history,
+/// so refusing to write is the only safe answer to "I could not read this":
+/// the caller reports it and the file stays as it was.
+pub fn update(existing: Option<&str>, xmp: &Xmp) -> Option<String> {
+    match existing {
+        // Nothing there, or a file somebody created and left blank.
+        None => Some(fresh(xmp)),
+        Some(document) if document.trim().is_empty() => Some(fresh(xmp)),
+        Some(document) => edit(document, xmp),
     }
 }
 
-/// Rewrites an existing document, or gives up so a fresh one is written.
+/// Rewrites an existing document, or gives up rather than write over it.
 ///
-/// Gives up when the document has no `rdf:Description` to edit, which means it
-/// is not XMP we can work with.
+/// Gives up when the document has no `rdf:Description` to edit, when it does
+/// not parse, and when it is longer than [`MAX_EVENTS`] — the last of those
+/// used to fall through and hand back the half of it that had been written.
 fn edit(document: &str, xmp: &Xmp) -> Option<String> {
     let mut reader = NsReader::from_str(document);
     let mut writer = Writer::new(Cursor::new(Vec::new()));
@@ -44,6 +52,7 @@ fn edit(document: &str, xmp: &Xmp) -> Option<String> {
     // the first description, so a document cannot end up saying two things.
     let mut skipping = 0usize;
     let mut written = false;
+    let mut finished = false;
 
     for _ in 0..MAX_EVENTS {
         let (namespace, event) = {
@@ -62,7 +71,10 @@ fn edit(document: &str, xmp: &Xmp) -> Option<String> {
         }
 
         match event {
-            Event::Eof => break,
+            Event::Eof => {
+                finished = true;
+                break;
+            }
             Event::Start(ref element) | Event::Empty(ref element) => {
                 let local = element.local_name();
                 let name: &str = local.as_ref();
@@ -78,12 +90,19 @@ fn edit(document: &str, xmp: &Xmp) -> Option<String> {
                     continue;
                 }
 
-                if namespace == Namespace::Rdf && name == "Description" && !written {
-                    written = true;
+                if namespace == Namespace::Rdf && name == "Description" {
                     let element = element.to_owned();
                     let self_closing = matches!(event, Event::Empty(_));
-                    write_description(&mut writer, &mut reader, &element, xmp, self_closing)
-                        .ok()?;
+
+                    if written {
+                        // A later description keeps everything it had except
+                        // our properties, which the first one now carries.
+                        strip_ours(&mut writer, &mut reader, &element, self_closing).ok()?;
+                    } else {
+                        written = true;
+                        write_description(&mut writer, &mut reader, &element, xmp, self_closing)
+                            .ok()?;
+                    }
                     continue;
                 }
 
@@ -93,9 +112,56 @@ fn edit(document: &str, xmp: &Xmp) -> Option<String> {
         }
     }
 
-    let edited = String::from_utf8(writer.into_inner().into_inner()).ok()?;
+    if !finished || !written {
+        return None;
+    }
 
-    written.then_some(edited)
+    String::from_utf8(writer.into_inner().into_inner()).ok()
+}
+
+/// Writes a description through, minus the properties the viewer owns.
+///
+/// A sidecar with more than one `rdf:Description` used to come back with a
+/// rating on each of them, and the reader would find the stale one first.
+fn strip_ours(
+    writer: &mut Sink,
+    reader: &mut NsReader<&[u8]>,
+    element: &BytesStart<'_>,
+    self_closing: bool,
+) -> std::io::Result<()> {
+    let name: String = element.name().as_ref().to_string();
+    let mut rebuilt = BytesStart::new(name);
+
+    for attribute in element.attributes().flatten() {
+        if is_ours(reader, &attribute) {
+            continue;
+        }
+
+        rebuilt.push_attribute(attribute);
+    }
+
+    let event = if self_closing {
+        Event::Empty(rebuilt)
+    } else {
+        Event::Start(rebuilt)
+    };
+
+    writer.write_event(event)
+}
+
+/// Whether an attribute is one of the two properties the viewer maintains.
+fn is_ours(
+    reader: &mut NsReader<&[u8]>,
+    attribute: &quick_xml::events::attributes::Attribute,
+) -> bool {
+    let (resolved, local) = reader.resolver_mut().resolve_attribute(attribute.key);
+    let name: &str = local.as_ref();
+
+    match namespace_of(&resolved) {
+        Namespace::Xmp => name == "Rating",
+        Namespace::Dc => name == "subject",
+        _ => false,
+    }
 }
 
 /// Writes the description element with our rating on it, followed by the
@@ -112,14 +178,9 @@ fn write_description(
     let mut declares_xmp = false;
 
     for attribute in element.attributes().flatten() {
-        // Drop any rating already there, whatever prefix it used.
-        let is_rating = {
-            let (resolved, local) = reader.resolver_mut().resolve_attribute(attribute.key);
-            let named_rating: bool = local.as_ref() == "Rating";
-            namespace_of(&resolved) == Namespace::Xmp && named_rating
-        };
-
-        if is_rating {
+        // Drop anything already there that we are about to write, whatever
+        // prefix it used.
+        if is_ours(reader, &attribute) {
             continue;
         }
 
@@ -221,9 +282,14 @@ mod tests {
         }
     }
 
+    /// The document `update` produces, for the cases that must produce one.
+    fn updated(existing: Option<&str>, xmp: &Xmp) -> String {
+        update(existing, xmp).expect("a document")
+    }
+
     #[test]
     fn a_fresh_document_round_trips() {
-        let written = update(None, &xmp(4, &["Slovakia", "Autumn"]));
+        let written = updated(None, &xmp(4, &["Slovakia", "Autumn"]));
         let back = read(&written).expect("reads back");
 
         assert_eq!(back.rating, 4);
@@ -233,14 +299,14 @@ mod tests {
 
     #[test]
     fn an_empty_annotation_still_produces_a_document() {
-        let written = update(None, &Xmp::default());
+        let written = updated(None, &Xmp::default());
 
         assert!(read(&written).expect("reads back").is_empty());
     }
 
     #[test]
     fn keywords_are_escaped() {
-        let written = update(None, &xmp(0, &["black & white", "<odd>"]));
+        let written = updated(None, &xmp(0, &["black & white", "<odd>"]));
 
         assert_eq!(
             read(&written).unwrap().keywords,
@@ -250,8 +316,8 @@ mod tests {
 
     #[test]
     fn editing_replaces_what_was_there() {
-        let first = update(None, &xmp(1, &["Draft"]));
-        let second = update(Some(&first), &xmp(5, &["Final", "Print"]));
+        let first = updated(None, &xmp(1, &["Draft"]));
+        let second = updated(Some(&first), &xmp(5, &["Final", "Print"]));
         let back = read(&second).unwrap();
 
         assert_eq!(back.rating, 5);
@@ -276,7 +342,7 @@ mod tests {
 </x:xmpmeta>"#
         );
 
-        let edited = update(Some(&existing), &xmp(3, &["Keeper"]));
+        let edited = updated(Some(&existing), &xmp(3, &["Keeper"]));
         let back = read(&edited).unwrap();
 
         assert!(edited.contains(r#"crs:Exposure2012="+0.35""#));
@@ -291,7 +357,7 @@ mod tests {
         let existing =
             format!(r#"<rdf:RDF xmlns:rdf="{NS_RDF}"><rdf:Description rdf:about=""/></rdf:RDF>"#);
 
-        let back = read(&update(Some(&existing), &xmp(2, &["Tagged"]))).unwrap();
+        let back = read(&updated(Some(&existing), &xmp(2, &["Tagged"]))).unwrap();
 
         assert_eq!(back.rating, 2);
         assert_eq!(back.keywords, vec!["Tagged"]);
@@ -305,24 +371,66 @@ mod tests {
                </rdf:Description></rdf:RDF>"#
         );
 
-        let edited = update(Some(&existing), &xmp(4, &[]));
+        let edited = updated(Some(&existing), &xmp(4, &[]));
 
         assert_eq!(read(&edited).unwrap().rating, 4);
         assert!(!edited.contains("<xmp:Rating>"));
     }
 
+    /// A document that cannot be edited is one whose contents we would be
+    /// throwing away, so nothing is produced and the caller leaves it alone.
     #[test]
-    fn something_that_is_not_xmp_is_replaced_wholesale() {
-        let written = update(Some("this is not a document"), &xmp(3, &[]));
+    fn something_that_is_not_xmp_is_left_alone() {
+        assert!(update(Some("this is not a document"), &xmp(3, &[])).is_none());
+        assert!(update(Some("<other>not xmp at all</other>"), &xmp(3, &[])).is_none());
+    }
+
+    #[test]
+    fn a_blank_document_is_written_afresh() {
+        let written = update(Some("  \n\t "), &xmp(3, &[])).expect("a document");
 
         assert_eq!(read(&written).unwrap().rating, 3);
         assert!(written.contains(MARKER));
     }
 
+    /// The event budget used to be a truncation: the half of the document that
+    /// had been written was handed back and saved over the whole of it.
+    #[test]
+    fn a_document_longer_than_the_budget_is_refused_rather_than_truncated() {
+        let filler: String = (0..MAX_EVENTS)
+            .map(|i| format!("<crs:li>{i}</crs:li>"))
+            .collect();
+
+        let existing = format!(
+            r#"<rdf:RDF xmlns:rdf="{NS_RDF}"><rdf:Description xmlns:xmp="{NS_XMP}"
+                 xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+                 xmp:Rating="1">{filler}</rdf:Description></rdf:RDF>"#
+        );
+
+        assert!(update(Some(&existing), &xmp(4, &[])).is_none());
+    }
+
+    /// The rating attribute used to be stripped from the first description
+    /// only, leaving a second one to contradict it.
+    #[test]
+    fn a_second_description_does_not_keep_a_stale_rating() {
+        let existing = format!(
+            r#"<rdf:RDF xmlns:rdf="{NS_RDF}">
+                 <rdf:Description rdf:about="" xmlns:xmp="{NS_XMP}" xmp:Rating="1"/>
+                 <rdf:Description rdf:about="" xmlns:xmp="{NS_XMP}" xmp:Rating="2"/>
+               </rdf:RDF>"#
+        );
+
+        let edited = updated(Some(&existing), &xmp(5, &[]));
+
+        assert_eq!(edited.matches("xmp:Rating=").count(), 1, "{edited}");
+        assert_eq!(read(&edited).unwrap().rating, 5);
+    }
+
     #[test]
     fn clearing_a_rating_writes_a_zero_rather_than_forgetting() {
-        let rated = update(None, &xmp(5, &["Keep"]));
-        let cleared = update(Some(&rated), &Xmp::default());
+        let rated = updated(None, &xmp(5, &["Keep"]));
+        let cleared = updated(Some(&rated), &Xmp::default());
         let back = read(&cleared).unwrap();
 
         assert_eq!(back.rating, 0);
@@ -331,8 +439,8 @@ mod tests {
 
     #[test]
     fn editing_twice_is_stable() {
-        let once = update(None, &xmp(3, &["A", "B"]));
-        let twice = update(Some(&once), &xmp(3, &["A", "B"]));
+        let once = updated(None, &xmp(3, &["A", "B"]));
+        let twice = updated(Some(&once), &xmp(3, &["A", "B"]));
 
         assert_eq!(read(&once).unwrap(), read(&twice).unwrap());
     }

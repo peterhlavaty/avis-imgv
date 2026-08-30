@@ -20,6 +20,11 @@ struct Queue {
     /// Number of saves started but not yet finished, so a flush knows to wait.
     in_flight: usize,
     shutdown: bool,
+    /// Saves that failed, waiting to be told to the user.
+    ///
+    /// A rating is a keystroke and the disk it lands on may be a read-only
+    /// card. Losing that quietly is worse than the write failing.
+    problems: Vec<String>,
 }
 
 struct Shared {
@@ -64,6 +69,14 @@ impl Writer {
         }
     }
 
+    /// Takes whatever failed since this was last asked, for the user to see.
+    pub fn problems(&self) -> Vec<String> {
+        match self.shared.queue.lock() {
+            Ok(mut queue) => std::mem::take(&mut queue.problems),
+            Err(_) => Vec::new(),
+        }
+    }
+
     /// Blocks until the queue is empty and no save is in flight.
     pub fn flush(&self) {
         let Ok(mut queue) = self.shared.queue.lock() else {
@@ -94,7 +107,9 @@ impl Drop for Writer {
 
 fn run(shared: &Shared) {
     while let Some((image, annotations)) = next(shared) {
-        if let Err(e) = sidecar::write(&image, &annotations) {
+        let outcome = sidecar::write(&image, &annotations);
+
+        if let Err(e) = &outcome {
             tracing::error!(
                 "Failure writing {} -> {e}",
                 sidecar::path_for(&image).display()
@@ -103,6 +118,16 @@ fn run(shared: &Shared) {
 
         if let Ok(mut queue) = shared.queue.lock() {
             queue.in_flight -= 1;
+
+            if let Err(e) = outcome {
+                let name = image
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| image.display().to_string());
+
+                queue.problems.push(format!("Could not save {name}: {e}"));
+            }
+
             shared.changed.notify_all();
         }
     }

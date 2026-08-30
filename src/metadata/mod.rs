@@ -303,7 +303,7 @@ mod tests {
         );
 
         let mut payload = b"http://ns.adobe.com/xap/1.0/ ".to_vec();
-        payload.extend_from_slice(packet.as_bytes());
+        payload.extend_from_slice(packet.expect("a document").as_bytes());
 
         let mut jpeg = vec![0xFF, 0xD8, 0xFF, 0xE1];
         jpeg.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());

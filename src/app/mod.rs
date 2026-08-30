@@ -23,7 +23,7 @@ use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
 use crate::ui::tag_panel;
-use crate::ui::{keys, perf_metrics::PerfMetrics, theme};
+use crate::ui::{keys, notice::Notices, perf_metrics::PerfMetrics, theme};
 use crate::view::organize::OrganizeView;
 use crate::view::{GridView, ImageView};
 
@@ -74,6 +74,8 @@ pub struct App {
     /// Whether the window was already fullscreen before a mode asked for it,
     /// so leaving that mode puts it back the way the user had it.
     was_fullscreen: bool,
+    /// What has gone wrong lately, on its way to the user.
+    notices: Notices,
 }
 
 impl App {
@@ -153,6 +155,7 @@ impl App {
             slideshow_visible: false,
             pending_fullscreen: None,
             was_fullscreen: fullscreen,
+            notices: Notices::default(),
         };
 
         app.open(paths, opened.as_deref());
@@ -216,6 +219,13 @@ impl App {
         self.open_directory(&base, selected.as_deref());
     }
 
+    /// Moves anything that failed on a background thread onto the screen.
+    fn report_problems(&mut self) {
+        for problem in self.annotations.problems() {
+            self.notices.say(problem);
+        }
+    }
+
     fn execute_callback(&mut self, callback: Callback) {
         tracing::info!("Executing callback {callback:?}");
 
@@ -276,6 +286,11 @@ impl eframe::App for App {
 
         if self.watcher.is_active() {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        }
+
+        self.report_problems();
+        if self.notices.ui(ctx) {
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
 
         self.run_benchmark(ctx);
