@@ -10,6 +10,7 @@ pub mod files;
 pub mod filter;
 pub mod gather;
 pub mod group;
+pub mod journal;
 pub mod rename;
 pub mod scan;
 pub mod similarity;

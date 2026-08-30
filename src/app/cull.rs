@@ -11,6 +11,9 @@ use eframe::egui;
 
 use crate::metadata::xmp::Flag;
 use crate::organize::files;
+use crate::organize::journal::Step;
+use crate::ui::destinations::{self, Answer, Asking, Errand, Slot};
+use crate::utils;
 
 use super::App;
 
@@ -103,6 +106,10 @@ impl App {
             return;
         };
 
+        // A window asking a question owns the keyboard while it is up, or the
+        // key that answers it also does whatever it does the rest of the time.
+        utils::set_mute_state(ctx, true);
+
         let mut answered = None;
 
         egui::Window::new(if pending.permanent {
@@ -135,18 +142,26 @@ impl App {
 
         match answered {
             Some(true) => {
-                self.pending_delete = None;
+                self.close_modal(ctx);
                 self.carry_out(pending);
             }
-            Some(false) => self.pending_delete = None,
+            Some(false) => self.close_modal(ctx),
             None => {}
         }
+    }
+
+    /// Gives the keyboard back once nothing is being asked.
+    fn close_modal(&mut self, ctx: &egui::Context) {
+        self.pending_delete = None;
+        self.asking = None;
+        utils::set_mute_state(ctx, false);
     }
 
     /// Does it, and says what happened.
     fn carry_out(&mut self, pending: Pending) {
         let mut gone = 0usize;
         let mut failed = 0usize;
+        let mut binned: Vec<PathBuf> = Vec::new();
 
         for path in &pending.paths {
             let outcome = if pending.permanent {
@@ -158,6 +173,7 @@ impl App {
             match outcome {
                 Ok(()) => {
                     gone += 1;
+                    binned.push(path.clone());
                     self.forget(path);
                 }
                 Err(e) => {
@@ -166,6 +182,12 @@ impl App {
                     self.notices.say(format!("{e}"));
                 }
             }
+        }
+
+        // Only the bin can be undone: what was deleted for good is gone, and
+        // the journal must not suggest otherwise.
+        if !pending.permanent {
+            self.journal.record(Step::Binned(binned));
         }
 
         if gone > 0 {
@@ -194,6 +216,190 @@ impl App {
         self.image_view.pop(path);
         self.grid_view.pop(path);
         self.annotations.forget(path);
+    }
+}
+
+/// Moving photographs somewhere else, and taking it back.
+impl App {
+    /// Opens the panel that asks where the photograph should go.
+    ///
+    /// Pressing the same key twice in a row skips the panel and repeats the
+    /// last answer, which is the motion every fast viewer has: the panel is
+    /// there for the first frame of a shoot and out of the way for the rest.
+    pub(super) fn send_somewhere(&mut self, errand: Errand) {
+        if self.marked_path().is_none() {
+            return;
+        }
+
+        let repeat = self.last_errand == Some(errand);
+        if let (true, Some(slot)) = (repeat, self.last_destination.clone()) {
+            self.carry_errand(errand, &slot);
+            return;
+        }
+
+        self.last_errand = Some(errand);
+        self.asking = Some(Asking {
+            errand,
+            count: 1,
+            slots: self.slots(),
+            last: self.last_destination.clone(),
+        });
+    }
+
+    /// Moves the photograph into the folder for the frames that are not
+    /// staying.
+    ///
+    /// A folder rather than the bin, because a first pass happens on a card or
+    /// a network share and neither of those has one.
+    pub(super) fn send_to_rejected(&mut self) {
+        let folder = self.settings.cull.rejected_folder.clone();
+        if folder.trim().is_empty() {
+            return;
+        }
+
+        let slot = Slot {
+            label: folder.clone(),
+            path: self.base_path.join(folder),
+        };
+
+        self.carry_errand(Errand::Move, &slot);
+    }
+
+    /// Draws the panel, if it is open, and does what it was told.
+    pub(super) fn show_destinations(&mut self, ctx: &egui::Context) {
+        let Some(asking) = self.asking.clone() else {
+            return;
+        };
+
+        // The digits are the point of this panel, and they are also the star
+        // ratings, so it takes the keyboard for as long as it is up.
+        utils::set_mute_state(ctx, true);
+
+        let Some(answer) = destinations::ui(ctx, &asking) else {
+            return;
+        };
+
+        self.close_modal(ctx);
+
+        match answer {
+            Answer::Send(slot) => self.carry_errand(asking.errand, &slot),
+            Answer::Browse => {
+                let picked = rfd::FileDialog::new()
+                    .set_directory(&self.base_path)
+                    .pick_folder();
+
+                if let Some(folder) = picked {
+                    let slot = Slot {
+                        label: folder
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .into_owned(),
+                        path: folder,
+                    };
+
+                    self.carry_errand(asking.errand, &slot);
+                }
+            }
+            Answer::Cancel => self.last_errand = None,
+        }
+    }
+
+    /// The configured folders, resolved against the folder that is open.
+    ///
+    /// A relative destination follows the shoot rather than naming one, so a
+    /// configured `Selects` means "beside these photographs" and works on
+    /// every card that is ever put in.
+    fn slots(&self) -> Vec<Slot> {
+        self.settings
+            .cull
+            .destinations
+            .iter()
+            .filter(|destination| !destination.path.trim().is_empty())
+            .map(|destination| {
+                let path = PathBuf::from(&destination.path);
+
+                Slot {
+                    label: destination.label.clone(),
+                    path: if path.is_absolute() {
+                        path
+                    } else {
+                        self.base_path.join(path)
+                    },
+                }
+            })
+            .collect()
+    }
+
+    /// Sends the photograph on screen to `slot`, and records how to take it
+    /// back.
+    fn carry_errand(&mut self, errand: Errand, slot: &Slot) {
+        let Some(from) = self.marked_path() else {
+            return;
+        };
+
+        if let Err(e) = std::fs::create_dir_all(&slot.path) {
+            self.notices
+                .say(format!("Could not make {}: {e}", slot.path.display()));
+            return;
+        }
+
+        let to = slot.path.join(from.file_name().unwrap_or_default());
+
+        match errand {
+            Errand::Move => match files::move_file(&from, &to) {
+                Ok(()) => {
+                    self.journal.record(Step::Moved(vec![(to, from.clone())]));
+                    self.forget(&from);
+                    self.notices.say(format!("Moved to {}", slot.label));
+                }
+                Err(e) => self.notices.say(format!("{e}")),
+            },
+            Errand::Copy => match files::copy_file(&from, &to) {
+                Ok(made) => {
+                    self.journal.record(Step::Copied(made));
+                    self.notices.say(format!("Copied to {}", slot.label));
+                }
+                Err(e) => self.notices.say(format!("{e}")),
+            },
+        }
+
+        self.last_destination = Some(slot.clone());
+        self.last_errand = Some(errand);
+    }
+
+    /// Puts back whatever the last thing that touched a file did.
+    pub(super) fn undo(&mut self) {
+        let Some(step) = self.journal.peek() else {
+            self.notices.say("Nothing to undo");
+            return;
+        };
+
+        let said = step.describe();
+        let Some(undone) = self.journal.undo() else {
+            return;
+        };
+
+        for problem in &undone.failed {
+            self.notices.say(format!("Could not undo: {problem}"));
+        }
+
+        for path in &undone.remarked {
+            self.annotations.forget(path);
+            self.refresh_mark(path);
+        }
+
+        // Anything that came back or went away changes what the folder holds,
+        // and the caches are keyed by position in it.
+        if !undone.moved.is_empty() || !undone.removed.is_empty() {
+            let base = self.base_path.clone();
+            let showing = self.marked_path();
+            self.open_directory(&base, showing.as_deref());
+        }
+
+        if undone.failed.is_empty() {
+            self.notices.say(format!("Undone: {said}"));
+        }
     }
 }
 

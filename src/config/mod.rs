@@ -22,6 +22,7 @@ pub struct Config {
     pub slideshow: SlideshowConfig,
     pub tags: TagConfig,
     pub raw: RawConfig,
+    pub cull: CullConfig,
     /// Whether something in the file on disk could not be read.
     ///
     /// A configuration that was only partly understood must never be written
@@ -118,6 +119,54 @@ pub struct TagConfig {
     /// Turns that on and off without opening the settings.
     #[serde(default = "default_sc_toggle_advance")]
     pub sc_toggle_advance: Shortcut,
+}
+
+/// Where photographs go when they are not staying here.
+#[derive(Deserialize, Serialize, Clone)]
+pub struct CullConfig {
+    /// Folders a photograph can be sent to with one keystroke, in the order
+    /// the digit keys reach them.
+    #[serde(default = "default_destinations")]
+    pub destinations: Vec<Destination>,
+    /// What the folder for rejected frames is called.
+    ///
+    /// A subfolder rather than the bin, because the bin does not reach a
+    /// memory card or a network share — which is exactly where a first pass
+    /// happens.
+    #[serde(default = "default_rejected_folder")]
+    pub rejected_folder: String,
+
+    #[serde(default = "default_sc_move")]
+    pub sc_move: Shortcut,
+    #[serde(default = "default_sc_copy")]
+    pub sc_copy: Shortcut,
+    #[serde(default = "default_sc_reject_folder")]
+    pub sc_reject_folder: Shortcut,
+    #[serde(default = "default_sc_undo")]
+    pub sc_undo: Shortcut,
+}
+
+impl Default for CullConfig {
+    fn default() -> Self {
+        CullConfig {
+            destinations: default_destinations(),
+            rejected_folder: default_rejected_folder(),
+            sc_move: default_sc_move(),
+            sc_copy: default_sc_copy(),
+            sc_reject_folder: default_sc_reject_folder(),
+            sc_undo: default_sc_undo(),
+        }
+    }
+}
+
+/// One place photographs can be sent.
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub struct Destination {
+    /// What it is called on the panel.
+    pub label: String,
+    /// Where it is. Relative paths are taken against the open folder, so a
+    /// configured `Selects` follows the shoot rather than naming one.
+    pub path: String,
 }
 
 /// A named group of tags.

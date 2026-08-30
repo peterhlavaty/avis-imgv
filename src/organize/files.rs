@@ -83,6 +83,40 @@ fn stem_is_shared(image: &Path) -> bool {
     })
 }
 
+/// Copies a photograph and its sidecars, as one unit.
+///
+/// The same rules as a move: nothing is written over, and the sidecar goes
+/// with the photograph because a copy without its rating is a copy somebody
+/// has to rate again.
+pub fn copy_file(from: &Path, to: &Path) -> std::io::Result<Vec<PathBuf>> {
+    if to.exists() {
+        return Err(occupied(to));
+    }
+
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    std::fs::copy(from, to)?;
+    let mut made = vec![to.to_path_buf()];
+
+    for sidecar in sidecars_of(from) {
+        let wanted = sidecar_beside(&sidecar, from, to);
+
+        if wanted.exists() {
+            tracing::warn!("Left {} alone: it is already there", wanted.display());
+            continue;
+        }
+
+        match std::fs::copy(&sidecar, &wanted) {
+            Ok(_) => made.push(wanted),
+            Err(e) => tracing::warn!("Could not copy {}: {e}", sidecar.display()),
+        }
+    }
+
+    Ok(made)
+}
+
 /// Sends a photograph and its sidecars to the platform's bin, as one unit.
 ///
 /// Never `fs::remove_file`: culling is when people delete fastest and regret

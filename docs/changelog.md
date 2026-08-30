@@ -2,6 +2,20 @@
 
 ## 2026-08-30
 
+- **Somewhere else, rather than nowhere.** `Alt + M` moves the photograph and
+  `Alt + C` copies it, to a panel of numbered folders the digits pick from;
+  `Enter` repeats the last, and the same key twice in a row skips the panel
+  entirely. `Shift + X` moves it into `_Rejected` beside it, which is what a
+  card or a network share has instead of a bin. A configured destination may be
+  a relative path, so `Selects` follows the shoot rather than naming one.
+- **`Ctrl + Z`**, which is what makes it reasonable to bind any of that to one
+  key. It covers moving, copying, sending to the bin and every mark — a rating
+  pressed by mistake is one keystroke to undo — keeps the last two hundred, and
+  says what it is about to do first, because a silent bulk undo is as
+  frightening as none. Undoing a copy sends the copies to the bin rather than
+  deleting them.
+- Fixed: a window asking a question did not own the keyboard, so the key that
+  answered it also did whatever it does the rest of the time.
 - **Filtering and ordering where the photographs are**, on `F3`. Stars, flag,
   colour label, name, keyword and file type, and an order by name, stars,
   label or flag. `organize::Filter` has done this since the folder modes were

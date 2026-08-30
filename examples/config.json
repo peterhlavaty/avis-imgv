@@ -383,5 +383,42 @@
     "camera_white_balance": true,
     "auto_brighten": true,
     "highlight_mode": 0
+  },
+  "cull": {
+    "destinations": [
+      {
+        "label": "Selects",
+        "path": "Selects"
+      },
+      {
+        "label": "To edit",
+        "path": "To edit"
+      }
+    ],
+    "rejected_folder": "_Rejected",
+    "sc_move": {
+      "key": "m",
+      "modifiers": [
+        "alt"
+      ]
+    },
+    "sc_copy": {
+      "key": "c",
+      "modifiers": [
+        "alt"
+      ]
+    },
+    "sc_reject_folder": {
+      "key": "x",
+      "modifiers": [
+        "shift"
+      ]
+    },
+    "sc_undo": {
+      "key": "z",
+      "modifiers": [
+        "ctrl"
+      ]
+    }
   }
 }

@@ -9,6 +9,7 @@ use eframe::egui;
 
 use crate::annotations::AnnotationStore;
 use crate::metadata::xmp::{Flag, Label, Xmp};
+use crate::organize::journal::Step;
 use crate::ui::tag_panel::{self, Action};
 
 use super::{App, Mode};
@@ -56,7 +57,21 @@ impl App {
         };
 
         self.load_annotations(&path);
+
+        // Recorded before the change rather than after it: undoing a mark is
+        // writing back what was there, and what was there is only knowable
+        // now.
+        let before = self.annotations.get(&path, None).clone();
+
         apply(&mut self.annotations, &path);
+
+        if self.annotations.peek(&path) != Some(&before) {
+            self.journal.record(Step::Marked {
+                image: path.clone(),
+                before: Box::new(before),
+            });
+        }
+
         self.refresh_mark(&path);
     }
 

@@ -147,6 +147,30 @@ pub fn all() -> Vec<Binding> {
         ),
         binding!(
             "General",
+            "Move to…",
+            "Send the picture on screen to one of the folders on the panel.",
+            cull.sc_move
+        ),
+        binding!(
+            "General",
+            "Copy to…",
+            "Put a copy of it in one of them, leaving the photograph where it is.",
+            cull.sc_copy
+        ),
+        binding!(
+            "General",
+            "To the rejected folder",
+            "Move it into the folder for the frames that are not staying, which is what a card or a network share has instead of a bin.",
+            cull.sc_reject_folder
+        ),
+        binding!(
+            "General",
+            "Undo",
+            "Put back whatever the last thing that touched a file did.",
+            cull.sc_undo
+        ),
+        binding!(
+            "General",
             "Filter",
             "Show or hide the bar that narrows and orders the folder.",
             general.sc_filter
@@ -440,6 +464,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 38, "a shortcut was added without a description");
+        assert_eq!(fixed, 42, "a shortcut was added without a description");
     }
 }

@@ -128,6 +128,32 @@ looked at, which is a few milliseconds.
 Nothing is ever removed with an unconditional delete: `fs::remove_file` appears
 in this codebase only where the user has said "for good" and been asked twice.
 
+### Somewhere else, rather than nowhere
+
+`Alt + M` moves the photograph and `Alt + C` copies it, both to a small panel of
+numbered folders: the digits pick one, `Enter` repeats the last, `Escape` leaves
+them where they are, and pressing the same key twice in a row skips the panel
+and repeats the last answer. A destination in the configuration may be a
+relative path, in which case it follows the shoot rather than naming one —
+a configured `Selects` means "beside these photographs" and works on every card
+that is ever put in.
+
+`Shift + X` moves the photograph into `_Rejected` beside it, which is what a
+memory card or a network share has instead of a bin.
+
+### Taking it back
+
+`Ctrl + Z` puts back whatever the last thing that touched a file did, and says
+what it is about to do first. It covers moving, copying, sending to the bin and
+every mark — a rating pressed by mistake is one keystroke to undo — and it keeps
+the last two hundred.
+
+A copy is undone by sending the copies to the bin rather than deleting them,
+because an undo should not itself be the thing nobody can take back. Coming back
+out of the bin needs a platform that lets a program address what is in it:
+Windows and the freedesktop specification both do, macOS does not, and there the
+viewer says so rather than pretending.
+
 ### Where they are stored
 
 In XMP sidecars beside the image — `DSC001.cr2.xmp` — which is what every raw
@@ -526,6 +552,16 @@ set aside for the full resolution copies, which are 96 MB each.
 `source: "develop"` needs a build with `--features libraw`; without it the
 viewer logs that it is showing previews instead.
 
+### Cull
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `destinations` | Folders one keystroke can send a photograph to, in the order the digits reach them. A relative path is taken against the open folder. | Selects, To edit |
+| `rejected_folder` | What the folder for the frames that are not staying is called | `_Rejected` |
+| `sc_move` `sc_copy` | Open the panel that asks where | `Alt + M` `Alt + C` |
+| `sc_reject_folder` | Move into the rejected folder | `Shift + X` |
+| `sc_undo` | Put back whatever the last thing did | `Ctrl + Z` |
+
 ### Tags
 
 | Key | Meaning | Default |
@@ -557,6 +593,9 @@ viewer logs that it is showing previews instead.
 |-----|--------|
 | Backspace | Toggle between image view and grid view |
 | F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots, slideshow |
+| Alt + M / Alt + C | Move or copy the picture to a folder |
+| Shift + X | Move it into the rejected folder |
+| Ctrl + Z | Put back whatever the last thing did |
 | F3 | Show or hide the filter bar |
 | \ | Show everything, without forgetting the rules |
 | F11 | Fullscreen |

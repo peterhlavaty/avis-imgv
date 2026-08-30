@@ -4,7 +4,7 @@
 //! readable and the shape of the configuration is visible at a glance.
 
 use super::shortcut::{Shortcut, MOD_ALT, MOD_CTRL, MOD_SHIFT};
-use super::{ContextMenuEntry, RawQuality, RawSource, TagCategory, UserAction};
+use super::{ContextMenuEntry, Destination, RawQuality, RawSource, TagCategory, UserAction};
 
 /// Four gigabytes of decoded pixels: generous on a modern machine and still
 /// small enough not to push a 16 GB laptop into swap.
@@ -289,6 +289,43 @@ pub fn default_sc_cycle_badges() -> Shortcut {
 /// A photograph larger than the window is unaffected either way.
 pub fn default_enlarge_to_fit() -> bool {
     true
+}
+
+//Cull
+/// Two that describe what nearly everybody does with a shoot, named
+/// relatively so they follow the folder rather than pointing at one.
+pub fn default_destinations() -> Vec<Destination> {
+    vec![
+        Destination {
+            label: "Selects".to_string(),
+            path: "Selects".to_string(),
+        },
+        Destination {
+            label: "To edit".to_string(),
+            path: "To edit".to_string(),
+        },
+    ]
+}
+
+/// FastRawViewer's name for it, which is the one people already have folders
+/// called.
+pub fn default_rejected_folder() -> String {
+    "_Rejected".to_string()
+}
+
+/// Alt, because bare M and C are the fill-the-window and the context menu.
+pub fn default_sc_move() -> Shortcut {
+    Shortcut::new("m", &[MOD_ALT])
+}
+pub fn default_sc_copy() -> Shortcut {
+    Shortcut::new("c", &[MOD_ALT])
+}
+/// The reject key with shift: the same verb, carried out on the disk.
+pub fn default_sc_reject_folder() -> Shortcut {
+    Shortcut::new("x", &[MOD_SHIFT])
+}
+pub fn default_sc_undo() -> Shortcut {
+    Shortcut::new("z", &[MOD_CTRL])
 }
 
 /// `F3` is what a Windows program uses for "find", and the backslash is what

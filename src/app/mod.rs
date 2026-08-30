@@ -23,6 +23,8 @@ use crate::annotations::{AnnotationStore, Catalog, RecentTags};
 use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
+use crate::organize::journal::Journal;
+use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
 use crate::ui::{filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
 use crate::view::image_view::bottom_bar::Marks;
@@ -83,6 +85,13 @@ pub struct App {
     advancing: bool,
     /// A deletion the user has been asked about but has not answered.
     pending_delete: Option<cull::Pending>,
+    /// Where photographs were last sent, so the same key twice repeats it.
+    last_destination: Option<Slot>,
+    last_errand: Option<Errand>,
+    /// The panel asking where they should go, while it is up.
+    asking: Option<Asking>,
+    /// How to put back whatever the last thing did.
+    journal: Journal,
     /// How the folder is narrowed and ordered, and whether its bar is up.
     narrowing: Narrowing,
     filter_visible: bool,
@@ -176,6 +185,10 @@ impl App {
             notices: Notices::default(),
             advancing,
             pending_delete: None,
+            last_destination: None,
+            last_errand: None,
+            asking: None,
+            journal: Journal::default(),
             narrowing: Narrowing::default(),
             filter_visible: false,
             marks: Vec::new(),
@@ -320,6 +333,10 @@ impl App {
             Command::ToggleAdvance => self.advancing = !self.advancing,
             Command::Delete => self.delete_open_image(false),
             Command::DeletePermanently => self.delete_open_image(true),
+            Command::MoveTo => self.send_somewhere(Errand::Move),
+            Command::CopyTo => self.send_somewhere(Errand::Copy),
+            Command::ToRejectedFolder => self.send_to_rejected(),
+            Command::Undo => self.undo(),
             Command::ToggleFilter => {
                 self.filter_visible = !self.filter_visible;
             }
@@ -394,7 +411,7 @@ impl eframe::App for App {
             .set_display_edge(longest_edge_in_pixels(ctx));
 
         input::update_overlay(ctx, &mut self.overlay, &self.config);
-        for command in input::collect(ctx, &self.config, &self.tag_config) {
+        for command in input::collect(ctx, &self.config, &self.tag_config, &self.settings.cull) {
             let advance = input::advances(command, self.advancing);
             self.apply(command, ctx);
 
@@ -416,6 +433,7 @@ impl eframe::App for App {
         }
 
         self.show_filter_bar(ctx);
+        self.show_destinations(ctx);
         self.show_pending_delete(ctx);
         self.show_keyboard(ctx);
         self.show_slideshow_settings(ctx);

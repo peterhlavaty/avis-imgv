@@ -3,7 +3,7 @@
 use eframe::egui;
 
 use crate::app::mode::Mode;
-use crate::config::{shortcut, GeneralConfig, TagConfig};
+use crate::config::{shortcut, CullConfig, GeneralConfig, TagConfig};
 use crate::metadata::xmp::{Flag, Label};
 use crate::utils;
 
@@ -40,6 +40,13 @@ pub enum Command {
     ToggleFilter,
     /// Set the rules aside without forgetting them, or put them back.
     SuspendFilter,
+    /// Send the photograph somewhere else, or make a copy of it there.
+    MoveTo,
+    CopyTo,
+    /// Move it into the folder for the frames that are not staying.
+    ToRejectedFolder,
+    /// Put back whatever the last thing did.
+    Undo,
 }
 
 impl Command {
@@ -61,7 +68,12 @@ pub enum Overlay {
 }
 
 /// Reads this frame's input and returns the commands it maps to.
-pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) -> Vec<Command> {
+pub fn collect(
+    ctx: &egui::Context,
+    config: &GeneralConfig,
+    tags: &TagConfig,
+    cull: &CullConfig,
+) -> Vec<Command> {
     let mut commands = Vec::new();
 
     // Quitting must work even while typing in the navigator.
@@ -89,6 +101,10 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
         (&config.sc_fullscreen, Command::ToggleFullscreen),
         (&config.sc_filter, Command::ToggleFilter),
         (&config.sc_suspend_filter, Command::SuspendFilter),
+        (&cull.sc_move, Command::MoveTo),
+        (&cull.sc_copy, Command::CopyTo),
+        (&cull.sc_reject_folder, Command::ToRejectedFolder),
+        (&cull.sc_undo, Command::Undo),
     ];
 
     ctx.input_mut(|input| {
@@ -225,7 +241,12 @@ mod tests {
 
     /// Collects with the default configuration.
     fn collected(ctx: &egui::Context) -> Vec<Command> {
-        collect(ctx, &GeneralConfig::default(), &TagConfig::default())
+        collect(
+            ctx,
+            &GeneralConfig::default(),
+            &TagConfig::default(),
+            &CullConfig::default(),
+        )
     }
 
     #[test]
