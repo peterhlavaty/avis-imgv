@@ -107,7 +107,14 @@ impl App {
             return;
         }
 
-        benchmark.report().log();
+        let report = benchmark.report();
+
+        // Put down before the report, because asking to close still leaves a
+        // frame or two to draw and the run used to report itself on each of
+        // them.
+        self.benchmark = None;
+
+        report.log();
         ctx.send_viewport_cmd(ViewportCommand::Close);
     }
 }

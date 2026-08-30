@@ -5,7 +5,7 @@
 //! disk is skipped rather than merged into, so running this twice on a folder
 //! that has grown does not tip new frames in among the old ones.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::files;
@@ -85,10 +85,19 @@ pub fn plan(groups: &[Group], into: &Path) -> Vec<Planned> {
 ///
 /// A folder that cannot be made is reported and its frames left where they
 /// are; there is nothing to undo, because nothing was moved.
+///
+/// A group whose frames would land on one another — two frames of the same
+/// name, which is what flattening a tree produces — is refused whole rather
+/// than half moved, so nobody has to work out afterwards which half went.
 pub fn apply(planned: &[Planned]) -> Outcome {
     let mut outcome = Outcome::default();
 
     for plan in planned {
+        if let Some(problem) = collisions_within(plan) {
+            outcome.failed.push((plan.folder.clone(), problem));
+            continue;
+        }
+
         if let Err(e) = std::fs::create_dir_all(&plan.folder) {
             outcome
                 .failed
@@ -107,6 +116,36 @@ pub fn apply(planned: &[Planned]) -> Outcome {
     }
 
     outcome
+}
+
+/// Why a group cannot be tidied as a whole, if it cannot.
+fn collisions_within(plan: &Planned) -> Option<String> {
+    let mut taken: HashSet<String> = HashSet::new();
+
+    for (_, to) in &plan.moves {
+        let name = to.file_name().unwrap_or_default().to_string_lossy();
+        let key = if cfg!(windows) {
+            name.to_lowercase()
+        } else {
+            name.into_owned()
+        };
+
+        if !taken.insert(key) {
+            return Some(format!(
+                "two frames would both be called {}",
+                to.file_name().unwrap_or_default().to_string_lossy()
+            ));
+        }
+
+        if to.exists() {
+            return Some(format!(
+                "{} is already there",
+                to.file_name().unwrap_or_default().to_string_lossy()
+            ));
+        }
+    }
+
+    None
 }
 
 /// What an applied plan did.

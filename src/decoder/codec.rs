@@ -34,14 +34,25 @@ pub fn decode(bytes: &[u8], format: Option<Format>) -> Result<RgbaImage, DecodeE
     }
 }
 
+/// The most pixels the fast path will decode.
+///
+/// The width and height limits have to be raised past the crate's defaults to
+/// let a large panorama through, and raising them alone means a header of about
+/// a kilobyte can ask for 65535 × 65535 × 4 bytes — seventeen gigabytes — which
+/// the allocator answers by aborting the process. The area is what actually
+/// costs memory, so that is what is bounded: 512 megapixels is four times the
+/// largest camera anyone shoots and two gigabytes of RGBA.
+const MAX_JPEG_PIXELS: u64 = 512 * 1024 * 1024;
+
 /// Decodes a JPEG straight into RGBA.
 ///
 /// Going through the `image` crate yields RGB, which then has to be widened in
 /// a second pass over every pixel — 27ms on a 24 megapixel photograph. Asking
 /// the JPEG decoder for RGBA in the first place skips that pass entirely.
 ///
-/// Returns `None` for anything that is not a plain JPEG, including the CMYK
-/// ones whose colour handling is better left to the `image` crate.
+/// Returns `None` for anything that is not a plain JPEG, so that greyscale,
+/// CMYK and YCCK go the long way round through the `image` crate, which knows
+/// how to turn them into colour.
 fn decode_jpeg(bytes: &[u8]) -> Option<RgbaImage> {
     if !bytes.starts_with(&[0xFF, 0xD8]) {
         return None;
@@ -56,11 +67,31 @@ fn decode_jpeg(bytes: &[u8]) -> Option<RgbaImage> {
         .set_max_height(limit);
 
     let mut decoder = JpegDecoder::new_with_options(bytes, options);
+
+    // Reading the headers first is what makes the two checks below possible:
+    // the size, before anything is allocated for it, and the colour space,
+    // before the decoder has quietly reinterpreted it.
+    decoder.decode_headers().ok()?;
+
+    let (width, height) = decoder.dimensions()?;
+    if u64::from(width as u32) * u64::from(height as u32) > MAX_JPEG_PIXELS {
+        tracing::warn!("A JPEG claiming {width}x{height} is not being decoded on the fast path");
+        return None;
+    }
+
+    // Four channels of CMYK are the same length as four channels of RGBA, so
+    // the length check that used to stand in for this could never fire: the
+    // image came back looking decoded and looking wrong.
+    if !matches!(
+        decoder.get_input_colorspace()?,
+        ColorSpace::YCbCr | ColorSpace::RGB
+    ) {
+        return None;
+    }
+
     let pixels = decoder.decode().ok()?;
     let info = decoder.info()?;
 
-    // A CMYK JPEG comes back in four channels that are not RGBA, and the
-    // length check catches it.
     RgbaImage::from_raw(info.width.into(), info.height.into(), pixels)
 }
 

@@ -13,6 +13,7 @@ pub use defaults::*;
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
 #[derive(Deserialize, Serialize, Default, Clone)]
+#[serde(default)]
 pub struct Config {
     pub image_view: ImageViewConfig,
     pub grid_view: GridViewConfig,
@@ -21,6 +22,15 @@ pub struct Config {
     pub slideshow: SlideshowConfig,
     pub tags: TagConfig,
     pub raw: RawConfig,
+    /// Whether something in the file on disk could not be read.
+    ///
+    /// A configuration that was only partly understood must never be written
+    /// back: saving it would replace whatever the user had written with the
+    /// defaults that stood in for it. One malformed section used to cost the
+    /// whole file, and the first change made in the settings editor made that
+    /// permanent.
+    #[serde(skip)]
+    pub partial: bool,
 }
 
 /// What to do with camera raw files.

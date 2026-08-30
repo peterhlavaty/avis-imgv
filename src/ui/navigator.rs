@@ -60,8 +60,11 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                             selected_index = 0;
                         }
 
+                        // Counting up rather than down from the length: with
+                        // nothing matching what was typed, `len() - 1`
+                        // underflows.
                         if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown))
-                            && selected_index < suggestions.len() - 1
+                            && selected_index + 1 < suggestions.len()
                         {
                             selected_index += 1;
                         }
@@ -73,15 +76,15 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                             utils::textedit_move_cursor_to_end(&editor_resp, ui, input.len());
                         }
 
-                        if !suggestions.is_empty() && ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
-                            selected_path = Some(suggestions[selected_index].clone());
+                        if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
+                            selected_path = suggestions.get(selected_index).cloned();
                         }
 
                         if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
                             if selected_index == 0 && utils::is_valid_path(Path::new(&input)) {
                                 is_selected = true;
-                            } else if !suggestions.is_empty() {
-                                selected_path = Some(suggestions[selected_index].clone());
+                            } else {
+                                selected_path = suggestions.get(selected_index).cloned();
                             }
                         }
 

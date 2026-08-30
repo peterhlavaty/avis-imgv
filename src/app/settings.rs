@@ -66,9 +66,7 @@ impl App {
                 .set_slideshow(true, &self.settings.slideshow);
         }
 
-        if let Err(e) = self.settings.save() {
-            tracing::error!("Could not write the configuration: {e}");
-        }
+        self.save_settings();
     }
 
     /// Sends whatever fullscreen change a mode asked for.
@@ -92,8 +90,21 @@ impl App {
         self.image_view.set_config(self.settings.image_view.clone());
         self.grid_view.set_config(self.settings.grid_view.clone());
 
+        self.save_settings();
+    }
+
+    /// Writes the configuration out, telling the user when it could not be.
+    ///
+    /// The interesting failure is a file that was only partly understood on
+    /// the way in: writing it back would replace whatever the viewer could not
+    /// read with the defaults that stood in for it, so it is refused, and the
+    /// person who just changed a key needs to know their change is not being
+    /// kept.
+    fn save_settings(&mut self) {
         if let Err(e) = self.settings.save() {
             tracing::error!("Could not write the configuration: {e}");
+            self.notices
+                .say(format!("Could not write the configuration: {e}"));
         }
     }
 }

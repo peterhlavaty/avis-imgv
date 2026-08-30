@@ -69,10 +69,16 @@ impl Outcome {
 
 /// A name nothing else could be using, in the same folder so the rename stays
 /// a rename rather than becoming a copy across devices.
+///
+/// The process id is in it because a run interrupted earlier leaves these
+/// behind, and a second run must not park a photograph on top of one of them.
 fn temporary_name(path: &Path, index: usize) -> PathBuf {
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
 
-    path.with_file_name(format!(".avis-rename-{index}-{stem}.tmp"))
+    path.with_file_name(format!(
+        ".avis-rename-{}-{index}-{stem}.tmp",
+        std::process::id()
+    ))
 }
 
 #[cfg(test)]
@@ -263,6 +269,56 @@ mod tests {
             std::fs::read(dir.join("taken.jpg")).unwrap(),
             b"someone else"
         );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A file that is not moving keeps its name, so nothing else may be
+    /// renamed onto it. The plan used to count every file in the job as one
+    /// that would get out of the way, and the second pass would then rename
+    /// straight over it.
+    #[test]
+    fn a_file_the_job_is_not_moving_still_holds_its_name() {
+        let dir = temp_dir("held");
+        let entries = folder(&dir, &["keep.jpg", "other.jpg"]);
+
+        let planned = vec![
+            // Unchanged, so it stays where it is.
+            Planned {
+                from: dir.join("keep.jpg"),
+                to: dir.join("keep.jpg"),
+                problem: None,
+            },
+            Planned {
+                from: dir.join("other.jpg"),
+                to: dir.join("keep.jpg"),
+                problem: None,
+            },
+        ];
+
+        let outcome = apply(&planned);
+
+        assert_eq!(outcome.failed.len(), 1, "{outcome:?}");
+        assert_eq!(std::fs::read(dir.join("keep.jpg")).unwrap(), b"keep.jpg");
+        assert!(dir.join("other.jpg").exists());
+        let _ = entries;
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The same case, seen by the planner rather than by the disk.
+    #[test]
+    fn the_plan_marks_a_name_the_job_will_not_vacate() {
+        let dir = temp_dir("held-plan");
+        let mut entries = folder(&dir, &["a.jpg", "b.jpg"]);
+        // `a.jpg` renders to its own name, so it never moves.
+        entries.truncate(2);
+
+        let planned = plan(&entries, &options("a"));
+
+        // Both want to be `a.jpg`, which is a plain collision.
+        assert_eq!(planned[0].problem, Some(Problem::Collides));
+        assert_eq!(planned[1].problem, Some(Problem::Collides));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

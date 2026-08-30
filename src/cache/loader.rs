@@ -182,7 +182,7 @@ fn worker_loop(shared: &Shared) {
 
         // The viewer may have moved on while this job sat in the queue.
         let outcome = if job.focus.accepts(job.key, job.radius) {
-            match decoder::load(&job.path, &job.options) {
+            match decode_without_dying(&job.path, &job.options) {
                 Ok(image) => Loaded::Decoded(image),
                 Err(e) => {
                     tracing::warn!("{} {e}", job.path.display());
@@ -199,6 +199,28 @@ fn worker_loop(shared: &Shared) {
             key: job.key,
             outcome,
         });
+    }
+}
+
+/// Decodes, turning a panic into a failed image rather than a lost worker.
+///
+/// Decoders are handed bytes off a disk, and a malformed file that panics one
+/// of them used to take the whole thread with it: the pool shrank by one for
+/// the rest of the session, and the image sat on a spinner for ever because
+/// nothing was ever sent back for it.
+fn decode_without_dying(
+    path: &std::path::Path,
+    options: &DecodeOptions,
+) -> Result<DecodedImage, DecodeError> {
+    let decoded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        decoder::load(path, options)
+    }));
+
+    match decoded {
+        Ok(result) => result,
+        Err(_) => Err(DecodeError::Unsupported(
+            "the decoder gave up on this file".to_string(),
+        )),
     }
 }
 

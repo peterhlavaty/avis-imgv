@@ -16,7 +16,7 @@ mod template;
 pub use apply::{apply, Outcome};
 pub use template::PLACEHOLDERS;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::{same_file, Entry};
@@ -175,18 +175,35 @@ fn mark_collisions(planned: &mut [Planned]) {
         planned[index].problem.get_or_insert(Problem::Collides);
     }
 
-    // A file already on disk is only in the way if it is not one of ours: the
-    // job as a whole moves every one of its own out of the way first.
-    let ours: Vec<String> = planned.iter().map(|plan| comparable(&plan.from)).collect();
+    // A file already on disk is only in the way if it is not one of ours, and
+    // one of ours only gets out of the way if it is actually going to move: a
+    // plan with a problem, or one whose name does not change, keeps its name.
+    //
+    // Marking a plan blocked can block another, so this settles rather than
+    // running once — otherwise a file could be renamed onto a name the job
+    // had already decided not to vacate.
+    loop {
+        let vacated: HashSet<String> = planned
+            .iter()
+            .filter(|plan| plan.changes())
+            .map(|plan| comparable(&plan.from))
+            .collect();
 
-    for plan in planned.iter_mut() {
-        if plan.problem.is_some() || same_file(&plan.from, &plan.to) {
-            continue;
+        let mut marked = false;
+
+        for plan in planned.iter_mut() {
+            if !plan.changes() {
+                continue;
+            }
+
+            if !vacated.contains(&comparable(&plan.to)) && plan.to.exists() {
+                plan.problem = Some(Problem::Exists);
+                marked = true;
+            }
         }
 
-        let target = comparable(&plan.to);
-        if !ours.contains(&target) && plan.to.exists() {
-            plan.problem = Some(Problem::Exists);
+        if !marked {
+            break;
         }
     }
 }

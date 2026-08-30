@@ -4,6 +4,8 @@
 //! cameras embed, which is what raw converters display before a develop step
 //! and is orders of magnitude cheaper to produce.
 
+use std::collections::BTreeSet;
+
 use super::{ExifBlock, Extracted};
 use crate::metadata::tags;
 use crate::metadata::tiff::{Ifd, Tiff};
@@ -81,17 +83,40 @@ fn tiff_based<'a>(tiff: &Tiff<'a>, data: &'a [u8]) -> Extracted<'a> {
 
 /// The top level directories plus one level of sub-directories, which is where
 /// every raw format we support hides its previews.
+///
+/// The sub-directory offsets come out of the file, so a crafted one can list a
+/// thousand of them all pointing at the same fat directory. Reading it a
+/// thousand times cost seconds and gigabytes on the preview thread, which is
+/// the thread that has to answer in milliseconds; each offset is now read once
+/// and the total is capped, the way every other walk in this module is.
 fn directories(tiff: &Tiff<'_>) -> Vec<Ifd> {
     let mut all = tiff.ifds();
 
-    let sub_offsets: Vec<u32> = all
+    let sub_offsets: BTreeSet<u32> = all
         .iter()
         .flat_map(|ifd| ifd.u32_list(tags::SUB_IFDS))
         .collect();
 
-    all.extend(sub_offsets.iter().filter_map(|o| tiff.ifd_at(*o)));
+    for offset in sub_offsets {
+        if all.len() >= MAX_DIRECTORIES {
+            tracing::debug!("Stopping at {MAX_DIRECTORIES} directories");
+            break;
+        }
+
+        if let Some(ifd) = tiff.ifd_at(offset) {
+            all.push(ifd);
+        }
+    }
+
     all
 }
+
+/// How many directories are walked before a file is assumed to be lying.
+///
+/// The same order as the chain limit in [`crate::metadata::tiff`]: a raw file
+/// files its previews in a handful of them, and anything claiming hundreds is
+/// not a photograph.
+const MAX_DIRECTORIES: usize = 64;
 
 /// JPEG blobs referenced by a directory, either as a thumbnail pair or as JPEG
 /// compressed strips.

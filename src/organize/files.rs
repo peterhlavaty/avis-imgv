@@ -12,24 +12,82 @@ use crate::annotations::sidecar;
 
 /// Moves `from` to `to`, taking whatever sidecar belongs to it.
 ///
+/// Nothing is ever moved onto something already there. `fs::rename` replaces
+/// silently, which on a folder of photographs means one of them ceasing to
+/// exist, so the destination is checked first and an occupied one is reported
+/// rather than overwritten.
+///
 /// The sidecar is a convenience, so failing to move it is worth a line in the
 /// log and not worth undoing the move over; failing to move the photograph is
 /// reported.
 pub fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
+    // A move onto the same file is the case that has to be allowed through:
+    // it is how a case-only rename works on a case-insensitive filesystem.
+    if to.exists() && !super::same_file(from, to) {
+        return Err(occupied(to));
+    }
+
     std::fs::rename(from, to)?;
 
-    for candidate in sidecar::candidates(from) {
-        if !candidate.exists() {
+    for candidate in sidecars_of(from) {
+        let wanted = sidecar_beside(&candidate, from, to);
+
+        if wanted.exists() && !super::same_file(&candidate, &wanted) {
+            tracing::warn!(
+                "Left {} where it is: {} is already there",
+                candidate.display(),
+                wanted.display()
+            );
             continue;
         }
 
-        let wanted = sidecar_beside(&candidate, from, to);
         if let Err(e) = std::fs::rename(&candidate, &wanted) {
             tracing::warn!("Could not move {}: {e}", candidate.display());
         }
     }
 
     Ok(())
+}
+
+/// The sidecars that belong to `image` and to nothing else.
+///
+/// The extension-replacing form — Adobe's `DSC001.xmp` — belongs to the frame
+/// rather than to one file of it, so it is only followed when no other image
+/// in the folder shares the stem. Renaming the JPEG of a raw+JPEG pair used to
+/// walk off with the raw's ratings.
+pub fn sidecars_of(image: &Path) -> Vec<PathBuf> {
+    let candidates = sidecar::candidates(image);
+    let specific = candidates.first().cloned();
+
+    candidates
+        .into_iter()
+        .filter(|candidate| candidate.exists())
+        .filter(|candidate| Some(candidate) == specific.as_ref() || !stem_is_shared(image))
+        .collect()
+}
+
+/// Whether another image in the folder has the same stem as `image`.
+fn stem_is_shared(image: &Path) -> bool {
+    let (Some(directory), Some(stem)) = (image.parent(), image.file_stem()) else {
+        return false;
+    };
+
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return false;
+    };
+
+    entries.flatten().any(|entry| {
+        let path = entry.path();
+
+        path != image && path.file_stem() == Some(stem) && crate::formats::is_supported(&path)
+    })
+}
+
+fn occupied(path: &Path) -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        format!("{} is already there", path.display()),
+    )
 }
 
 /// Where a sidecar of `image` ends up when the image becomes `moved`.
@@ -132,6 +190,75 @@ mod tests {
         let dir = temp_dir("missing");
 
         assert!(move_file(&dir.join("gone.jpg"), &dir.join("b.jpg")).is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `fs::rename` replaces, which on a folder of photographs means one of
+    /// them ceasing to exist.
+    #[test]
+    fn a_photograph_is_never_moved_onto_another_one() {
+        let dir = temp_dir("occupied");
+        std::fs::write(dir.join("a.jpg"), b"the one being moved").unwrap();
+        std::fs::write(dir.join("b.jpg"), b"the one already there").unwrap();
+
+        assert!(move_file(&dir.join("a.jpg"), &dir.join("b.jpg")).is_err());
+        assert_eq!(
+            std::fs::read(dir.join("b.jpg")).unwrap(),
+            b"the one already there"
+        );
+        assert!(dir.join("a.jpg").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Adobe's sidecar is named after the frame, not after one file of it, so
+    /// renaming the JPEG of a raw+JPEG pair used to take the raw's ratings.
+    #[test]
+    fn a_shared_adobe_sidecar_stays_with_the_frame() {
+        let dir = temp_dir("shared");
+        std::fs::write(dir.join("IMG_1.jpg"), b"jpeg").unwrap();
+        std::fs::write(dir.join("IMG_1.cr2"), b"raw").unwrap();
+        std::fs::write(dir.join("IMG_1.xmp"), b"<x:xmpmeta/>").unwrap();
+
+        move_file(&dir.join("IMG_1.jpg"), &dir.join("Holiday_1.jpg")).unwrap();
+
+        assert!(dir.join("IMG_1.xmp").exists(), "the raw still has it");
+        assert!(!dir.join("Holiday_1.xmp").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// With nothing else sharing the stem it is the frame's only sidecar and
+    /// it does follow.
+    #[test]
+    fn an_unshared_adobe_sidecar_follows() {
+        let dir = temp_dir("unshared");
+        std::fs::write(dir.join("IMG_1.cr2"), b"raw").unwrap();
+        std::fs::write(dir.join("IMG_1.xmp"), b"<x:xmpmeta/>").unwrap();
+
+        move_file(&dir.join("IMG_1.cr2"), &dir.join("Holiday_1.cr2")).unwrap();
+
+        assert!(dir.join("Holiday_1.xmp").exists());
+        assert!(!dir.join("IMG_1.xmp").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_sidecar_already_at_the_destination_is_left_alone() {
+        let dir = temp_dir("sidecar-occupied");
+        std::fs::write(dir.join("a.jpg"), b"picture").unwrap();
+        std::fs::write(dir.join("a.jpg.xmp"), b"<x:xmpmeta/>").unwrap();
+        std::fs::write(dir.join("b.jpg.xmp"), b"somebody else's work").unwrap();
+
+        move_file(&dir.join("a.jpg"), &dir.join("b.jpg")).unwrap();
+
+        assert_eq!(
+            std::fs::read(dir.join("b.jpg.xmp")).unwrap(),
+            b"somebody else's work"
+        );
+        assert!(dir.join("a.jpg.xmp").exists());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

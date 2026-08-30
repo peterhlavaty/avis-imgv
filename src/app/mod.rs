@@ -158,6 +158,13 @@ impl App {
             notices: Notices::default(),
         };
 
+        if app.settings.partial {
+            app.notices.say(
+                "Part of the configuration file could not be read; those settings are \
+                 at their defaults and the file is not being written over",
+            );
+        }
+
         app.open(paths, opened.as_deref());
         app
     }

@@ -74,7 +74,11 @@ impl Tree {
     }
 
     fn toggled_at(&mut self, i: usize) {
-        if self.entries[i].expanded {
+        let Some(entry) = self.entries.get(i) else {
+            return;
+        };
+
+        if entry.expanded {
             self.close_at(i);
         } else {
             self.open_at(i);
@@ -82,7 +86,9 @@ impl Tree {
     }
 
     fn close_at(&mut self, i: usize) {
-        let toggled_entry = &mut self.entries[i];
+        let Some(toggled_entry) = self.entries.get_mut(i) else {
+            return;
+        };
 
         if !toggled_entry.expanded {
             return;
@@ -95,27 +101,25 @@ impl Tree {
 
         let depth = toggled_entry.depth;
 
+        // Bounded by the length: collapsing the last row in the list used to
+        // walk straight off the end of it and panic.
         let mut removed_count = 0;
-        loop {
-            let next_entry = &mut self.entries[i];
-
+        while i < self.entries.len() && self.entries[i].depth > depth {
             //If any entry we are removing was previously selected, we move the selection to
             //the parent
             if self.selected_index == i + removed_count {
                 self.selected_index = toggled_index;
             }
 
-            if next_entry.depth > depth {
-                self.entries.remove(i);
-                removed_count += 1;
-            } else {
-                break;
-            }
+            self.entries.remove(i);
+            removed_count += 1;
         }
     }
 
     fn open_at(&mut self, i: usize) {
-        let toggled_entry = &mut self.entries[i];
+        let Some(toggled_entry) = self.entries.get_mut(i) else {
+            return;
+        };
 
         if toggled_entry.expanded {
             return;
@@ -268,8 +272,10 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                             tree.toggled_at(i);
                         };
 
+                        // Counting up rather than down from the length, which
+                        // underflows when the tree is empty.
                         if ctx.input(|i| i.key_pressed(egui::Key::ArrowDown))
-                            && tree.selected_index < tree.entries.len() - 1
+                            && tree.selected_index + 1 < tree.entries.len()
                         {
                             tree.selected_index += 1;
                             tree.should_scroll = true;
@@ -295,7 +301,9 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                         }
 
                         if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-                            result = get_selected_path(&tree.entries[tree.selected_index].path);
+                            if let Some(entry) = tree.entries.get(tree.selected_index) {
+                                result = get_selected_path(&entry.path);
+                            }
                         }
 
                         set_tree(ctx, &tree);
@@ -333,5 +341,78 @@ fn get_selected_path(path: &Path) -> Option<PathBuf> {
         Some(path.to_path_buf())
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A flat tree of the given depths, as the walk would have left it.
+    fn tree(depths: &[usize]) -> Tree {
+        Tree {
+            opened_path: String::new(),
+            selected_index: 0,
+            should_scroll: false,
+            entries: depths
+                .iter()
+                .enumerate()
+                .map(|(i, depth)| TreeEntry {
+                    depth: *depth,
+                    path: PathBuf::from(format!("folder{i}")),
+                    name: format!("folder{i}"),
+                    expanded: true,
+                    img_count: 0,
+                })
+                .collect(),
+        }
+    }
+
+    /// The walk forward used to be unbounded, so the last row had nothing to
+    /// stop it.
+    #[test]
+    fn the_last_row_can_be_collapsed() {
+        let mut tree = tree(&[0, 0, 1]);
+        tree.close_at(2);
+
+        assert_eq!(tree.entries.len(), 3);
+        assert!(!tree.entries[2].expanded);
+    }
+
+    #[test]
+    fn collapsing_removes_only_what_is_under_it() {
+        let mut tree = tree(&[0, 1, 2, 1, 0]);
+        tree.close_at(0);
+
+        assert_eq!(tree.entries.len(), 2);
+        assert_eq!(tree.entries[1].depth, 0);
+    }
+
+    #[test]
+    fn collapsing_a_row_that_is_not_there_does_nothing() {
+        let mut tree = tree(&[0]);
+        tree.close_at(9);
+        tree.open_at(9);
+        tree.toggled_at(9);
+
+        assert_eq!(tree.entries.len(), 1);
+    }
+
+    #[test]
+    fn an_empty_tree_can_be_walked() {
+        let mut tree = tree(&[]);
+        tree.close_at(0);
+        tree.toggled_at(0);
+
+        assert!(tree.entries.is_empty());
+    }
+
+    #[test]
+    fn a_selection_under_a_collapsed_row_moves_up_to_it() {
+        let mut tree = tree(&[0, 1, 1]);
+        tree.selected_index = 2;
+        tree.close_at(0);
+
+        assert_eq!(tree.selected_index, 0);
     }
 }
