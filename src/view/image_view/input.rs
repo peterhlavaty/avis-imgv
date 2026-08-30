@@ -25,6 +25,12 @@ const PAN_SPEED: f32 = 1.5;
 pub enum Command {
     Next,
     Previous,
+    /// The first or the last photograph on show.
+    First,
+    Last,
+    /// A screenful forward or back, for walking a long folder quickly.
+    PageForward,
+    PageBack,
     /// Fit the whole image in the panel.
     Fit,
     /// Fill the panel, cropping the overflowing side.
@@ -76,11 +82,26 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
     ];
 
     let mut commands: Vec<Command> = ctx.input_mut(|input| {
-        bindings
+        let mut found: Vec<Command> = bindings
             .iter()
             .filter(|(binding, _)| shortcut::consume(input, binding))
             .map(|(_, command)| *command)
-            .collect()
+            .collect();
+
+        // Not in the configurable map: these mean the same thing in every
+        // list on every platform, and a folder is a list.
+        for (key, command) in [
+            (egui::Key::Home, Command::First),
+            (egui::Key::End, Command::Last),
+            (egui::Key::PageDown, Command::PageForward),
+            (egui::Key::PageUp, Command::PageBack),
+        ] {
+            if input.consume_key(egui::Modifiers::NONE, key) {
+                found.push(command);
+            }
+        }
+
+        found
     });
 
     commands.extend(user_actions(ctx, config));

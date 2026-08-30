@@ -189,6 +189,13 @@ pub struct GeneralConfig {
     /// Fills the screen and gives it back.
     #[serde(default = "default_sc_fullscreen")]
     pub sc_fullscreen: Shortcut,
+    /// Shows and hides the bar that narrows and orders the folder.
+    #[serde(default = "default_sc_filter")]
+    pub sc_filter: Shortcut,
+    /// Sets the rules aside without forgetting them, so "what did I hide?" is
+    /// one key and answering it costs nothing.
+    #[serde(default = "default_sc_suspend_filter")]
+    pub sc_suspend_filter: Shortcut,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -380,6 +387,8 @@ impl Default for GeneralConfig {
             sc_delete: default_sc_delete(),
             sc_delete_permanently: default_sc_delete_permanently(),
             sc_fullscreen: default_sc_fullscreen(),
+            sc_filter: default_sc_filter(),
+            sc_suspend_filter: default_sc_suspend_filter(),
             sc_exit: default_sc_exit(),
             sc_menu: default_sc_menu(),
             sc_navigator: default_sc_navigator(),

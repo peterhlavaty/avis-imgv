@@ -14,11 +14,15 @@ const PERCENTAGES: &[f32] = &[200., 100., 75., 50., 25.];
 ///
 /// Drawn in the bar so that rating, flagging or labelling with the panel shut
 /// is not a keystroke that appears to do nothing.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Marks {
     pub stars: u8,
     pub flag: Flag,
     pub label: Option<Label>,
+    /// Kept here as well as in the annotation store, because the filter asks
+    /// about every photograph in the folder at once and a lookup per file per
+    /// keystroke is the thing this list exists to avoid.
+    pub keywords: Vec<String>,
 }
 
 impl Marks {
@@ -27,6 +31,7 @@ impl Marks {
             stars: annotations.stars(),
             flag: annotations.flag(),
             label: annotations.known_label(),
+            keywords: annotations.keywords.clone(),
         }
     }
 }
@@ -48,6 +53,9 @@ pub struct Status<'a> {
     /// One based, as shown to the user.
     pub position: usize,
     pub total: usize,
+    /// How many the filter is holding back, so a shorter collection is not a
+    /// mystery.
+    pub hidden: usize,
     pub name: String,
     pub percentage_zoom: f32,
     pub marks: Marks,
@@ -72,10 +80,22 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
             ui.horizontal_centered(|ui| {
                 outcome.jump_to = jump_field(ui, status);
 
+                let counted = match status.hidden {
+                    0 => format!("{}/{}", status.position, status.total),
+                    hidden => format!("{}/{} (+{hidden})", status.position, status.total),
+                };
+
                 ui.add_sized(
-                    Vec2::new(45., ui.available_height()),
-                    egui::Label::new(format!("{}/{}", status.position, status.total)),
-                );
+                    Vec2::new(
+                        if status.hidden == 0 { 45. } else { 90. },
+                        ui.available_height(),
+                    ),
+                    egui::Label::new(counted),
+                )
+                .on_hover_text(match status.hidden {
+                    0 => String::new(),
+                    hidden => format!("{hidden} more are hidden by the filter"),
+                });
 
                 for (active, label) in [
                     (status.flags.flattened, "Flattened"),

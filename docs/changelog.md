@@ -2,6 +2,20 @@
 
 ## 2026-08-30
 
+- **Filtering and ordering where the photographs are**, on `F3`. Stars, flag,
+  colour label, name, keyword and file type, and an order by name, stars,
+  label or flag. `organize::Filter` has done this since the folder modes were
+  written and was sealed inside three modes that draw no photographs, so
+  "show me the three stars and better" meant leaving the picture behind.
+  - It re-evaluates as marks change, so rejecting a frame with "Not rejected"
+    on takes it out of the strip at once, and the cursor lands on its
+    neighbour rather than back at the beginning.
+  - `\` sets the rules aside without forgetting them.
+  - The status bar says `2/27 (+2)`: where you are, how many are on show, and
+    how many are held back.
+  - Nothing is re-decoded: the caches keep the whole folder and the filter is
+    a list of positions into it.
+- New: `Home`, `End`, `Page Up` and `Page Down` in the image view.
 - Fixed: a DNG opened as a postage stamp. Some of them — anything written by
   Camera Raw — embed no JPEG at all, only a 256 pixel copy stored as plain
   pixels, so the scan for embedded JPEGs found nothing and the file fell

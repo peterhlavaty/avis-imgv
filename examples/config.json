@@ -238,6 +238,14 @@
     "sc_fullscreen": {
       "key": "F11",
       "modifiers": []
+    },
+    "sc_filter": {
+      "key": "F3",
+      "modifiers": []
+    },
+    "sc_suspend_filter": {
+      "key": "Backslash",
+      "modifiers": []
     }
   },
   "cache": {

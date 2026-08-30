@@ -348,6 +348,25 @@ the order it was taken, not at the end. Three numbers at the top decide how the
 folder is read at all: the gap that ends a run, how alike two frames have to
 be, and the fewest frames worth calling a group.
 
+## Narrowing the folder down
+
+`F3` opens a bar above the photograph: stars from and to, the flag, the colour
+label, the name, a keyword, the file types, and what the folder is ordered by.
+Every rule is "anything" until it is touched, and they combine with "and".
+
+It applies to the photographs, not to a mode that draws none of them. `Left` and
+`Right` walk what is left, the contact sheet shows what is left, the status bar
+says `2/27 (+2)` — where you are, how many are on show, and how many are being
+held back — and the whole thing re-evaluates the instant a mark changes, so
+rejecting a frame with "Not rejected" on takes it out of the strip at once.
+
+`\` sets the rules aside without forgetting them, which is how "what did I
+hide?" costs one key and answering it costs nothing.
+
+Nothing is re-read or re-decoded by any of this: the caches still hold the whole
+folder and the filter is a list of positions into it, so a rule changed in the
+middle of a cull costs a vector rather than a folder's worth of decoding.
+
 ## Slideshow
 
 A mode of its own: the window goes fullscreen, the status bar goes away, and
@@ -466,6 +485,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `sc_delete` | Send the picture on screen to the bin | `Delete` |
 | `sc_delete_permanently` | Delete it outright, after asking | `Shift + Delete` |
 | `sc_fullscreen` | Fill the screen, and give it back | `F11` |
+| `sc_filter` | Show or hide the filter bar | `F3` |
+| `sc_suspend_filter` | Set the rules aside without forgetting them | `\` |
 
 ### Image view
 
@@ -536,6 +557,8 @@ viewer logs that it is showing previews instead.
 |-----|--------|
 | Backspace | Toggle between image view and grid view |
 | F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots, slideshow |
+| F3 | Show or hide the filter bar |
+| \ | Show everything, without forgetting the rules |
 | F11 | Fullscreen |
 | Alt + Q | Exit |
 | F1 | Toggle the menu |
@@ -558,6 +581,8 @@ viewer logs that it is showing previews instead.
 | Key | Action |
 |-----|--------|
 | Arrow keys / Scroll | Next or previous |
+| Home / End | First or last picture on show |
+| Page Up / Page Down | Ten at a time |
 | F | Fit the image to the screen |
 | M | Fill the screen |
 | Ctrl + M | Toggle: keep filling the screen while navigating |

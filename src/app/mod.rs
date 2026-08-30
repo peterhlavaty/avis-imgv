@@ -24,8 +24,9 @@ use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
 use crate::ui::tag_panel;
-use crate::ui::{keys, notice::Notices, perf_metrics::PerfMetrics, theme};
+use crate::ui::{filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
 use crate::view::image_view::bottom_bar::Marks;
+use crate::view::narrow::Narrowing;
 use crate::view::organize::OrganizeView;
 use crate::view::{GridView, ImageView};
 
@@ -82,6 +83,9 @@ pub struct App {
     advancing: bool,
     /// A deletion the user has been asked about but has not answered.
     pending_delete: Option<cull::Pending>,
+    /// How the folder is narrowed and ordered, and whether its bar is up.
+    narrowing: Narrowing,
+    filter_visible: bool,
     /// What every photograph in the open collection carries, in the order
     /// `paths` holds them.
     ///
@@ -172,6 +176,8 @@ impl App {
             notices: Notices::default(),
             advancing,
             pending_delete: None,
+            narrowing: Narrowing::default(),
+            filter_visible: false,
             marks: Vec::new(),
         };
 
@@ -199,6 +205,13 @@ impl App {
 
         self.image_view.set_images(self.paths.clone(), selected);
         self.grid_view.set_images(self.paths.clone());
+
+        // Only when there is something to apply: narrowing reads the sidecar
+        // of every file in the folder, and opening one should not pay for
+        // that when no rule is on.
+        if !self.narrowing.is_idle() {
+            self.apply_narrowing();
+        }
     }
 
     /// Reads the marks for the whole collection, if that has not been done.
@@ -218,6 +231,40 @@ impl App {
             .collect();
     }
 
+    /// Recomputes what is on show and hands it to both views.
+    ///
+    /// Cheap on purpose: a vector of positions rather than a new collection,
+    /// so applying a filter in the middle of a cull does not throw away the
+    /// decoded folder. Called whenever a rule changes and whenever a mark
+    /// changes something a rule depends on, which is what makes rejecting a
+    /// frame with the rejects hidden remove it from the strip at once.
+    fn apply_narrowing(&mut self) {
+        self.ensure_marks();
+
+        let visible = self.narrowing.apply(&self.paths, &self.marks);
+        self.image_view.set_visible(visible.clone());
+        self.grid_view.set_visible(visible);
+    }
+
+    /// Draws the filter bar and applies whatever it changed.
+    fn show_filter_bar(&mut self, ctx: &egui::Context) {
+        let shown = match self.mode {
+            Mode::Grid => self.grid_view.position().1,
+            _ => self.image_view.position().1,
+        };
+
+        let changed = filter_bar::ui(
+            ctx,
+            self.filter_visible,
+            &mut self.narrowing,
+            (shown, self.paths.len()),
+        );
+
+        if changed {
+            self.apply_narrowing();
+        }
+    }
+
     /// Brings one photograph's marks up to date after it has been changed.
     pub(super) fn refresh_mark(&mut self, image: &Path) {
         let Some(index) = self.paths.iter().position(|path| path == image) else {
@@ -233,6 +280,12 @@ impl App {
             .peek(image)
             .map(Marks::of)
             .unwrap_or_default();
+
+        // A filter that hides the rejects has to hide one the moment it is
+        // rejected, or the mark appears not to have taken.
+        if !self.narrowing.is_idle() {
+            self.apply_narrowing();
+        }
     }
 
     /// Crawls `path` and opens what it finds.
@@ -267,6 +320,13 @@ impl App {
             Command::ToggleAdvance => self.advancing = !self.advancing,
             Command::Delete => self.delete_open_image(false),
             Command::DeletePermanently => self.delete_open_image(true),
+            Command::ToggleFilter => {
+                self.filter_visible = !self.filter_visible;
+            }
+            Command::SuspendFilter => {
+                self.narrowing.suspended = !self.narrowing.suspended;
+                self.apply_narrowing();
+            }
             Command::ToggleFullscreen => {
                 let wanted = !ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
                 self.was_fullscreen = wanted;
@@ -355,6 +415,7 @@ impl eframe::App for App {
             self.handle_menu(action);
         }
 
+        self.show_filter_bar(ctx);
         self.show_pending_delete(ctx);
         self.show_keyboard(ctx);
         self.show_slideshow_settings(ctx);

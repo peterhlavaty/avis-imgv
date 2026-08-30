@@ -147,6 +147,18 @@ pub fn all() -> Vec<Binding> {
         ),
         binding!(
             "General",
+            "Filter",
+            "Show or hide the bar that narrows and orders the folder.",
+            general.sc_filter
+        ),
+        binding!(
+            "General",
+            "Show everything",
+            "Set the filter aside without forgetting it, so what it is hiding can be looked at.",
+            general.sc_suspend_filter
+        ),
+        binding!(
+            "General",
             "Fullscreen",
             "Fill the screen, and give it back.",
             general.sc_fullscreen
@@ -428,6 +440,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 36, "a shortcut was added without a description");
+        assert_eq!(fixed, 38, "a shortcut was added without a description");
     }
 }

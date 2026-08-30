@@ -24,6 +24,8 @@ use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 
 use bottom_bar::{Flags, Marks, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
+
+use crate::view::visible::Visible;
 use input::Command;
 use layout::BACKGROUND;
 use slideshow::Slideshow;
@@ -31,11 +33,20 @@ use viewports::{Place, Viewports};
 
 /// Most images the view will place side by side. Beyond a handful they are too
 /// small to read, and each one costs a texture.
+/// How far `Page Up` and `Page Down` move.
+///
+/// A round number rather than a screenful, because the image view shows one
+/// photograph and a screenful of one is one.
+const PAGE: usize = 10;
+
 const MAX_IMAGES_SHOWN: usize = 8;
 
 pub struct ImageView {
     store: ImageStore,
+    /// Position in the store, not in what is on show.
     cursor: usize,
+    /// Which of the store's photographs are being walked through.
+    visible: Visible,
     viewport: Viewport,
     frame: FrameStyle,
     metrics: Metrics,
@@ -68,6 +79,7 @@ impl ImageView {
         ImageView {
             store: ImageStore::new(render_state, loader, store_config, output_profile),
             cursor: 0,
+            visible: Visible::default(),
             viewport: Viewport {
                 // A slideshow always fills the screen.
                 maximize: start_slideshow,
@@ -129,6 +141,10 @@ impl ImageView {
         match command {
             Command::Next => self.next_image(),
             Command::Previous => self.previous_image(),
+            Command::First => self.jump_to_end(false),
+            Command::Last => self.jump_to_end(true),
+            Command::PageForward => self.page(true, PAGE),
+            Command::PageBack => self.page(false, PAGE),
             Command::Fit => zoom::fit(&mut self.viewport),
             Command::Fill => zoom::fill(&mut self.viewport, &self.metrics),
             Command::ToggleFillLatch => {
@@ -152,25 +168,52 @@ impl ImageView {
         }
     }
 
-    /// True while the current image is not ready and the user asked to wait
+    /// True while the next image is not ready and the user asked to wait
     /// rather than flick past unrendered images.
     fn should_wait(&self) -> bool {
-        self.config.should_wait
-            && matches!(
-                self.store
-                    .state((self.cursor + 1) % self.store.len().max(1)),
-                // A thumbnail standing in is not the image being ready.
-                ImageState::Loading | ImageState::Previewed
-            )
+        if !self.config.should_wait {
+            return false;
+        }
+
+        let (at, _) = self.position();
+        let Some(next) = self
+            .visible
+            .next(at)
+            .and_then(|position| self.visible.at(position))
+        else {
+            return false;
+        };
+
+        matches!(
+            self.store.state(next),
+            // A thumbnail standing in is not the image being ready.
+            ImageState::Loading | ImageState::Previewed
+        )
+    }
+
+    /// The store positions of the panes on screen, left to right.
+    ///
+    /// Neighbours in what is on show rather than in the store: with the
+    /// rejects hidden, the picture beside this one should be the next one a
+    /// person would reach, not the one they have already said no to.
+    fn panes(&self) -> Vec<usize> {
+        let (at, shown) = self.position();
+        if shown == 0 {
+            return Vec::new();
+        }
+
+        (0..self.images_shown.min(shown))
+            .filter_map(|offset| self.visible.at((at + offset) % shown))
+            .collect()
     }
 
     fn show_images(&mut self, ctx: &egui::Context) -> Response {
         let background = self.background_colour();
+        let panes = self.panes();
         let shown = layout::show(
             ctx,
             &mut self.store,
-            self.cursor,
-            self.images_shown,
+            &panes,
             &mut self.viewport,
             &Style {
                 frame: self.frame,
@@ -202,13 +245,15 @@ impl ImageView {
 
     fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks) {
         let name = self.display_name();
-        let total = self.store.len();
+        let (at, total) = self.position();
+        let hidden = self.store.len() - total;
         let mut status = Status {
             jump_to: &mut self.jump_to,
             zoom: &mut self.viewport.zoom,
             // One based for the user, and zero when there is nothing open.
-            position: total.min(self.cursor + 1),
+            position: total.min(at + 1),
             total,
+            hidden,
             name,
             percentage_zoom: self.metrics.percentage_zoom,
             marks,
@@ -220,8 +265,8 @@ impl ImageView {
 
         let outcome = bottom_bar::ui(ctx, &mut status);
 
-        if let Some(index) = outcome.jump_to {
-            self.select(index);
+        if let Some(position) = outcome.jump_to {
+            self.select_position(position);
         }
 
         for command in outcome.commands {

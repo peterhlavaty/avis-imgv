@@ -21,6 +21,7 @@ use crate::utils;
 use crate::view::texture;
 
 use crate::view::image_view::bottom_bar::Marks;
+use crate::view::visible::Visible;
 
 use cell::Badges;
 use layout::Layout;
@@ -46,13 +47,16 @@ pub struct GridView {
     callback: Option<Callback>,
     /// Image to scroll to on the next frame.
     scroll_to: Option<usize>,
-    /// Where the keyboard is, which is not where the image view is: moving
-    /// about a contact sheet should not decode a full sized photograph at
-    /// every step.
+    /// Where the keyboard is, as a position in what is on show. Not where the
+    /// image view is: moving about a contact sheet should not decode a full
+    /// sized photograph at every step.
     cursor: usize,
-    /// Which photograph the image view is on, so the sheet can say so.
+    /// Which photograph the image view is on, as a store position, so the
+    /// sheet can say so.
     current: usize,
     badges: Badges,
+    /// Which of the store's photographs are shown, and in what order.
+    visible: Visible,
 }
 
 impl GridView {
@@ -73,14 +77,27 @@ impl GridView {
             cursor: 0,
             current: 0,
             badges: Badges::default(),
+            visible: Visible::default(),
         }
     }
 
     pub fn set_images(&mut self, paths: Vec<PathBuf>) {
+        self.visible = Visible::everything(paths.len());
         self.store.set_paths(paths);
         self.scroll_to = Some(0);
         self.cursor = 0;
         self.current = 0;
+    }
+
+    /// Narrows or reorders the sheet, keeping the cursor where it can.
+    pub fn set_visible(&mut self, visible: Visible) {
+        let staying = self.visible.at(self.cursor);
+        self.visible = visible;
+
+        self.cursor = staying
+            .and_then(|index| self.visible.nearest(index))
+            .unwrap_or(0);
+        self.scroll_to = Some(self.cursor);
     }
 
     pub fn stats(&self) -> StoreStats {
@@ -99,6 +116,8 @@ impl GridView {
     pub fn pop(&mut self, path: &Path) {
         if let Some(index) = self.store.index_of(path) {
             self.store.remove(index);
+            self.visible.remove_shifting(index);
+            self.cursor = self.cursor.min(self.visible.len().saturating_sub(1));
         }
     }
 
@@ -127,18 +146,20 @@ impl GridView {
     /// frame would drag the view back to the open image the instant the user
     /// scrolled away from it.
     pub fn focus_on(&mut self, index: usize) {
-        self.scroll_to = Some(index);
-        self.cursor = index.min(self.store.len().saturating_sub(1));
-        self.current = self.cursor;
+        self.current = index;
+        self.cursor = self.visible.nearest(index).unwrap_or(0);
+        self.scroll_to = Some(self.cursor);
     }
 
-    /// Which photograph the keyboard is on, so the panels follow the sheet.
-    pub fn cursor(&self) -> usize {
-        self.cursor
+    /// The store position the keyboard is on, so the panels follow the sheet.
+    pub fn cursor(&self) -> Option<usize> {
+        self.visible.at(self.cursor)
     }
 
     pub fn cursor_path(&self) -> Option<PathBuf> {
-        self.store.path(self.cursor).map(Path::to_path_buf)
+        self.cursor()
+            .and_then(|index| self.store.path(index))
+            .map(Path::to_path_buf)
     }
 
     /// Draws the grid.
@@ -154,13 +175,25 @@ impl GridView {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
+            let shown = self.visible.len();
             let layout = Layout::new(
                 ui.available_width(),
                 self.columns,
-                self.store.len(),
+                shown,
                 self.config.cell_aspect,
                 self.badges.caption_height(),
             );
+
+            if shown == 0 {
+                let says = if self.store.is_empty() {
+                    "No images here"
+                } else {
+                    "Nothing matches the filter"
+                };
+
+                ui.centered_and_justified(|ui| ui.label(says));
+                return;
+            }
 
             let mut scroll_area = egui::ScrollArea::vertical().scroll_source(ScrollSource::ALL);
             if let Some(index) = self.scroll_to.take() {
@@ -171,9 +204,15 @@ impl GridView {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
 
                 // Caching centres on what is on screen, so scrolling pulls the
-                // rows just past the fold in ahead of the user.
-                let visible = layout.indices(rows.clone(), self.store.len());
-                self.store.set_cursor((visible.start + visible.end) / 2);
+                // rows just past the fold in ahead of the user. The middle of
+                // the fold is a position in what is shown; the store wants the
+                // photograph that position stands for.
+                let onscreen = layout.indices(rows.clone(), shown);
+                let middle = (onscreen.start + onscreen.end) / 2;
+
+                if let Some(index) = self.visible.at(middle) {
+                    self.store.set_cursor(index);
+                }
 
                 for row in rows {
                     self.show_row(ui, &layout, row, marks);
@@ -193,8 +232,12 @@ impl GridView {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
             ui.add_space(layout.padding);
 
-            for index in layout.indices(row..row + 1, self.store.len()) {
-                self.show_cell(ui, index, layout, marks.get(index));
+            for position in layout.indices(row..row + 1, self.visible.len()) {
+                let Some(index) = self.visible.at(position) else {
+                    continue;
+                };
+
+                self.show_cell(ui, position, index, layout, marks.get(index));
             }
         });
     }
@@ -202,6 +245,7 @@ impl GridView {
     fn show_cell(
         &mut self,
         ui: &mut egui::Ui,
+        position: usize,
         index: usize,
         layout: &Layout,
         marks: Option<&Marks>,
@@ -250,14 +294,20 @@ impl GridView {
             egui::StrokeKind::Outside,
         );
 
-        cell::outline(ui, rect, index == self.current, index == self.cursor);
+        cell::outline(ui, rect, index == self.current, position == self.cursor);
 
         if let Some(response) = response {
-            self.handle_cell_interaction(ui, index, &response);
+            self.handle_cell_interaction(ui, position, index, &response);
         }
     }
 
-    fn handle_cell_interaction(&mut self, ui: &egui::Ui, index: usize, response: &egui::Response) {
+    fn handle_cell_interaction(
+        &mut self,
+        ui: &egui::Ui,
+        position: usize,
+        index: usize,
+        response: &egui::Response,
+    ) {
         if response.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
@@ -267,7 +317,7 @@ impl GridView {
         };
 
         if response.clicked() {
-            self.cursor = index;
+            self.cursor = position;
             self.selected = Some(path.clone());
         }
 
@@ -276,6 +326,11 @@ impl GridView {
         {
             self.callback = Some(Callback::from_callback(callback, Some(path)));
         }
+    }
+
+    /// Which photograph the sheet says is on show, and how many there are.
+    pub fn position(&self) -> (usize, usize) {
+        (self.cursor, self.visible.len())
     }
 
     fn file_name(&self, index: usize) -> String {
@@ -318,7 +373,7 @@ impl GridView {
     /// sheet nobody can cull from: every mark is a keystroke, and reaching the
     /// next photograph should be one too.
     fn move_cursor(&mut self, ctx: &egui::Context) {
-        let total = self.store.len();
+        let total = self.visible.len();
         if total == 0 {
             return;
         }
@@ -360,7 +415,7 @@ impl GridView {
         }
 
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)) {
-            self.selected = self.store.path(self.cursor).map(Path::to_path_buf);
+            self.selected = self.cursor_path();
         }
     }
 
@@ -372,7 +427,7 @@ impl GridView {
 
     /// Changes the column count, keeping the user roughly where they were.
     fn set_columns(&mut self, columns: usize) {
-        self.scroll_to = Some(self.store.cursor());
+        self.scroll_to = Some(self.cursor);
         self.columns = columns;
     }
 }

@@ -36,6 +36,10 @@ pub enum Command {
     DeletePermanently,
     /// Fill the screen, or give it back.
     ToggleFullscreen,
+    /// Show or hide the bar that narrows and orders the folder.
+    ToggleFilter,
+    /// Set the rules aside without forgetting them, or put them back.
+    SuspendFilter,
 }
 
 impl Command {
@@ -83,6 +87,8 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
         (&config.sc_delete, Command::Delete),
         (&config.sc_delete_permanently, Command::DeletePermanently),
         (&config.sc_fullscreen, Command::ToggleFullscreen),
+        (&config.sc_filter, Command::ToggleFilter),
+        (&config.sc_suspend_filter, Command::SuspendFilter),
     ];
 
     ctx.input_mut(|input| {

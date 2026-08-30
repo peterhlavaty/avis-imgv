@@ -291,6 +291,15 @@ pub fn default_enlarge_to_fit() -> bool {
     true
 }
 
+/// `F3` is what a Windows program uses for "find", and the backslash is what
+/// FastRawViewer uses for the bypass.
+pub fn default_sc_filter() -> Shortcut {
+    Shortcut::new("F3", &[])
+}
+pub fn default_sc_suspend_filter() -> Shortcut {
+    Shortcut::new("Backslash", &[])
+}
+
 /// What every program that has a fullscreen uses.
 pub fn default_sc_fullscreen() -> Shortcut {
     Shortcut::new("F11", &[])

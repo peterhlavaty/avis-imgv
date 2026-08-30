@@ -16,6 +16,7 @@ use crate::metadata::Metadata;
 use super::slideshow::Slideshow;
 use super::viewports::Place;
 use super::{zoom, ImageView};
+use crate::view::visible::Visible;
 
 impl ImageView {
     /// Opens a new collection, optionally starting on a specific image.
@@ -24,9 +25,48 @@ impl ImageView {
             .and_then(|path| paths.iter().position(|candidate| candidate == path))
             .unwrap_or(0);
 
+        self.visible = Visible::everything(paths.len());
         self.store.set_paths(paths);
         self.viewports.clear();
         self.select(selected);
+    }
+
+    /// Narrows or reorders what is walked through, without disturbing the
+    /// caches.
+    ///
+    /// The store still holds every photograph, so a filter applied in the
+    /// middle of a cull costs a vector rather than a folder's worth of
+    /// decoding. The cursor stays on the photograph it was on when that
+    /// photograph is still shown, and lands on its nearest neighbour when it
+    /// is not — which is what rejecting a frame with the rejects hidden has to
+    /// do.
+    pub fn set_visible(&mut self, visible: Visible) {
+        let staying = self.store.path(self.cursor).map(Path::to_path_buf);
+        self.visible = visible;
+
+        let wanted = staying
+            .and_then(|path| self.store.index_of(&path))
+            .and_then(|index| self.visible.nearest(index))
+            .and_then(|position| self.visible.at(position));
+
+        if let Some(index) = wanted {
+            self.select(index);
+        }
+    }
+
+    /// How many photographs are on show, and where in them the cursor is.
+    pub fn position(&self) -> (usize, usize) {
+        let shown = self.visible.len();
+        let at = self.visible.position_of(self.cursor).unwrap_or(0);
+
+        (at, shown)
+    }
+
+    /// Moves to a position in what is on show, rather than in the store.
+    pub fn select_position(&mut self, position: usize) {
+        if let Some(index) = self.visible.at(position) {
+            self.select(index);
+        }
     }
 
     /// Starts or stops the slideshow.
@@ -135,8 +175,16 @@ impl ImageView {
         };
 
         self.store.remove(index);
+        self.visible.remove_shifting(index);
         self.viewports.forget(path);
-        self.select(self.cursor.min(self.store.len().saturating_sub(1)));
+
+        let landing = self
+            .visible
+            .nearest(self.cursor.min(self.store.len().saturating_sub(1)))
+            .and_then(|position| self.visible.at(position))
+            .unwrap_or(0);
+
+        self.select(landing);
     }
 
     pub fn reload(&mut self, path: &Path) {
@@ -146,23 +194,50 @@ impl ImageView {
     }
 
     pub fn next_image(&mut self) {
-        if self.store.is_empty() || self.should_wait() {
+        if self.should_wait() {
             return;
         }
 
-        self.select((self.cursor + 1) % self.store.len());
+        self.step(|visible, at| visible.next(at));
     }
 
     pub fn previous_image(&mut self) {
-        if self.store.is_empty() {
+        self.step(|visible, at| visible.previous(at));
+    }
+
+    /// Moves to the first or the last photograph on show.
+    pub fn jump_to_end(&mut self, last: bool) {
+        let position = if last {
+            self.visible.len().saturating_sub(1)
+        } else {
+            0
+        };
+
+        self.select_position(position);
+    }
+
+    /// Moves by a run of photographs at once, for `Page Up` and `Page Down`.
+    pub fn page(&mut self, forward: bool, by: usize) {
+        let (at, shown) = self.position();
+        if shown == 0 {
             return;
         }
 
-        let last = self.store.len() - 1;
-        self.select(if self.cursor == 0 {
-            last
+        let wanted = if forward {
+            (at + by).min(shown - 1)
         } else {
-            self.cursor - 1
-        });
+            at.saturating_sub(by)
+        };
+
+        self.select_position(wanted);
+    }
+
+    /// One step through what is on show.
+    fn step(&mut self, next: impl Fn(&Visible, usize) -> Option<usize>) {
+        let (at, _) = self.position();
+
+        if let Some(position) = next(&self.visible, at) {
+            self.select_position(position);
+        }
     }
 }

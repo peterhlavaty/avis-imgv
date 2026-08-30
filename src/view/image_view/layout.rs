@@ -26,35 +26,37 @@ pub struct Shown {
 pub fn show(
     ctx: &egui::Context,
     store: &mut ImageStore,
-    cursor: usize,
-    count: usize,
+    panes: &[usize],
     viewport: &mut Viewport,
     style: &Style,
     background: Color32,
 ) -> Shown {
     let mut metrics = Metrics::default();
-    let total = store.len();
 
     let response = egui::CentralPanel::default()
         .frame(egui::Frame::NONE.fill(background))
         .show(ctx, |ui| {
-            if total == 0 {
-                ui.centered_and_justified(|ui| ui.label("No images here"));
+            if panes.is_empty() {
+                let says = if store.is_empty() {
+                    "No images here"
+                } else {
+                    "Nothing matches the filter"
+                };
+
+                ui.centered_and_justified(|ui| ui.label(says));
                 return;
             }
 
-            let count = count.clamp(1, total);
             let cell = Vec2::new(
-                (ui.available_width() / count as f32) - 1.,
+                (ui.available_width() / panes.len() as f32) - 1.,
                 ui.available_height(),
             );
 
             ui.horizontal(|ui| {
-                for offset in 0..count {
-                    let index = (cursor + offset) % total;
+                for (offset, index) in panes.iter().enumerate() {
                     ui.allocate_ui(cell, |ui| {
                         ui.centered_and_justified(|ui| {
-                            let drawn = show_one(ui, store, index, offset == 0, viewport, style);
+                            let drawn = show_one(ui, store, *index, offset == 0, viewport, style);
                             if offset == 0 {
                                 if let Some(drawn) = drawn {
                                     metrics = drawn;
