@@ -23,7 +23,7 @@ use crate::cache::{ImageState, ImageStore, StoreConfig};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 
 use bottom_bar::{Flags, Marks, Status};
-use canvas::{travelled, FrameStyle, Metrics, Viewport};
+use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
 use input::Command;
 use layout::BACKGROUND;
 use slideshow::Slideshow;
@@ -172,7 +172,10 @@ impl ImageView {
             self.cursor,
             self.images_shown,
             &mut self.viewport,
-            &self.frame,
+            &Style {
+                frame: self.frame,
+                enlarge: self.config.enlarge_to_fit,
+            },
             background,
         );
 

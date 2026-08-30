@@ -2,6 +2,25 @@
 
 ## 2026-08-30
 
+- Fixed: a DNG opened as a postage stamp. Some of them — anything written by
+  Camera Raw — embed no JPEG at all, only a 256 pixel copy stored as plain
+  pixels, so the scan for embedded JPEGs found nothing and the file fell
+  through to the TIFF decoder, which reads the *first* directory. That
+  directory is the small copy, and the viewer then reported it as the
+  photograph: `Image Size: 256x171` for a forty-five megapixel frame, drawn at
+  "100%" in the middle of the screen. The uncompressed copy is read properly
+  now, the size comes from the main sub-directory, a `Preview Size` line says
+  what is actually on screen, and `image_view.enlarge_to_fit` fills the window
+  with it rather than leaving it a stamp.
+- Fixed: the metadata panel had no maximum width, so egui sized it to its
+  widest line — the directory — and a deep path took sixty per cent of the
+  window and squeezed the photograph into eleven per cent of it.
+- Fixed: the browsing order compared bytes, so `IMG_10` came before `IMG_9` and
+  the folder modes disagreed with the views people actually browse in. Both
+  read names the way a person does now, and a flattened tree stays grouped by
+  folder.
+- New: `F11` fills the screen and gives it back. Fullscreen used to be
+  reachable only by starting with `--fullscreen` or by entering the slideshow.
 - The contact sheet now says what it knows. Stars, flag and colour label under
   every thumbnail, a red tint over the rejected ones, the file name when asked
   for (`Ctrl + I` cycles the three), a white outline on the photograph the

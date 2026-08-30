@@ -186,6 +186,9 @@ pub struct GeneralConfig {
     /// Deletes it outright, for the cards and shares that have no bin.
     #[serde(default = "default_sc_delete_permanently")]
     pub sc_delete_permanently: Shortcut,
+    /// Fills the screen and gives it back.
+    #[serde(default = "default_sc_fullscreen")]
+    pub sc_fullscreen: Shortcut,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -208,6 +211,13 @@ pub struct ImageViewConfig {
     pub frame_size_relative_to_image: f32,
     #[serde(default = "default_scroll_navigation")]
     pub scroll_navigation: bool,
+    /// Whether a photograph smaller than the window is enlarged to fill it.
+    ///
+    /// The one that needs it is a raw file's embedded copy: a DNG written by
+    /// Camera Raw carries a 256 pixel preview and nothing else, and drawn at
+    /// its own size it is a postage stamp in the middle of the screen.
+    #[serde(default = "default_enlarge_to_fit")]
+    pub enlarge_to_fit: bool,
     #[serde(default = "default_name_format")]
     pub name_format: String,
     #[serde(default = "default_user_actions")]
@@ -369,6 +379,7 @@ impl Default for GeneralConfig {
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
             sc_delete: default_sc_delete(),
             sc_delete_permanently: default_sc_delete_permanently(),
+            sc_fullscreen: default_sc_fullscreen(),
             sc_exit: default_sc_exit(),
             sc_menu: default_sc_menu(),
             sc_navigator: default_sc_navigator(),
@@ -389,6 +400,7 @@ impl Default for ImageViewConfig {
             should_wait: default_should_wait(),
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             scroll_navigation: default_scroll_navigation(),
+            enlarge_to_fit: default_enlarge_to_fit(),
             user_actions: default_user_actions(),
             context_menu: default_ctx_menu(),
             name_format: default_name_format(),

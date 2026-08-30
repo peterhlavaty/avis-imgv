@@ -7,6 +7,7 @@ use zune_jpeg::JpegDecoder;
 
 use super::DecodeError;
 use crate::formats::Format;
+use crate::metadata::containers::Pixels;
 
 /// Decodes `bytes` into RGBA8.
 ///
@@ -93,6 +94,27 @@ fn decode_jpeg(bytes: &[u8]) -> Option<RgbaImage> {
     let info = decoder.info()?;
 
     RgbaImage::from_raw(info.width.into(), info.height.into(), pixels)
+}
+
+/// Widens plain eight-bit pixels into RGBA.
+///
+/// Grey and RGB only, which is what a reduced-resolution copy inside a raw
+/// file is ever stored as; the caller has already checked the length.
+pub fn from_pixels(pixels: &Pixels<'_>) -> Option<RgbaImage> {
+    let count = (pixels.width as usize).checked_mul(pixels.height as usize)?;
+    let mut out = Vec::with_capacity(count.checked_mul(4)?);
+
+    for source in pixels.bytes.chunks_exact(pixels.samples as usize) {
+        let (r, g, b) = match source {
+            [grey] => (*grey, *grey, *grey),
+            [r, g, b] => (*r, *g, *b),
+            _ => return None,
+        };
+
+        out.extend_from_slice(&[r, g, b, 255]);
+    }
+
+    RgbaImage::from_raw(pixels.width, pixels.height, out)
 }
 
 /// Maps our container classification onto the `image` crate's.

@@ -111,6 +111,9 @@ pub fn default_metadata_tags() -> Vec<String> {
         "Shutter Speed",
         "ISO",
         "Image Size",
+        // Only there when what is on screen is smaller than the photograph,
+        // which for a raw file shown through its embedded copy it often is.
+        "Preview Size",
         "File Size",
         "Color Space",
         "Directory",
@@ -280,6 +283,17 @@ pub fn default_cell_aspect() -> f32 {
 /// The same key as the overlay on the image itself, so one thing is one key.
 pub fn default_sc_cycle_badges() -> Shortcut {
     Shortcut::new("i", &[MOD_CTRL])
+}
+
+/// On, because the alternative is a postage stamp and nobody asked for one.
+/// A photograph larger than the window is unaffected either way.
+pub fn default_enlarge_to_fit() -> bool {
+    true
+}
+
+/// What every program that has a fullscreen uses.
+pub fn default_sc_fullscreen() -> Shortcut {
+    Shortcut::new("F11", &[])
 }
 
 /// What every file manager and every viewer in the comparison uses.

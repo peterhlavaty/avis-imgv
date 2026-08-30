@@ -145,6 +145,12 @@ pub fn all() -> Vec<Binding> {
             "Delete it outright, for the cards and shares that have no bin. Asked about first.",
             general.sc_delete_permanently
         ),
+        binding!(
+            "General",
+            "Fullscreen",
+            "Fill the screen, and give it back.",
+            general.sc_fullscreen
+        ),
         binding!("General", "Quit", "Close the viewer.", general.sc_exit),
         binding!(
             "Image view",
@@ -422,6 +428,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 35, "a shortcut was added without a description");
+        assert_eq!(fixed, 36, "a shortcut was added without a description");
     }
 }

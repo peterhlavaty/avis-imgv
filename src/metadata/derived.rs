@@ -31,6 +31,22 @@ impl Metadata {
         );
     }
 
+    /// Records that what is on screen is smaller than the photograph.
+    ///
+    /// A raw file is shown through the copy the camera embedded, and for some
+    /// of them that copy is tiny — a DNG written by Camera Raw carries a 256
+    /// pixel one and nothing else. Reporting the size of what was decoded as
+    /// though it were the size of the photograph is how a forty-five megapixel
+    /// frame came to say `256x171`.
+    pub fn note_preview(&mut self, shown: (u32, u32), full: (u32, u32)) {
+        if shown == full || full.0 == 0 || full.1 == 0 {
+            return;
+        }
+
+        self.add_size_tags(full.0, full.1);
+        self.insert("Preview Size", format!("{}x{}", shown.0, shown.1));
+    }
+
     /// Tags exiftool computes rather than reads, and which the default name
     /// format relies on.
     pub(super) fn add_composite_tags(&mut self) {

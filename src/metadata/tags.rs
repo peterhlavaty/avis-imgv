@@ -46,6 +46,8 @@ pub const STRIP_BYTE_COUNTS: u16 = 0x0117;
 pub const PREVIEW_IMAGE_START: u16 = 0x0111;
 pub const NEW_SUBFILE_TYPE: u16 = 0x00FE;
 pub const COMPRESSION: u16 = 0x0103;
+pub const BITS_PER_SAMPLE: u16 = 0x0102;
+pub const SAMPLES_PER_PIXEL: u16 = 0x0115;
 
 /// Names of tags found in IFD0/IFD1 and in raw sub-directories.
 const ROOT_NAMES: &[(u16, &str)] = &[

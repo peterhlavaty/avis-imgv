@@ -155,7 +155,11 @@ pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[St
 
         ui.horizontal(|ui| {
             ui.label(RichText::new(format!("{tag}:")).strong());
-            ui.label(value);
+            // Truncated rather than wrapped, with the whole of it on hover:
+            // one long value — the directory, nearly always — used to decide
+            // how wide the whole panel was.
+            ui.add(egui::Label::new(value).truncate())
+                .on_hover_text(value);
         });
     }
 }

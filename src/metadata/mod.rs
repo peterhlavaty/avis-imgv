@@ -40,6 +40,11 @@ pub struct Parsed<'a> {
     /// The small JPEG a camera embeds, for putting something on screen while
     /// the real image is still being decoded.
     pub thumbnail: Option<&'a [u8]>,
+    /// A picture stored as plain pixels, for the raws that embed no JPEG.
+    pub pixels: Option<containers::Pixels<'a>>,
+    /// What the photograph measures, when the container knows better than its
+    /// tags do.
+    pub full_size: Option<(u32, u32)>,
 }
 
 /// Everything the viewer knows about an image file.
@@ -93,6 +98,8 @@ impl Metadata {
             metadata,
             preview: found.preview,
             thumbnail: found.thumbnail,
+            pixels: found.pixels,
+            full_size: found.full_size,
         }
     }
 

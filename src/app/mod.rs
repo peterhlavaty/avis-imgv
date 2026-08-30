@@ -119,7 +119,7 @@ impl App {
         let thumbnail_budget = stores::thumbnail_store(&config.cache, &config.grid_view);
 
         let (mut paths, opened) = crawler::paths_from_args();
-        paths.sort();
+        crawler::sort(&mut paths);
 
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
@@ -238,7 +238,7 @@ impl App {
     /// Crawls `path` and opens what it finds.
     fn open_directory(&mut self, path: &Path, selected: Option<&Path>) {
         let mut paths = crawler::crawl(path, self.flattened);
-        paths.sort();
+        crawler::sort(&mut paths);
         self.open(paths, selected);
     }
 
@@ -267,6 +267,11 @@ impl App {
             Command::ToggleAdvance => self.advancing = !self.advancing,
             Command::Delete => self.delete_open_image(false),
             Command::DeletePermanently => self.delete_open_image(true),
+            Command::ToggleFullscreen => {
+                let wanted = !ctx.input(|i| i.viewport().fullscreen.unwrap_or(false));
+                self.was_fullscreen = wanted;
+                self.pending_fullscreen = Some(wanted);
+            }
         }
     }
 

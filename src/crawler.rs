@@ -95,7 +95,34 @@ pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
     }
 
     tracing::info!("Found {} images in {}", images.len(), path.display());
+    sort(&mut images);
     images
+}
+
+/// Puts a collection in the order a person reads it.
+///
+/// `Vec::sort` compares bytes, which gives `IMG_10` before `IMG_9` and puts
+/// every capital before every lower case letter. The folder modes have sorted
+/// naturally since they were written; the views people actually browse in did
+/// not, so the two disagreed about what order a folder was in and the README
+/// described the wrong one.
+pub fn sort(images: &mut [PathBuf]) {
+    images.sort_by(|a, b| {
+        let (Some(left), Some(right)) = (a.parent(), b.parent()) else {
+            return a.cmp(b);
+        };
+
+        // The folder first, so a flattened tree stays grouped by directory
+        // rather than interleaving two folders' frame numbers.
+        crate::organize::sort::natural(&left.to_string_lossy(), &right.to_string_lossy()).then_with(
+            || {
+                crate::organize::sort::natural(
+                    &a.file_name().unwrap_or_default().to_string_lossy(),
+                    &b.file_name().unwrap_or_default().to_string_lossy(),
+                )
+            },
+        )
+    });
 }
 
 #[cfg(test)]
@@ -114,6 +141,49 @@ mod tests {
         fs::write(root.join("nested/c.jpg"), b"x").unwrap();
 
         root
+    }
+
+    /// `Vec::sort` compares bytes, which is the wrong order for a folder off a
+    /// camera: `IMG_10` came before `IMG_9`, and the folder modes disagreed
+    /// with the views people browse in.
+    #[test]
+    fn a_folder_is_ordered_the_way_a_person_reads_it() {
+        let mut paths: Vec<PathBuf> = ["IMG_10.jpg", "IMG_100.jpg", "IMG_9.jpg", "IMG_2.jpg"]
+            .iter()
+            .map(|name| PathBuf::from("/photos").join(name))
+            .collect();
+
+        sort(&mut paths);
+
+        let names: Vec<String> = paths
+            .iter()
+            .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+
+        assert_eq!(
+            names,
+            ["IMG_2.jpg", "IMG_9.jpg", "IMG_10.jpg", "IMG_100.jpg"]
+        );
+    }
+
+    /// A flattened tree stays grouped by folder rather than interleaving two
+    /// folders' frame numbers.
+    #[test]
+    fn the_folder_comes_before_the_name() {
+        let mut paths: Vec<PathBuf> = [
+            "/photos/b/IMG_1.jpg",
+            "/photos/a/IMG_2.jpg",
+            "/photos/a/IMG_1.jpg",
+        ]
+        .iter()
+        .map(PathBuf::from)
+        .collect();
+
+        sort(&mut paths);
+
+        assert_eq!(paths[0], PathBuf::from("/photos/a/IMG_1.jpg"));
+        assert_eq!(paths[1], PathBuf::from("/photos/a/IMG_2.jpg"));
+        assert_eq!(paths[2], PathBuf::from("/photos/b/IMG_1.jpg"));
     }
 
     #[test]

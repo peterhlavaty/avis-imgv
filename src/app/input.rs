@@ -34,6 +34,8 @@ pub enum Command {
     Delete,
     /// Delete it outright, which is asked about first.
     DeletePermanently,
+    /// Fill the screen, or give it back.
+    ToggleFullscreen,
 }
 
 impl Command {
@@ -80,6 +82,7 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
         (&config.sc_watch_directory, Command::ToggleWatcher),
         (&config.sc_delete, Command::Delete),
         (&config.sc_delete_permanently, Command::DeletePermanently),
+        (&config.sc_fullscreen, Command::ToggleFullscreen),
     ];
 
     ctx.input_mut(|input| {

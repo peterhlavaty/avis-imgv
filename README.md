@@ -391,8 +391,14 @@ sensor data it was made from. `raw.source` decides which one you get.
 camera showed you on its own screen and costs almost nothing to decode.
 Extraction is native: TIFF derived raws are read through their IFD chain, Fuji
 RAF through its header, Canon CR3 through its box tree, and anything
-unrecognised falls back to a scan for the largest embedded JPEG stream. The
-catch is resolution — a CR3 preview is 1620x1080, which is all Canon stores.
+unrecognised falls back to a scan for the largest embedded JPEG stream. Where a
+file embeds no JPEG at all — a DNG written by Camera Raw keeps its
+reduced-resolution copy as plain pixels — that copy is read instead.
+
+The catch is resolution: a CR3 preview is 1620x1080, which is all Canon stores,
+and that Camera Raw DNG carries 256x171. The side panel reports the size of the
+*photograph* rather than of the copy being shown, and adds a `Preview Size` line
+when the two differ, so it is clear which you are looking at.
 
 **`"develop"`** demosaics the sensor data with [LibRaw](https://www.libraw.org/),
 giving the full resolution and the full dynamic range. The same CR3 comes out at
@@ -459,6 +465,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `metadata_tags` | Tags shown in the side panel, in order | File Name, Date/Time Original, Camera Model Name, Lens Model, Focal Length, Aperture, Shutter Speed, ISO, Image Size, File Size, Color Space, Directory |
 | `sc_delete` | Send the picture on screen to the bin | `Delete` |
 | `sc_delete_permanently` | Delete it outright, after asking | `Shift + Delete` |
+| `sc_fullscreen` | Fill the screen, and give it back | `F11` |
 
 ### Image view
 
@@ -471,6 +478,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `scroll_navigation` | Use the scroll wheel to change image | true |
+| `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • ƒ5.6 • 1/500 • 200 ISO` | as above |
 
 ### Grid view
@@ -528,6 +536,7 @@ viewer logs that it is showing previews instead.
 |-----|--------|
 | Backspace | Toggle between image view and grid view |
 | F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots, slideshow |
+| F11 | Fullscreen |
 | Alt + Q | Exit |
 | F1 | Toggle the menu |
 | Ctrl + L | Navigation bar |

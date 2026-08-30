@@ -36,6 +36,19 @@ impl<'a> ExifBlock<'a> {
     }
 }
 
+/// A picture stored as plain pixels rather than as a compressed stream.
+///
+/// What a DNG uses for its reduced-resolution copy, and the only thing some
+/// of them carry that is a picture at all.
+#[derive(Debug, Clone, Copy)]
+pub struct Pixels<'a> {
+    pub bytes: &'a [u8],
+    pub width: u32,
+    pub height: u32,
+    /// One for grey, three for RGB.
+    pub samples: u8,
+}
+
 /// What a container walk found. Borrows from the file buffer wherever the
 /// bytes are stored verbatim.
 #[derive(Debug, Default)]
@@ -52,6 +65,11 @@ pub struct Extracted<'a> {
     pub thumbnail: Option<&'a [u8]>,
     /// XMP packet, holding the rating and keywords other tools wrote.
     pub xmp: Option<Vec<u8>>,
+    /// An uncompressed picture to draw, when there is no compressed one.
+    pub pixels: Option<Pixels<'a>>,
+    /// What the photograph itself measures, which for a raw file is not what
+    /// its first directory says.
+    pub full_size: Option<(u32, u32)>,
 }
 
 impl<'a> Extracted<'a> {
@@ -107,8 +125,10 @@ fn tiff_block(data: &[u8]) -> Extracted<'_> {
         icc: extracted.icc,
         xmp: extracted.xmp,
         thumbnail: extracted.thumbnail,
-        // The file itself decodes, so an embedded preview is of no use.
+        // The file itself decodes, so an embedded copy is of no use.
         preview: None,
+        pixels: None,
+        full_size: extracted.full_size,
     }
 }
 

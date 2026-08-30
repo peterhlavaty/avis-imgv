@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use super::{ExifBlock, Extracted};
+use super::{ExifBlock, Extracted, Pixels};
 use crate::metadata::tags;
 use crate::metadata::tiff::{Ifd, Tiff};
 
@@ -56,7 +56,9 @@ fn tiff_based<'a>(tiff: &Tiff<'a>, data: &'a [u8]) -> Extracted<'a> {
     let mut best: Option<&'a [u8]> = None;
     let mut icc = None;
 
-    for ifd in directories(tiff) {
+    let all = directories(tiff);
+
+    for ifd in &all {
         if icc.is_none() {
             icc = ifd
                 .entry(tags::ICC_PROFILE)
@@ -64,21 +66,108 @@ fn tiff_based<'a>(tiff: &Tiff<'a>, data: &'a [u8]) -> Extracted<'a> {
                 .map(<[u8]>::to_vec);
         }
 
-        for candidate in jpeg_candidates(tiff, &ifd) {
+        for candidate in jpeg_candidates(tiff, ifd) {
             if best.is_none_or(|current| candidate.len() > current.len()) {
                 best = Some(candidate);
             }
         }
     }
 
+    let preview = best.filter(|p| p.len() >= MIN_PREVIEW_BYTES);
+
     Extracted {
         exif: vec![ExifBlock::root(data)],
         icc,
-        preview: best.filter(|p| p.len() >= MIN_PREVIEW_BYTES),
+        // Only looked for when there is no JPEG one: it is always the small
+        // reduced-resolution copy, and decoding it is a last resort.
+        pixels: preview
+            .is_none()
+            .then(|| pixel_preview(tiff, &all))
+            .flatten(),
+        preview,
         thumbnail: thumbnail(tiff),
+        full_size: main_image_size(&all),
         // The packet lives in a tag, which the directory walk picks up.
         xmp: None,
     }
+}
+
+/// The dimensions of the photograph itself, rather than of a copy of it.
+///
+/// A raw file's first directory is very often the reduced-resolution preview
+/// — for a DNG written by Camera Raw it is a 256 pixel thumbnail — and the
+/// sensor data sits in a sub-directory. Reading the size off the first one
+/// meant the side panel reported `256x171` for a forty-five megapixel
+/// photograph, and the viewer drew a preview at "100%" that was a postage
+/// stamp in the middle of the screen.
+///
+/// `NewSubfileType` names the main image explicitly: bit 0 clear means "not a
+/// reduced resolution copy". Where nothing says, the largest wins.
+fn main_image_size(all: &[Ifd]) -> Option<(u32, u32)> {
+    let sized = |ifd: &Ifd| {
+        let width = ifd.u32(tags::IMAGE_WIDTH)?;
+        let height = ifd.u32(tags::IMAGE_HEIGHT)?;
+        (width > 0 && height > 0).then_some((width, height))
+    };
+
+    let full = |ifd: &&Ifd| {
+        ifd.u32(tags::NEW_SUBFILE_TYPE)
+            .is_some_and(|kind| kind & 1 == 0)
+    };
+
+    all.iter()
+        .filter(full)
+        .filter_map(sized)
+        .chain(all.iter().filter_map(sized))
+        .max_by_key(|(width, height)| u64::from(*width) * u64::from(*height))
+}
+
+/// An uncompressed preview, for the raws that embed no JPEG at all.
+///
+/// A DNG written by Camera Raw carries its reduced-resolution copy as plain
+/// eight-bit RGB strips rather than as a JPEG, so the scan for embedded JPEGs
+/// found nothing and the file fell through to the `image` crate — which
+/// decodes the *first* directory, which is that same small copy, and reported
+/// it as the photograph.
+fn pixel_preview<'a>(tiff: &Tiff<'a>, all: &[Ifd]) -> Option<Pixels<'a>> {
+    all.iter()
+        .filter_map(|ifd| uncompressed(tiff, ifd))
+        .max_by_key(|found| u64::from(found.width) * u64::from(found.height))
+}
+
+/// The uncompressed picture a directory points at, if that is what it holds.
+fn uncompressed<'a>(tiff: &Tiff<'a>, ifd: &Ifd) -> Option<Pixels<'a>> {
+    if ifd.u32(tags::COMPRESSION) != Some(1) {
+        return None;
+    }
+
+    let width = ifd.u32(tags::IMAGE_WIDTH)?;
+    let height = ifd.u32(tags::IMAGE_HEIGHT)?;
+    let samples = ifd.u32(tags::SAMPLES_PER_PIXEL).unwrap_or(1);
+
+    // Eight bits a channel, and either grey or RGB. Anything else is sensor
+    // data rather than a picture of one.
+    if ifd.u32(tags::BITS_PER_SAMPLE) != Some(8) || !matches!(samples, 1 | 3) {
+        return None;
+    }
+
+    let wanted = u64::from(width) * u64::from(height) * u64::from(samples);
+    let offset = ifd.u32(tags::STRIP_OFFSETS)? as usize;
+    let length = ifd.u32(tags::STRIP_BYTE_COUNTS)? as usize;
+
+    // One strip holding the whole thing: a reduced-resolution copy is small
+    // enough that every writer does it that way, and stitching several would
+    // be work for a picture nobody wants to look at anyway.
+    if length as u64 != wanted {
+        return None;
+    }
+
+    Some(Pixels {
+        bytes: tiff.bytes(offset, length)?,
+        width,
+        height,
+        samples: samples as u8,
+    })
 }
 
 /// The top level directories plus one level of sub-directories, which is where

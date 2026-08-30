@@ -7,6 +7,7 @@
     "should_wait": true,
     "frame_size_relative_to_image": 0.2,
     "scroll_navigation": true,
+    "enlarge_to_fit": true,
     "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
     "user_actions": [
       {
@@ -175,6 +176,7 @@
       "Shutter Speed",
       "ISO",
       "Image Size",
+      "Preview Size",
       "File Size",
       "Color Space",
       "Directory"
@@ -232,6 +234,10 @@
       "modifiers": [
         "shift"
       ]
+    },
+    "sc_fullscreen": {
+      "key": "F11",
+      "modifiers": []
     }
   },
   "cache": {

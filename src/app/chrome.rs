@@ -8,11 +8,15 @@ use std::path::PathBuf;
 
 use eframe::egui::{self, ViewportCommand};
 
+use crate::crawler;
 use crate::ui::{navigator, tree};
 
 use super::input::{self, Overlay};
 use super::panels;
 use super::App;
+
+/// How much of the window a side panel may take before it is the window.
+const MOST_OF_THE_WINDOW: f32 = 0.4;
 
 impl App {
     pub(super) fn handle_watcher(&mut self) {
@@ -38,7 +42,7 @@ impl App {
         if !changes.added.is_empty() {
             let newest = changes.added.last().cloned();
             self.paths.extend(changes.added);
-            self.paths.sort();
+            crawler::sort(&mut self.paths);
 
             let paths = self.paths.clone();
             self.image_view.set_images(paths.clone(), newest.as_deref());
@@ -47,10 +51,18 @@ impl App {
     }
 
     pub(super) fn show_side_panel(&mut self, ctx: &egui::Context) {
+        // An egui side panel sizes itself to its widest child unless it is
+        // told not to, and the widest child here is the directory line. A
+        // deep path used to take sixty per cent of the window and squeeze the
+        // photograph into eleven per cent of it.
+        let most = (ctx.content_rect().width() * MOST_OF_THE_WINDOW).max(220.);
+
         egui::SidePanel::right("image_metadata")
             .resizable(true)
             .show_separator_line(false)
             .min_width(220.)
+            .default_width(340.)
+            .max_width(most)
             .show_animated(ctx, self.side_panel_visible, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     panels::metadata_panel(

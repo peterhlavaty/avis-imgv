@@ -5,7 +5,7 @@ use eframe::epaint::{Color32, Vec2};
 
 use crate::cache::{ImageState, ImageStore};
 
-use super::canvas::{self, FrameStyle, Metrics, Viewport};
+use super::canvas::{self, Metrics, Style, Viewport};
 
 /// Backdrop behind the images, neutral enough not to shift how a photograph
 /// reads against it.
@@ -29,7 +29,7 @@ pub fn show(
     cursor: usize,
     count: usize,
     viewport: &mut Viewport,
-    frame: &FrameStyle,
+    style: &Style,
     background: Color32,
 ) -> Shown {
     let mut metrics = Metrics::default();
@@ -54,7 +54,7 @@ pub fn show(
                     let index = (cursor + offset) % total;
                     ui.allocate_ui(cell, |ui| {
                         ui.centered_and_justified(|ui| {
-                            let drawn = show_one(ui, store, index, offset == 0, viewport, frame);
+                            let drawn = show_one(ui, store, index, offset == 0, viewport, style);
                             if offset == 0 {
                                 if let Some(drawn) = drawn {
                                     metrics = drawn;
@@ -77,7 +77,7 @@ fn show_one(
     index: usize,
     urgent: bool,
     viewport: &mut Viewport,
-    frame: &FrameStyle,
+    style: &Style,
 ) -> Option<Metrics> {
     // The image under the cursor jumps the per-frame upload budget; the ones
     // beside it can wait a frame.
@@ -92,7 +92,7 @@ fn show_one(
         return None;
     };
 
-    let metrics = canvas::draw(ui, texture, viewport, frame);
+    let metrics = canvas::draw(ui, texture, viewport, style);
 
     // How wide it ended up being drawn decides which copy of it should be on
     // the GPU: the screen sized one while it fits, the image's own pixels once

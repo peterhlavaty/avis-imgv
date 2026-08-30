@@ -18,6 +18,17 @@ pub struct FrameStyle {
     pub relative_size: f32,
 }
 
+/// How a photograph is presented, as opposed to which one.
+#[derive(Debug, Clone, Copy)]
+pub struct Style {
+    pub frame: FrameStyle,
+    /// Whether a photograph smaller than the panel is enlarged to fill it.
+    ///
+    /// The one that needs it is a raw file's embedded copy: some DNGs carry a
+    /// 256 pixel preview and nothing else.
+    pub enlarge: bool,
+}
+
 /// Zoom and pan, owned by the view and mutated as the user navigates.
 #[derive(Debug, Clone, Copy)]
 pub struct Viewport {
@@ -79,10 +90,14 @@ pub fn draw(
     ui: &mut egui::Ui,
     texture: &GpuTexture,
     viewport: &mut Viewport,
-    frame: &FrameStyle,
+    style: &Style,
 ) -> Metrics {
     let available = ui.available_size();
-    let fit_size = fit(texture.size, available);
+    let fit_size = if style.enlarge {
+        fill(texture.size, available)
+    } else {
+        fit(texture.size, available)
+    };
 
     if viewport.maximize && !viewport.maximized {
         viewport.maximized = true;
@@ -111,8 +126,8 @@ pub fn draw(
         drawn_width: scaled.x * ui.ctx().pixels_per_point(),
     };
 
-    let display_size = if frame.enabled {
-        paint_frame(ui, display_size, frame.relative_size)
+    let display_size = if style.frame.enabled {
+        paint_frame(ui, display_size, style.frame.relative_size)
     } else {
         display_size
     };
@@ -135,6 +150,21 @@ pub fn travelled(scaled: Vec2, available: Vec2, progress: f32) -> Vec2 {
     let along = progress.clamp(0.0, 1.0) - 0.5;
 
     Vec2::new(slack.x.max(0.0) * along, slack.y.max(0.0) * along)
+}
+
+/// The largest size with the image's shape that the panel holds, enlarging a
+/// small one to reach it.
+///
+/// What a raw file's embedded copy needs: some DNGs carry a 256 pixel preview
+/// and nothing else, and drawn at its own size it is a postage stamp in the
+/// middle of a 4K screen.
+fn fill(image: Vec2, available: Vec2) -> Vec2 {
+    if image.x <= 0.0 || image.y <= 0.0 {
+        return Vec2::ZERO;
+    }
+
+    let scale = (available.x / image.x).min(available.y / image.y);
+    image * scale
 }
 
 /// Largest size with the image's aspect ratio that fits inside `available`.
@@ -260,6 +290,29 @@ mod tests {
             travelled(scaled, panel, -1.0),
             travelled(scaled, panel, 0.0)
         );
+    }
+
+    /// A raw file's embedded copy can be 256 pixels across; drawn at its own
+    /// size it is a postage stamp in the middle of a 4K screen.
+    #[test]
+    fn filling_enlarges_a_small_photograph() {
+        let filled = fill(Vec2::new(256.0, 171.0), Vec2::new(1920.0, 1080.0));
+
+        assert!((filled.x - 1616.8422).abs() < 0.1, "{filled:?}");
+        assert!((filled.y - 1080.0).abs() < 0.1, "{filled:?}");
+    }
+
+    #[test]
+    fn filling_shrinks_a_large_one_the_same_way_fitting_does() {
+        let size = Vec2::new(6000.0, 4000.0);
+        let panel = Vec2::new(1000.0, 1000.0);
+
+        assert_eq!(fill(size, panel), fit(size, panel));
+    }
+
+    #[test]
+    fn filling_a_degenerate_image_produces_nothing() {
+        assert_eq!(fill(Vec2::ZERO, Vec2::new(100.0, 100.0)), Vec2::ZERO);
     }
 
     #[test]

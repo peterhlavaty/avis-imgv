@@ -213,7 +213,7 @@ pub fn decode(
 ) -> Result<DecodedImage, DecodeError> {
     let format = Format::from_path(path);
     let parsed = Metadata::parse(bytes, format);
-    let (mut metadata, preview) = (parsed.metadata, parsed.preview);
+    let (mut metadata, preview, pixels) = (parsed.metadata, parsed.preview, parsed.pixels);
 
     let mut image = match develop_raw(bytes, format, options) {
         Some(developed) => {
@@ -224,14 +224,17 @@ pub fn decode(
         }
         // Otherwise a raw shows the preview the camera embedded, and every
         // other format decodes itself.
-        None => {
-            let (source, source_format) = match preview {
-                Some(preview) => (preview, Some(Format::Jpeg)),
-                None => (bytes, format),
-            };
-
-            codec::decode(source, source_format)?
-        }
+        None => match (preview, pixels) {
+            (Some(preview), _) => codec::decode(preview, Some(Format::Jpeg))?,
+            // A raw with no JPEG inside it at all: a DNG written by Camera
+            // Raw carries its reduced-resolution copy as plain pixels, and
+            // without this the file fell through to the TIFF decoder, which
+            // reads the *first* directory — that same small copy — and
+            // reported it as the photograph.
+            (None, Some(pixels)) => codec::from_pixels(&pixels)
+                .ok_or_else(|| DecodeError::Unsupported("unreadable raw preview".to_string()))?,
+            (None, None) => codec::decode(bytes, format)?,
+        },
     };
 
     image = resize::to_max_edge(image, options.max_edge);
@@ -244,10 +247,18 @@ pub fn decode(
     }
 
     metadata.add_file_tags(path, bytes.len());
-    metadata.add_size_tags(
+
+    let shown = (
         displayed_width(&image, metadata.orientation),
         displayed_height(&image, metadata.orientation),
     );
+
+    metadata.add_size_tags(shown.0, shown.1);
+
+    // A raw shown through an embedded copy is not the size of that copy.
+    if let Some(full) = parsed.full_size {
+        metadata.note_preview(shown, full);
+    }
 
     Ok(into_decoded(image, metadata, options.display_edge))
 }

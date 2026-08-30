@@ -60,12 +60,18 @@ pub fn load(path: &Path) -> Option<Preview> {
     };
 
     let image = parsed.thumbnail.and_then(decode_thumbnail);
-    let full_size = full_size(&head, format, &metadata).unwrap_or_else(|| {
-        image
-            .as_ref()
-            .map(|image| (image.width(), image.height()))
-            .unwrap_or((0, 0))
-    });
+    // What the container worked out beats what the tags say: a raw file's
+    // first directory describes a reduced-resolution copy of the photograph
+    // rather than the photograph.
+    let full_size = parsed
+        .full_size
+        .or_else(|| full_size(&head, format, &metadata))
+        .unwrap_or_else(|| {
+            image
+                .as_ref()
+                .map(|image| (image.width(), image.height()))
+                .unwrap_or((0, 0))
+        });
 
     metadata.add_file_tags(path, head.len());
 
