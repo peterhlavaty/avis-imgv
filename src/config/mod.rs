@@ -361,6 +361,10 @@ pub struct GridViewConfig {
     /// marks and the file name.
     #[serde(default = "default_sc_cycle_badges")]
     pub sc_cycle_badges: Shortcut,
+    #[serde(default = "default_sc_select")]
+    pub sc_select: Shortcut,
+    #[serde(default = "default_sc_select_all")]
+    pub sc_select_all: Shortcut,
 }
 
 /// What the slideshow does with a picture while it is up.
@@ -505,6 +509,8 @@ impl Default for GridViewConfig {
             sc_more_per_row: default_sc_more_per_row(),
             sc_less_per_row: default_sc_less_per_row(),
             sc_cycle_badges: default_sc_cycle_badges(),
+            sc_select: default_sc_select(),
+            sc_select_all: default_sc_select_all(),
         }
     }
 }

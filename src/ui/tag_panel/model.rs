@@ -15,6 +15,12 @@ pub struct Source<'a> {
     /// Tags seen on the other images of this folder, so a tag typed once is
     /// offered again without having to be configured.
     pub seen: &'a [&'a str],
+    /// How many photographs what is clicked will be applied to.
+    ///
+    /// The panel draws one photograph's marks whatever this says, because
+    /// there is no sensible way to draw two hundred; it says the number out
+    /// loud instead, so nobody clicks a keyword thinking it lands on one.
+    pub applies_to: usize,
 }
 
 /// The panel's contents once the search box has been applied.
@@ -152,6 +158,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&["Tatras"]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,
@@ -173,6 +180,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&["Tatras"]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,
@@ -198,6 +206,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&[]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,
@@ -213,6 +222,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&[]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,
@@ -231,6 +241,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&[]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,
@@ -249,6 +260,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&[]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,
@@ -266,6 +278,7 @@ mod tests {
         let catalog = catalog();
         let recent = recent(&[]);
         let source = Source {
+            applies_to: 1,
             annotations: &annotations,
             catalog: &catalog,
             recent: &recent,

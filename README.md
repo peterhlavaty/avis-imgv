@@ -374,6 +374,28 @@ the order it was taken, not at the end. Three numbers at the top decide how the
 folder is read at all: the gap that ends a run, how alike two frames have to
 be, and the fewest frames worth calling a group.
 
+## Comparing two frames
+
+`N` pins the photograph on screen and the next one side by side, sharing **one
+zoom and one pan**: 100% on an eye in one pane puts the same eye at the same
+magnification in the other, which is what choosing between two frames of the
+same thing actually is.
+
+| Key | What it does |
+|-----|--------------|
+| `Tab` | Which pane the keys are about, drawn with a border |
+| `←` `→` | Try a different photograph against the ones that are staying |
+| `Ctrl` `+` / `Ctrl` `-` | More or fewer panes, up to eight |
+| `/` | Drop the focused pane; the survivors re-tile larger |
+| `Enter`, `Escape`, `N` | Leave it |
+
+Every marking key applies to the pane with the focus and to nothing else:
+marking "everything displayed" is the one thing a comparison must never do.
+
+The pinned set is what makes it a comparison rather than the side-by-side view
+`nr_images_shown` gives: the panes stay where they are while the eye moves
+between them, and the arrow keys change the *candidate* rather than the lot.
+
 ## Narrowing the folder down
 
 `F3` opens a bar above the photograph: stars from and to, the flag, the colour
@@ -539,6 +561,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
 | `sc_cycle_badges` | Cycles what is drawn under each thumbnail: nothing, the marks, or the marks and the name | `Ctrl + I` |
+| `sc_select` | Picks the photograph under the cursor out, or puts it back | `Space` |
+| `sc_select_all` | Picks out everything on show, or puts it all back | `Ctrl + A` |
 
 ### Raw
 
@@ -635,7 +659,11 @@ viewer logs that it is showing previews instead.
 | W A S D | Pan, while the key is held |
 | Drag | Pan |
 | G | Toggle the white frame |
-| Ctrl + / Ctrl - | More or fewer images side by side |
+| Ctrl + / Ctrl - | More or fewer images side by side, or panes while comparing |
+| N | Compare this picture with the next |
+| Tab | Which pane the keys are about |
+| / | Drop that pane; the survivors re-tile |
+| Escape | Leave the comparison |
 
 Zoom and pan belong to the image, not to the window: leaving a photograph
 half way into a corner and coming back to it later finds it exactly there.
@@ -655,10 +683,39 @@ than to whatever the other view was last left on.
 | Home / End | First and last picture |
 | Enter | Open the one under the cursor |
 | Ctrl + I | Cycle what the cells say: nothing, the marks, the marks and the name |
-| Space | Scroll down |
+| Space | Pick the one under the cursor out, or put it back |
+| Shift + arrows | Pick out everything walked over |
+| Ctrl + A | Pick out everything on show, or put it all back |
+| Escape | Put the selection down |
+| Ctrl + Click | Pick that one out |
+| Shift + Click | Pick out the run up to it |
 | Click | Open that image in the image view |
+| PageDown | Scroll down |
 | Ctrl + Scroll | More or fewer thumbnails per row |
 | + / - | More or fewer thumbnails per row |
+
+#### Picking several out at once
+
+Whatever is picked out is what the next command is about. A rating, a flag, a
+colour label, a keyword clicked in the tag panel, a move, a copy, a deletion:
+each of them applies to the selection when there is one and to the photograph
+being looked at when there is not, so tagging two hundred frames is one
+keystroke rather than two hundred.
+
+The cells that are picked out carry a blue wash and a tick, the corner says how
+many there are, and the tag panel says how many it is about to change. What the
+mark ends up as is decided by the first photograph in the set and then applied
+to all of them, so a set never ends up half flagged and half not.
+
+Undo takes the whole thing back in one press, however many photographs it
+touched. Deleting a selection asks first even when it is only going to the bin,
+because the cost of a wrong keystroke there is a folder rather than a frame —
+`Enter` or `Y` answers it, `Escape` leaves them alone.
+
+The selection is held as positions in the folder rather than as file names, so
+narrowing the folder down with the filter bar does not throw it away: pick
+frames out, filter to the ones you kept, mark them, and the set is still the
+set.
 
 ## User actions and context menu
 

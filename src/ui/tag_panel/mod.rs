@@ -20,6 +20,10 @@ const EMPTY: &str = "☆";
 /// than a cross, because the bundled font has it.
 const REMOVE: &str = "×";
 
+/// The blue the contact sheet marks a selection with, so the panel saying
+/// how many it will touch reads as part of the same thing.
+const SELECTED: egui::Color32 = egui::Color32::from_rgb(126, 168, 224);
+
 /// What the user asked for by clicking in the panel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
@@ -60,6 +64,14 @@ pub fn ui(
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.add_space(20.);
                 ui.label(RichText::new("Rating & Tags").heading());
+
+                if source.applies_to > 1 {
+                    ui.label(
+                        RichText::new(format!("Applies to {} photographs", source.applies_to))
+                            .color(SELECTED),
+                    );
+                }
+
                 ui.add_space(10.);
 
                 actions.extend(stars(ui, source.annotations.stars()));

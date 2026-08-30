@@ -149,7 +149,7 @@
       }
     ],
     "sc_scroll": {
-      "key": "Space",
+      "key": "PageDown",
       "modifiers": []
     },
     "sc_more_per_row": {
@@ -162,6 +162,16 @@
     },
     "sc_cycle_badges": {
       "key": "i",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_select": {
+      "key": "Space",
+      "modifiers": []
+    },
+    "sc_select_all": {
+      "key": "a",
       "modifiers": [
         "ctrl"
       ]

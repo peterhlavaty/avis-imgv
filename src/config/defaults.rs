@@ -228,8 +228,21 @@ pub fn default_thumbnail_resolution() -> u32 {
 pub fn default_gpu_resident_thumbnails() -> usize {
     256
 }
+/// `PageDown` rather than the space bar it used to be.
+///
+/// Space is what every program with a contact sheet uses to pick a photograph
+/// out, and picking photographs out is worth more than a key for scrolling
+/// half a row when the arrows, the wheel and the scrollbar all already do it.
 pub fn default_sc_scroll() -> Shortcut {
+    Shortcut::new("PageDown", &[])
+}
+
+/// Bridge's key, and Photo Mechanic's, and every file manager's.
+pub fn default_sc_select() -> Shortcut {
     Shortcut::new("Space", &[])
+}
+pub fn default_sc_select_all() -> Shortcut {
+    Shortcut::new("a", &[MOD_CTRL])
 }
 pub fn default_sc_more_per_row() -> Shortcut {
     Shortcut::new("Plus", &[])

@@ -34,6 +34,12 @@ pub enum Step {
     Binned(Vec<PathBuf>),
     /// A photograph's marks, as they were before they were changed.
     Marked { image: PathBuf, before: Box<Xmp> },
+    /// Several things that were done as one, and come back as one.
+    ///
+    /// Marking a selection is one keystroke, so undoing it has to be one
+    /// keystroke as well: an undo that gave back one photograph of the two
+    /// hundred just rated would be worse than none.
+    Many(Vec<Step>),
 }
 
 impl Step {
@@ -47,6 +53,17 @@ impl Step {
                 "put the marks on {} back",
                 image.file_name().unwrap_or_default().to_string_lossy()
             ),
+            Step::Many(steps) => match steps.first() {
+                // Named after what it is made of, because "undo 200 steps"
+                // says nothing about what is about to happen.
+                Some(first) if steps.len() == 1 => first.describe(),
+                Some(first) => format!(
+                    "{} — and {} more like it",
+                    first.describe(),
+                    steps.len() - 1
+                ),
+                None => "do nothing".to_string(),
+            },
         }
     }
 
@@ -57,6 +74,7 @@ impl Step {
             Step::Copied(made) => made.is_empty(),
             Step::Binned(binned) => binned.is_empty(),
             Step::Marked { .. } => false,
+            Step::Many(steps) => steps.iter().all(Step::is_empty),
         }
     }
 }
@@ -121,8 +139,35 @@ impl Journal {
             Step::Copied(made) => take_away(&made),
             Step::Binned(binned) => bring_back(&binned),
             Step::Marked { image, before } => remark(&image, &before),
+            Step::Many(steps) => all_of(steps),
         })
     }
+}
+
+/// Undoes a batch, newest first, and reports it as one.
+///
+/// Newest first because the parts of a batch can depend on each other — two
+/// photographs that swapped places, say — and the same rule that orders the
+/// journal orders what is inside a step of it.
+fn all_of(steps: Vec<Step>) -> Undone {
+    let mut undone = Undone::default();
+
+    for step in steps.into_iter().rev() {
+        let part = match step {
+            Step::Moved(moves) => put_back(&moves),
+            Step::Copied(made) => take_away(&made),
+            Step::Binned(binned) => bring_back(&binned),
+            Step::Marked { image, before } => remark(&image, &before),
+            Step::Many(nested) => all_of(nested),
+        };
+
+        undone.moved.extend(part.moved);
+        undone.removed.extend(part.removed);
+        undone.remarked.extend(part.remarked);
+        undone.failed.extend(part.failed);
+    }
+
+    undone
 }
 
 /// Moves each file back where it came from.
@@ -349,6 +394,71 @@ mod tests {
         for step in steps {
             assert!(!step.describe().is_empty());
         }
+    }
+
+    /// A batch is one step in the journal and one press of undo, and every
+    /// photograph in it comes back.
+    #[test]
+    fn a_batch_comes_back_all_at_once() {
+        let dir = temp_dir("batch");
+
+        let mut steps = Vec::new();
+        for name in ["a.jpg", "b.jpg", "c.jpg"] {
+            let image = dir.join(name);
+            crate::annotations::sidecar::write(
+                &image,
+                &Xmp {
+                    rating: 5,
+                    ..Xmp::default()
+                },
+            )
+            .unwrap();
+
+            steps.push(Step::Marked {
+                image,
+                before: Box::new(Xmp::default()),
+            });
+        }
+
+        let mut journal = Journal::default();
+        journal.record(Step::Many(steps));
+        assert_eq!(journal.len(), 1);
+
+        let undone = journal.undo().expect("a step to undo");
+
+        assert!(undone.failed.is_empty(), "{:?}", undone.failed);
+        assert_eq!(undone.remarked.len(), 3);
+        for name in ["a.jpg", "b.jpg", "c.jpg"] {
+            assert_eq!(
+                crate::annotations::sidecar::read(&dir.join(name)),
+                Some(Xmp::default())
+            );
+        }
+        assert!(journal.is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_batch_of_nothing_is_not_recorded() {
+        let mut journal = Journal::default();
+        journal.record(Step::Many(Vec::new()));
+        journal.record(Step::Many(vec![Step::Copied(Vec::new())]));
+
+        assert!(journal.is_empty());
+    }
+
+    /// What a batch says it will do names the work, not the count.
+    #[test]
+    fn a_batch_describes_itself_by_what_is_in_it() {
+        let one = Step::Many(vec![Step::Copied(vec![PathBuf::from("a")])]);
+        assert_eq!(one.describe(), "take away 1 copied file(s)");
+
+        let several = Step::Many(vec![
+            Step::Copied(vec![PathBuf::from("a")]),
+            Step::Copied(vec![PathBuf::from("b")]),
+        ]);
+        assert!(several.describe().contains("1 more"));
     }
 
     #[test]

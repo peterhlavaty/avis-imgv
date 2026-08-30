@@ -322,6 +322,18 @@ pub fn all() -> Vec<Binding> {
             "Cycle what is drawn under each thumbnail: nothing, the marks, or the marks and the file name.",
             grid_view.sc_cycle_badges
         ),
+        binding!(
+            "Gallery",
+            "Pick out",
+            "Pick the photograph under the cursor out, or put it back. Everything picked out is what the next mark, move or deletion applies to.",
+            grid_view.sc_select
+        ),
+        binding!(
+            "Gallery",
+            "Pick out everything",
+            "Pick out every photograph on show, or put them all back if they already are.",
+            grid_view.sc_select_all
+        ),
     ];
 
     bindings.extend([
@@ -470,6 +482,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 43, "a shortcut was added without a description");
+        assert_eq!(fixed, 45, "a shortcut was added without a description");
     }
 }

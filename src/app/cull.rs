@@ -52,27 +52,26 @@ impl Pending {
 }
 
 impl App {
-    /// Sends the photograph on screen to the bin, or off the disk entirely.
+    /// Sends what is being looked at — or what is picked out — to the bin, or
+    /// off the disk entirely.
     ///
-    /// The bin needs no asking, because the bin is the asking; deleting for
-    /// good does.
+    /// One photograph to the bin needs no asking, because the bin is the
+    /// asking. Deleting for good does, and so does taking a whole selection:
+    /// the cost of a wrong keystroke there is a folder rather than a frame.
     pub(super) fn delete_open_image(&mut self, permanent: bool) {
-        let Some(path) = self.marked_path() else {
-            return;
-        };
-
-        if permanent {
-            self.pending_delete = Some(Pending {
-                paths: vec![path],
-                permanent,
-            });
+        let paths = self.marked_paths();
+        if paths.is_empty() {
             return;
         }
 
-        self.carry_out(Pending {
-            paths: vec![path],
-            permanent,
-        });
+        let pending = Pending { permanent, paths };
+
+        if permanent || pending.paths.len() > 1 {
+            self.pending_delete = Some(pending);
+            return;
+        }
+
+        self.carry_out(pending);
     }
 
     /// Asks about every photograph in the folder that has been rejected.
@@ -132,12 +131,47 @@ impl App {
                     answered = Some(false);
                 }
             });
+
+            ui.add_space(6.0);
+            ui.label(
+                egui::RichText::new(if pending.permanent {
+                    "Y to delete · Escape to leave them alone"
+                } else {
+                    "Enter or Y to send them · Escape to leave them alone"
+                })
+                .weak(),
+            );
         });
 
+        // Consumed rather than read. Answering the question un-mutes the
+        // keyboard, and the views draw after this does, so a key merely looked
+        // at would go on to mean whatever it means the rest of the time:
+        // pressing Enter to empty the bin also opened the photograph under the
+        // cursor.
+        //
         // Escape is the answer people reach for without thinking, and the safe
         // one is the one it should give.
-        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        let said_no = ctx.input_mut(|i| {
+            let escaped = i.consume_key(egui::Modifiers::NONE, egui::Key::Escape);
+            escaped | i.consume_key(egui::Modifiers::NONE, egui::Key::N)
+        });
+
+        // A window that owns the keyboard has to be answerable from it: this
+        // one comes up in the middle of a cull, and reaching for the mouse to
+        // say yes is the thing the whole keyboard map exists to avoid.
+        //
+        // Enter says yes to the bin, which can be taken back. It does not say
+        // yes to a permanent deletion — that is the one answer nobody can
+        // undo, so it costs a key nobody presses by accident.
+        let said_yes = ctx.input_mut(|i| {
+            let yes = i.consume_key(egui::Modifiers::NONE, egui::Key::Y);
+            yes | (!pending.permanent && i.consume_key(egui::Modifiers::NONE, egui::Key::Enter))
+        });
+
+        if said_no {
             answered = Some(false);
+        } else if said_yes {
+            answered = Some(true);
         }
 
         match answered {
@@ -204,6 +238,10 @@ impl App {
             self.notices
                 .say(format!("{failed} could not be, and are still there"));
         }
+
+        if pending.paths.len() > 1 {
+            self.grid_view.clear_selection();
+        }
     }
 
     /// Takes a photograph out of the open collection.
@@ -212,7 +250,11 @@ impl App {
     /// gone, so what it lands on is the next one — which is the single most
     /// complained about detail of culling in Lightroom.
     fn forget(&mut self, path: &Path) {
-        self.paths.retain(|candidate| candidate != path);
+        if let Some(index) = self.paths.iter().position(|candidate| candidate == path) {
+            self.paths.remove(index);
+            self.marks.remove(index);
+        }
+
         self.image_view.pop(path);
         self.grid_view.pop(path);
         self.annotations.forget(path);
@@ -227,7 +269,8 @@ impl App {
     /// last answer, which is the motion every fast viewer has: the panel is
     /// there for the first frame of a shoot and out of the way for the rest.
     pub(super) fn send_somewhere(&mut self, errand: Errand) {
-        if self.marked_path().is_none() {
+        let count = self.marked_paths().len();
+        if count == 0 {
             return;
         }
 
@@ -240,7 +283,7 @@ impl App {
         self.last_errand = Some(errand);
         self.asking = Some(Asking {
             errand,
-            count: 1,
+            count,
             slots: self.slots(),
             last: self.last_destination.clone(),
         });
@@ -331,12 +374,17 @@ impl App {
             .collect()
     }
 
-    /// Sends the photograph on screen to `slot`, and records how to take it
-    /// back.
+    /// Sends whatever is being looked at — or picked out — to `slot`, and
+    /// records how to take it back.
+    ///
+    /// The whole errand is one step in the journal however many photographs it
+    /// carried, so a selection sent to the wrong folder comes back with one
+    /// press rather than two hundred.
     fn carry_errand(&mut self, errand: Errand, slot: &Slot) {
-        let Some(from) = self.marked_path() else {
+        let paths = self.marked_paths();
+        if paths.is_empty() {
             return;
-        };
+        }
 
         if let Err(e) = std::fs::create_dir_all(&slot.path) {
             self.notices
@@ -344,24 +392,68 @@ impl App {
             return;
         }
 
-        let to = slot.path.join(from.file_name().unwrap_or_default());
+        let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
+        let mut made: Vec<PathBuf> = Vec::new();
+        let mut failed = 0usize;
 
-        match errand {
-            Errand::Move => match files::move_file(&from, &to) {
-                Ok(()) => {
-                    self.journal.record(Step::Moved(vec![(to, from.clone())]));
-                    self.forget(&from);
-                    self.notices.say(format!("Moved to {}", slot.label));
-                }
-                Err(e) => self.notices.say(format!("{e}")),
-            },
-            Errand::Copy => match files::copy_file(&from, &to) {
-                Ok(made) => {
-                    self.journal.record(Step::Copied(made));
-                    self.notices.say(format!("Copied to {}", slot.label));
-                }
-                Err(e) => self.notices.say(format!("{e}")),
-            },
+        for from in &paths {
+            let to = slot.path.join(from.file_name().unwrap_or_default());
+
+            match errand {
+                Errand::Move => match files::move_file(from, &to) {
+                    Ok(()) => {
+                        moved.push((to, from.clone()));
+                        self.forget(from);
+                    }
+                    Err(e) => {
+                        failed += 1;
+                        self.notices.say(format!("{e}"));
+                    }
+                },
+                Errand::Copy => match files::copy_file(from, &to) {
+                    Ok(copies) => made.extend(copies),
+                    Err(e) => {
+                        failed += 1;
+                        self.notices.say(format!("{e}"));
+                    }
+                },
+            }
+        }
+
+        let carried = match errand {
+            Errand::Move => {
+                let carried = moved.len();
+                self.journal.record(Step::Moved(moved));
+                carried
+            }
+            Errand::Copy => {
+                let carried = made.len();
+                self.journal.record(Step::Copied(made));
+                carried
+            }
+        };
+
+        if carried > 0 {
+            let verb = match errand {
+                Errand::Move => "Moved",
+                Errand::Copy => "Copied",
+            };
+
+            self.notices.say(match paths.len() {
+                1 => format!("{verb} to {}", slot.label),
+                _ => format!("{verb} {carried} photograph(s) to {}", slot.label),
+            });
+        }
+
+        if failed > 0 {
+            self.notices
+                .say(format!("{failed} could not be, and are still there"));
+        }
+
+        // The photographs that were picked out have gone somewhere, so what
+        // was picked out is no longer a useful thing to be holding.
+        if paths.len() > 1 {
+            self.grid_view.clear_selection();
         }
 
         self.last_destination = Some(slot.clone());

@@ -106,12 +106,16 @@ pub fn ui(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
 }
 
 /// The keys, which are the point of the panel.
+///
+/// Consumed rather than read: answering hands the keyboard back, and the views
+/// draw afterwards, so a key merely looked at would go on to mean whatever it
+/// means the rest of the time.
 fn keyboard(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
-    if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
         return Some(Answer::Cancel);
     }
 
-    if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)) {
         return asking.last.clone().map(Answer::Send);
     }
 
@@ -128,7 +132,9 @@ fn keyboard(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
     ];
 
     for (index, key) in digits.iter().enumerate() {
-        if ctx.input(|i| i.key_pressed(*key)) {
+        // Any modifiers, because on a Slovak or German layout the digits are
+        // the shifted characters of the top row.
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, *key)) {
             return asking.slots.get(index).cloned().map(Answer::Send);
         }
     }

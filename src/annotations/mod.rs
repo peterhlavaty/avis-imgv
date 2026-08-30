@@ -100,6 +100,22 @@ impl AnnotationStore {
         })
     }
 
+    /// Puts one particular colour label on, or takes it off.
+    ///
+    /// The state rather than the toggle, for when several photographs are
+    /// being marked together and they have to end up the same as each other
+    /// rather than each the opposite of what it was.
+    pub fn set_label(&mut self, image: &Path, label: Option<Label>) -> bool {
+        let wanted = label.map(|label| label.name().to_string());
+
+        self.edit(image, |annotations| {
+            let changed = annotations.label != wanted;
+            annotations.label = wanted;
+
+            changed
+        })
+    }
+
     /// Takes the colour label off, whatever it was.
     pub fn clear_label(&mut self, image: &Path) -> bool {
         self.edit(image, |annotations| annotations.label.take().is_some())

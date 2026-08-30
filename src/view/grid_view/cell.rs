@@ -64,6 +64,14 @@ const CURRENT: Color32 = Color32::from_rgb(232, 232, 232);
 /// Colour of the border round the one the keyboard is on.
 const CURSOR: Color32 = Color32::from_rgb(126, 168, 224);
 
+/// Wash over a cell that has been picked out, and the colour of its tick.
+///
+/// A wash rather than a border, because the borders are spoken for: one says
+/// where the keyboard is and one says which photograph the other view is on,
+/// and a selection has to be legible at the same time as both.
+const SELECTED_TINT: Color32 = Color32::from_rgba_premultiplied(20, 44, 76, 90);
+const SELECTED: Color32 = Color32::from_rgb(126, 168, 224);
+
 const STAR: &str = "★";
 const REJECTED_TINT: Color32 = Color32::from_rgba_premultiplied(28, 6, 6, 150);
 
@@ -136,6 +144,33 @@ pub fn dim_if_rejected(ui: &egui::Ui, picture: Rect, marks: Option<&Marks>) {
     if marks.is_some_and(|marks| marks.flag == Flag::Rejected) {
         ui.painter().rect_filled(picture, 0.0, REJECTED_TINT);
     }
+}
+
+/// Marks a cell that has been picked out.
+///
+/// A wash over the whole picture and a tick in the corner: the wash is what
+/// makes a selection countable at a glance from across a sheet, and the tick
+/// is what makes a single selected cell unmistakable when the wash could be
+/// taken for a dark photograph.
+pub fn picked(ui: &egui::Ui, picture: Rect, selected: bool) {
+    if !selected || picture.width() <= 0.0 {
+        return;
+    }
+
+    let painter = ui.painter();
+    painter.rect_filled(picture, 0.0, SELECTED_TINT);
+
+    let side = (picture.width() * 0.18).clamp(12.0, 22.0);
+    let badge = Rect::from_min_size(picture.min + Vec2::splat(3.0), Vec2::splat(side));
+
+    painter.rect_filled(badge, 3.0, SELECTED);
+    painter.text(
+        badge.center(),
+        Align2::CENTER_CENTER,
+        "✔",
+        FontId::proportional(side * 0.7),
+        Color32::from_rgb(16, 24, 36),
+    );
 }
 
 /// Outlines the cell the image view is on, and the one the keyboard is on.

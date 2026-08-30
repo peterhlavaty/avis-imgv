@@ -21,6 +21,7 @@ use crate::utils;
 use crate::view::texture;
 
 use crate::view::image_view::bottom_bar::Marks;
+use crate::view::selection::Selection;
 use crate::view::visible::Visible;
 
 use cell::Badges;
@@ -57,6 +58,8 @@ pub struct GridView {
     badges: Badges,
     /// Which of the store's photographs are shown, and in what order.
     visible: Visible,
+    /// The photographs picked out for the next command to act on.
+    selection: Selection,
 }
 
 impl GridView {
@@ -78,10 +81,15 @@ impl GridView {
             current: 0,
             badges: Badges::default(),
             visible: Visible::default(),
+            selection: Selection::default(),
         }
     }
 
     pub fn set_images(&mut self, paths: Vec<PathBuf>) {
+        // A different folder is a different set of photographs, and carrying
+        // positions over into it would pick out whichever frames happened to
+        // land on the same numbers.
+        self.selection.clear();
         self.visible = Visible::everything(paths.len());
         self.store.set_paths(paths);
         self.scroll_to = Some(0);
@@ -117,8 +125,31 @@ impl GridView {
         if let Some(index) = self.store.index_of(path) {
             self.store.remove(index);
             self.visible.remove_shifting(index);
+            self.selection.remove_shifting(index);
             self.cursor = self.cursor.min(self.visible.len().saturating_sub(1));
         }
+    }
+
+    /// The photographs picked out, as paths, in the collection's order.
+    ///
+    /// Empty when nothing is picked, which is the signal every command uses to
+    /// mean "this one" instead of "these".
+    pub fn selected_paths(&self) -> Vec<PathBuf> {
+        self.selection
+            .iter()
+            .filter_map(|index| self.store.path(index))
+            .map(Path::to_path_buf)
+            .collect()
+    }
+
+    /// How many photographs are picked out.
+    pub fn selected_count(&self) -> usize {
+        self.selection.len()
+    }
+
+    /// Puts the selection down, for when a command has finished with it.
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
     }
 
     pub fn reload(&mut self, path: &Path) {
@@ -225,6 +256,34 @@ impl GridView {
                 }
             });
         });
+
+        self.show_selection_count(ctx);
+    }
+
+    /// Says how many photographs are picked out, and how to stop.
+    ///
+    /// The sheet has no status bar of its own, and a selection that is only
+    /// visible as a wash on the cells that happen to be scrolled into view is
+    /// a selection somebody will forget they are holding — and then rate two
+    /// hundred photographs meaning to rate one.
+    fn show_selection_count(&self, ctx: &egui::Context) {
+        let picked = self.selection.len();
+        if picked == 0 {
+            return;
+        }
+
+        egui::Area::new(egui::Id::new("grid-selection-count"))
+            .anchor(egui::Align2::RIGHT_BOTTOM, [-12.0, -12.0])
+            .interactable(false)
+            .show(ctx, |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    // One line: an area anchored to the corner is given the
+                    // width it asks for, and a wrapped count reads as two
+                    // separate things.
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                    ui.label(format!("{picked} selected · Escape to clear"));
+                });
+            });
     }
 
     fn show_row(&mut self, ui: &mut egui::Ui, layout: &Layout, row: usize, marks: &[Marks]) {
@@ -284,6 +343,7 @@ impl GridView {
             })
             .inner;
 
+        cell::picked(ui, picture, self.selection.contains(index));
         cell::dim_if_rejected(ui, picture, marks);
         cell::caption(ui, strip, self.badges, marks, &name);
 
@@ -317,8 +377,19 @@ impl GridView {
         };
 
         if response.clicked() {
+            let modifiers = ui.input(|i| i.modifiers);
             self.cursor = position;
-            self.selected = Some(path.clone());
+
+            // The two modifiers every file manager uses, and for once the
+            // layout quirk that bedevils the digit keys does not apply: nobody
+            // reaches Ctrl or Shift by accident with a mouse in their hand.
+            if modifiers.command {
+                self.selection.toggle(index, position);
+            } else if modifiers.shift {
+                self.selection.extend_to(&self.visible, position);
+            } else {
+                self.selected = Some(path.clone());
+            }
         }
 
         if let Some(callback) =
@@ -364,6 +435,7 @@ impl GridView {
             self.badges = self.badges.next();
         }
 
+        self.handle_selection(ctx);
         self.move_cursor(ctx);
     }
 
@@ -372,11 +444,21 @@ impl GridView {
     /// A contact sheet nobody can move about without a mouse is a contact
     /// sheet nobody can cull from: every mark is a keystroke, and reaching the
     /// next photograph should be one too.
+    ///
+    /// Holding shift while walking picks out everything walked over, which is
+    /// the one motion that turns a sheet into a way of marking two hundred
+    /// frames at once.
     fn move_cursor(&mut self, ctx: &egui::Context) {
         let total = self.visible.len();
         if total == 0 {
             return;
         }
+
+        // Read before anything is consumed, because egui's own matching
+        // ignores a shift it was not asked about: the arrow keys are claimed
+        // with no modifiers and would swallow the shifted ones too, so whether
+        // shift was down has to be asked separately.
+        let extending = ctx.input(|i| i.modifiers.shift && !i.modifiers.command);
 
         let columns = self.columns.max(1);
         let steps = [
@@ -411,11 +493,47 @@ impl GridView {
         }
 
         if moved {
+            if extending {
+                // The run starts where the cursor was standing when shift was
+                // first held, so the photograph walked away from is in it.
+                self.selection.extend_to(&self.visible, self.cursor);
+            } else {
+                // Letting go of shift ends the run rather than the selection:
+                // the next one starts here.
+                self.selection.anchor_at(self.cursor);
+            }
+
             self.scroll_to_cursor();
         }
 
         if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)) {
             self.selected = self.cursor_path();
+        }
+    }
+
+    /// Picking photographs out, putting them back, and taking everything.
+    fn handle_selection(&mut self, ctx: &egui::Context) {
+        // Everything first, because it is the one with the modifier and
+        // matching a shortcut only checks the modifiers it asked about.
+        if ctx.input_mut(|i| shortcut::consume(i, &self.config.sc_select_all)) {
+            self.selection.all_or_none(&self.visible);
+            return;
+        }
+
+        if ctx.input_mut(|i| shortcut::consume(i, &self.config.sc_select)) {
+            if let Some(index) = self.visible.at(self.cursor) {
+                self.selection.toggle(index, self.cursor);
+            }
+            return;
+        }
+
+        // Escape puts the selection down, and only that: it is the key people
+        // press when they are not sure what they have done, and having it also
+        // leave the sheet would take them somewhere they did not ask to go.
+        if !self.selection.is_empty()
+            && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+        {
+            self.selection.clear();
         }
     }
 

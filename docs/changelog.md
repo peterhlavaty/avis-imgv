@@ -2,6 +2,55 @@
 
 ## 2026-08-30
 
+- **A selection, on `Space`.** The contact sheet picks photographs out:
+  `Space` toggles the one under the cursor, `Shift` with the arrow keys picks
+  out everything walked over, `Ctrl + A` takes everything on show, `Ctrl` and
+  `Shift` do the same with the mouse, and `Escape` puts it all down. The cells
+  carry a blue wash and a tick, and the corner says how many.
+
+  Whatever is picked out is what the next command is about — a rating, a flag,
+  a colour label, a keyword clicked in the tag panel, a move, a copy, a
+  deletion — so tagging two hundred frames is one keystroke rather than two
+  hundred. The set is held as positions in the folder rather than as names, so
+  narrowing the folder down does not throw it away.
+
+  What a mark ends up as is decided by the first photograph in the set and
+  then applied to all of them: a toggle applied one at a time would leave half
+  the set flagged and half not, which is never what pressing one key over two
+  hundred frames meant. Undo takes the whole thing back in one press, however
+  many photographs it touched, and marking a selection never auto-advances,
+  because there is nothing for "the next one" to mean.
+- Deleting a selection asks first even when it is only going to the bin: the
+  cost of a wrong keystroke there is a folder rather than a frame.
+- **The questions can be answered from the keyboard.** The delete confirmation
+  took the keyboard and then offered only buttons; `Enter` or `Y` answers it
+  now and `Escape` or `N` leaves things alone, and a permanent deletion takes
+  `Y` alone, because `Enter` should not be one tap from something nobody can
+  undo.
+- Fixed: answering one of those windows handed the keyboard back in the middle
+  of the frame, and the views draw after they do, so the same key went on to
+  mean whatever it means the rest of the time — pressing `Enter` to empty the
+  bin also opened the photograph under the cursor. The windows consume the
+  keys they answer with now.
+- Changed: scrolling the contact sheet half a row moved from `Space` to
+  `PageDown` (`grid_view.sc_scroll`), because `Space` is what every program
+  with a contact sheet uses to pick a photograph out, and the arrows, the
+  wheel and the scrollbar all scroll it already.
+- **A comparison, on `N`.** Two photographs side by side sharing one zoom and
+  one pan: 100% on an eye in one pane puts the same eye at the same
+  magnification in the other. `Tab` moves which pane the keys are about and
+  draws a border round it, the arrow keys try a different photograph against
+  the one that is staying, `Ctrl + Plus` widens it to eight, `/` drops the
+  focused pane and the survivors re-tile, and `Escape` leaves. Every marking
+  key applies to the focused pane and to nothing else.
+- Fixed: panning was applied once per pane, so two images side by side moved
+  twice as fast as one and four four times — and the last pane drawn clamped
+  the pan against *its* picture rather than against the one being looked at.
+  One pane owns the viewport now.
+- Fixed: `Tab` also moved egui's own keyboard focus into the status bar's
+  "go to" field, and a text field with focus mutes every shortcut in the
+  viewer. That field is reachable by clicking and by nothing else now, and
+  `Escape` takes the keyboard back from wherever it has gone.
 - **Somewhere else, rather than nowhere.** `Alt + M` moves the photograph and
   `Alt + C` copies it, to a panel of numbered folders the digits pick from;
   `Enter` repeats the last, and the same key twice in a row skips the panel

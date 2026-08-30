@@ -278,8 +278,35 @@ impl App {
         }
     }
 
+    /// Brings a whole batch's marks up to date, and re-narrows once.
+    ///
+    /// Once rather than per photograph: applying a filter is a pass over the
+    /// collection, and doing that two hundred times because two hundred frames
+    /// were rated at once is the difference between instant and a visible
+    /// stall.
+    pub(super) fn refresh_marks(&mut self, images: &[PathBuf]) {
+        for image in images {
+            self.recompute_mark(image);
+        }
+
+        if !self.narrowing.is_idle() {
+            self.apply_narrowing();
+        }
+    }
+
     /// Brings one photograph's marks up to date after it has been changed.
     pub(super) fn refresh_mark(&mut self, image: &Path) {
+        self.recompute_mark(image);
+
+        // A filter that hides the rejects has to hide one the moment it is
+        // rejected, or the mark appears not to have taken.
+        if !self.narrowing.is_idle() {
+            self.apply_narrowing();
+        }
+    }
+
+    /// Reads one photograph's marks back out of the store, without re-filtering.
+    fn recompute_mark(&mut self, image: &Path) {
         let Some(index) = self.paths.iter().position(|path| path == image) else {
             return;
         };
@@ -293,12 +320,6 @@ impl App {
             .peek(image)
             .map(Marks::of)
             .unwrap_or_default();
-
-        // A filter that hides the rejects has to hide one the moment it is
-        // rejected, or the mark appears not to have taken.
-        if !self.narrowing.is_idle() {
-            self.apply_narrowing();
-        }
     }
 
     /// Crawls `path` and opens what it finds.
@@ -419,7 +440,11 @@ impl eframe::App for App {
 
         input::update_overlay(ctx, &mut self.overlay, &self.config);
         for command in input::collect(ctx, &self.config, &self.tag_config, &self.settings.cull) {
-            let advance = input::advances(command, self.advancing);
+            // Marking a selection never advances: the mark went to two
+            // hundred photographs rather than to the one on screen, so there
+            // is nothing for "the next one" to mean.
+            let advance =
+                input::advances(command, self.advancing) && self.grid_view.selected_count() == 0;
             self.apply(command, ctx);
 
             // After the mark, not before it: the mark belongs to the
