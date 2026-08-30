@@ -1,6 +1,6 @@
 //! Keyboard shortcuts as they appear in the configuration file.
 
-use eframe::egui::{Key, KeyboardShortcut, Modifiers};
+use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
 use serde::{Deserialize, Serialize};
 
 use crate::utils;
@@ -37,6 +37,78 @@ impl Shortcut {
             modifiers,
         }
     }
+}
+
+/// Takes this frame's press of `shortcut`, if it is there.
+///
+/// egui's own `consume_shortcut` asks only whether the modifiers a binding
+/// *wants* are held, not whether any others are — so every unmodified binding
+/// also fired with alt down, and `Alt + 1` both zoomed to 100% and put one
+/// star on the photograph. Alt is required to match exactly here; control and
+/// command go through egui's own reconciliation, which knows that a binding
+/// asking for control means command on a Mac.
+///
+/// Shift is only exact for the keys where it can be: see [`shift_is_exact`].
+pub fn consume(input: &mut egui::InputState, shortcut: &Shortcut) -> bool {
+    let wanted = shortcut.kbd_shortcut;
+    let mut pressed = false;
+
+    input.events.retain(|event| {
+        let hit = matches!(
+            event,
+            egui::Event::Key {
+                key,
+                modifiers,
+                pressed: true,
+                ..
+            } if *key == wanted.logical_key && matches(*modifiers, wanted)
+        );
+
+        pressed |= hit;
+        !hit
+    });
+
+    pressed
+}
+
+/// Whether the modifiers held match the ones a binding asked for.
+fn matches(held: Modifiers, wanted: KeyboardShortcut) -> bool {
+    if held.alt != wanted.modifiers.alt {
+        return false;
+    }
+
+    if shift_is_exact(wanted.logical_key) && held.shift != wanted.modifiers.shift {
+        return false;
+    }
+
+    held.cmd_ctrl_matches(wanted.modifiers)
+}
+
+/// Whether shift has to match exactly for this key.
+///
+/// Not for the digits or the arithmetic keys. On a Slovak or German keyboard
+/// the digits *are* the shifted characters of the top row, and `+` needs shift
+/// on most layouts including the American one, so requiring shift to be absent
+/// would leave those bindings unreachable for the people who have to press it.
+/// Everywhere else it is exact, which is what keeps `Shift + Delete` from also
+/// being `Delete`.
+fn shift_is_exact(key: Key) -> bool {
+    !matches!(
+        key,
+        Key::Num0
+            | Key::Num1
+            | Key::Num2
+            | Key::Num3
+            | Key::Num4
+            | Key::Num5
+            | Key::Num6
+            | Key::Num7
+            | Key::Num8
+            | Key::Num9
+            | Key::Plus
+            | Key::Minus
+            | Key::Equals
+    )
 }
 
 pub fn default_shortcut() -> KeyboardShortcut {
@@ -128,6 +200,72 @@ mod tests {
         let built = build_keyboard_shortcut(&["nonsense".to_string(), MOD_ALT.to_string()], "q");
         assert!(built.modifiers.alt);
         assert!(!built.modifiers.ctrl);
+    }
+
+    /// The bug this was written for: every unmodified binding also fired with
+    /// alt down, so `Alt + 1` zoomed to 100% *and* put one star on the
+    /// photograph.
+    #[test]
+    fn a_binding_without_alt_does_not_fire_with_alt_held() {
+        let plain = Shortcut::new("1", &[]);
+        let with_alt = Shortcut::new("1", &[MOD_ALT]);
+
+        assert!(matches(Modifiers::NONE, plain.kbd_shortcut));
+        assert!(!matches(Modifiers::ALT, plain.kbd_shortcut));
+        assert!(matches(Modifiers::ALT, with_alt.kbd_shortcut));
+        assert!(!matches(Modifiers::NONE, with_alt.kbd_shortcut));
+    }
+
+    /// One key apart, and getting it wrong means a photograph nobody can get
+    /// back.
+    #[test]
+    fn shift_is_exact_where_it_can_be() {
+        let plain = Shortcut::new("delete", &[]);
+        let with_shift = Shortcut::new("delete", &[MOD_SHIFT]);
+
+        assert!(matches(Modifiers::NONE, plain.kbd_shortcut));
+        assert!(!matches(Modifiers::SHIFT, plain.kbd_shortcut));
+        assert!(matches(Modifiers::SHIFT, with_shift.kbd_shortcut));
+    }
+
+    /// And loose where it cannot be: on a Slovak or German keyboard the digits
+    /// are the shifted characters of the top row.
+    #[test]
+    fn shift_is_forgiven_on_the_keys_that_need_it_to_be_typed() {
+        let three = Shortcut::new("3", &[]);
+        let plus = Shortcut::new("Plus", &[]);
+
+        assert!(matches(Modifiers::SHIFT, three.kbd_shortcut));
+        assert!(matches(Modifiers::SHIFT, plus.kbd_shortcut));
+
+        // Alt is still exact on those keys.
+        assert!(!matches(Modifiers::ALT, three.kbd_shortcut));
+    }
+
+    /// Control and command go through egui's own reconciliation rather than a
+    /// plain comparison, because the two are one field on some platforms and
+    /// two on others. The configuration keeps them apart with `ctrl` and
+    /// `cmd`, and a binding on either fires for its own key alone.
+    #[test]
+    fn control_and_command_keep_their_own_meanings() {
+        let with_ctrl = Shortcut::new("f", &[MOD_CTRL]);
+        let with_cmd = Shortcut::new("f", &[MOD_CMD]);
+
+        assert!(matches(Modifiers::CTRL, with_ctrl.kbd_shortcut));
+        assert!(!matches(Modifiers::NONE, with_ctrl.kbd_shortcut));
+
+        assert!(matches(Modifiers::COMMAND, with_cmd.kbd_shortcut));
+        assert!(!matches(Modifiers::NONE, with_cmd.kbd_shortcut));
+    }
+
+    /// A binding with no control still refuses one that is held, which is what
+    /// keeps `Ctrl + Backspace` out of the gallery toggle.
+    #[test]
+    fn control_is_exclusive_too() {
+        let plain = Shortcut::new("backspace", &[]);
+
+        assert!(matches(Modifiers::NONE, plain.kbd_shortcut));
+        assert!(!matches(Modifiers::CTRL, plain.kbd_shortcut));
     }
 
     #[test]

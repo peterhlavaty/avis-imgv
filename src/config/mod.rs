@@ -180,6 +180,12 @@ pub struct GeneralConfig {
     pub sc_watch_directory: Shortcut,
     #[serde(default = "default_sc_toggle_side_panel")]
     pub sc_toggle_side_panel: Shortcut,
+    /// Sends the picture on screen to the platform's bin.
+    #[serde(default = "default_sc_delete")]
+    pub sc_delete: Shortcut,
+    /// Deletes it outright, for the cards and shares that have no bin.
+    #[serde(default = "default_sc_delete_permanently")]
+    pub sc_delete_permanently: Shortcut,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -349,6 +355,8 @@ impl Default for GeneralConfig {
             sc_toggle_gallery: default_sc_toggle_gallery(),
             sc_next_mode: default_sc_next_mode(),
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
+            sc_delete: default_sc_delete(),
+            sc_delete_permanently: default_sc_delete_permanently(),
             sc_exit: default_sc_exit(),
             sc_menu: default_sc_menu(),
             sc_navigator: default_sc_navigator(),

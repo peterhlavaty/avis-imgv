@@ -36,6 +36,7 @@ impl App {
                     }
                 }
             }
+            MenuAction::BinRejected => self.bin_rejected(),
             MenuAction::Mode(mode) => self.set_mode(mode),
             MenuAction::Keyboard => self.keys_visible = true,
             MenuAction::Slideshow => self.slideshow_visible = true,

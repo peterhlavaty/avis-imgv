@@ -14,6 +14,8 @@ pub enum MenuAction {
     OpenFiles,
     /// Switch what the window is for.
     Mode(Mode),
+    /// Send every rejected picture in the folder to the bin.
+    BinRejected,
     /// Open the editor for the keyboard map.
     Keyboard,
     /// Open the slideshow settings.
@@ -37,6 +39,17 @@ pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAc
                             action = Some(picked);
                             ui.close();
                         }
+                    }
+
+                    ui.separator();
+
+                    if ui
+                        .button("Send rejected to the bin…")
+                        .on_hover_text("Every picture in this folder marked with X")
+                        .clicked()
+                    {
+                        action = Some(MenuAction::BinRejected);
+                        ui.close();
                     }
                 });
 

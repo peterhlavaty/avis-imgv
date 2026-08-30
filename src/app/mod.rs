@@ -3,6 +3,7 @@
 
 pub mod benchmark;
 mod chrome;
+mod cull;
 pub mod input;
 pub mod mode;
 pub mod panels;
@@ -78,6 +79,8 @@ pub struct App {
     notices: Notices,
     /// Whether a mark moves on to the next photograph by itself.
     advancing: bool,
+    /// A deletion the user has been asked about but has not answered.
+    pending_delete: Option<cull::Pending>,
 }
 
 impl App {
@@ -160,7 +163,12 @@ impl App {
             was_fullscreen: fullscreen,
             notices: Notices::default(),
             advancing,
+            pending_delete: None,
         };
+
+        for clash in keys::clashes(&app.settings) {
+            app.notices.say(clash);
+        }
 
         if app.settings.partial {
             app.notices.say(
@@ -213,6 +221,8 @@ impl App {
             Command::SetFlag(flag) => self.flag(flag),
             Command::SetLabel(index) => self.label(index),
             Command::ToggleAdvance => self.advancing = !self.advancing,
+            Command::Delete => self.delete_open_image(false),
+            Command::DeletePermanently => self.delete_open_image(true),
         }
     }
 
@@ -296,6 +306,7 @@ impl eframe::App for App {
             self.handle_menu(action);
         }
 
+        self.show_pending_delete(ctx);
         self.show_keyboard(ctx);
         self.show_slideshow_settings(ctx);
         self.apply_fullscreen(ctx);

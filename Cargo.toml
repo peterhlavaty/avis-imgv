@@ -32,6 +32,10 @@ quick-xml = "0.42.0"
 zune-jpeg = "0.4.21"
 zune-core = "0.4.12"
 jpegxl-rs = { version = "0.11.2", features = ["vendored"], optional = true }
+# Deleting a photograph goes to the platform's bin -- the freedesktop
+# specification on Linux, IFileOperation on Windows -- and never to
+# fs::remove_file. Culling is when people delete fastest and regret hardest.
+trash = "5.2.6"
 
 [build-dependencies]
 pkg-config = { version = "0.3", optional = true }

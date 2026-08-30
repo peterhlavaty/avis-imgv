@@ -271,6 +271,14 @@ pub fn default_sc_rating() -> Vec<Shortcut> {
         .collect()
 }
 
+/// What every file manager and every viewer in the comparison uses.
+pub fn default_sc_delete() -> Shortcut {
+    Shortcut::new("delete", &[])
+}
+pub fn default_sc_delete_permanently() -> Shortcut {
+    Shortcut::new("delete", &[MOD_SHIFT])
+}
+
 /// Lightroom's keys, which every other program copied.
 pub fn default_sc_pick() -> Shortcut {
     Shortcut::new("p", &[])

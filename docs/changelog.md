@@ -2,6 +2,15 @@
 
 ## 2026-08-30
 
+- **Delete**, which a viewer for choosing photographs had no answer to at all.
+  `Delete` sends the picture on screen to the platform's bin — the freedesktop
+  specification on Linux, the Recycle Bin on Windows — with its sidecar, as one
+  unit; `Shift + Delete` deletes outright and asks first; and
+  **File → Send rejected to the bin…** collects every picture in the folder
+  marked with `X` and puts the lot there behind one question. The cursor stays
+  where it is rather than following the picture that has gone, so what it lands
+  on is the next one.
+
 - Three ways of saying something about a photograph rather than one, because a
   cull needs three different answers and every other program keeps them apart.
   - **Keep and reject** on `P` and `X`, `U` to take either back off, and
@@ -21,6 +30,19 @@
   what turns a cull into one keystroke a frame. A mode rather than a held
   modifier, because on a Slovak or German keyboard the digits are the shifted
   characters of the top row and every rating would have arrived with shift.
+- Fixed: a shortcut fired whether or not the modifiers it did *not* ask for
+  were held, so `Alt + 1` both magnified to 100% and put one star on the
+  photograph. Alt is exclusive now, and so is shift everywhere it can be —
+  everywhere but the digits and the arithmetic keys, which on a Slovak or
+  German layout need shift to be typed at all.
+- The viewer says so at startup when two keys clash. A configuration written by
+  an older build keeps whatever it said for ever, because serde only fills in
+  the keys that are *missing*: one on the author's machine had zoom-in and
+  show-more-images both on plain `Plus`, which made the side-by-side view
+  unreachable and said nothing about it.
+- Fixed: taking a photograph out of the collection left every decode already in
+  flight pointing one place along, so one could be drawn under its neighbour's
+  name, metadata and rating. Deleting made that easy to reach.
 
 ## 2026-08-27
 

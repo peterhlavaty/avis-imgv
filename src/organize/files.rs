@@ -83,6 +83,35 @@ fn stem_is_shared(image: &Path) -> bool {
     })
 }
 
+/// Sends a photograph and its sidecars to the platform's bin, as one unit.
+///
+/// Never `fs::remove_file`: culling is when people delete fastest and regret
+/// hardest, and the bin is the only thing that makes the regret survivable.
+/// The sidecar goes with it, because a rating left behind under a name nothing
+/// is called any more will be read onto whatever takes that name next.
+pub fn to_bin(image: &Path) -> std::io::Result<()> {
+    let mut everything: Vec<PathBuf> = sidecars_of(image);
+    everything.push(image.to_path_buf());
+
+    trash::delete_all(&everything).map_err(|e| {
+        std::io::Error::other(format!("{} could not go to the bin: {e}", image.display()))
+    })
+}
+
+/// Deletes a photograph and its sidecars outright.
+///
+/// For the places the bin does not reach: a memory card, a network share, a
+/// filesystem that has none. The caller is expected to have asked first.
+pub fn delete(image: &Path) -> std::io::Result<()> {
+    for sidecar in sidecars_of(image) {
+        if let Err(e) = std::fs::remove_file(&sidecar) {
+            tracing::warn!("Could not delete {}: {e}", sidecar.display());
+        }
+    }
+
+    std::fs::remove_file(image)
+}
+
 fn occupied(path: &Path) -> std::io::Error {
     std::io::Error::new(
         std::io::ErrorKind::AlreadyExists,
@@ -241,6 +270,51 @@ mod tests {
 
         assert!(dir.join("Holiday_1.xmp").exists());
         assert!(!dir.join("IMG_1.xmp").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn deleting_takes_the_sidecar_with_it() {
+        let dir = temp_dir("delete");
+        std::fs::write(dir.join("a.jpg"), b"picture").unwrap();
+        std::fs::write(dir.join("a.jpg.xmp"), b"<x:xmpmeta/>").unwrap();
+
+        delete(&dir.join("a.jpg")).unwrap();
+
+        assert!(!dir.join("a.jpg").exists());
+        assert!(
+            !dir.join("a.jpg.xmp").exists(),
+            "a rating left behind is a rating waiting to land on the next \
+             photograph to take that name"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The same rule as a move: Adobe's sidecar belongs to the frame, so it
+    /// only goes when nothing else is using it.
+    #[test]
+    fn deleting_the_jpeg_of_a_pair_leaves_the_raws_sidecar() {
+        let dir = temp_dir("delete-shared");
+        std::fs::write(dir.join("IMG_1.jpg"), b"jpeg").unwrap();
+        std::fs::write(dir.join("IMG_1.cr2"), b"raw").unwrap();
+        std::fs::write(dir.join("IMG_1.xmp"), b"<x:xmpmeta/>").unwrap();
+
+        delete(&dir.join("IMG_1.jpg")).unwrap();
+
+        assert!(!dir.join("IMG_1.jpg").exists());
+        assert!(dir.join("IMG_1.xmp").exists());
+        assert!(dir.join("IMG_1.cr2").exists());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn deleting_something_that_is_not_there_is_reported() {
+        let dir = temp_dir("delete-missing");
+
+        assert!(delete(&dir.join("gone.jpg")).is_err());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

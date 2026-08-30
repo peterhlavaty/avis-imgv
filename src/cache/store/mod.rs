@@ -293,6 +293,12 @@ impl ImageStore {
 
     /// Removes an image from the collection, keeping the caches aligned with
     /// the new positions.
+    ///
+    /// The generation is bumped and the in-flight work discarded, because
+    /// every position past `index` has just moved: a decode already on its way
+    /// back would land one place along and be drawn under its neighbour's
+    /// name, metadata and rating. The caches themselves are shifted rather
+    /// than cleared, so what is already decoded stays decoded.
     pub fn remove(&mut self, index: usize) {
         if index >= self.paths.len() {
             return;
@@ -303,10 +309,19 @@ impl ImageStore {
         self.full.remove_shifting(index);
         self.gpu.remove_shifting(index);
         self.previews.remove_shifting(index);
-        self.requested = shift_indices(&self.requested, index);
-        self.full_requested = shift_indices(&self.full_requested, index);
-        self.preview_requested = shift_indices(&self.preview_requested, index);
+
+        self.generation += 1;
+        self.loader.clear();
+        self.preview_loader.clear();
+        self.requested.clear();
+        self.full_requested.clear();
+        self.preview_requested.clear();
         self.failed = shift_indices(&self.failed, index);
+
+        // Answers to questions asked about the old positions.
+        while self.results.try_recv().is_ok() {}
+        while self.full_results.try_recv().is_ok() {}
+        while self.preview_results.try_recv().is_ok() {}
 
         self.focus.set_collection(self.generation, self.paths.len());
         self.set_cursor(self.cursor);

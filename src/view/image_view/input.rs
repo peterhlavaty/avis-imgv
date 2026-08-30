@@ -7,7 +7,7 @@
 use eframe::egui;
 use eframe::epaint::Vec2;
 
-use crate::config::{ImageViewConfig, Shortcut};
+use crate::config::{shortcut, ImageViewConfig, Shortcut};
 use crate::utils;
 
 /// How much one press of the zoom keys changes the magnification.
@@ -78,7 +78,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
     let mut commands: Vec<Command> = ctx.input_mut(|input| {
         bindings
             .iter()
-            .filter(|(shortcut, _)| input.consume_shortcut(&shortcut.kbd_shortcut))
+            .filter(|(binding, _)| shortcut::consume(input, binding))
             .map(|(_, command)| *command)
             .collect()
     });
@@ -93,7 +93,7 @@ fn user_actions(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
             .user_actions
             .iter()
             .enumerate()
-            .filter(|(_, action)| input.consume_shortcut(&action.shortcut.kbd_shortcut))
+            .filter(|(_, action)| shortcut::consume(input, &action.shortcut))
             .map(|(i, _)| Command::UserAction(i))
             .collect()
     })

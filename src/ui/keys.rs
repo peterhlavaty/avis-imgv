@@ -168,7 +168,7 @@ const CLASH: Color32 = Color32::from_rgb(215, 175, 110);
 ///
 /// Only within a section: the gallery and the image view are never on screen
 /// at once, so sharing a key between them is not a clash.
-fn clash(config: &Config, bindings: &[Binding], index: usize) -> Option<&'static str> {
+pub fn clash(config: &Config, bindings: &[Binding], index: usize) -> Option<&'static str> {
     let binding = &bindings[index];
     let shortcut = binding.get(config)?;
 
@@ -183,6 +183,38 @@ fn clash(config: &Config, bindings: &[Binding], index: usize) -> Option<&'static
                     .is_some_and(|found| found.kbd_shortcut == shortcut.kbd_shortcut)
         })
         .map(|(_, candidate)| candidate.name)
+}
+
+/// Every pair of bindings that share a key, as a sentence each.
+///
+/// Called at startup, because a configuration written by an older build keeps
+/// whatever it said for ever — `serde` only fills in the keys that are
+/// missing, never the ones that have since moved. One such file on the
+/// author's machine had zoom-in and show-more-images both on plain `Plus`,
+/// which made the side-by-side view unreachable and said nothing about it.
+pub fn clashes(config: &Config) -> Vec<String> {
+    let bindings = bindings::all();
+    let mut found: Vec<String> = Vec::new();
+
+    for (index, binding) in bindings.iter().enumerate() {
+        let Some(other) = clash(config, &bindings, index) else {
+            continue;
+        };
+
+        // Each pair once: the second one round is the same clash.
+        if found.iter().any(|said| said.contains(other)) {
+            continue;
+        }
+
+        let key = binding
+            .get(config)
+            .map(describe)
+            .unwrap_or_else(|| "that key".to_string());
+
+        found.push(format!("{} and {} are both on {key}", binding.name, other));
+    }
+
+    found
 }
 
 /// How a shortcut reads on its button: `Ctrl + Plus`.
@@ -275,6 +307,27 @@ mod tests {
 
         bindings[frame].set(&mut config, Shortcut::new("f", &[]));
         assert_eq!(clash(&config, &bindings, fit), Some("White frame"));
+    }
+
+    #[test]
+    fn the_defaults_do_not_clash() {
+        assert_eq!(clashes(&Config::default()), Vec::<String>::new());
+    }
+
+    /// A configuration written by an older build keeps whatever it said for
+    /// ever: serde only fills in the keys that are missing, never the ones
+    /// that have since moved.
+    #[test]
+    fn a_configuration_that_clashes_says_which_two() {
+        let mut config = Config::default();
+        // What an older build left behind on the author's machine, which made
+        // the side-by-side view unreachable and said nothing about it.
+        config.image_view.sc_more_images_shown = Shortcut::new("Plus", &[]);
+
+        let said = clashes(&config);
+
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert!(said[0].contains("Plus"), "{said:?}");
     }
 
     #[test]

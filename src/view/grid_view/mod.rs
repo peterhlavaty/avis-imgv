@@ -15,7 +15,7 @@ use eframe::epaint::Vec2;
 use crate::actions::{self, Callback};
 use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
-use crate::config::GridViewConfig;
+use crate::config::{shortcut, GridViewConfig};
 use crate::utils;
 use crate::view::texture;
 
@@ -143,7 +143,7 @@ impl GridView {
                 }
 
                 if !utils::are_inputs_muted(ctx)
-                    && ui.input_mut(|i| i.consume_shortcut(&self.config.sc_scroll.kbd_shortcut))
+                    && ui.input_mut(|i| shortcut::consume(i, &self.config.sc_scroll))
                 {
                     ui.scroll_with_delta(Vec2::new(0., -(layout.cell * 0.5)));
                 }
@@ -239,11 +239,9 @@ impl GridView {
         let zooming = ctx.input(|i| i.zoom_delta() != 1.0);
         let scroll = ctx.input(|i| i.raw_scroll_delta.y);
 
-        let wider = ctx
-            .input_mut(|i| i.consume_shortcut(&self.config.sc_more_per_row.kbd_shortcut))
+        let wider = ctx.input_mut(|i| shortcut::consume(i, &self.config.sc_more_per_row))
             || (zooming && scroll < 0.);
-        let narrower = ctx
-            .input_mut(|i| i.consume_shortcut(&self.config.sc_less_per_row.kbd_shortcut))
+        let narrower = ctx.input_mut(|i| shortcut::consume(i, &self.config.sc_less_per_row))
             || (zooming && scroll > 0.);
 
         if wider && self.columns < MAX_COLUMNS {

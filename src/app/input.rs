@@ -3,7 +3,7 @@
 use eframe::egui;
 
 use crate::app::mode::Mode;
-use crate::config::{GeneralConfig, TagConfig};
+use crate::config::{shortcut, GeneralConfig, TagConfig};
 use crate::metadata::xmp::{Flag, Label};
 use crate::utils;
 
@@ -30,6 +30,10 @@ pub enum Command {
     SetLabel(usize),
     /// Move to the next photograph after every mark, or stop doing that.
     ToggleAdvance,
+    /// Send the picture on screen to the platform's bin.
+    Delete,
+    /// Delete it outright, which is asked about first.
+    DeletePermanently,
 }
 
 impl Command {
@@ -55,7 +59,7 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
     let mut commands = Vec::new();
 
     // Quitting must work even while typing in the navigator.
-    if ctx.input_mut(|i| i.consume_shortcut(&config.sc_exit.kbd_shortcut)) {
+    if ctx.input_mut(|i| shortcut::consume(i, &config.sc_exit)) {
         commands.push(Command::Exit);
     }
 
@@ -74,21 +78,23 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
         (&config.sc_toggle_side_panel, Command::ToggleSidePanel),
         (&config.sc_flatten_dir, Command::ToggleFlatten),
         (&config.sc_watch_directory, Command::ToggleWatcher),
+        (&config.sc_delete, Command::Delete),
+        (&config.sc_delete_permanently, Command::DeletePermanently),
     ];
 
     ctx.input_mut(|input| {
         commands.extend(
             bindings
                 .iter()
-                .filter(|(shortcut, _)| input.consume_shortcut(&shortcut.kbd_shortcut))
+                .filter(|(binding, _)| shortcut::consume(input, binding))
                 .map(|(_, command)| *command),
         );
 
-        if input.consume_shortcut(&tags.sc_toggle_tag_panel.kbd_shortcut) {
+        if shortcut::consume(input, &tags.sc_toggle_tag_panel) {
             commands.push(Command::ToggleTagPanel);
         }
 
-        if input.consume_shortcut(&tags.sc_toggle_advance.kbd_shortcut) {
+        if shortcut::consume(input, &tags.sc_toggle_advance) {
             commands.push(Command::ToggleAdvance);
         }
 
@@ -98,7 +104,7 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
             tags.sc_rating
                 .iter()
                 .enumerate()
-                .filter(|(_, shortcut)| input.consume_shortcut(&shortcut.kbd_shortcut))
+                .filter(|(_, binding)| shortcut::consume(input, binding))
                 .map(|(stars, _)| Command::SetRating(stars as u8)),
         );
 
@@ -107,7 +113,7 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
             (&tags.sc_reject, Flag::Rejected),
             (&tags.sc_unflag, Flag::Unflagged),
         ] {
-            if input.consume_shortcut(&shortcut.kbd_shortcut) {
+            if shortcut::consume(input, shortcut) {
                 commands.push(Command::SetFlag(flag));
             }
         }
@@ -118,7 +124,7 @@ pub fn collect(ctx: &egui::Context, config: &GeneralConfig, tags: &TagConfig) ->
                 .iter()
                 .enumerate()
                 .take(Label::CHOICES.len())
-                .filter(|(_, shortcut)| input.consume_shortcut(&shortcut.kbd_shortcut))
+                .filter(|(_, binding)| shortcut::consume(input, binding))
                 .map(|(index, _)| Command::SetLabel(index)),
         );
     });
@@ -159,7 +165,7 @@ pub fn update_overlay(ctx: &egui::Context, open: &mut Option<Overlay>, config: &
             continue;
         }
 
-        if ctx.input_mut(|i| i.consume_shortcut(&shortcut.kbd_shortcut)) {
+        if ctx.input_mut(|i| shortcut::consume(i, shortcut)) {
             if mine {
                 close(ctx, open);
             } else {
@@ -301,6 +307,17 @@ mod tests {
         // Nothing that is not a mark ever advances.
         assert!(!advances(Command::ToggleGrid, true));
         assert!(!advances(Command::ToggleAdvance, true));
+    }
+
+    /// Shift is exclusive here because the two are one key apart, and getting
+    /// it wrong means deleting a photograph nobody can get back.
+    #[test]
+    fn the_two_deletes_are_told_apart() {
+        let ctx = context_with(vec![key_press(Key::Delete, Modifiers::NONE)]);
+        assert_eq!(collected(&ctx), vec![Command::Delete]);
+
+        let ctx = context_with(vec![key_press(Key::Delete, Modifiers::SHIFT)]);
+        assert_eq!(collected(&ctx), vec![Command::DeletePermanently]);
     }
 
     #[test]

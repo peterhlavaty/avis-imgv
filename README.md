@@ -107,6 +107,27 @@ photograph by itself, which is what turns a cull into one keystroke a frame.
 A mode rather than a held modifier, because on a Slovak or German keyboard the
 digits *are* the shifted characters of the top row.
 
+### Getting rid of them
+
+`Delete` sends the photograph on screen to the platform's bin — the freedesktop
+specification on Linux, the Recycle Bin on Windows — together with its sidecar,
+as one unit. Nothing is asked, because the bin *is* the asking, and a dialogue
+in the middle of a cull is what people complain about most in the tools that
+have one. The cursor stays where it is rather than following the picture that
+has gone, so what it lands on is the next one.
+
+`Shift + Delete` deletes outright, for the cards and network shares that have no
+bin, and asks first.
+
+**File → Send rejected to the bin…** collects every photograph in the folder
+marked with `X` and puts the lot in the bin behind one question, which is the
+second half of a first pass: mark what is not staying, then be rid of it. The
+sidecars are read for the whole folder rather than only for the frames already
+looked at, which is a few milliseconds.
+
+Nothing is ever removed with an unconditional delete: `fs::remove_file` appears
+in this codebase only where the user has said "for good" and been asked twice.
+
 ### Where they are stored
 
 In XMP sidecars beside the image — `DSC001.cr2.xmp` — which is what every raw
@@ -436,6 +457,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `output_icc_profile` | Display profile to convert into | `srgb` |
 | `text_scaling` | Interface text scale | 1.25 |
 | `metadata_tags` | Tags shown in the side panel, in order | File Name, Date/Time Original, Camera Model Name, Lens Model, Focal Length, Aperture, Shutter Speed, ISO, Image Size, File Size, Color Space, Directory |
+| `sc_delete` | Send the picture on screen to the bin | `Delete` |
+| `sc_delete_permanently` | Delete it outright, after asking | `Shift + Delete` |
 
 ### Image view
 
@@ -514,7 +537,9 @@ viewer logs that it is showing previews instead.
 | 0 – 5 | Set the star rating of the open image |
 | P / X / U | Keep it, throw it out, or take either mark off |
 | 6 – 9, Ctrl + 9 | Colour label: red, yellow, green, blue, purple |
-| Ctrl + Shift + A | Move to the next picture after every mark
+| Ctrl + Shift + A | Move to the next picture after every mark |
+| Delete | Send the picture on screen to the bin, sidecar and all |
+| Shift + Delete | Delete it outright, after asking
 | F10 | Toggle frame timings |
 
 ### Image view

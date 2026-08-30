@@ -133,6 +133,18 @@ pub fn all() -> Vec<Binding> {
             "Pick up pictures that appear or change while the viewer is open.",
             general.sc_watch_directory
         ),
+        binding!(
+            "General",
+            "To the bin",
+            "Send the picture on screen to the platform's bin, along with its sidecar.",
+            general.sc_delete
+        ),
+        binding!(
+            "General",
+            "Delete for good",
+            "Delete it outright, for the cards and shares that have no bin. Asked about first.",
+            general.sc_delete_permanently
+        ),
         binding!("General", "Quit", "Close the viewer.", general.sc_exit),
         binding!(
             "Image view",
@@ -404,6 +416,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 32, "a shortcut was added without a description");
+        assert_eq!(fixed, 34, "a shortcut was added without a description");
     }
 }

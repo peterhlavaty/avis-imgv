@@ -215,6 +215,16 @@
     "sc_toggle_side_panel": {
       "key": "i",
       "modifiers": []
+    },
+    "sc_delete": {
+      "key": "delete",
+      "modifiers": []
+    },
+    "sc_delete_permanently": {
+      "key": "delete",
+      "modifiers": [
+        "shift"
+      ]
     }
   },
   "cache": {
