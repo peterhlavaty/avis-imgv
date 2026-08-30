@@ -195,6 +195,11 @@ pub fn default_sc_zoom_out() -> Shortcut {
     Shortcut::new("Minus", &[])
 }
 
+/// Lightroom's Survey key, which is what everybody who has used one expects.
+pub fn default_sc_compare() -> Shortcut {
+    Shortcut::new("n", &[])
+}
+
 /// The four keys under the left hand, which is where they are wanted: the
 /// right hand is on the mouse or the arrow keys.
 pub fn default_sc_pan_up() -> Shortcut {

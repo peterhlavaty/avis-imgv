@@ -25,6 +25,7 @@ use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 use bottom_bar::{Flags, Marks, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
 
+use crate::utils;
 use crate::view::visible::Visible;
 use input::Command;
 use layout::BACKGROUND;
@@ -33,6 +34,12 @@ use viewports::{Place, Viewports};
 
 /// Most images the view will place side by side. Beyond a handful they are too
 /// small to read, and each one costs a texture.
+/// How many photographs a comparison starts with.
+///
+/// Two, because a comparison is nearly always between two frames of the same
+/// thing; `Ctrl + Plus` widens it from there.
+const COMPARE_PANES: usize = 2;
+
 /// How far `Page Up` and `Page Down` move.
 ///
 /// A round number rather than a screenful, because the image view shows one
@@ -47,6 +54,13 @@ pub struct ImageView {
     cursor: usize,
     /// Which of the store's photographs are being walked through.
     visible: Visible,
+    /// A fixed set of photographs being compared against one another, rather
+    /// than the run of neighbours the side-by-side view shows.
+    ///
+    /// The difference is what makes it a comparison: the panes stay where they
+    /// are while the eye moves between them, and every key is about the one
+    /// with the focus.
+    comparing: Option<Vec<usize>>,
     viewport: Viewport,
     frame: FrameStyle,
     metrics: Metrics,
@@ -80,6 +94,7 @@ impl ImageView {
             store: ImageStore::new(render_state, loader, store_config, output_profile),
             cursor: 0,
             visible: Visible::default(),
+            comparing: None,
             viewport: Viewport {
                 // A slideshow always fills the screen.
                 maximize: start_slideshow,
@@ -139,8 +154,31 @@ impl ImageView {
 
     fn apply(&mut self, command: Command, ctx: &egui::Context) {
         match command {
-            Command::Next => self.next_image(),
-            Command::Previous => self.previous_image(),
+            Command::Next => {
+                if !self.swap_focused_pane(true) {
+                    self.next_image();
+                }
+            }
+            Command::Previous => {
+                if !self.swap_focused_pane(false) {
+                    self.previous_image();
+                }
+            }
+            Command::Compare => {
+                if self.is_comparing() {
+                    self.stop_comparing();
+                } else {
+                    self.start_comparing(COMPARE_PANES);
+                }
+            }
+            Command::NextPane => {
+                self.focus_next_pane();
+                // Tab is also how egui walks its widgets, and the field it
+                // lands in mutes every shortcut in the viewer.
+                utils::surrender_focus(ctx);
+            }
+            Command::DropPane => self.drop_focused_pane(),
+            Command::StopComparing => self.stop_comparing(),
             Command::First => self.jump_to_end(false),
             Command::Last => self.jump_to_end(true),
             Command::PageForward => self.page(true, PAGE),
@@ -161,9 +199,15 @@ impl ImageView {
             Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,
             Command::ShowMoreImages => {
-                self.images_shown = (self.images_shown + 1).min(MAX_IMAGES_SHOWN);
+                if !self.widen_comparison() {
+                    self.images_shown = (self.images_shown + 1).min(MAX_IMAGES_SHOWN);
+                }
             }
-            Command::ShowFewerImages => self.images_shown = (self.images_shown - 1).max(1),
+            Command::ShowFewerImages => {
+                if !self.narrow_comparison() {
+                    self.images_shown = (self.images_shown - 1).max(1);
+                }
+            }
             Command::UserAction(index) => self.run_user_action(index, ctx),
         }
     }
@@ -193,10 +237,15 @@ impl ImageView {
 
     /// The store positions of the panes on screen, left to right.
     ///
-    /// Neighbours in what is on show rather than in the store: with the
-    /// rejects hidden, the picture beside this one should be the next one a
-    /// person would reach, not the one they have already said no to.
+    /// While comparing, the set that was pinned; otherwise the neighbours in
+    /// what is on show rather than in the store, because with the rejects
+    /// hidden the picture beside this one should be the next one a person
+    /// would reach, not the one they have already said no to.
     fn panes(&self) -> Vec<usize> {
+        if let Some(comparing) = &self.comparing {
+            return comparing.clone();
+        }
+
         let (at, shown) = self.position();
         if shown == 0 {
             return Vec::new();
@@ -207,6 +256,183 @@ impl ImageView {
             .collect()
     }
 
+    /// Whether a comparison is up.
+    pub fn is_comparing(&self) -> bool {
+        self.comparing.is_some()
+    }
+
+    /// Pins the photograph on screen and its neighbours as a comparison.
+    ///
+    /// The panes are what is on show around the cursor, so a filter narrows
+    /// what can be compared the same way it narrows everything else.
+    pub fn start_comparing(&mut self, count: usize) {
+        let (at, shown) = self.position();
+        if shown == 0 {
+            return;
+        }
+
+        let panes: Vec<usize> = (0..count.clamp(2, MAX_IMAGES_SHOWN).min(shown))
+            .filter_map(|offset| self.visible.at((at + offset) % shown))
+            .collect();
+
+        if panes.len() < 2 {
+            return;
+        }
+
+        self.comparing = Some(panes);
+    }
+
+    /// Leaves the comparison, keeping the photograph the keys were about.
+    pub fn stop_comparing(&mut self) {
+        self.comparing = None;
+    }
+
+    /// Puts a different photograph in the focused pane.
+    ///
+    /// The motion Lightroom's compare view has: one pane stays as the one to
+    /// beat and the arrow keys try the others against it, which is what
+    /// choosing between a burst of near-identical frames actually is.
+    pub fn swap_focused_pane(&mut self, forward: bool) -> bool {
+        let Some(panes) = self.comparing.clone() else {
+            return false;
+        };
+
+        let Some(at) = self.visible.position_of(self.cursor) else {
+            return false;
+        };
+
+        let wanted = match forward {
+            true => self.visible.next(at),
+            false => self.visible.previous(at),
+        }
+        .and_then(|position| self.visible.at(position));
+
+        let Some(index) = wanted else {
+            return false;
+        };
+
+        // A photograph already in another pane would make two of the panes the
+        // same picture, which compares nothing.
+        if panes.contains(&index) {
+            return true;
+        }
+
+        let Some(panes) = &mut self.comparing else {
+            return false;
+        };
+
+        if let Some(slot) = panes.iter_mut().find(|pane| **pane == self.cursor) {
+            *slot = index;
+        }
+
+        self.select(index);
+        true
+    }
+
+    /// Adds the next photograph on show to the comparison.
+    pub fn widen_comparison(&mut self) -> bool {
+        let Some(panes) = self.comparing.clone() else {
+            return false;
+        };
+
+        if panes.len() >= MAX_IMAGES_SHOWN {
+            return true;
+        }
+
+        let (_, shown) = self.position();
+        let last = panes.last().copied().unwrap_or(self.cursor);
+
+        let wanted = self
+            .visible
+            .position_of(last)
+            .and_then(|at| self.visible.next(at))
+            .and_then(|position| self.visible.at(position));
+
+        if let (Some(index), true) = (wanted, panes.len() < shown) {
+            if let Some(panes) = &mut self.comparing {
+                if !panes.contains(&index) {
+                    panes.push(index);
+                }
+            }
+        }
+
+        true
+    }
+
+    /// Takes the last pane back off.
+    pub fn narrow_comparison(&mut self) -> bool {
+        let Some(panes) = &mut self.comparing else {
+            return false;
+        };
+
+        if panes.len() <= 2 {
+            return true;
+        }
+
+        let going = panes.pop();
+
+        if going == Some(self.cursor) {
+            if let Some(index) = self
+                .comparing
+                .as_ref()
+                .and_then(|panes| panes.first())
+                .copied()
+            {
+                self.select(index);
+            }
+        }
+
+        true
+    }
+
+    /// Moves the focus to the next pane, wrapping round.
+    pub fn focus_next_pane(&mut self) {
+        let Some(panes) = self.comparing.clone() else {
+            return;
+        };
+
+        let at = panes.iter().position(|index| *index == self.cursor);
+        let next = match at {
+            Some(at) => (at + 1) % panes.len(),
+            None => 0,
+        };
+
+        if let Some(index) = panes.get(next) {
+            self.select(*index);
+        }
+    }
+
+    /// Drops the focused pane from the comparison, and the survivors re-tile.
+    ///
+    /// The elimination gesture: a comparison narrows to a winner rather than
+    /// being decided in one go.
+    pub fn drop_focused_pane(&mut self) {
+        let Some(panes) = &mut self.comparing else {
+            return;
+        };
+
+        if panes.len() <= 2 {
+            // Two is the fewest a comparison can be; dropping one of them ends
+            // it on the other, which is the answer.
+            let survivor = panes.iter().find(|index| **index != self.cursor).copied();
+            self.comparing = None;
+
+            if let Some(index) = survivor {
+                self.select(index);
+            }
+
+            return;
+        }
+
+        let going = self.cursor;
+        panes.retain(|index| *index != going);
+
+        if let Some(index) = self.comparing.as_ref().and_then(|panes| panes.first()) {
+            let index = *index;
+            self.select(index);
+        }
+    }
+
     fn show_images(&mut self, ctx: &egui::Context) -> Response {
         let background = self.background_colour();
         let panes = self.panes();
@@ -214,6 +440,7 @@ impl ImageView {
             ctx,
             &mut self.store,
             &panes,
+            self.cursor,
             &mut self.viewport,
             &Style {
                 frame: self.frame,
@@ -247,6 +474,7 @@ impl ImageView {
         let name = self.display_name();
         let (at, total) = self.position();
         let hidden = self.store.len() - total;
+        let comparing = self.is_comparing();
         let mut status = Status {
             jump_to: &mut self.jump_to,
             zoom: &mut self.viewport.zoom,
@@ -259,6 +487,7 @@ impl ImageView {
             marks,
             flags: Flags {
                 filling: self.viewport.maximize,
+                comparing,
                 ..flags
             },
         };

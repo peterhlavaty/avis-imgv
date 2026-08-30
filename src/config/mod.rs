@@ -308,6 +308,10 @@ pub struct ImageViewConfig {
     pub sc_more_images_shown: Shortcut,
     #[serde(default = "default_sc_less_images_shown")]
     pub sc_less_images_shown: Shortcut,
+    /// Pins the photograph on screen and its neighbours side by side, sharing
+    /// one zoom and one pan, until one of them wins.
+    #[serde(default = "default_sc_compare")]
+    pub sc_compare: Shortcut,
     #[serde(default = "default_sc_zoom_in")]
     pub sc_zoom_in: Shortcut,
     #[serde(default = "default_sc_zoom_out")]
@@ -476,6 +480,7 @@ impl Default for ImageViewConfig {
             sc_latch_fit_maximize: default_sc_latch_fit_maximize(),
             sc_more_images_shown: default_sc_more_images_shown(),
             sc_less_images_shown: default_sc_less_images_shown(),
+            sc_compare: default_sc_compare(),
             sc_zoom_in: default_sc_zoom_in(),
             sc_zoom_out: default_sc_zoom_out(),
             sc_pan_up: default_sc_pan_up(),

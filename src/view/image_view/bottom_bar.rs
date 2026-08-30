@@ -44,6 +44,8 @@ pub struct Flags {
     pub filling: bool,
     /// Whether a mark moves on to the next photograph by itself.
     pub advancing: bool,
+    /// Whether a set of photographs is pinned side by side.
+    pub comparing: bool,
 }
 
 /// Everything the bar draws, borrowed from the view.
@@ -102,6 +104,7 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     (status.flags.watching, "Watching"),
                     (status.flags.filling, "Filling"),
                     (status.flags.advancing, "Advancing"),
+                    (status.flags.comparing, "Comparing"),
                 ] {
                     if active {
                         ui.label(label);
@@ -167,8 +170,17 @@ fn stars(rating: u8) -> String {
 fn jump_field(ui: &mut egui::Ui, status: &mut Status<'_>) -> Option<usize> {
     let response = ui.add_sized(
         Vec2::new(65., ui.available_height()),
-        egui::TextEdit::singleline(status.jump_to),
+        egui::TextEdit::singleline(status.jump_to).hint_text("go to"),
     );
+
+    // Reachable by clicking and by nothing else. egui hands focus to the next
+    // widget on Tab, and this is the first widget in the window — so `Tab`,
+    // which means "the other pane" while comparing, landed in here instead and
+    // a text field with focus mutes every shortcut in the viewer.
+    if response.gained_focus() && !response.clicked() {
+        response.surrender_focus();
+        return None;
+    }
 
     if !(response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
         return None;

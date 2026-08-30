@@ -24,6 +24,20 @@ pub fn set_mute_state(ctx: &egui::Context, muted: bool) {
     })
 }
 
+/// Takes the keyboard back from whatever widget has it.
+///
+/// egui hands focus to the next widget on Tab and keeps it there, and a text
+/// field with focus mutes every shortcut in the viewer. That is right while
+/// somebody is typing a path and wrong the instant they are not: Tab means
+/// "the next pane" here, and Escape means "give me the keyboard back".
+pub fn surrender_focus(ctx: &eframe::egui::Context) {
+    ctx.memory_mut(|memory| {
+        if let Some(id) = memory.focused() {
+            memory.surrender_focus(id);
+        }
+    });
+}
+
 pub fn are_inputs_muted(ctx: &egui::Context) -> bool {
     ctx.memory_mut(|mem| {
         mem.data

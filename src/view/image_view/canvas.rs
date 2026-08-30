@@ -86,11 +86,19 @@ pub struct Metrics {
 }
 
 /// Draws `texture` into the current `ui`, returning the geometry it used.
+/// `leading` marks the one pane that owns the viewport.
+///
+/// Every pane shares one zoom and one pan, which is what makes a comparison a
+/// comparison. Only one of them may move it: the drag used to be applied once
+/// per pane, so two side by side panned twice as fast as one and four four
+/// times, and the last pane drawn clamped the pan against *its* picture rather
+/// than against the one being looked at.
 pub fn draw(
     ui: &mut egui::Ui,
     texture: &GpuTexture,
     viewport: &mut Viewport,
     style: &Style,
+    leading: bool,
 ) -> Metrics {
     let available = ui.available_size();
     let fit_size = if style.enlarge {
@@ -99,7 +107,7 @@ pub fn draw(
         fit(texture.size, available)
     };
 
-    if viewport.maximize && !viewport.maximized {
+    if leading && viewport.maximize && !viewport.maximized {
         viewport.maximized = true;
         viewport.zoom = fill_zoom(fit_size, available);
     }
@@ -107,12 +115,21 @@ pub fn draw(
     let scaled = fit_size * viewport.zoom;
     let display_size = Vec2::new(scaled.x.min(available.x), scaled.y.min(available.y));
 
+    let mut pan = viewport.pan;
     let uv = uv_rect(
         scaled,
         display_size,
-        &mut viewport.pan,
-        viewport.scroll_delta,
+        &mut pan,
+        if leading {
+            viewport.scroll_delta
+        } else {
+            Vec2::ZERO
+        },
     );
+
+    if leading {
+        viewport.pan = pan;
+    }
 
     let metrics = Metrics {
         image_size: texture.size,

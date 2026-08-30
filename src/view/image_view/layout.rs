@@ -27,6 +27,7 @@ pub fn show(
     ctx: &egui::Context,
     store: &mut ImageStore,
     panes: &[usize],
+    focused: usize,
     viewport: &mut Viewport,
     style: &Style,
     background: Color32,
@@ -52,18 +53,34 @@ pub fn show(
                 ui.available_height(),
             );
 
+            let several = panes.len() > 1;
+
             ui.horizontal(|ui| {
-                for (offset, index) in panes.iter().enumerate() {
-                    ui.allocate_ui(cell, |ui| {
+                for index in panes {
+                    let leading = *index == focused;
+
+                    let allocated = ui.allocate_ui(cell, |ui| {
                         ui.centered_and_justified(|ui| {
-                            let drawn = show_one(ui, store, *index, offset == 0, viewport, style);
-                            if offset == 0 {
+                            let drawn = show_one(ui, store, *index, leading, viewport, style);
+                            if leading {
                                 if let Some(drawn) = drawn {
                                     metrics = drawn;
                                 }
                             }
                         });
                     });
+
+                    // Which pane the keys are about has to be unmistakable, or
+                    // marking one of four is a guess. One pane needs no
+                    // marking, because there is nothing to tell it apart from.
+                    if several && leading {
+                        ui.painter().rect_stroke(
+                            allocated.response.rect.shrink(1.0),
+                            0.0,
+                            egui::Stroke::new(2.0_f32, FOCUSED),
+                            egui::StrokeKind::Inside,
+                        );
+                    }
                 }
             });
         })
@@ -73,17 +90,19 @@ pub fn show(
     Shown { response, metrics }
 }
 
+/// `leading` is the pane the keys are about: it owns the viewport, it is
+/// measured, and it jumps the per-frame upload budget.
 fn show_one(
     ui: &mut egui::Ui,
     store: &mut ImageStore,
     index: usize,
-    urgent: bool,
+    leading: bool,
     viewport: &mut Viewport,
     style: &Style,
 ) -> Option<Metrics> {
-    // The image under the cursor jumps the per-frame upload budget; the ones
+    // The image being looked at jumps the per-frame upload budget; the ones
     // beside it can wait a frame.
-    let texture = if urgent {
+    let texture = if leading {
         store.texture_now(index)
     } else {
         store.texture(index)
@@ -94,7 +113,7 @@ fn show_one(
         return None;
     };
 
-    let metrics = canvas::draw(ui, texture, viewport, style);
+    let metrics = canvas::draw(ui, texture, viewport, style, leading);
 
     // How wide it ended up being drawn decides which copy of it should be on
     // the GPU: the screen sized one while it fits, the image's own pixels once
@@ -103,6 +122,9 @@ fn show_one(
 
     Some(metrics)
 }
+
+/// The border round the pane the keys are about.
+const FOCUSED: Color32 = Color32::from_rgb(126, 168, 224);
 
 /// Shows why an image is not on screen yet.
 fn placeholder(ui: &mut egui::Ui, state: ImageState) {

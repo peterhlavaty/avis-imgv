@@ -50,6 +50,14 @@ pub enum Command {
     ToggleFrame,
     ShowMoreImages,
     ShowFewerImages,
+    /// Pin the photograph on screen and its neighbours as a comparison.
+    Compare,
+    /// Move the focus to the next pane of one.
+    NextPane,
+    /// Drop the focused pane, leaving the survivors to re-tile.
+    DropPane,
+    /// Leave the comparison.
+    StopComparing,
     /// The user action at this position in the configuration.
     UserAction(usize),
 }
@@ -79,6 +87,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_frame, Command::ToggleFrame),
         (&config.sc_more_images_shown, Command::ShowMoreImages),
         (&config.sc_less_images_shown, Command::ShowFewerImages),
+        (&config.sc_compare, Command::Compare),
     ];
 
     let mut commands: Vec<Command> = ctx.input_mut(|input| {
@@ -95,6 +104,11 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
             (egui::Key::End, Command::Last),
             (egui::Key::PageDown, Command::PageForward),
             (egui::Key::PageUp, Command::PageBack),
+            // The comparison keys, which mean nothing anywhere else and so
+            // are not worth a line in the configuration.
+            (egui::Key::Tab, Command::NextPane),
+            (egui::Key::Slash, Command::DropPane),
+            (egui::Key::Escape, Command::StopComparing),
         ] {
             if input.consume_key(egui::Modifiers::NONE, key) {
                 found.push(command);

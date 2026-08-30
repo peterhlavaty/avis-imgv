@@ -262,6 +262,12 @@ pub fn all() -> Vec<Binding> {
         ),
         binding!(
             "Image view",
+            "Compare",
+            "Pin this picture and the next side by side, sharing one zoom and one pan. Tab moves which one the keys are about, / drops it, Escape leaves.",
+            image_view.sc_compare
+        ),
+        binding!(
+            "Image view",
             "Pan up",
             "Move the view up, for as long as the key is held.",
             image_view.sc_pan_up
@@ -464,6 +470,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 42, "a shortcut was added without a description");
+        assert_eq!(fixed, 43, "a shortcut was added without a description");
     }
 }

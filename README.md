@@ -522,6 +522,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `gpu_resident_images` | Images kept as GPU textures | 8 |
 | `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. Unrelated to the screen sized copy, which is worked out from your monitor and needs no setting. | 0 |
 | `nr_images_shown` | Images displayed side by side | 1 |
+| `sc_compare` | Pin this picture and the next side by side, sharing one zoom and one pan | `N` |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `scroll_navigation` | Use the scroll wheel to change image | true |

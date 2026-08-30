@@ -410,6 +410,13 @@ impl eframe::App for App {
         self.image_view
             .set_display_edge(longest_edge_in_pixels(ctx));
 
+        // Wherever the keyboard has wandered off to, Escape brings it back.
+        // A text field with focus mutes every shortcut in the viewer, and
+        // finding out which field has it is not the user's job.
+        if self.overlay.is_none() && ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            crate::utils::surrender_focus(ctx);
+        }
+
         input::update_overlay(ctx, &mut self.overlay, &self.config);
         for command in input::collect(ctx, &self.config, &self.tag_config, &self.settings.cull) {
             let advance = input::advances(command, self.advancing);

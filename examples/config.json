@@ -101,6 +101,10 @@
         "ctrl"
       ]
     },
+    "sc_compare": {
+      "key": "n",
+      "modifiers": []
+    },
     "sc_zoom_in": {
       "key": "Plus",
       "modifiers": []
