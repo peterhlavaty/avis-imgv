@@ -25,6 +25,7 @@ use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
 use crate::ui::tag_panel;
 use crate::ui::{keys, notice::Notices, perf_metrics::PerfMetrics, theme};
+use crate::view::image_view::bottom_bar::Marks;
 use crate::view::organize::OrganizeView;
 use crate::view::{GridView, ImageView};
 
@@ -81,6 +82,13 @@ pub struct App {
     advancing: bool,
     /// A deletion the user has been asked about but has not answered.
     pending_delete: Option<cull::Pending>,
+    /// What every photograph in the open collection carries, in the order
+    /// `paths` holds them.
+    ///
+    /// Built once when the collection changes rather than asked per cell per
+    /// frame: the contact sheet needs all of it at once, and reading a
+    /// folder's sidecars is a few milliseconds one time.
+    marks: Vec<Marks>,
 }
 
 impl App {
@@ -164,6 +172,7 @@ impl App {
             notices: Notices::default(),
             advancing,
             pending_delete: None,
+            marks: Vec::new(),
         };
 
         for clash in keys::clashes(&app.settings) {
@@ -186,9 +195,44 @@ impl App {
         self.base_path = base_path_of(&paths);
         self.navigator_path = self.base_path.to_string_lossy().to_string();
         self.paths = paths;
+        self.marks.clear();
 
         self.image_view.set_images(self.paths.clone(), selected);
         self.grid_view.set_images(self.paths.clone());
+    }
+
+    /// Reads the marks for the whole collection, if that has not been done.
+    ///
+    /// Only called when the contact sheet is about to draw, because it is the
+    /// only thing that needs all of them; the image view asks about one at a
+    /// time and the sidecar for that one is already read.
+    fn ensure_marks(&mut self) {
+        if self.marks.len() == self.paths.len() {
+            return;
+        }
+
+        let paths = self.paths.clone();
+        self.marks = paths
+            .iter()
+            .map(|path| Marks::of(self.annotations.get(path, None)))
+            .collect();
+    }
+
+    /// Brings one photograph's marks up to date after it has been changed.
+    pub(super) fn refresh_mark(&mut self, image: &Path) {
+        let Some(index) = self.paths.iter().position(|path| path == image) else {
+            return;
+        };
+
+        let Some(found) = self.marks.get_mut(index) else {
+            return;
+        };
+
+        *found = self
+            .annotations
+            .peek(image)
+            .map(Marks::of)
+            .unwrap_or_default();
     }
 
     /// Crawls `path` and opens what it finds.

@@ -3,6 +3,7 @@
 //! Thumbnails come from a store of their own so the grid can hold hundreds of
 //! small textures without competing for the budget the full size view needs.
 
+pub mod cell;
 pub mod layout;
 
 use std::path::{Path, PathBuf};
@@ -19,6 +20,9 @@ use crate::config::{shortcut, GridViewConfig};
 use crate::utils;
 use crate::view::texture;
 
+use crate::view::image_view::bottom_bar::Marks;
+
+use cell::Badges;
 use layout::Layout;
 
 const CELL_BACKGROUND: Color32 = Color32::from_rgb(119, 119, 119);
@@ -42,6 +46,13 @@ pub struct GridView {
     callback: Option<Callback>,
     /// Image to scroll to on the next frame.
     scroll_to: Option<usize>,
+    /// Where the keyboard is, which is not where the image view is: moving
+    /// about a contact sheet should not decode a full sized photograph at
+    /// every step.
+    cursor: usize,
+    /// Which photograph the image view is on, so the sheet can say so.
+    current: usize,
+    badges: Badges,
 }
 
 impl GridView {
@@ -59,12 +70,17 @@ impl GridView {
             selected: None,
             callback: None,
             scroll_to: None,
+            cursor: 0,
+            current: 0,
+            badges: Badges::default(),
         }
     }
 
     pub fn set_images(&mut self, paths: Vec<PathBuf>) {
         self.store.set_paths(paths);
         self.scroll_to = Some(0);
+        self.cursor = 0;
+        self.current = 0;
     }
 
     pub fn stats(&self) -> StoreStats {
@@ -95,6 +111,7 @@ impl GridView {
     /// Services the caches without drawing, so opening the grid does not start
     /// from nothing.
     pub fn warm(&mut self, cursor: usize) -> bool {
+        self.current = cursor;
         self.store.set_cursor(cursor);
         self.store.tick()
     }
@@ -111,10 +128,24 @@ impl GridView {
     /// scrolled away from it.
     pub fn focus_on(&mut self, index: usize) {
         self.scroll_to = Some(index);
+        self.cursor = index.min(self.store.len().saturating_sub(1));
+        self.current = self.cursor;
+    }
+
+    /// Which photograph the keyboard is on, so the panels follow the sheet.
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
+
+    pub fn cursor_path(&self) -> Option<PathBuf> {
+        self.store.path(self.cursor).map(Path::to_path_buf)
     }
 
     /// Draws the grid.
-    pub fn ui(&mut self, ctx: &egui::Context) {
+    ///
+    /// `marks` is what every photograph in the collection carries, in the same
+    /// order, so the sheet can draw them without asking the disk per cell.
+    pub fn ui(&mut self, ctx: &egui::Context, marks: &[Marks]) {
         if self.store.tick() {
             ctx.request_repaint();
         }
@@ -123,14 +154,20 @@ impl GridView {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
-            let layout = Layout::new(ui.available_width(), self.columns, self.store.len());
+            let layout = Layout::new(
+                ui.available_width(),
+                self.columns,
+                self.store.len(),
+                self.config.cell_aspect,
+                self.badges.caption_height(),
+            );
 
             let mut scroll_area = egui::ScrollArea::vertical().scroll_source(ScrollSource::ALL);
             if let Some(index) = self.scroll_to.take() {
                 scroll_area = scroll_area.vertical_scroll_offset(layout.scroll_offset_of(index));
             }
 
-            scroll_area.show_rows(ui, layout.cell, layout.rows, |ui, rows| {
+            scroll_area.show_rows(ui, layout.row, layout.rows, |ui, rows| {
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
 
                 // Caching centres on what is on screen, so scrolling pulls the
@@ -139,41 +176,53 @@ impl GridView {
                 self.store.set_cursor((visible.start + visible.end) / 2);
 
                 for row in rows {
-                    self.show_row(ui, &layout, row);
+                    self.show_row(ui, &layout, row, marks);
                 }
 
                 if !utils::are_inputs_muted(ctx)
                     && ui.input_mut(|i| shortcut::consume(i, &self.config.sc_scroll))
                 {
-                    ui.scroll_with_delta(Vec2::new(0., -(layout.cell * 0.5)));
+                    ui.scroll_with_delta(Vec2::new(0., -(layout.row * 0.5)));
                 }
             });
         });
     }
 
-    fn show_row(&mut self, ui: &mut egui::Ui, layout: &Layout, row: usize) {
+    fn show_row(&mut self, ui: &mut egui::Ui, layout: &Layout, row: usize, marks: &[Marks]) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
             ui.add_space(layout.padding);
 
             for index in layout.indices(row..row + 1, self.store.len()) {
-                self.show_cell(ui, index, layout.cell);
+                self.show_cell(ui, index, layout, marks.get(index));
             }
         });
     }
 
-    fn show_cell(&mut self, ui: &mut egui::Ui, index: usize, cell: f32) {
-        let (_, rect) = ui.allocate_space(Vec2::splat(cell));
-        ui.painter().rect_filled(rect, 0, CELL_BACKGROUND);
+    fn show_cell(
+        &mut self,
+        ui: &mut egui::Ui,
+        index: usize,
+        layout: &Layout,
+        marks: Option<&Marks>,
+    ) {
+        let (_, rect) = ui.allocate_space(Vec2::new(layout.cell, layout.row));
+        let picture = Rect::from_min_size(rect.min, Vec2::new(layout.cell, layout.picture));
+        let strip = Rect::from_min_max(
+            eframe::epaint::pos2(rect.left(), picture.bottom()),
+            rect.max,
+        );
+
+        ui.painter().rect_filled(picture, 0, CELL_BACKGROUND);
 
         let name = self.file_name(index);
         let drawn = self.store.texture(index).is_some();
 
         let response = ui
-            .scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+            .scope_builder(UiBuilder::new().max_rect(picture), |ui| {
                 ui.centered_and_justified(|ui| {
                     if !drawn {
-                        show_placeholder(ui, self.store.state(index), cell);
+                        show_placeholder(ui, self.store.state(index), layout.picture);
                         return None;
                     }
 
@@ -181,7 +230,7 @@ impl GridView {
                     // needs the store and the drawing branch needs the
                     // texture.
                     let texture = self.store.texture(index)?;
-                    let size = fit_in_cell(texture.size, cell);
+                    let size = fit_in_cell(texture.size, layout.cell, layout.picture);
                     let (drawn_rect, response) = ui.allocate_exact_size(size, Sense::click());
                     texture::draw(ui, drawn_rect, texture, WHOLE_IMAGE);
 
@@ -191,12 +240,17 @@ impl GridView {
             })
             .inner;
 
+        cell::dim_if_rejected(ui, picture, marks);
+        cell::caption(ui, strip, self.badges, marks, &name);
+
         ui.painter().rect_stroke(
             rect,
             0.,
             egui::Stroke::new(1.0_f32, CELL_BORDER),
             egui::StrokeKind::Outside,
         );
+
+        cell::outline(ui, rect, index == self.current, index == self.cursor);
 
         if let Some(response) = response {
             self.handle_cell_interaction(ui, index, &response);
@@ -213,6 +267,7 @@ impl GridView {
         };
 
         if response.clicked() {
+            self.cursor = index;
             self.selected = Some(path.clone());
         }
 
@@ -249,6 +304,70 @@ impl GridView {
         } else if narrower && self.columns > 1 {
             self.set_columns(self.columns - 1);
         }
+
+        if ctx.input_mut(|i| shortcut::consume(i, &self.config.sc_cycle_badges)) {
+            self.badges = self.badges.next();
+        }
+
+        self.move_cursor(ctx);
+    }
+
+    /// Walks the sheet with the arrow keys, and opens with Enter.
+    ///
+    /// A contact sheet nobody can move about without a mouse is a contact
+    /// sheet nobody can cull from: every mark is a keystroke, and reaching the
+    /// next photograph should be one too.
+    fn move_cursor(&mut self, ctx: &egui::Context) {
+        let total = self.store.len();
+        if total == 0 {
+            return;
+        }
+
+        let columns = self.columns.max(1);
+        let steps = [
+            (egui::Key::ArrowRight, 1_isize),
+            (egui::Key::ArrowLeft, -1),
+            (egui::Key::ArrowDown, columns as isize),
+            (egui::Key::ArrowUp, -(columns as isize)),
+        ];
+
+        let mut moved = false;
+
+        for (key, step) in steps {
+            if !ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, key)) {
+                continue;
+            }
+
+            let wanted = self.cursor as isize + step;
+            // Clamped rather than wrapped: a sheet has edges, and walking off
+            // one to land at the far end of another row is disorienting.
+            self.cursor = wanted.clamp(0, total as isize - 1) as usize;
+            moved = true;
+        }
+
+        for (key, index) in [
+            (egui::Key::Home, 0usize),
+            (egui::Key::End, total.saturating_sub(1)),
+        ] {
+            if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, key)) {
+                self.cursor = index;
+                moved = true;
+            }
+        }
+
+        if moved {
+            self.scroll_to_cursor();
+        }
+
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)) {
+            self.selected = self.store.path(self.cursor).map(Path::to_path_buf);
+        }
+    }
+
+    /// Brings the cursor into view, without dragging the sheet about when it
+    /// is already there.
+    fn scroll_to_cursor(&mut self) {
+        self.scroll_to = Some(self.cursor);
     }
 
     /// Changes the column count, keeping the user roughly where they were.
@@ -258,18 +377,14 @@ impl GridView {
     }
 }
 
-/// Largest size with the thumbnail's aspect ratio that fits a square cell.
-fn fit_in_cell(size: Vec2, cell: f32) -> Vec2 {
+/// Largest size with the thumbnail's aspect ratio that fits the cell.
+fn fit_in_cell(size: Vec2, width: f32, height: f32) -> Vec2 {
     if size.x <= 0.0 || size.y <= 0.0 {
-        return Vec2::splat(cell);
+        return Vec2::new(width, height);
     }
 
-    let aspect = size.x / size.y;
-    if aspect > 1.0 {
-        Vec2::new(cell, cell / aspect)
-    } else {
-        Vec2::new(cell * aspect, cell)
-    }
+    let scale = (width / size.x).min(height / size.y);
+    size * scale
 }
 
 fn show_placeholder(ui: &mut egui::Ui, state: ImageState, cell: f32) {
@@ -288,21 +403,35 @@ mod tests {
     #[test]
     fn thumbnails_keep_their_aspect_ratio_in_a_square_cell() {
         assert_eq!(
-            fit_in_cell(Vec2::new(200.0, 100.0), 100.0),
+            fit_in_cell(Vec2::new(200.0, 100.0), 100.0, 100.0),
             Vec2::new(100.0, 50.0)
         );
         assert_eq!(
-            fit_in_cell(Vec2::new(100.0, 200.0), 100.0),
+            fit_in_cell(Vec2::new(100.0, 200.0), 100.0, 100.0),
             Vec2::new(50.0, 100.0)
         );
         assert_eq!(
-            fit_in_cell(Vec2::new(100.0, 100.0), 100.0),
+            fit_in_cell(Vec2::new(100.0, 100.0), 100.0, 100.0),
             Vec2::new(100.0, 100.0)
         );
     }
 
+    /// The cell a three-to-two photograph is drawn into is now three to two
+    /// itself, so that photograph fills it and a portrait one is letterboxed.
+    #[test]
+    fn a_matching_photograph_fills_the_cell() {
+        assert_eq!(
+            fit_in_cell(Vec2::new(6000.0, 4000.0), 300.0, 200.0),
+            Vec2::new(300.0, 200.0)
+        );
+
+        let portrait = fit_in_cell(Vec2::new(4000.0, 6000.0), 300.0, 200.0);
+        assert!((portrait.y - 200.0).abs() < 0.01, "{portrait:?}");
+        assert!((portrait.x - 400.0 / 3.0).abs() < 0.01, "{portrait:?}");
+    }
+
     #[test]
     fn a_degenerate_thumbnail_fills_the_cell() {
-        assert_eq!(fit_in_cell(Vec2::ZERO, 64.0), Vec2::splat(64.0));
+        assert_eq!(fit_in_cell(Vec2::ZERO, 64.0, 48.0), Vec2::new(64.0, 48.0));
     }
 }

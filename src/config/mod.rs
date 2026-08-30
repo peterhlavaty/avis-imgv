@@ -262,6 +262,14 @@ pub struct ImageViewConfig {
 pub struct GridViewConfig {
     #[serde(default = "default_images_per_row")]
     pub images_per_row: usize,
+    /// How wide a cell's picture is against its height.
+    ///
+    /// Cells used to be square, which for a folder of landscape photographs
+    /// left about forty-four per cent of the contact sheet drawn in grey.
+    /// 1.5 is the three-to-two most cameras shoot; 1.0 brings the squares
+    /// back.
+    #[serde(default = "default_cell_aspect")]
+    pub cell_aspect: f32,
     #[serde(default = "default_preloaded_rows")]
     pub preloaded_rows: usize,
     /// Longest edge of a decoded thumbnail.
@@ -279,6 +287,10 @@ pub struct GridViewConfig {
     pub sc_more_per_row: Shortcut,
     #[serde(default = "default_sc_less_per_row")]
     pub sc_less_per_row: Shortcut,
+    /// Cycles what is drawn under each thumbnail: nothing, the marks, or the
+    /// marks and the file name.
+    #[serde(default = "default_sc_cycle_badges")]
+    pub sc_cycle_badges: Shortcut,
 }
 
 /// What the slideshow does with a picture while it is up.
@@ -408,6 +420,7 @@ impl Default for GridViewConfig {
     fn default() -> Self {
         GridViewConfig {
             images_per_row: default_images_per_row(),
+            cell_aspect: default_cell_aspect(),
             preloaded_rows: default_preloaded_rows(),
             thumbnail_resolution: default_thumbnail_resolution(),
             gpu_resident_thumbnails: default_gpu_resident_thumbnails(),
@@ -416,6 +429,7 @@ impl Default for GridViewConfig {
             sc_scroll: default_sc_scroll(),
             sc_more_per_row: default_sc_more_per_row(),
             sc_less_per_row: default_sc_less_per_row(),
+            sc_cycle_badges: default_sc_cycle_badges(),
         }
     }
 }

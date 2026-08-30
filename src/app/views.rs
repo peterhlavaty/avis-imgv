@@ -73,11 +73,12 @@ impl App {
         }
 
         if self.mode == Mode::Grid {
-            self.grid_view.ui(ctx);
+            self.ensure_marks();
+            self.grid_view.ui(ctx, &self.marks);
 
             if let Some(path) = self.grid_view.take_selected() {
                 self.image_view.select_path(&path);
-                self.mode = Mode::Image;
+                self.set_mode(Mode::Image);
             }
 
             if let Some(callback) = self.grid_view.take_callback() {

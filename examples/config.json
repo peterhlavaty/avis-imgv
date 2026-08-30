@@ -127,6 +127,7 @@
   },
   "grid_view": {
     "images_per_row": 5,
+    "cell_aspect": 1.5,
     "preloaded_rows": 1,
     "thumbnail_resolution": 512,
     "gpu_resident_thumbnails": 256,
@@ -153,6 +154,12 @@
     "sc_less_per_row": {
       "key": "Minus",
       "modifiers": []
+    },
+    "sc_cycle_badges": {
+      "key": "i",
+      "modifiers": [
+        "ctrl"
+      ]
     }
   },
   "general": {

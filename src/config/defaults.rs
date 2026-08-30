@@ -271,6 +271,17 @@ pub fn default_sc_rating() -> Vec<Shortcut> {
         .collect()
 }
 
+/// Three to two, which is what most cameras shoot and therefore what wastes
+/// the least of a contact sheet.
+pub fn default_cell_aspect() -> f32 {
+    1.5
+}
+
+/// The same key as the overlay on the image itself, so one thing is one key.
+pub fn default_sc_cycle_badges() -> Shortcut {
+    Shortcut::new("i", &[MOD_CTRL])
+}
+
 /// What every file manager and every viewer in the comparison uses.
 pub fn default_sc_delete() -> Shortcut {
     Shortcut::new("delete", &[])

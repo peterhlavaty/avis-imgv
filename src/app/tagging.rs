@@ -3,7 +3,7 @@
 //! Kept apart from the rest of the application because it is the one part that
 //! writes to the user's files.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use eframe::egui;
 
@@ -11,7 +11,7 @@ use crate::annotations::AnnotationStore;
 use crate::metadata::xmp::{Flag, Label, Xmp};
 use crate::ui::tag_panel::{self, Action};
 
-use super::App;
+use super::{App, Mode};
 
 impl App {
     /// Puts `stars` on the image on screen.
@@ -51,17 +51,18 @@ impl App {
     /// The annotations are read from disk first, because marking an image
     /// nobody has read is how the keywords on it get lost.
     fn mark(&mut self, apply: impl FnOnce(&mut AnnotationStore, &Path)) {
-        let Some(path) = self.image_view.active_path() else {
+        let Some(path) = self.marked_path() else {
             return;
         };
 
         self.load_annotations(&path);
         apply(&mut self.annotations, &path);
+        self.refresh_mark(&path);
     }
 
     /// Draws the rating and tagging panel and applies what was clicked.
     pub(super) fn show_tag_panel(&mut self, ctx: &egui::Context) {
-        let Some(path) = self.image_view.active_path() else {
+        let Some(path) = self.marked_path() else {
             return;
         };
 
@@ -115,28 +116,43 @@ impl App {
             }
         }
 
+        self.refresh_mark(&path);
         self.recent_tags.save_if_changed();
+    }
+
+    /// The photograph a mark applies to.
+    ///
+    /// Whichever one is being looked at, which in the contact sheet is the one
+    /// under the keyboard rather than the one the image view was left on:
+    /// rating from the sheet used to rate whatever had last been open in the
+    /// other view.
+    pub(super) fn marked_path(&self) -> Option<PathBuf> {
+        match self.mode {
+            Mode::Grid => self.grid_view.cursor_path(),
+            _ => self.image_view.active_path(),
+        }
     }
 
     /// Loads the annotations for `image`, seeding them from what the file
     /// itself carries.
     ///
-    /// Does nothing until the image has been decoded, because that is when its
-    /// embedded rating becomes known; caching an empty entry before then would
-    /// hide a rating set elsewhere.
+    /// What the file itself carries is only used when the image view is on
+    /// that very photograph, because that is the only one whose decoded
+    /// metadata is to hand. Marking from the contact sheet reads the sidecar
+    /// and nothing else, which is what the store does on a miss anyway.
     fn load_annotations(&mut self, image: &Path) {
         if self.annotations.peek(image).is_some() {
             return;
         }
 
-        let Some(embedded) = self
-            .image_view
-            .active_decoded_metadata()
-            .map(|m| m.xmp.clone())
-        else {
-            return;
-        };
+        let embedded = (self.image_view.active_path().as_deref() == Some(image))
+            .then(|| {
+                self.image_view
+                    .active_decoded_metadata()
+                    .map(|m| m.xmp.clone())
+            })
+            .flatten();
 
-        self.annotations.get(image, Some(&embedded));
+        self.annotations.get(image, embedded.as_ref());
     }
 }

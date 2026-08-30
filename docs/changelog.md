@@ -2,6 +2,17 @@
 
 ## 2026-08-30
 
+- The contact sheet now says what it knows. Stars, flag and colour label under
+  every thumbnail, a red tint over the rejected ones, the file name when asked
+  for (`Ctrl + I` cycles the three), a white outline on the photograph the
+  image view is on and a blue one on the photograph the keyboard is on. The
+  arrow keys walk it, `Home` and `End` jump to the ends, `Enter` opens what is
+  under the cursor — and every marking key now applies to *that* photograph
+  rather than to whatever the other view was last left on.
+- Cells take the shape of the photographs in them rather than being square.
+  A folder of landscape frames used to leave about forty-four per cent of the
+  sheet drawn in grey; `grid_view.cell_aspect` sets it, and 1.0 brings the
+  squares back.
 - **Delete**, which a viewer for choosing photographs had no answer to at all.
   `Delete` sends the picture on screen to the platform's bin — the freedesktop
   specification on Linux, the Recycle Bin on Windows — with its sidecar, as one

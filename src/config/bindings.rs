@@ -268,6 +268,12 @@ pub fn all() -> Vec<Binding> {
             "Fit one fewer, making them larger.",
             grid_view.sc_less_per_row
         ),
+        binding!(
+            "Gallery",
+            "What the cells say",
+            "Cycle what is drawn under each thumbnail: nothing, the marks, or the marks and the file name.",
+            grid_view.sc_cycle_badges
+        ),
     ];
 
     bindings.extend([
@@ -416,6 +422,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 34, "a shortcut was added without a description");
+        assert_eq!(fixed, 35, "a shortcut was added without a description");
     }
 }

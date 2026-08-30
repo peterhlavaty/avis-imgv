@@ -478,9 +478,11 @@ set aside for the full resolution copies, which are 96 MB each.
 | Key | Meaning | Default |
 |-----|---------|---------|
 | `images_per_row` | Thumbnails per row | 5 |
+| `cell_aspect` | How wide a cell's picture is against its height. 1.5 is the three-to-two most cameras shoot; 1.0 brings back the square cells, which for a folder of landscape photographs left about forty-four per cent of the sheet drawn in grey. | 1.5 |
 | `preloaded_rows` | Off-screen rows decoded in each direction | 1 |
 | `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
+| `sc_cycle_badges` | Cycles what is drawn under each thumbnail: nothing, the marks, or the marks and the name | `Ctrl + I` |
 
 ### Raw
 
@@ -566,8 +568,19 @@ half way into a corner and coming back to it later finds it exactly there.
 
 ### Grid view
 
+The contact sheet is where a first pass actually happens, so it says what it
+knows: the stars, the flag and the colour label under every thumbnail, a red
+tint over the rejected ones, the file name when asked for, a white outline on
+the photograph the image view is on and a blue one on the photograph the
+keyboard is on. Every marking key applies to the one under the cursor rather
+than to whatever the other view was last left on.
+
 | Key | Action |
 |-----|--------|
+| Arrow keys | Move the cursor about the sheet |
+| Home / End | First and last picture |
+| Enter | Open the one under the cursor |
+| Ctrl + I | Cycle what the cells say: nothing, the marks, the marks and the name |
 | Space | Scroll down |
 | Click | Open that image in the image view |
 | Ctrl + Scroll | More or fewer thumbnails per row |

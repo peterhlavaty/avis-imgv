@@ -54,7 +54,7 @@ impl App {
     /// The bin needs no asking, because the bin is the asking; deleting for
     /// good does.
     pub(super) fn delete_open_image(&mut self, permanent: bool) {
-        let Some(path) = self.image_view.active_path() else {
+        let Some(path) = self.marked_path() else {
             return;
         };
 
