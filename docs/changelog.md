@@ -2,6 +2,17 @@
 
 ## 2026-08-30
 
+- **The keys, on `?`.** Generated from the same table the key editor writes,
+  so it shows the keys that are actually bound rather than the ones the
+  documentation remembers, and narrowed to what is on screen — the image
+  view's keys are no use while looking at a contact sheet. Any key closes it.
+- **The log goes to a file** beside the configuration, and a panic is written
+  into it with its backtrace before the process ends. A viewer started from a
+  desktop icon has no terminal, so everything it had to say went to a standard
+  error nobody would ever see, and a crash left nothing at all — which is the
+  one moment there is something worth reading. It is still written to the
+  terminal as well when there is one, and started again once it passes a
+  megabyte.
 - **A full resolution copy is only decoded for a photograph that was
   reduced, and only once its ordinary decode has said so.** It used to be
   asked for speculatively, for every photograph within reach, before the

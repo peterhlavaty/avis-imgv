@@ -4,8 +4,6 @@ use std::sync::Arc;
 use avis_imgv::app::App;
 use eframe::egui_wgpu::{WgpuConfiguration, WgpuSetup, WgpuSetupCreateNew};
 use eframe::{wgpu, NativeOptions};
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
 
 const DEVICE_LABEL: &str = "avis-imgv-device";
 
@@ -30,8 +28,12 @@ fn main() {
         return;
     }
 
-    init_tracing();
+    avis_imgv::logging::start();
     tracing::info!("Starting avis-imgv with args: {}", args.join(" "));
+
+    if let Some(log) = avis_imgv::logging::path() {
+        tracing::info!("Logging to {}", log.display());
+    }
 
     match avis_imgv::decoder::raw::version() {
         Some(version) => tracing::info!("Raw development available, LibRaw {version}"),
@@ -48,20 +50,6 @@ fn main() {
         Box::new(move |cc| Ok(Box::new(App::new(cc, slideshow, fullscreen, benchmark)))),
     ) {
         tracing::error!("{e}");
-    }
-}
-
-fn init_tracing() {
-    let level = if cfg!(debug_assertions) {
-        Level::DEBUG
-    } else {
-        Level::INFO
-    };
-
-    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
-
-    if tracing::subscriber::set_global_default(subscriber).is_err() {
-        eprintln!("Failure installing the log subscriber; continuing without logs");
     }
 }
 

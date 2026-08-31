@@ -22,6 +22,7 @@ pub mod config;
 pub mod crawler;
 pub mod decoder;
 pub mod formats;
+pub mod logging;
 pub mod metadata;
 pub mod organize;
 pub mod ui;

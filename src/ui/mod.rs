@@ -1,5 +1,6 @@
 //! Chrome around the images: overlays, panels and the theme.
 
+pub mod cheat_sheet;
 pub mod destinations;
 pub mod filter_bar;
 pub mod keys;

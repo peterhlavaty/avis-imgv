@@ -27,7 +27,7 @@ use crate::organize::journal::Journal;
 use crate::organize::pairs::Pairs;
 use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
-use crate::ui::{filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
+use crate::ui::{cheat_sheet, filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
 use crate::view::image_view::bottom_bar::Marks;
 use crate::view::narrow::Narrowing;
 use crate::view::organize::OrganizeView;
@@ -109,6 +109,13 @@ pub struct App {
     /// touches a file expands through this so that none of them has to know
     /// that pairing exists.
     pairs: Pairs,
+    /// Whether the sheet of keys is up.
+    ///
+    /// Not the editor, which is a settings window: this is the glance-at list
+    /// of what the keys currently are.
+    cheat_sheet_visible: bool,
+    /// Set on the frame it was opened, so that frame's key does not close it.
+    cheat_sheet_opened: bool,
     /// The keywords this folder has been seen to use, and the revision of the
     /// annotations they were read at.
     ///
@@ -207,6 +214,8 @@ impl App {
             filter_visible: false,
             marks: Vec::new(),
             pairs: Pairs::default(),
+            cheat_sheet_visible: false,
+            cheat_sheet_opened: false,
             seen_tags: (None, Vec::new()),
         };
 
@@ -474,6 +483,12 @@ impl App {
             Command::CopyTo => self.send_somewhere(Errand::Copy),
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
+            Command::ShowKeys => {
+                self.cheat_sheet_visible = !self.cheat_sheet_visible;
+                // The key that opened it is still going down this frame, and
+                // any key closes it.
+                self.cheat_sheet_opened = self.cheat_sheet_visible;
+            }
             Command::ToggleFilter => {
                 self.filter_visible = !self.filter_visible;
             }
@@ -578,6 +593,11 @@ impl eframe::App for App {
 
         if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode) {
             self.handle_menu(action);
+        }
+
+        if self.cheat_sheet_visible {
+            let just_opened = std::mem::take(&mut self.cheat_sheet_opened);
+            self.cheat_sheet_visible = cheat_sheet::ui(ctx, &self.settings, self.mode, just_opened);
         }
 
         self.show_filter_bar(ctx);

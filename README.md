@@ -668,6 +668,7 @@ break the pairing it depends on.
 | T | Directory tree |
 | Ctrl + F | Flatten (read files from all sub directories) |
 | Ctrl + W | Watch the directory for files appearing, changing or going |
+| ? | The keys, for whatever is on screen |
 | I | Toggle the side panel: metadata and cache occupancy |
 | K | Toggle the rating and tagging panel |
 | 0 – 5 | Set the star rating of the open image |

@@ -47,6 +47,8 @@ pub enum Command {
     ToRejectedFolder,
     /// Put back whatever the last thing did.
     Undo,
+    /// Show the keys, for the mode that is on screen.
+    ShowKeys,
 }
 
 impl Command {
@@ -87,6 +89,17 @@ pub fn collect(
 
     if ctx.input(|i| i.key_pressed(egui::Key::F10)) {
         commands.push(Command::ToggleMetrics);
+    }
+
+    // Not a configurable binding: it is the key every program uses for this,
+    // and somebody who cannot remember the keys cannot look up the key for
+    // looking up the keys.
+    //
+    // Only the question mark. F1 was the obvious companion and is already the
+    // menu — which is exactly the kind of thing the startup clash warning
+    // exists to catch, and it caught this one.
+    if ctx.input(|i| i.key_pressed(egui::Key::Questionmark)) {
+        commands.push(Command::ShowKeys);
     }
 
     let bindings = [
