@@ -159,6 +159,10 @@ fn one_group(ui: &mut egui::Ui, view: &mut OrganizeView, index: usize) -> Option
 
             let height = view.thumbnail_height;
 
+            // Which of them looked sharpest, which is the question a burst is
+            // actually asking and the one a sheet of thumbnails cannot answer.
+            let sharpest = view.groups[index].sharpest();
+
             // The frames of a group are what the eye compares, so they go
             // side by side and wrap rather than down a list.
             ui.horizontal_wrapped(|ui| {
@@ -180,6 +184,18 @@ fn one_group(ui: &mut egui::Ui, view: &mut OrganizeView, index: usize) -> Option
                                     group: index,
                                     member,
                                 });
+                            }
+
+                            if let Some(found) = entry.sharpness {
+                                let sharpest = sharpest == Some(member);
+                                let text = egui::RichText::new(format!("◈ {:.1}", found.score()));
+
+                                ui.label(if sharpest { text.strong() } else { text.weak() })
+                                    .on_hover_text(if sharpest {
+                                        "The sharpest of this group"
+                                    } else {
+                                        "How sharp it looked, for comparing with the others"
+                                    });
                             }
 
                             ui.label(entry.name()).on_hover_text(
@@ -225,6 +241,19 @@ fn loose(ui: &mut egui::Ui, view: &mut OrganizeView) -> Option<Change> {
                         );
 
                         ui.horizontal(|ui| {
+                            // No group to be the sharpest of, but the number
+                            // is what the sharpness sort orders by, and a sort
+                            // key nobody can see the value of is hard to
+                            // trust.
+                            if let Some(found) = entry.sharpness {
+                                ui.label(
+                                    egui::RichText::new(format!("◈ {:.1}", found.score())).weak(),
+                                )
+                                .on_hover_text(
+                                    "How sharp it looked, for comparing with frames of the                                      same scene",
+                                );
+                            }
+
                             ui.label(entry.name()).on_hover_text(
                                 entry
                                     .captured()

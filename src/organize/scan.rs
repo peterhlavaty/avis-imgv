@@ -22,6 +22,7 @@ use crate::metadata::dates::{self, DateField};
 use crate::metadata::xmp::Xmp;
 use crate::metadata::Metadata;
 
+use super::sharpness::{self, Sharpness};
 use super::similarity::{self, Fingerprint};
 use super::Entry;
 
@@ -42,6 +43,8 @@ pub struct Read {
     pub dates: Vec<DateField>,
     pub fingerprint: Option<Fingerprint>,
     pub thumbnail: Option<Arc<RgbaImage>>,
+    /// How sharp it looked, from that same thumbnail.
+    pub sharpness: Option<Sharpness>,
 }
 
 /// A folder being read, in the background.
@@ -115,6 +118,7 @@ impl Scan {
                 entry.dates = read.dates;
                 entry.fingerprint = read.fingerprint;
                 entry.thumbnail = read.thumbnail;
+                entry.sharpness = read.sharpness;
             }
 
             arrived = true;
@@ -157,6 +161,11 @@ fn read(path: &PathBuf) -> Option<Read> {
     let thumbnail = parsed.thumbnail.and_then(decode_thumbnail).map(Arc::new);
     let fingerprint = thumbnail.as_deref().and_then(similarity::fingerprint);
 
+    // Measured here, on the worker that already has the pixels: the thumbnail
+    // is decoded once for the fingerprint and thrown away, and reading the
+    // folder again to answer a question about focus would cost minutes.
+    let sharpness = thumbnail.as_deref().and_then(sharpness::measure);
+
     let mut metadata = parsed.metadata;
     metadata.add_file_tags(path, size as usize);
 
@@ -172,6 +181,7 @@ fn read(path: &PathBuf) -> Option<Read> {
         dates: dates::fields(&head, format),
         fingerprint,
         thumbnail,
+        sharpness,
     })
 }
 

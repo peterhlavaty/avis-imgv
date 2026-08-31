@@ -2,6 +2,19 @@
 
 ## 2026-08-30
 
+- **A sharpness score, and the sharpest frame of a burst marked.** Choosing
+  between five frames of the same thing is mostly one question — which is in
+  focus — and it is the question a contact sheet is worst at answering, because
+  at thumbnail size everything looks acceptable. Measured on the folder scan's
+  worker from the thumbnail it already decodes, so it costs nothing extra, and
+  shown beside each frame with the sharpest of a group in bold. It is also a
+  sort key.
+
+  Deliberately never used to decide anything: a photograph of a wall outscores
+  a portrait at f/1.4 and the portrait is the keeper. What a number does well
+  is rank *frames of the same scene*, where the only thing that differs is the
+  focus. A file with no thumbnail to measure has no score rather than a zero,
+  which would sort it in among the blurred ones.
 - **What the photograph says about itself, on the photograph.** `O` moves it
   round the corners and off again. The status bar has the same information and
   is in the wrong place for it: a viewer running fullscreen for a slideshow or

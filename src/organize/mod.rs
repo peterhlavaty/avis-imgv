@@ -14,6 +14,7 @@ pub mod journal;
 pub mod pairs;
 pub mod rename;
 pub mod scan;
+pub mod sharpness;
 pub mod similarity;
 pub mod sort;
 pub mod timeshift;
@@ -58,6 +59,9 @@ pub struct Entry {
     /// The camera's thumbnail itself, for the panels that show it. Shared
     /// rather than copied: the entries are cloned into every filtered list.
     pub thumbnail: Option<Arc<RgbaImage>>,
+    /// How sharp it looked, for ranking the frames of one scene against each
+    /// other. Absent for a file with no thumbnail to measure.
+    pub sharpness: Option<sharpness::Sharpness>,
 }
 
 impl Entry {
@@ -183,6 +187,7 @@ pub(crate) mod test_support {
             dates: Vec::new(),
             fingerprint: None,
             thumbnail: None,
+            sharpness: None,
         }
     }
 

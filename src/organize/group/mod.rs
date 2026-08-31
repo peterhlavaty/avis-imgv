@@ -23,6 +23,7 @@ pub use classify::Kind;
 
 use crate::metadata::datetime::Timestamp;
 
+use super::sharpness;
 use super::Entry;
 
 /// How the folder should be read.
@@ -95,6 +96,37 @@ impl Group {
         let last = self.members.last().and_then(Entry::captured)?;
 
         Some((last.to_seconds() - first.to_seconds()) as f64)
+    }
+
+    /// Which frame of this group looked sharpest.
+    ///
+    /// The one question a burst is really asking, and the one a contact sheet
+    /// is worst at answering: at thumbnail size five frames of the same thing
+    /// all look acceptable. Comparing them is what the measure is actually
+    /// good for — they are the same scene at the same size a second apart, so
+    /// the only thing that differs is the focus.
+    ///
+    /// `None` when nothing in the group could be measured, rather than the
+    /// first frame by default: offering an arbitrary frame as "the sharpest"
+    /// would be worse than offering none.
+    /// On a tie the earlier frame wins, which is written out rather than left
+    /// to whichever way `max_by` happens to break one: two frames that measure
+    /// the same are the same, and the one taken first is the one a person
+    /// would have been offered anyway.
+    pub fn sharpest(&self) -> Option<usize> {
+        let mut best: Option<(usize, sharpness::Sharpness)> = None;
+
+        for (at, entry) in self.members.iter().enumerate() {
+            let Some(found) = entry.sharpness else {
+                continue;
+            };
+
+            if best.is_none_or(|(_, sharpest)| found.value() > sharpest.value()) {
+                best = Some((at, found));
+            }
+        }
+
+        best.map(|(at, _)| at)
     }
 
     /// A sentence for the group's header.
@@ -204,6 +236,36 @@ mod tests {
 
     fn names(group: &Group) -> Vec<&str> {
         group.members.iter().map(Entry::name).collect()
+    }
+
+    /// The question a burst is really asking.
+    #[test]
+    fn the_sharpest_frame_of_a_group_is_found() {
+        let mut members = vec![
+            frame("a.jpg", 0, 1),
+            frame("b.jpg", 1, 1),
+            frame("c.jpg", 2, 1),
+        ];
+
+        members[0].sharpness = Some(sharpness::Sharpness::default());
+        members[2].sharpness = Some(sharpness::Sharpness::default());
+
+        // Nothing measured yet on the middle one, and the two that were are
+        // equal, so the first of them wins.
+        let group = Group::new(Kind::Series, members.clone());
+        assert_eq!(group.sharpest(), Some(0));
+    }
+
+    /// Nothing measurable is `None` rather than the first frame: offering an
+    /// arbitrary frame as the sharpest is worse than offering none.
+    #[test]
+    fn a_group_nothing_could_be_measured_in_has_no_sharpest() {
+        let group = Group::new(
+            Kind::Series,
+            vec![frame("a.jpg", 0, 1), frame("b.jpg", 1, 1)],
+        );
+
+        assert!(group.sharpest().is_none());
     }
 
     #[test]

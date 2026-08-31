@@ -22,6 +22,12 @@ pub enum SortKey {
     /// When the shutter opened, with unscanned and undated files last.
     Captured,
     Rating,
+    /// How sharp it looked, sharpest first when descending.
+    ///
+    /// A ranking rather than a measurement: it tells the frames of one scene
+    /// apart and says nothing useful about a wall against a portrait. See
+    /// [`crate::organize::sharpness`].
+    Sharpness,
     /// Any metadata tag, by its exiftool name.
     Metadata(String),
 }
@@ -34,6 +40,7 @@ impl SortKey {
         SortKey::Extension,
         SortKey::Size,
         SortKey::Rating,
+        SortKey::Sharpness,
     ];
 
     pub fn label(&self) -> &str {
@@ -43,6 +50,7 @@ impl SortKey {
             SortKey::Size => "Size",
             SortKey::Captured => "Capture time",
             SortKey::Rating => "Rating",
+            SortKey::Sharpness => "Sharpness",
             SortKey::Metadata(tag) => tag,
         }
     }
@@ -103,6 +111,10 @@ pub fn sort(entries: &mut [Entry], key: &SortKey, direction: Direction) {
 fn has_value(entry: &Entry, key: &SortKey) -> bool {
     match key {
         SortKey::Captured => entry.captured().is_some(),
+        // A file the scan has not reached, or one with no thumbnail to
+        // measure, has no sharpness — and sorting it in among the blurred
+        // ones would be a lie about a photograph nobody has looked at.
+        SortKey::Sharpness => entry.sharpness.is_some(),
         SortKey::Metadata(tag) => entry.tag(tag).is_some(),
         // Every file has a name, a type, a size and a rating.
         _ => true,
@@ -120,6 +132,10 @@ fn compare(a: &Entry, b: &Entry, key: &SortKey) -> Ordering {
         SortKey::Size => a.size.cmp(&b.size),
         SortKey::Rating => a.rating().cmp(&b.rating()),
         SortKey::Captured => a.captured().cmp(&b.captured()),
+        SortKey::Sharpness => a
+            .sharpness
+            .partial_cmp(&b.sharpness)
+            .unwrap_or(Ordering::Equal),
         SortKey::Metadata(tag) => match (a.tag(tag), b.tag(tag)) {
             (Some(a), Some(b)) => values(a, b),
             _ => Ordering::Equal,
