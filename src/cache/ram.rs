@@ -125,6 +125,7 @@ mod tests {
                 width: 1,
                 height,
             },
+            histogram: crate::decoder::histogram::Histogram::default(),
             full_size: (1, height),
             orientation: crate::metadata::Orientation::Normal,
             metadata: Metadata::default(),

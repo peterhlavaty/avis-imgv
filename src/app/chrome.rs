@@ -116,6 +116,10 @@ impl App {
                         self.image_view.active_metadata(),
                         &self.config.metadata_tags,
                     );
+
+                    if let Some(found) = self.image_view.active_histogram() {
+                        crate::ui::histogram::show(ui, found);
+                    }
                     ui.add_space(20.);
                     ui.separator();
                     panels::cache_stats(ui, &self.image_view.stats(), &self.grid_view.stats());

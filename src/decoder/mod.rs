@@ -7,6 +7,7 @@
 
 pub mod codec;
 pub mod color;
+pub mod histogram;
 pub mod preview;
 pub mod raw;
 pub mod resize;
@@ -58,6 +59,12 @@ impl Surface {
 /// [`full_size`]: Self::full_size
 pub struct DecodedImage {
     pub surface: Surface,
+    /// How its tones are distributed, and how much of it has clipped.
+    ///
+    /// Counted on the worker while the pixels are already in hand, which is
+    /// what makes "how much of this frame is blown" a question the whole
+    /// folder can answer rather than only the photograph on screen.
+    pub histogram: histogram::Histogram,
     /// Size of the image itself, which `surface` may be a reduction of.
     pub full_size: (u32, u32),
     /// How the pixels have to be turned to be shown upright.
@@ -322,9 +329,17 @@ fn into_decoded(
         None => Surface::from_image(image),
     };
 
+    // Counted on the copy that goes to the screen rather than the full
+    // resolution one. A histogram is a shape and a proportion, and neither
+    // moves meaningfully between a photograph and the same photograph at a
+    // third the size — while the difference in cost is what makes counting
+    // every photograph in a folder affordable at all.
+    let histogram = histogram::Histogram::of(&surface.pixels);
+
     DecodedImage {
         orientation: metadata.orientation,
         surface,
+        histogram,
         full_size,
         metadata,
     }

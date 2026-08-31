@@ -333,6 +333,15 @@ impl ImageStore {
     ///
     /// The second arrives within a couple of milliseconds of the image being
     /// asked for, so the side panel is never blank for long.
+    /// How this photograph's tones are distributed, once it is decoded.
+    ///
+    /// From the decode rather than computed here: the worker already had the
+    /// pixels, and the UI thread should not walk twenty-four million of them
+    /// to draw a curve two hundred pixels wide.
+    pub fn histogram(&self, index: usize) -> Option<&crate::decoder::histogram::Histogram> {
+        Some(&self.ram.get(index)?.histogram)
+    }
+
     pub fn metadata(&self, index: usize) -> Option<&Metadata> {
         if let Some(image) = self.ram.get(index) {
             return Some(&image.metadata);

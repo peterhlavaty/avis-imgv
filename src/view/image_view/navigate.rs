@@ -105,6 +105,11 @@ impl ImageView {
         self.store.path(self.cursor).map(Path::to_path_buf)
     }
 
+    /// The tones of the photograph on screen, for the side panel.
+    pub fn active_histogram(&self) -> Option<&crate::decoder::histogram::Histogram> {
+        self.store.histogram(self.cursor)
+    }
+
     pub fn active_metadata(&self) -> Option<&Metadata> {
         self.store.metadata(self.cursor)
     }

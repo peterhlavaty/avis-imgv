@@ -3,6 +3,7 @@
 pub mod cheat_sheet;
 pub mod destinations;
 pub mod filter_bar;
+pub mod histogram;
 pub mod keys;
 pub mod navigator;
 pub mod notice;

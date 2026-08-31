@@ -2,6 +2,17 @@
 
 ## 2026-08-30
 
+- **A histogram, and how much of the frame has gone.** Three channels and a
+  brightness fill in the side panel, with the two numbers a screen cannot
+  show: what proportion of the photograph has clipped at each end. A monitor
+  renders 250 and 255 as the same white, so "is that sky recoverable" is a
+  question the picture itself cannot answer.
+
+  Counted on the decode workers, which already touch every pixel of every
+  photograph in the folder — so it costs about three per cent of throughput
+  and it is known for the whole folder rather than for the frame on screen.
+  Getting there took fixed-point luminance: the same sum in floating point,
+  with a round, cost fifteen per cent.
 - **A sharpness score, and the sharpest frame of a burst marked.** Choosing
   between five frames of the same thing is mostly one question — which is in
   focus — and it is the question a contact sheet is worst at answering, because
