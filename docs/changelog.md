@@ -2,6 +2,14 @@
 
 ## 2026-08-30
 
+- **One template grammar instead of two.** The status bar took
+  `$( • ƒ#Aperture#)` and the bulk rename took `{date}_{n}`, each with a
+  vocabulary the other could not reach — so a rename could not put a
+  photograph's ISO in a name without a differently spelled placeholder, and
+  the status bar could not say a capture date at all. There is one now, it
+  understands both spellings so every template anybody has written still means
+  what it meant, and it knows a good deal more: the exposure, the lens, the
+  camera, the size, the marks, and every part of the capture time.
 - **CI on Windows and macOS as well as Linux, and on every branch.** A viewer
   is not much use if it only builds where it was written, and the two things
   that differ across platforms — path handling and the bin — are exactly what

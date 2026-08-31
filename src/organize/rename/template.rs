@@ -29,103 +29,31 @@ pub(super) fn sanitize(name: &str) -> String {
 
 /// Expands the placeholders in `template` for one file.
 ///
-/// `{{` and `}}` are literal braces, the way they are in a format string. An
-/// unknown or unavailable placeholder expands to nothing, so one template can
-/// serve a folder where only some of the files carry a given tag.
+/// The grammar lives in [`crate::metadata::template`], shared with the status
+/// bar, the captions and the overlay — there used to be two of them, spelled
+/// differently, and a rename could not reach half of what a caption could say.
 pub(super) fn render(template: &str, entry: &Entry, counter: usize, digits: usize) -> String {
-    let mut out = String::with_capacity(template.len() + 16);
-    let mut chars = template.chars().peekable();
+    let mut subject = crate::metadata::template::Subject::new(&entry.path)
+        .with_counter(counter, digits)
+        .with_annotations(&entry.annotations);
 
-    while let Some(c) = chars.next() {
-        if c == '}' {
-            if chars.peek() == Some(&'}') {
-                chars.next();
-            }
-            out.push('}');
-            continue;
-        }
-
-        if c != '{' {
-            out.push(c);
-            continue;
-        }
-
-        if chars.peek() == Some(&'{') {
-            chars.next();
-            out.push('{');
-            continue;
-        }
-
-        let mut token = String::new();
-        let mut closed = false;
-
-        for c in chars.by_ref() {
-            if c == '}' {
-                closed = true;
-                break;
-            }
-            token.push(c);
-        }
-
-        // An unclosed brace is a half typed template, not an error worth
-        // stopping for; the preview shows what it currently means.
-        if !closed {
-            out.push('{');
-            out.push_str(&token);
-            break;
-        }
-
-        out.push_str(&expand(&token, entry, counter, digits));
+    if let Some(metadata) = entry.metadata.as_ref() {
+        subject = subject.with_metadata(metadata);
     }
 
-    out
-}
-
-/// One placeholder's value.
-fn expand(token: &str, entry: &Entry, counter: usize, digits: usize) -> String {
-    let token = token.trim();
-
-    if let Some(tag) = token.strip_prefix("tag:") {
-        return entry.tag(tag.trim()).unwrap_or_default().to_string();
+    if entry.size > 0 {
+        subject = subject.with_size(entry.size);
     }
 
-    match token.to_ascii_lowercase().as_str() {
-        "name" => entry.stem().to_string(),
-        "ext" => entry.extension(),
-        "counter" | "n" => format!("{counter:0digits$}"),
-        "date" => entry.captured().map(|at| at.to_date()).unwrap_or_default(),
-        "time" => entry.captured().map(|at| at.to_time()).unwrap_or_default(),
-        "datetime" => entry
-            .captured()
-            .map(|at| format!("{}_{}", at.to_date(), at.to_time()))
-            .unwrap_or_default(),
-        "year" => entry
-            .captured()
-            .map(|at| format!("{:04}", at.year))
-            .unwrap_or_default(),
-        "month" => entry
-            .captured()
-            .map(|at| format!("{:02}", at.month))
-            .unwrap_or_default(),
-        "day" => entry
-            .captured()
-            .map(|at| format!("{:02}", at.day))
-            .unwrap_or_default(),
-        _ => String::new(),
-    }
+    crate::metadata::template::render(template, &subject)
 }
 
 /// The placeholders, for the help text beside the template box.
-pub const PLACEHOLDERS: &[(&str, &str)] = &[
-    ("{name}", "the name it has now, without the extension"),
-    ("{counter}", "the number, padded to the digits set below"),
-    ("{date}", "capture date, as 2024-11-06"),
-    ("{time}", "capture time, as 22-07-19"),
-    ("{datetime}", "both, joined by an underscore"),
-    ("{year} {month} {day}", "parts of the capture date"),
-    ("{tag:Name}", "any metadata tag, such as {tag:ISO}"),
-    ("{{ }}", "a literal brace"),
-];
+///
+/// The grammar's own list: the rename shares it with the status bar, the
+/// captions and the overlay, so there is one vocabulary to learn and one place
+/// it is written down.
+pub use crate::metadata::template::PLACEHOLDERS;
 
 #[cfg(test)]
 mod tests {

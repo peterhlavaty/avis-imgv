@@ -296,18 +296,40 @@ order matters: it is what the counter in a rename follows.
 star rating, and keywords the file must or must not carry. Every rule is empty
 by default, and rules combine with "and".
 
-### Bulk rename
+### Templates
 
-A name is a template: literal text, with `{...}` for the parts that differ.
+One grammar, used by the bulk rename, the status bar line and anywhere else the
+viewer builds a sentence about a photograph: literal text, with `{...}` for the
+parts that differ.
 
 | Placeholder | Becomes |
 |-------------|---------|
-| `{name}` | the name it has now, without the extension |
-| `{counter}` | the number, padded to the digits you set |
+| `{name}` `{ext}` `{folder}` | the parts of where it is |
+| `{counter}` | the number, padded to the digits you set (rename only) |
 | `{date}` `{time}` `{datetime}` | the capture time, as `2024-11-06`, `22-07-19`, or both |
 | `{year}` `{month}` `{day}` | parts of the capture date |
+| `{hour}` `{minute}` `{second}` | parts of the capture time |
+| `{iso}` `{aperture}` `{shutter}` | how it was exposed |
+| `{focal}` `{lens}` `{camera}` | what it was taken with |
+| `{dimensions}` `{size}` | how big it is |
+| `{stars}` `{rating}` `{flag}` `{label}` `{keywords}` | what you put on it |
 | `{tag:Name}` | any metadata tag, such as `{tag:ISO}` |
+| `$( … )` | kept only when what is inside it resolves |
 | `{{` `}}` | a literal brace |
+
+Anything a photograph cannot answer expands to nothing, so one template serves a
+folder where only some of the pictures carry a lens name.
+
+`$( … )` is what makes that bearable in a line rather than a file name. A
+separator you cannot suppress leaves ` • •  • ` on a photograph that answers
+nothing, so the literal text inside a group goes with the value it was
+decorating: `{name}$( • {iso} ISO)` gives `IMG_1234 • 400 ISO` where there is an
+ISO and `IMG_1234` where there is not.
+
+The older `#Tag#` spelling still works and means `{tag:Tag}`, so a
+`name_format` written before this still says what it said.
+
+#### Bulk rename
 
 `holiday_{date}_{counter}` gives `holiday_2024-11-06_0001.jpg`. The counter's
 first number, its step and its width are all set beside the template, and the

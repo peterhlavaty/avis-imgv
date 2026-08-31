@@ -14,6 +14,7 @@ pub mod labels;
 pub mod orientation;
 pub mod print;
 pub mod tags;
+pub mod template;
 pub mod text;
 pub mod tiff;
 pub mod value;
@@ -26,7 +27,7 @@ use tags::IfdKind;
 use tiff::{Ifd, Tiff};
 
 pub use orientation::Orientation;
-pub use text::{format_string_with_metadata, group_raw_jpg_paths};
+pub use text::group_raw_jpg_paths;
 
 /// Display name of the tag holding the colour profile name.
 pub const PROFILE_DESCRIPTION: &str = "Profile Description";

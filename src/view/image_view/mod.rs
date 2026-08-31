@@ -586,7 +586,15 @@ impl ImageView {
             return metadata.tags.get("File Name").cloned().unwrap_or_default();
         }
 
-        crate::metadata::format_string_with_metadata(&self.config.name_format, &metadata.tags)
+        // The same grammar the rename and the captions use, so a status bar
+        // line can say anything a file name can and the other way round.
+        let Some(path) = self.store.path(self.cursor) else {
+            return String::new();
+        };
+
+        let subject = crate::metadata::template::Subject::new(path).with_metadata(metadata);
+
+        crate::metadata::template::render(&self.config.name_format, &subject)
     }
 
     /// Scroll and drag over the image: navigation, zoom and panning.
