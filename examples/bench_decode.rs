@@ -123,7 +123,7 @@ fn run(path: &Path) -> Option<Timing> {
     timing.decode = started.elapsed();
 
     let started = Instant::now();
-    image = resize::to_max_edge(image, None);
+    image = resize::to_max_edge(image, None, resize::Alpha::of(source_format));
     timing.resize = started.elapsed();
 
     let started = Instant::now();

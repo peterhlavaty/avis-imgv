@@ -237,7 +237,12 @@ pub fn decode(
         },
     };
 
-    image = resize::to_max_edge(image, options.max_edge);
+    // What the file could hold, not what these pixels happen to hold: a JPEG
+    // and a raw cannot be transparent, and asking the pixels costs a pass over
+    // all of them.
+    let alpha = resize::Alpha::of(format);
+
+    image = resize::to_max_edge(image, options.max_edge, alpha);
     color::convert(&mut image, &metadata, &options.output_profile);
 
     // A format that hands back upright pixels has nothing to turn, whatever
@@ -260,7 +265,7 @@ pub fn decode(
         metadata.note_preview(shown, full);
     }
 
-    Ok(into_decoded(image, metadata, options.display_edge))
+    Ok(into_decoded(image, metadata, options.display_edge, alpha))
 }
 
 /// Width the image is shown at, which a quarter turn swaps.
@@ -300,14 +305,19 @@ fn develop_raw(bytes: &[u8], format: Option<Format>, options: &DecodeOptions) ->
     }
 }
 
-fn into_decoded(image: RgbaImage, metadata: Metadata, display_edge: Option<u32>) -> DecodedImage {
+fn into_decoded(
+    image: RgbaImage,
+    metadata: Metadata,
+    display_edge: Option<u32>,
+    alpha: resize::Alpha,
+) -> DecodedImage {
     let full_size = (image.width(), image.height());
 
     // Reduced here, on the worker, rather than at upload time: there are eight
     // workers and one UI thread, and the UI thread is the one that has to keep
     // up with the user. The full sized buffer is dropped with `image`, which
     // is the point — a folder of these is what fills memory.
-    let surface = match display_edge.and_then(|edge| resize::reduced(&image, edge)) {
+    let surface = match display_edge.and_then(|edge| resize::reduced(&image, edge, alpha)) {
         Some(reduced) => Surface::from_image(reduced),
         None => Surface::from_image(image),
     };

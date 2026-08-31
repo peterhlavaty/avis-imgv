@@ -22,6 +22,26 @@ pub enum Format {
     Raw,
 }
 
+impl Format {
+    /// Whether a file of this format can carry pixels that are not opaque.
+    ///
+    /// Resampling has to be done on premultiplied values wherever the alpha
+    /// varies, and finding out whether it varies costs a pass over every pixel
+    /// — measured at five per cent of the viewer's throughput on a folder of
+    /// photographs, every one of which is opaque. A JPEG and a raw file cannot
+    /// be anything else, so for the formats people actually photograph in the
+    /// question is answered here for nothing.
+    pub fn may_have_alpha(self) -> bool {
+        match self {
+            Format::Jpeg | Format::Raw => false,
+            Format::Png | Format::Webp | Format::Gif | Format::Bmp | Format::Tiff => true,
+            // Supports alpha, and is rare enough that the pass costs nothing
+            // anybody will notice.
+            Format::JpegXl => true,
+        }
+    }
+}
+
 /// Extensions of camera raw formats. TIFF is deliberately absent: it is a
 /// first class image format that merely doubles as a raw container.
 pub const RAW_EXTENSIONS: &[&str] = &[

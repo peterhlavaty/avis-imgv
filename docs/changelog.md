@@ -2,6 +2,16 @@
 
 ## 2026-08-30
 
+- Fixed: downscaling ignored the alpha channel, so the colour hiding under a
+  transparent pixel — arbitrary, and in a lot of PNGs black — bled into its
+  neighbours and left a dark halo around every soft edge. It resamples on
+  premultiplied values now wherever the alpha is not uniform. Whether it is
+  uniform is answered by the format where the format can answer it: a JPEG and
+  a raw cannot be transparent, and asking the pixels instead costs a pass over
+  all of them, measured at five per cent of the viewer's throughput.
+- Fixed: the side panel reported the size of the part of the file that had
+  been read rather than the size of the file. Only half a megabyte is ever
+  read to get the metadata, so every raw file claimed to be 512 kB.
 - **A folder that links back to itself is crawled once.** Testing whether
   something is a directory follows links, so a symbolic link or a Windows
   junction pointing at one of its own ancestors sent a flattened crawl round

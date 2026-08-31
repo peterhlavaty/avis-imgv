@@ -73,7 +73,10 @@ pub fn load(path: &Path) -> Option<Preview> {
                 .unwrap_or((0, 0))
         });
 
-    metadata.add_file_tags(path, head.len());
+    // The file's own length, not the length of the part of it that was read.
+    // Half a megabyte is all that is ever read here, so every raw file in the
+    // side panel used to claim to be 512 kB.
+    metadata.add_file_tags(path, byte_len(path));
 
     Some(Preview {
         metadata,
@@ -94,6 +97,16 @@ pub fn head(path: &Path) -> Option<Vec<u8>> {
 }
 
 /// Reads at most [`HEAD_BYTES`] from the front of the file.
+/// How big the file actually is, or nought when it cannot be asked.
+///
+/// Nought rather than a guess: a size that is missing is obvious, and a size
+/// that is wrong is believed.
+fn byte_len(path: &Path) -> usize {
+    std::fs::metadata(path)
+        .map(|file| file.len() as usize)
+        .unwrap_or(0)
+}
+
 fn read_head(path: &Path) -> Option<Vec<u8>> {
     let file = File::open(path)
         .map_err(|e| tracing::debug!("{} could not be opened: {e}", path.display()))
