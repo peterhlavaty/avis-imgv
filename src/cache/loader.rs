@@ -105,7 +105,14 @@ pub struct Loader {
 
 impl Loader {
     /// Starts `worker_count` threads. Zero means "pick a sensible number".
+    ///
+    /// The number arrives from the configuration file and every spawn is
+    /// `expect`ed, so a thousand decode threads used to be a panic with no
+    /// message. The cap is here rather than in `Config` because the file keeps
+    /// what it says and the consumer refuses to act on the impossible part of
+    /// it.
     pub fn new(worker_count: usize) -> Loader {
+        let worker_count = worker_count.min(MAX_WORKERS);
         let worker_count = if worker_count == 0 {
             default_worker_count()
         } else {
@@ -130,6 +137,11 @@ impl Loader {
             .collect();
 
         Loader { shared, workers }
+    }
+
+    /// How many decode threads are actually running.
+    pub fn worker_count(&self) -> usize {
+        self.workers.len()
     }
 
     /// Queues an image for decoding.
@@ -251,6 +263,12 @@ fn next_request(shared: &Shared) -> Option<Request> {
 /// peak memory. `decode_threads` overrides this either way.
 const MAX_DEFAULT_WORKERS: usize = 8;
 
+/// The most threads a configuration file can ask for.
+///
+/// Far past anything useful — the measurements above say eight — and low
+/// enough that the pool starts. What it is really defending against is a typo.
+pub const MAX_WORKERS: usize = 64;
+
 /// Leaves a core for the UI thread so navigation stays responsive while a
 /// folder is being read.
 fn default_worker_count() -> usize {
@@ -331,5 +349,21 @@ mod tests {
             .expect("worker reported back");
 
         assert!(matches!(result.outcome, Loaded::Abandoned));
+    }
+
+    /// A typo in the configuration file used to be a panic with no message.
+    #[test]
+    fn a_thousand_threads_is_a_pool_that_starts() {
+        let loader = Loader::new(1000);
+
+        assert_eq!(loader.worker_count(), MAX_WORKERS);
+    }
+
+    #[test]
+    fn zero_threads_picks_a_number() {
+        let loader = Loader::new(0);
+
+        assert!(loader.worker_count() >= 1);
+        assert!(loader.worker_count() <= MAX_DEFAULT_WORKERS);
     }
 }

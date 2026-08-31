@@ -99,6 +99,12 @@ pub fn slideshow_settings(
                     .add(
                         egui::DragValue::new(&mut config.seconds_per_image)
                             .range(1..=600)
+                            // Off, everywhere. egui clamps the value it is
+                            // handed whether or not anybody edited it, writes
+                            // the clamped number back through the borrowed
+                            // reference and then reports a change — so opening
+                            // this window rewrote a hand-written 900 to 600.
+                            .clamp_existing_to_range(false)
                             .suffix(" s"),
                     )
                     .changed();
@@ -124,6 +130,7 @@ pub fn slideshow_settings(
                         .add(
                             egui::DragValue::new(&mut config.percent_zoom)
                                 .range(0.0..=200.0)
+                                .clamp_existing_to_range(false)
                                 .suffix(" %"),
                         )
                         .changed();

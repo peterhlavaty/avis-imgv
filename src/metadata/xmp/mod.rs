@@ -147,9 +147,10 @@ impl Label {
 
     /// Recognises a label written by this viewer or by another program.
     ///
-    /// Bridge ships a second set of names for the same five colours, and
-    /// Lightroom a third; all of them are matched, so a frame labelled
-    /// elsewhere shows its colour here.
+    /// Bridge ships a second set of names for the same five colours, and this
+    /// viewer adds three workflow words of its own; all of them are matched, so
+    /// a frame labelled elsewhere shows its colour here. The first match wins,
+    /// so no name may stand against two colours.
     pub fn of(text: &str) -> Option<Label> {
         let text = text.trim();
 
@@ -162,10 +163,17 @@ impl Label {
         })
     }
 
-    /// What Bridge and Lightroom call the same colour.
+    /// What Bridge calls the same colour, and the workflow words beside them.
+    ///
+    /// "To Do" is Bridge's purple. It was listed against red as well, which
+    /// made purple's entry unreachable — `of` returns the first match — so a
+    /// frame labelled "To Do" by Bridge drew red here. Red keeps the name
+    /// Bridge actually gives it, "Select". The three workflow words are this
+    /// viewer's own; no source attributes them to Lightroom, whose default
+    /// label set is the five colour names themselves.
     fn aliases(self) -> &'static [&'static str] {
         match self {
-            Label::Red => &["Select", "To Do"],
+            Label::Red => &["Select"],
             Label::Yellow => &["Second", "In Progress"],
             Label::Green => &["Approved", "Done"],
             Label::Blue => &["Review"],
@@ -464,5 +472,29 @@ mod tests {
             ..Xmp::default()
         }
         .is_empty());
+    }
+
+    /// The alias table had "To Do" against two colours and `of` returns the
+    /// first match, so purple was unreachable.
+    #[test]
+    fn no_label_name_stands_against_two_colours() {
+        let mut seen: Vec<String> = Vec::new();
+
+        for label in Label::CHOICES {
+            for name in std::iter::once(label.name()).chain(label.aliases().iter().copied()) {
+                let name = name.to_ascii_lowercase();
+                assert!(
+                    !seen.contains(&name),
+                    "{name} is listed against two colours"
+                );
+                seen.push(name);
+            }
+        }
+    }
+
+    #[test]
+    fn a_bridge_to_do_label_is_purple() {
+        assert_eq!(Label::of("To Do"), Some(Label::Purple));
+        assert_eq!(Label::of("Select"), Some(Label::Red));
     }
 }

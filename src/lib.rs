@@ -4,6 +4,7 @@
 //! into RAM on background threads, keep the images around the cursor resident
 //! on the GPU, and let drawing be nothing but a textured quad.
 //!
+//! - [`atomic`] puts a file in place in one step,
 //! - [`crawler`] finds the images,
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
@@ -17,6 +18,7 @@
 pub mod actions;
 pub mod annotations;
 pub mod app;
+pub mod atomic;
 pub mod cache;
 pub mod config;
 pub mod crawler;

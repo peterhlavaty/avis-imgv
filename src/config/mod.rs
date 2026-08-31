@@ -46,6 +46,14 @@ pub struct Config {
     /// says so rather than doing it quietly.
     #[serde(skip)]
     pub migrated: Vec<&'static str>,
+    /// The document this configuration was read from, keys and all.
+    ///
+    /// Kept so that a save can be a merge rather than a replacement. A key
+    /// this build has never heard of belongs to whoever wrote it, and dropping
+    /// it on the way out is how one build's settings are lost to another —
+    /// Geeqie's defect. `None` when nothing was read from a file.
+    #[serde(skip)]
+    pub document: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl Default for Config {
@@ -64,6 +72,7 @@ impl Default for Config {
             cull: CullConfig::default(),
             partial: false,
             migrated: Vec::new(),
+            document: None,
         }
     }
 }

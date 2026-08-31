@@ -61,13 +61,25 @@ fn template(ui: &mut egui::Ui, options: &mut rename::Options) {
 fn counter(ui: &mut egui::Ui, options: &mut rename::Options) {
     ui.horizontal(|ui| {
         ui.label("Counter starts at:");
-        ui.add(egui::DragValue::new(&mut options.counter_start).range(0..=1_000_000));
+        ui.add(
+            egui::DragValue::new(&mut options.counter_start)
+                .range(0..=1_000_000)
+                .clamp_existing_to_range(false),
+        );
 
         ui.label("steps by:");
-        ui.add(egui::DragValue::new(&mut options.counter_step).range(1..=1000));
+        ui.add(
+            egui::DragValue::new(&mut options.counter_step)
+                .range(1..=1000)
+                .clamp_existing_to_range(false),
+        );
 
         ui.label("digits:");
-        ui.add(egui::DragValue::new(&mut options.counter_digits).range(1..=12));
+        ui.add(
+            egui::DragValue::new(&mut options.counter_digits)
+                .range(1..=12)
+                .clamp_existing_to_range(false),
+        );
 
         ui.label("Extension:");
         egui::ComboBox::from_id_salt("rename extension")

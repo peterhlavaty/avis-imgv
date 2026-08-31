@@ -260,6 +260,7 @@ fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
     let slider = ui.add_sized(
         Vec2::new(200., ui.available_height()),
         egui::Slider::new(&mut percent, MIN_PERCENT..=MAX_PERCENT)
+            .clamping(egui::SliderClamping::Edits)
             .logarithmic(true)
             .show_value(false)
             .text("🔎"),

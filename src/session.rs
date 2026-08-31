@@ -106,8 +106,10 @@ impl Session {
         }
 
         match serde_json::to_string_pretty(self) {
+            // Written beside the file and renamed over it: the per-folder
+            // positions are the other thing here a person cannot rebuild.
             Ok(json) => {
-                if let Err(e) = std::fs::write(&path, json) {
+                if let Err(e) = crate::atomic::replace(&path, json.as_bytes()) {
                     tracing::warn!("Could not write the session: {e}");
                 }
             }

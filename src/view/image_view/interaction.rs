@@ -4,7 +4,7 @@
 //! gesture into a movement of the viewport, and a click into whatever the user
 //! configured it to run.
 
-use eframe::egui::{self, Response};
+use eframe::egui::{self, PointerButton, Response};
 use eframe::epaint::Vec2;
 
 use crate::actions::{self, Callback};
@@ -38,7 +38,12 @@ impl ImageView {
         }
 
         let mut delta = ctx.input(|i| i.smooth_scroll_delta);
-        if ctx.input(|i| i.pointer.is_decidedly_dragging()) {
+        // Named, because `is_decidedly_dragging` answers for every button: a
+        // right-button drag used to pan the photograph and then release into
+        // whatever menu was registered on the panel.
+        if ctx.input(|i| {
+            i.pointer.is_decidedly_dragging() && i.pointer.button_down(PointerButton::Primary)
+        }) {
             delta += ctx.input(|i| i.pointer.delta()) * ctx.pixels_per_point();
         }
 

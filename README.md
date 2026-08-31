@@ -600,6 +600,19 @@ and a file that was only partly understood is never written back over — so one
 misplaced comma cannot quietly replace everything you had configured with the
 defaults.
 
+You may annotate it. `//` to the end of a line and `/* */` are taken out before
+the document is parsed. They are not kept: a save writes JSON, so a comment
+survives until the viewer next writes the file and no longer.
+
+A save is a merge, not a replacement. A key this build has never heard of is
+kept and written back where it was, so a file shared between two builds does not
+lose the newer one's settings to the older one. And a save that would write over
+a file edited since the viewer read it is refused: it says so, and offers to read
+the file again or to keep what is on screen.
+
+The file is written beside itself and renamed over the original, so an
+interrupted write leaves the old one intact rather than half of a new one.
+
 The file carries a `version`. When a *default* moves — a key that used to mean
 one thing and now means another — a file still holding the old binding would
 leave two commands fighting over it, with the loser doing nothing and saying

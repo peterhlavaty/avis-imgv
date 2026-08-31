@@ -4,10 +4,10 @@
 //! photograph to change a star is both slow and risky, and every raw converter
 //! already looks for a sidecar.
 
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::atomic::replace;
 use crate::metadata::xmp::{self, Xmp};
 
 /// Where a sidecar for `image` is written.
@@ -77,41 +77,6 @@ pub fn write(image: &Path, annotations: &Xmp) -> std::io::Result<()> {
     };
 
     replace(&target, document.as_bytes())
-}
-
-/// Puts `contents` at `path` in one step.
-///
-/// Written beside the target and renamed over it, so an interrupted write
-/// leaves the old sidecar intact rather than half of a new one. The temporary
-/// carries the process id and a counter, because two viewers may be looking at
-/// the same folder.
-fn replace(path: &Path, contents: &[u8]) -> std::io::Result<()> {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-
-    let name = path.file_name().unwrap_or_default().to_string_lossy();
-    let temporary = path.with_file_name(format!(
-        ".{name}.{}-{}.tmp",
-        std::process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-
-    let written = (|| {
-        let mut file = std::fs::File::create(&temporary)?;
-        file.write_all(contents)?;
-        file.sync_all()
-    })();
-
-    if let Err(e) = written {
-        let _ = std::fs::remove_file(&temporary);
-        return Err(e);
-    }
-
-    if let Err(e) = std::fs::rename(&temporary, path) {
-        let _ = std::fs::remove_file(&temporary);
-        return Err(e);
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]

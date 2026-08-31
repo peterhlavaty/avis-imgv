@@ -237,6 +237,7 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                         };
 
                         let mut toggled_at = None;
+                        let mut selected_at = None;
 
                         for (i, entry) in tree.entries.iter().enumerate() {
                             let is_selected = i == tree.selected_index;
@@ -259,13 +260,24 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                                     }
                                 ),
                             );
+                            // A left click moves the highlight and folds the
+                            // row; a double click opens the folder. The right
+                            // button used to be the only way to open one,
+                            // which is both inverted — a left click expanded —
+                            // and unsaid, and it is spoken for by the menu the
+                            // folder is going to carry.
                             if label.clicked() {
+                                selected_at = Some(i);
                                 toggled_at = Some(i);
                             };
 
-                            if label.secondary_clicked() {
+                            if label.double_clicked() {
                                 result = get_selected_path(&tree.entries[i].path);
                             }
+                        }
+
+                        if let Some(i) = selected_at {
+                            tree.selected_index = i;
                         }
 
                         if let Some(i) = toggled_at {

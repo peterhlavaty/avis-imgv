@@ -7,9 +7,12 @@
 
 use eframe::egui::{self, ViewportCommand};
 
+use crate::config::load::Save;
+use crate::config::Config;
 use crate::formats;
 use crate::ui::keys;
 
+use super::conflict;
 use super::panels::{self, MenuAction};
 use super::{App, Mode};
 
@@ -86,11 +89,7 @@ impl App {
             return;
         }
 
-        self.config = self.settings.general.clone();
-        self.tag_config = self.settings.tags.clone();
-        self.image_view.set_config(self.settings.image_view.clone());
-        self.grid_view.set_config(self.settings.grid_view.clone());
-
+        self.apply_settings();
         self.save_settings();
     }
 
@@ -101,11 +100,53 @@ impl App {
     /// read with the defaults that stood in for it, so it is refused, and the
     /// person who just changed a key needs to know their change is not being
     /// kept.
-    fn save_settings(&mut self) {
-        if let Err(e) = self.settings.save() {
-            tracing::error!("Could not write the configuration: {e}");
-            self.notices
-                .say(format!("Could not write the configuration: {e}"));
+    pub(super) fn save_settings(&mut self) {
+        match self.settings.save() {
+            Ok(Save::Written) => {}
+            // Somebody has edited the file since it was read. Writing would
+            // throw their edit away, so the question is asked instead.
+            Ok(Save::Refused) => self.conflict_visible = true,
+            Err(e) => {
+                tracing::error!("Could not write the configuration: {e}");
+                self.notices
+                    .say(format!("Could not write the configuration: {e}"));
+            }
         }
+    }
+
+    /// Draws the question about an edited file and does what it was told.
+    pub(super) fn show_conflict(&mut self, ctx: &egui::Context) {
+        if !self.conflict_visible {
+            return;
+        }
+
+        let mut open = true;
+        match conflict::ask(ctx, &mut open) {
+            conflict::Answer::Waiting => {}
+            conflict::Answer::Reread => {
+                self.settings = Config::new();
+                self.apply_settings();
+                self.notices.say("Read the configuration file again.");
+            }
+            conflict::Answer::Overwrite => {
+                if let Err(e) = self.settings.save_over() {
+                    tracing::error!("Could not write the configuration: {e}");
+                    self.notices
+                        .say(format!("Could not write the configuration: {e}"));
+                } else {
+                    self.notices.say("Wrote over the configuration file.");
+                }
+            }
+        }
+
+        self.conflict_visible = open;
+    }
+
+    /// Hands the configuration to everything holding a copy of part of it.
+    pub(super) fn apply_settings(&mut self) {
+        self.config = self.settings.general.clone();
+        self.tag_config = self.settings.tags.clone();
+        self.image_view.set_config(self.settings.image_view.clone());
+        self.grid_view.set_config(self.settings.grid_view.clone());
     }
 }

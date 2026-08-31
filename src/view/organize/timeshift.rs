@@ -26,13 +26,29 @@ fn offset(ui: &mut egui::Ui, view: &mut OrganizeView) {
     ui.horizontal(|ui| {
         ui.label("Move by:");
 
-        ui.add(egui::DragValue::new(&mut offset.days).range(0..=3650));
+        ui.add(
+            egui::DragValue::new(&mut offset.days)
+                .range(0..=3650)
+                .clamp_existing_to_range(false),
+        );
         ui.label("days");
-        ui.add(egui::DragValue::new(&mut offset.hours).range(0..=23));
+        ui.add(
+            egui::DragValue::new(&mut offset.hours)
+                .range(0..=23)
+                .clamp_existing_to_range(false),
+        );
         ui.label("hours");
-        ui.add(egui::DragValue::new(&mut offset.minutes).range(0..=59));
+        ui.add(
+            egui::DragValue::new(&mut offset.minutes)
+                .range(0..=59)
+                .clamp_existing_to_range(false),
+        );
         ui.label("minutes");
-        ui.add(egui::DragValue::new(&mut offset.seconds).range(0..=59));
+        ui.add(
+            egui::DragValue::new(&mut offset.seconds)
+                .range(0..=59)
+                .clamp_existing_to_range(false),
+        );
         ui.label("seconds");
 
         let label = if offset.forward { "Forward" } else { "Back" };

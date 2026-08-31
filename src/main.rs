@@ -44,14 +44,23 @@ fn main() {
     let fullscreen = args.iter().any(|arg| arg == "--fullscreen");
     let benchmark = args.iter().any(|arg| arg == "--benchmark");
 
-    // Read here rather than in the app: the window's size and place have to be
-    // decided before the window is made.
+    // Both read here rather than in the app: the window's size and place have
+    // to be decided before the window is made, and whether to use them at all
+    // is a setting.
+    let config = avis_imgv::config::Config::new();
     let session = avis_imgv::session::Session::load();
+    // `restore_session` decided only whether the geometry was *recorded*, so
+    // turning it off stopped the window being remembered and not being placed.
+    let geometry = session.window.filter(|_| config.general.restore_session);
 
     if let Err(e) = eframe::run_native(
         "Avis Image Viewer",
-        native_options(session.window),
-        Box::new(move |cc| Ok(Box::new(App::new(cc, slideshow, fullscreen, benchmark)))),
+        native_options(geometry),
+        Box::new(move |cc| {
+            Ok(Box::new(App::new(
+                cc, config, slideshow, fullscreen, benchmark,
+            )))
+        }),
     ) {
         tracing::error!("{e}");
     }

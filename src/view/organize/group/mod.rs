@@ -57,19 +57,28 @@ fn settings(ui: &mut egui::Ui, view: &mut OrganizeView) {
         ui.label("A group breaks after a gap of:");
         ui.add(
             egui::DragValue::new(&mut view.grouping.max_gap)
+                .clamp_existing_to_range(false)
                 .range(1.0..=3600.0)
                 .suffix(" s"),
         );
 
         ui.label("Same scene within:");
-        ui.add(egui::DragValue::new(&mut view.grouping.tolerance).range(0..=64))
-            .on_hover_text(
-                "How different two thumbnails may be and still count as the same \
+        ui.add(
+            egui::DragValue::new(&mut view.grouping.tolerance)
+                .range(0..=64)
+                .clamp_existing_to_range(false),
+        )
+        .on_hover_text(
+            "How different two thumbnails may be and still count as the same \
                  view. Zero is identical; sixty-four accepts anything.",
-            );
+        );
 
         ui.label("At least:");
-        ui.add(egui::DragValue::new(&mut view.grouping.min_frames).range(2..=50));
+        ui.add(
+            egui::DragValue::new(&mut view.grouping.min_frames)
+                .range(2..=50)
+                .clamp_existing_to_range(false),
+        );
         ui.label("frames");
 
         ui.separator();

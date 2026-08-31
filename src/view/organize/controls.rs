@@ -132,9 +132,17 @@ fn filtering(ui: &mut egui::Ui, view: &mut OrganizeView) {
 
         ui.horizontal(|ui| {
             ui.label("Stars between:");
-            ui.add(egui::DragValue::new(&mut filter.min_rating).range(0..=5));
+            ui.add(
+                egui::DragValue::new(&mut filter.min_rating)
+                    .range(0..=5)
+                    .clamp_existing_to_range(false),
+            );
             ui.label("and");
-            ui.add(egui::DragValue::new(&mut filter.max_rating).range(0..=5));
+            ui.add(
+                egui::DragValue::new(&mut filter.max_rating)
+                    .range(0..=5)
+                    .clamp_existing_to_range(false),
+            );
 
             ui.label("Tagged:");
             ui.add(

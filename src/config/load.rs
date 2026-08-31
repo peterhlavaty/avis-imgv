@@ -1,9 +1,56 @@
 //! Finding, reading and creating the configuration file.
 
-use std::{fs, io::ErrorKind, path::PathBuf};
+use std::{fs, io::ErrorKind, path::PathBuf, sync::Mutex, time::SystemTime};
 
 use super::{migrate, Config};
+use crate::atomic;
 use crate::{APPLICATION, ORGANIZATION, QUALIFIER};
+
+/// When the configuration file was last written or read by this process.
+///
+/// A save that would write over somebody's hand edit is refused, and the only
+/// way to know an edit happened is to have looked at the time before.
+static SEEN: Mutex<Option<SystemTime>> = Mutex::new(None);
+
+/// What a save did, when it did not fail outright.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Save {
+    /// The file was written.
+    Written,
+    /// The file on disk had moved since it was read, so nothing was written.
+    Refused,
+}
+
+/// The file's modification time, or `None` when there is no file to ask about.
+fn modified() -> Option<SystemTime> {
+    let path = Config::path()?;
+    fs::metadata(path).ok()?.modified().ok()
+}
+
+/// Records the file as this process last saw it.
+///
+/// Read back from the path rather than assumed, because the write is a rename
+/// over the original and so produces a different file with a different time.
+pub fn remember_on_disk() {
+    if let Ok(mut seen) = SEEN.lock() {
+        *seen = modified();
+    }
+}
+
+/// Whether the file has been edited since this process last looked.
+pub fn moved_on_disk() -> bool {
+    let Ok(seen) = SEEN.lock() else {
+        return false;
+    };
+
+    match (*seen, modified()) {
+        // Nothing was ever recorded, so there is nothing to have moved: this
+        // is a run that never managed to read a file.
+        (None, _) => false,
+        (Some(_), None) => true,
+        (Some(a), Some(b)) => a != b,
+    }
+}
 
 impl Config {
     pub fn new() -> Config {
@@ -16,12 +63,29 @@ impl Config {
             .map(|dirs| dirs.config_dir().join("config.json"))
     }
 
-    /// Writes the configuration back out.
+    /// Writes the configuration back out, unless the file has been edited.
     ///
-    /// Pretty printed, unlike the one line the viewer used to write on first
-    /// run: a file people are now edited from inside the viewer is a file they
-    /// will also want to read.
-    pub fn save(&self) -> std::io::Result<()> {
+    /// The file is read once at startup and the viewer holds a copy for the
+    /// rest of the run, so an in-app save writes over whatever was hand-edited
+    /// meanwhile. A save that would do that is refused, and the caller offers
+    /// to read the file again or to keep what is on screen.
+    pub fn save(&self) -> std::io::Result<Save> {
+        if moved_on_disk() {
+            return Ok(Save::Refused);
+        }
+
+        self.save_over()?;
+
+        Ok(Save::Written)
+    }
+
+    /// Writes it whatever the file on disk says.
+    ///
+    /// The answer to "keep what is on screen" after a refusal, and the way the
+    /// program's own writes are made — the fresh install and the brought
+    /// forward file — which happen before any interface exists and so have
+    /// nobody to ask.
+    pub fn save_over(&self) -> std::io::Result<()> {
         // What was not understood on the way in is not there to write back
         // out, and writing anyway would make the loss permanent.
         if self.partial {
@@ -39,13 +103,46 @@ impl Config {
             fs::create_dir_all(parent)?;
         }
 
-        let json = serde_json::to_string_pretty(self)
+        let json = serde_json::to_string_pretty(&self.merged_document())
             .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))?;
 
-        fs::write(&path, json)?;
+        atomic::replace(&path, json.as_bytes())?;
+        remember_on_disk();
         tracing::info!("Wrote config -> {}", path.display());
 
         Ok(())
+    }
+
+    /// This configuration laid over the document it was read from.
+    ///
+    /// Serialising the struct and writing that is how a key a newer build
+    /// wrote is lost when an older one saves — Geeqie's defect, whose reporter
+    /// diagnosed it himself as a consequence of regenerating the file from
+    /// scratch each time. What was read is kept and the struct is merged into
+    /// it, recursing one level, so an unknown key inside a known section
+    /// survives as well as an unknown section.
+    pub fn merged_document(&self) -> serde_json::Value {
+        let mine = serde_json::to_value(self).unwrap_or(serde_json::Value::Null);
+
+        let (Some(mut base), serde_json::Value::Object(mine)) = (self.document.clone(), mine)
+        else {
+            return serde_json::to_value(self).unwrap_or(serde_json::Value::Null);
+        };
+
+        for (key, value) in mine {
+            match (base.get_mut(&key), value) {
+                (Some(serde_json::Value::Object(kept)), serde_json::Value::Object(fresh)) => {
+                    for (inner, value) in fresh {
+                        kept.insert(inner, value);
+                    }
+                }
+                (_, value) => {
+                    base.insert(key, value);
+                }
+            }
+        }
+
+        serde_json::Value::Object(base)
     }
 
     pub fn fetch_cfg() -> Config {
@@ -66,13 +163,6 @@ impl Config {
 
                 if e.kind() == ErrorKind::NotFound {
                     tracing::info!("Config file does not exist -> creating default config");
-                    let default_cfg_json = match serde_json::to_string(&default_cfg) {
-                        Ok(json) => json,
-                        Err(e) => {
-                            tracing::error!("Failure serializing default cfg -> {e}");
-                            return default_cfg;
-                        }
-                    };
 
                     if !config_dir.exists() {
                         tracing::info!("Config directory does not exist, creating");
@@ -81,14 +171,18 @@ impl Config {
                         }
                     }
 
-                    match fs::write(&cfg_path, default_cfg_json) {
-                        Ok(_) => {}
-                        Err(e) => tracing::error!("Failure writing default config file -> {e}"),
-                    };
+                    // Pretty printed, like every other write. It used to be
+                    // one long line, which is the file the README tells people
+                    // to open in an editor.
+                    if let Err(e) = default_cfg.save_over() {
+                        tracing::error!("Failure writing default config file -> {e}");
+                    }
                 }
                 return default_cfg;
             }
         };
+
+        remember_on_disk();
 
         let mut cfg = Self::from_json(&config_json);
 
@@ -98,7 +192,10 @@ impl Config {
         // memory and left alone on disk.
         cfg.migrated = migrate::apply(&mut cfg);
         if !cfg.migrated.is_empty() && !cfg.partial {
-            if let Err(e) = cfg.save() {
+            // `save_over` rather than `save`: this is the program's own write
+            // and there is nobody to ask about it yet, so it must not be
+            // refused by the guard it then re-arms.
+            if let Err(e) = cfg.save_over() {
                 tracing::error!("Could not write the brought-forward config: {e}");
             }
         }
@@ -129,8 +226,10 @@ impl Config {
         // merely opened and saved parsed as nothing at all and silently handed
         // back the defaults for everything.
         let document = document.trim_start_matches('\u{feff}');
+        let document = strip_comments(document);
 
-        let map: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(document) {
+        let map: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&document)
+        {
             Ok(map) => map,
             Err(e) => {
                 tracing::error!("The configuration file could not be read at all: {e}");
@@ -158,8 +257,70 @@ impl Config {
             cull: section(&map, "cull", &mut partial),
             partial,
             migrated: Vec::new(),
+            document: Some(map),
         }
     }
+}
+
+/// Takes `//` and `/* */` out of a document before it is parsed.
+///
+/// JSON has no comments and `serde_json` says so by refusing the whole
+/// document, which sets `partial`, blocks every save for the session and hands
+/// back the defaults for everything — while the README promises the opposite.
+/// The same shape and the same place as the byte order mark strip above it.
+/// What is stripped is not written back: a save writes JSON.
+fn strip_comments(document: &str) -> String {
+    let mut out = String::with_capacity(document.len());
+    let mut chars = document.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match c {
+            '"' => {
+                in_string = true;
+                out.push(c);
+            }
+            '/' if chars.peek() == Some(&'/') => {
+                for c in chars.by_ref() {
+                    if c == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut previous = '\0';
+                for c in chars.by_ref() {
+                    // Newlines are kept so a parse failure further down still
+                    // names the line the person is looking at.
+                    if c == '\n' {
+                        out.push('\n');
+                    }
+                    if previous == '*' && c == '/' {
+                        break;
+                    }
+                    previous = c;
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+
+    out
 }
 
 /// One section of the document, or its defaults when it cannot be read.
@@ -230,7 +391,7 @@ mod tests {
             ..Config::default()
         };
 
-        assert!(cfg.save().is_err());
+        assert!(cfg.save_over().is_err());
     }
 
     /// A file saved by a Windows editor keeps its settings.
@@ -246,5 +407,69 @@ mod tests {
     #[test]
     fn a_document_that_is_not_json_at_all_is_partial() {
         assert!(Config::from_json("not json").partial);
+    }
+
+    /// The README says the file may be annotated. It used to cost the file.
+    #[test]
+    fn a_line_comment_costs_nothing() {
+        let cfg = Config::from_json(
+            r#"{
+            // how big the text is
+            "general": {"text_scaling": 2.0}
+        }"#,
+        );
+
+        assert!(!cfg.partial);
+        assert_eq!(cfg.general.text_scaling, 2.0);
+    }
+
+    #[test]
+    fn a_block_comment_costs_nothing() {
+        let cfg = Config::from_json(
+            r#"{ /* two
+            lines */ "general": {"text_scaling": 2.0} }"#,
+        );
+
+        assert!(!cfg.partial);
+        assert_eq!(cfg.general.text_scaling, 2.0);
+    }
+
+    /// A path with two slashes in it is not a comment.
+    #[test]
+    fn a_slash_inside_a_string_survives() {
+        let cfg = Config::from_json(r#"{"tags": {"catalog_file": "//server/share/tags.txt"}}"#);
+
+        assert!(!cfg.partial);
+        assert_eq!(
+            cfg.tags.catalog_file,
+            Some("//server/share/tags.txt".into())
+        );
+    }
+
+    #[test]
+    fn an_escaped_quote_does_not_end_the_string() {
+        assert_eq!(strip_comments(r#"{"a": "b\"//c"}"#), r#"{"a": "b\"//c"}"#);
+    }
+
+    /// Geeqie's defect: a key this build does not know is dropped on the way
+    /// out, so the newer build's settings are lost when the older one saves.
+    #[test]
+    fn an_unknown_key_survives_a_save() {
+        let cfg = Config::from_json(r#"{"tomorrow": {"a": 1}, "general": {"whatsit": 7}}"#);
+        let out = cfg.merged_document();
+
+        assert_eq!(out["tomorrow"]["a"], 1);
+        assert_eq!(out["general"]["whatsit"], 7);
+        // And what this build does know is still written.
+        assert!(out["general"]["text_scaling"].is_number());
+    }
+
+    /// A configuration nobody read from a file still writes the whole struct.
+    #[test]
+    fn a_configuration_with_no_document_writes_itself() {
+        let out = Config::default().merged_document();
+
+        assert!(out["general"]["text_scaling"].is_number());
+        assert!(out["version"].is_number());
     }
 }

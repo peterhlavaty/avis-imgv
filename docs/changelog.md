@@ -2,6 +2,46 @@
 
 ## 2026-08-31
 
+- **The viewer stops editing files nobody asked it to edit.** Opening the
+  slideshow window used to rewrite a hand-written `"seconds_per_image": 900`
+  down to 600 on the frame it appeared, with nobody touching anything: egui
+  clamps the value it is handed whether or not it was edited, writes the
+  clamped number back and then reports a change. Every numeric control in the
+  program now says so explicitly.
+
+  Saving is a merge rather than a replacement. A key this build has never heard
+  of — one a newer build wrote, one a plugin left — is kept and written back
+  where it was, rather than dropped on the way out. And a save that would write
+  over a file edited since the viewer read it is refused: the viewer says so and
+  offers to read the file again or to keep what is on screen.
+
+  `config.json` and `session.json` are written beside themselves and renamed
+  over the original, the way sidecars already were. The keyboard map and the
+  per-folder positions are the two things here a person cannot rebuild.
+- **Comments in the configuration file cost nothing.** `//` to the end of a
+  line and `/* */` are taken out before the document is parsed. One of them used
+  to mean the whole file could not be read, which blocked every save for the
+  session and handed back the defaults for everything — while the manual said
+  the opposite. They are not written back: a save writes JSON.
+- **A typo no longer kills the viewer.** `"decode_threads": 1000` was a panic
+  with no message; the pool is capped at 64 between the file and the spawn loop,
+  and the file keeps what it says. `"text_scaling": 0.0` multiplied every text
+  style to nothing, including the menu bar that would have let anybody undo it;
+  it is floored at half size and capped at three times, and applying it twice no
+  longer compounds.
+- **Two gestures that were spoken for.** Dragging the photograph with the right
+  button used to pan it and then release into whatever menu was registered;
+  panning is the left button now. In the folder tree a *right* click opened the
+  folder while a left click expanded it, which is both inverted and unsaid: a
+  left click moves the highlight, a double click opens, and the right button is
+  left free.
+- **A "To Do" label draws purple.** It was listed against red as well, and the
+  first match wins, so a frame Bridge had labelled "To Do" drew red here and
+  purple was unreachable. Red keeps the name Bridge actually gives it, "Select".
+- **`restore_session` turned off now means the window is not restored.** It
+  only ever decided whether the geometry was *recorded*, so turning it off
+  stopped the window being remembered and did not stop it being used.
+
 - **Stacks, on `Ctrl + G`.** A folder shot properly is mostly repetition: five
   frames of one expression, three exposures of one view, a hundred from a
   camera on a timer. A contact sheet that shows all of them shows the same

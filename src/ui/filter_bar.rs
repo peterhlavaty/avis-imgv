@@ -132,6 +132,7 @@ fn stacks(ui: &mut egui::Ui, state: &mut StackState<'_>) -> StackOutcome {
         .add(
             egui::DragValue::new(&mut seconds)
                 .range(1.0..=600.0)
+                .clamp_existing_to_range(false)
                 .suffix(" s"),
         )
         .on_hover_text("The longest pause between two frames that is still one run")
@@ -144,7 +145,9 @@ fn stacks(ui: &mut egui::Ui, state: &mut StackState<'_>) -> StackOutcome {
     ui.label("Alike");
     let mut tolerance = state.settings.tolerance;
     if ui
-        .add(egui::Slider::new(&mut tolerance, 0..=32).show_value(false))
+        .add(egui::Slider::new(&mut tolerance, 0..=32)
+                .clamping(egui::SliderClamping::Edits)
+                .show_value(false))
         .on_hover_text(
             "How different two frames may look and still belong together. Drag it and watch the runs join up or come apart.",
         )
@@ -162,13 +165,21 @@ fn stars(ui: &mut egui::Ui, rules: &mut Rules) -> bool {
 
     ui.label("Stars");
     changed |= ui
-        .add(egui::DragValue::new(&mut rules.min_stars).range(0..=MAX_RATING as u8))
+        .add(
+            egui::DragValue::new(&mut rules.min_stars)
+                .range(0..=MAX_RATING as u8)
+                .clamp_existing_to_range(false),
+        )
         .on_hover_text("Fewest stars to show")
         .changed();
 
     ui.label("to");
     changed |= ui
-        .add(egui::DragValue::new(&mut rules.max_stars).range(0..=MAX_RATING as u8))
+        .add(
+            egui::DragValue::new(&mut rules.max_stars)
+                .range(0..=MAX_RATING as u8)
+                .clamp_existing_to_range(false),
+        )
         .on_hover_text("Most stars to show")
         .changed();
 

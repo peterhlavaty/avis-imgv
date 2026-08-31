@@ -3,6 +3,7 @@
 
 pub mod benchmark;
 mod chrome;
+mod conflict;
 mod cull;
 pub mod input;
 pub mod mode;
@@ -135,17 +136,19 @@ pub struct App {
     /// answer — most folders have no keywords in them — so "not read yet" has
     /// to be something other than "read, and empty".
     seen_tags: (Option<u64>, Vec<String>),
+    /// Whether the question about a configuration file edited underneath the
+    /// viewer is on screen.
+    conflict_visible: bool,
 }
 
 impl App {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
+        config: Config,
         slideshow: bool,
         fullscreen: bool,
         benchmark: bool,
     ) -> App {
-        let config = Config::new();
-
         theme::apply_theme(&cc.egui_ctx);
         apply_text_scaling(&cc.egui_ctx, config.general.text_scaling);
 
@@ -235,6 +238,7 @@ impl App {
             cheat_sheet_visible: false,
             cheat_sheet_opened: false,
             seen_tags: (None, Vec::new()),
+            conflict_visible: false,
         };
 
         for clash in keys::clashes(&app.settings) {
@@ -839,6 +843,7 @@ impl eframe::App for App {
         self.show_pending_delete(ctx);
         self.show_keyboard(ctx);
         self.show_slideshow_settings(ctx);
+        self.show_conflict(ctx);
         self.apply_fullscreen(ctx);
         self.show_side_panel(ctx);
         self.show_tag_panel(ctx);
@@ -885,13 +890,44 @@ fn longest_edge_in_pixels(ctx: &egui::Context) -> u32 {
     size.x.max(size.y).max(1.0) as u32
 }
 
+/// Scales every text style from the one the theme set, not from the last one.
+///
+/// Two things had to be true before the field could be changed while the
+/// window is open. Zero multiplies every style to nothing, including the menu
+/// bar that would let anybody undo it, so it is floored; and multiplying the
+/// *current* style compounds — 1.25 applied twice is 1.5625 — so the style the
+/// theme built is kept and each call starts from it.
 fn apply_text_scaling(ctx: &egui::Context, scaling: f32) {
+    let scaling = scaling.clamp(MIN_TEXT_SCALING, MAX_TEXT_SCALING);
+
+    // Read before the store is locked. `Context::style` takes the same lock
+    // `data_mut` holds, so asking for it inside the closure hangs the viewer
+    // before it has drawn a frame.
     let mut style = (*ctx.style()).clone();
+    let current = BaseTextStyles(style.text_styles.clone());
+
+    let base = ctx.data_mut(|data| {
+        data.get_temp_mut_or_insert_with(egui::Id::new("text scaling base"), || current)
+            .clone()
+    });
+
+    style.text_styles = base.0;
     for font in style.text_styles.values_mut() {
         font.size *= scaling;
     }
     ctx.set_style(style);
 }
+
+/// The sizes the theme asked for, before any scaling was applied to them.
+#[derive(Clone)]
+struct BaseTextStyles(std::collections::BTreeMap<egui::TextStyle, egui::FontId>);
+
+/// Half size. Below this the menu bar cannot be read, and the menu bar is the
+/// way back.
+pub const MIN_TEXT_SCALING: f32 = 0.5;
+
+/// Three times. Past this a single row of the interface fills the window.
+pub const MAX_TEXT_SCALING: f32 = 3.0;
 
 /// The directory the open images live in, falling back to the user's home.
 fn base_path_of(paths: &[PathBuf]) -> PathBuf {
