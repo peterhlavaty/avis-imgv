@@ -7,6 +7,7 @@
 use eframe::egui::{self, RichText};
 
 use crate::metadata::xmp::{Label, MAX_RATING};
+use crate::organize::group::Settings;
 use crate::view::narrow::{FlagRule, LabelRule, Narrowing, Rules, SortBy};
 
 /// Draws the bar, returning whether anything about it changed.
@@ -15,8 +16,10 @@ pub fn ui(
     visible: bool,
     narrowing: &mut Narrowing,
     shown: (usize, usize),
-) -> bool {
+    stacking: &mut StackState<'_>,
+) -> (bool, StackOutcome) {
     let mut changed = false;
+    let mut stacked = StackOutcome::default();
 
     egui::TopBottomPanel::top("filter_bar")
         .show_separator_line(false)
@@ -38,6 +41,10 @@ pub fn ui(
                 ui.separator();
 
                 changed |= suspend(ui, narrowing);
+                ui.separator();
+
+                stacked = stacks(ui, stacking);
+                ui.separator();
 
                 if ui
                     .button("Clear")
@@ -55,7 +62,99 @@ pub fn ui(
             ui.add_space(2.0);
         });
 
-    changed
+    (changed, stacked)
+}
+
+/// What the sheet is stacked into, and how, as the bar shows it.
+pub struct StackState<'a> {
+    pub on: bool,
+    /// How the detector reads the folder. Dragged live, so a photographer can
+    /// see a burst split and rejoin rather than guessing at a number.
+    pub settings: &'a mut Settings,
+    /// How many runs were found, and how many frames are in one.
+    pub found: usize,
+    pub stacked: usize,
+    pub all_collapsed: bool,
+    /// How far the reading has got, while it is still going.
+    pub reading: Option<(usize, usize)>,
+}
+
+/// What the stacking half of the bar reported.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct StackOutcome {
+    /// Stacking was turned on or off.
+    pub toggled: bool,
+    /// The detector was asked to read the folder differently.
+    pub retuned: bool,
+    /// Every stack was closed, or every one opened.
+    pub set_all: Option<bool>,
+}
+
+/// The stacking controls: on or off, how many runs, and how strictly to read
+/// them.
+fn stacks(ui: &mut egui::Ui, state: &mut StackState<'_>) -> StackOutcome {
+    let toggled = ui
+        .selectable_label(state.on, "Stacks")
+        .on_hover_text(
+            "Show every burst, bracket and timelapse as one cell. Nothing is written to disk.",
+        )
+        .clicked();
+
+    let mut outcome = StackOutcome {
+        toggled,
+        ..StackOutcome::default()
+    };
+
+    if !state.on {
+        return outcome;
+    }
+
+    if let Some((done, total)) = state.reading {
+        ui.label(RichText::new(format!("reading {done}/{total}")).weak());
+        return outcome;
+    }
+
+    ui.label(RichText::new(format!("{} runs · {} frames", state.found, state.stacked)).weak());
+
+    let (label, wanted) = if state.all_collapsed {
+        ("Open all", false)
+    } else {
+        ("Fold all", true)
+    };
+
+    if ui.button(label).clicked() {
+        outcome.set_all = Some(wanted);
+    }
+
+    ui.label("Gap");
+    let mut seconds = state.settings.max_gap;
+    if ui
+        .add(
+            egui::DragValue::new(&mut seconds)
+                .range(1.0..=600.0)
+                .suffix(" s"),
+        )
+        .on_hover_text("The longest pause between two frames that is still one run")
+        .changed()
+    {
+        state.settings.max_gap = seconds;
+        outcome.retuned = true;
+    }
+
+    ui.label("Alike");
+    let mut tolerance = state.settings.tolerance;
+    if ui
+        .add(egui::Slider::new(&mut tolerance, 0..=32).show_value(false))
+        .on_hover_text(
+            "How different two frames may look and still belong together. Drag it and watch the runs join up or come apart.",
+        )
+        .changed()
+    {
+        state.settings.tolerance = tolerance;
+        outcome.retuned = true;
+    }
+
+    outcome
 }
 
 fn stars(ui: &mut egui::Ui, rules: &mut Rules) -> bool {

@@ -6,6 +6,7 @@ pub mod image_view;
 pub mod narrow;
 pub mod organize;
 pub mod selection;
+pub mod stacks;
 pub mod texture;
 pub mod visible;
 
@@ -13,4 +14,5 @@ pub use grid_view::GridView;
 pub use image_view::ImageView;
 pub use narrow::Narrowing;
 pub use selection::Selection;
+pub use stacks::Stacks;
 pub use visible::Visible;

@@ -23,6 +23,7 @@ use crate::view::texture;
 
 use crate::view::image_view::bottom_bar::Marks;
 use crate::view::selection::Selection;
+use crate::view::stacks::{self, Stacks};
 use crate::view::visible::Visible;
 
 use cell::Badges;
@@ -241,7 +242,7 @@ impl GridView {
     ///
     /// `marks` is what every photograph in the collection carries, in the same
     /// order, so the sheet can draw them without asking the disk per cell.
-    pub fn ui(&mut self, ctx: &egui::Context, marks: &[Marks]) {
+    pub fn ui(&mut self, ctx: &egui::Context, marks: &[Marks], stacks: &Stacks) {
         if self.store.tick() {
             ctx.request_repaint();
         }
@@ -290,7 +291,7 @@ impl GridView {
                 }
 
                 for row in rows {
-                    self.show_row(ui, &layout, row, marks);
+                    self.show_row(ui, &layout, row, marks, stacks);
                 }
 
                 if !utils::are_inputs_muted(ctx)
@@ -330,7 +331,14 @@ impl GridView {
             });
     }
 
-    fn show_row(&mut self, ui: &mut egui::Ui, layout: &Layout, row: usize, marks: &[Marks]) {
+    fn show_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        layout: &Layout,
+        row: usize,
+        marks: &[Marks],
+        stacks: &Stacks,
+    ) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
             ui.add_space(layout.padding);
@@ -340,7 +348,7 @@ impl GridView {
                     continue;
                 };
 
-                self.show_cell(ui, position, index, layout, marks.get(index));
+                self.show_cell(ui, position, index, layout, marks.get(index), stacks);
             }
         });
     }
@@ -352,6 +360,7 @@ impl GridView {
         index: usize,
         layout: &Layout,
         marks: Option<&Marks>,
+        stacks: &Stacks,
     ) {
         let (_, rect) = ui.allocate_space(Vec2::new(layout.cell, layout.row));
         let picture = Rect::from_min_size(rect.min, Vec2::new(layout.cell, layout.picture));
@@ -390,6 +399,17 @@ impl GridView {
 
         cell::picked(ui, picture, self.selection.contains(index));
         cell::dim_if_rejected(ui, picture, marks);
+
+        if let Some(stack) = stacks.stack_of(index) {
+            cell::stack(
+                ui,
+                picture,
+                stacks::glyph(stack.kind),
+                stack.len(),
+                stack.collapsed,
+            );
+        }
+
         cell::caption(ui, strip, self.badges, marks, &caption);
 
         ui.painter().rect_stroke(

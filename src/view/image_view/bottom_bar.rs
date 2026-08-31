@@ -4,6 +4,7 @@ use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
 use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
+use crate::view::stacks::Place;
 
 use super::input::Command;
 
@@ -68,6 +69,13 @@ pub struct Flags {
     /// forgotten the camera was set that way should not find that out
     /// afterwards.
     pub paired: bool,
+    /// Which frame of which run this photograph is, when the folder is being
+    /// shown stacked.
+    ///
+    /// The one thing a stacked folder has to keep saying: a cell that stands
+    /// for seventeen frames looks exactly like a cell that stands for one, and
+    /// somebody culling has to know which they are looking at.
+    pub place: Option<Place>,
 }
 
 /// Everything the bar draws, borrowed from the view.
@@ -119,6 +127,19 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     0 => String::new(),
                     hidden => format!("{hidden} more are hidden by the filter"),
                 });
+
+                if let Some(place) = status.flags.place {
+                    let colour = if place.collapsed {
+                        egui::Color32::from_rgb(226, 186, 120)
+                    } else {
+                        ui.visuals().text_color()
+                    };
+
+                    ui.label(egui::RichText::new(place.describe()).color(colour))
+                        .on_hover_text(
+                            "One run of frames. The colour says it is folded up;                              the key that opens it shows the rest.",
+                        );
+                }
 
                 for (active, label) in [
                     (status.flags.flattened, "Flattened"),

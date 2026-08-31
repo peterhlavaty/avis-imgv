@@ -462,6 +462,48 @@ Nothing is re-read or re-decoded by any of this: the caches still hold the whole
 folder and the filter is a list of positions into it, so a rule changed in the
 middle of a cull costs a vector rather than a folder's worth of decoding.
 
+## Stacks
+
+`Ctrl + G` shows the folder stacked: every burst, bracket, focus stack and
+timelapse becomes one cell with a count on it and a glyph for what kind of run
+it is. Thirteen frames become six cells, and the six are six different
+photographs rather than three photographs and ten near-copies.
+
+Nothing is written. Lightroom keeps its stacks in a catalogue and Bridge in a
+hidden file beside the pictures; this works them out from what the files
+already say — the clock and what the frames look like — every time it is asked.
+Turning stacks off leaves nothing behind to clean up, and no other program has
+to know anything happened.
+
+| Key | Action |
+|-----|--------|
+| `Ctrl + G` | Stack the folder, or put every frame back |
+| `E` | Open the run under the cursor, or fold it up again |
+| `,` `.` | Walk the frames of a folded run without opening it |
+| `Ctrl + ←` `Ctrl + →` | Step to the run before or after this one, over a burst rather than through it |
+
+The bar on `F3` carries the rest: how many runs were found, "fold all" and
+"open all", the longest pause that is still one run, and how alike two frames
+have to be to belong together. That last one is a slider because it is a
+judgement rather than a number — drag it and watch the runs join up or come
+apart.
+
+The frame that stands for a folded run is the sharpest one that could be
+measured, which is usually the question a burst is asking. `,` and `.` change
+it, and the status bar says where you are the whole time:
+`series 2 · frame 4 of 17 · stack 6 of 41`, in amber while the run is folded.
+
+It is the same mechanism as the filter — a list of positions into the folder —
+so stacking composes with narrowing and ordering, and nothing is decoded twice
+for it. A rule that hides the frame standing for a run leaves the run standing
+on the next frame that survived, rather than taking the whole burst out of the
+folder.
+
+Reading a folder for stacks means reading what every file says about itself, so
+it happens on a scan of its own the first time it is asked for; the sheet folds
+up as the reading reaches each run. It is never done for a folder nobody asked
+to stack.
+
 ## Slideshow
 
 A mode of its own: the window goes fullscreen, the status bar goes away, and
@@ -597,6 +639,10 @@ set aside for the full resolution copies, which are 96 MB each.
 | `sc_fullscreen` | Fill the screen, and give it back | `F11` |
 | `sc_filter` | Show or hide the filter bar | `F3` |
 | `sc_suspend_filter` | Set the rules aside without forgetting them | `\` |
+| `sc_stacks` | Stack the folder into its runs of frames, or put every frame back | `Ctrl + G` |
+| `sc_toggle_stack` | Open the run under the cursor, or fold it up again | `E` |
+| `sc_standing_back` `sc_standing_forward` | Walk the frames of a folded run without opening it | `,` `.` |
+| `sc_previous_stack` `sc_next_stack` | Step to the run before or after this one | `Ctrl + ←` `Ctrl + →` |
 
 ### Image view
 
@@ -720,6 +766,7 @@ break the pairing it depends on.
 | Ctrl + W | Watch the directory for files appearing, changing or going |
 | ? | The keys, for whatever is on screen |
 | Ctrl + T | The strip of thumbnails under the photograph |
+| Ctrl + G | Stack the folder into its runs of frames |
 | I | Toggle the side panel: metadata and cache occupancy |
 | K | Toggle the rating and tagging panel |
 | 0 – 5 | Set the star rating of the open image |
@@ -787,6 +834,10 @@ than to whatever the other view was last left on.
 | Home / End | First and last picture |
 | Enter | Open the one under the cursor |
 | Ctrl + I | Cycle what the cells say: nothing, the marks, the marks and the caption |
+| Ctrl + G | Stack the folder into its runs of frames, or put every frame back |
+| E | Open the run under the cursor, or fold it up again |
+| , / . | Walk the frames of a folded run without opening it |
+| Ctrl + ← / Ctrl + → | Step to the run before or after this one |
 | Space | Pick the one under the cursor out, or put it back |
 | Shift + arrows | Pick out everything walked over |
 | Ctrl + A | Pick out everything on show, or put it all back |

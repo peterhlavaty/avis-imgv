@@ -175,6 +175,36 @@ pub fn default_sc_frame() -> Shortcut {
 pub fn default_sc_filmstrip() -> Shortcut {
     Shortcut::new("t", &[MOD_CTRL])
 }
+/// `Ctrl + G` for grouping, which is what Lightroom and Bridge both use for
+/// making a stack.
+pub fn default_sc_stacks() -> Shortcut {
+    Shortcut::new("g", &[MOD_CTRL])
+}
+
+/// `E` for expand. Not `S`, which every other program uses for this and which
+/// this one has had on panning down since long before there were stacks.
+pub fn default_sc_toggle_stack() -> Shortcut {
+    Shortcut::new("e", &[])
+}
+
+/// The two keys either side of `M`, which is where a hand on the keys already
+/// is, and which nothing else wanted.
+pub fn default_sc_standing_back() -> Shortcut {
+    Shortcut::new("Comma", &[])
+}
+pub fn default_sc_standing_forward() -> Shortcut {
+    Shortcut::new("Period", &[])
+}
+
+/// The arrows step frame to frame, so the arrows with a modifier step run to
+/// run.
+pub fn default_sc_previous_stack() -> Shortcut {
+    Shortcut::new("ArrowLeft", &[MOD_CTRL])
+}
+pub fn default_sc_next_stack() -> Shortcut {
+    Shortcut::new("ArrowRight", &[MOD_CTRL])
+}
+
 pub fn default_sc_toggle_side_panel() -> Shortcut {
     Shortcut::new("i", &[])
 }

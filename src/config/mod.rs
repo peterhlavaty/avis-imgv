@@ -298,6 +298,24 @@ pub struct GeneralConfig {
     /// Shows or hides the strip of thumbnails under the photograph.
     #[serde(default = "default_sc_filmstrip")]
     pub sc_filmstrip: Shortcut,
+    /// Shows the folder stacked — one cell per run of frames — or puts every
+    /// frame back.
+    #[serde(default = "default_sc_stacks")]
+    pub sc_stacks: Shortcut,
+    /// Opens or closes the stack the cursor is in.
+    #[serde(default = "default_sc_toggle_stack")]
+    pub sc_toggle_stack: Shortcut,
+    /// Changes which frame stands for the stack the cursor is in.
+    #[serde(default = "default_sc_standing_back")]
+    pub sc_standing_back: Shortcut,
+    #[serde(default = "default_sc_standing_forward")]
+    pub sc_standing_forward: Shortcut,
+    /// Steps from one run of frames to the next, over a burst rather than
+    /// through it.
+    #[serde(default = "default_sc_previous_stack")]
+    pub sc_previous_stack: Shortcut,
+    #[serde(default = "default_sc_next_stack")]
+    pub sc_next_stack: Shortcut,
     /// Sends the picture on screen to the platform's bin.
     #[serde(default = "default_sc_delete")]
     pub sc_delete: Shortcut,
@@ -544,6 +562,12 @@ impl Default for GeneralConfig {
             sc_next_mode: default_sc_next_mode(),
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
             sc_filmstrip: default_sc_filmstrip(),
+            sc_stacks: default_sc_stacks(),
+            sc_toggle_stack: default_sc_toggle_stack(),
+            sc_standing_back: default_sc_standing_back(),
+            sc_standing_forward: default_sc_standing_forward(),
+            sc_previous_stack: default_sc_previous_stack(),
+            sc_next_stack: default_sc_next_stack(),
             sc_delete: default_sc_delete(),
             sc_delete_permanently: default_sc_delete_permanently(),
             sc_fullscreen: default_sc_fullscreen(),

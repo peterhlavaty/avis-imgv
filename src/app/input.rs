@@ -51,6 +51,16 @@ pub enum Command {
     ShowKeys,
     /// Show or hide the strip of thumbnails under the photograph.
     ToggleFilmstrip,
+    /// Show the folder stacked, or put every frame back.
+    ToggleStacking,
+    /// Open or close the stack the cursor is in.
+    ToggleStack,
+    /// Change which frame stands for that stack.
+    StandingBack,
+    StandingForward,
+    /// Step over a run of frames rather than through it.
+    PreviousStack,
+    NextStack,
 }
 
 impl Command {
@@ -121,6 +131,12 @@ pub fn collect(
         (&cull.sc_reject_folder, Command::ToRejectedFolder),
         (&cull.sc_undo, Command::Undo),
         (&config.sc_filmstrip, Command::ToggleFilmstrip),
+        (&config.sc_stacks, Command::ToggleStacking),
+        (&config.sc_toggle_stack, Command::ToggleStack),
+        (&config.sc_standing_back, Command::StandingBack),
+        (&config.sc_standing_forward, Command::StandingForward),
+        (&config.sc_previous_stack, Command::PreviousStack),
+        (&config.sc_next_stack, Command::NextStack),
     ];
 
     ctx.input_mut(|input| {

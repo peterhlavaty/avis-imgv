@@ -104,6 +104,42 @@ pub fn all() -> Vec<Binding> {
             general.sc_filmstrip
         ),
         binding!(
+            "Gallery",
+            "Stacks",
+            "Show the folder stacked: every burst, bracket and timelapse as one cell.",
+            general.sc_stacks
+        ),
+        binding!(
+            "Gallery",
+            "Open or close a stack",
+            "Show what is inside the run of frames the cursor is on, or fold it back up.",
+            general.sc_toggle_stack
+        ),
+        binding!(
+            "Gallery",
+            "Frame standing for a stack",
+            "Walk the frames of a closed stack without opening it.",
+            general.sc_standing_back
+        ),
+        binding!(
+            "Gallery",
+            "Next frame standing for a stack",
+            "The same, forwards.",
+            general.sc_standing_forward
+        ),
+        binding!(
+            "Gallery",
+            "Previous stack",
+            "Step to the run of frames before this one, over a burst rather than through it.",
+            general.sc_previous_stack
+        ),
+        binding!(
+            "Gallery",
+            "Next stack",
+            "Step to the run of frames after this one.",
+            general.sc_next_stack
+        ),
+        binding!(
             "General",
             "Side panel",
             "Show or hide the metadata and cache readout down the side.",
@@ -500,6 +536,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 48, "a shortcut was added without a description");
+        assert_eq!(fixed, 54, "a shortcut was added without a description");
     }
 }

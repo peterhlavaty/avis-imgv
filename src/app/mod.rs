@@ -8,7 +8,8 @@ pub mod input;
 pub mod mode;
 pub mod panels;
 mod settings;
-pub mod stores;
+pub mod stacking;
+mod stores;
 pub mod tagging;
 mod views;
 pub mod watcher;
@@ -20,6 +21,7 @@ use eframe::egui::{self, ViewportCommand};
 
 use crate::actions::Callback;
 use crate::annotations::{AnnotationStore, Catalog, RecentTags};
+use crate::app::stacking::Stacking;
 use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
@@ -96,6 +98,8 @@ pub struct App {
     journal: Journal,
     /// How the folder is narrowed and ordered, and whether its bar is up.
     narrowing: Narrowing,
+    /// The runs of frames the folder holds, when it is being shown stacked.
+    stacking: Stacking,
     filter_visible: bool,
     /// What every photograph in the open collection carries, in the order
     /// `paths` holds them.
@@ -222,6 +226,7 @@ impl App {
             asking: None,
             journal: Journal::default(),
             narrowing: Narrowing::default(),
+            stacking: Stacking::default(),
             filter_visible: false,
             marks: Vec::new(),
             pairs: Pairs::default(),
@@ -324,10 +329,14 @@ impl App {
             .set_images(self.paths.clone(), selected.as_deref());
         self.grid_view.set_images(self.paths.clone());
 
+        // A different folder is a different set of runs, and the frames the
+        // last one was stacked into mean nothing here.
+        self.stacking.reopen(&self.paths);
+
         // Only when there is something to apply: narrowing reads the sidecar
         // of every file in the folder, and opening one should not pay for
         // that when no rule is on.
-        if !self.narrowing.is_idle() {
+        if !self.narrowing.is_idle() || self.stacking.is_on() {
             self.apply_narrowing();
         }
     }
@@ -420,8 +429,108 @@ impl App {
         self.ensure_marks();
 
         let visible = self.narrowing.apply(&self.paths, &self.marks);
+
+        // Stacking after narrowing, not instead of it: a filter says which
+        // photographs are worth looking at and a stack says how many of them
+        // are the same photograph, and the second question only makes sense
+        // over the answer to the first.
+        let visible = self.stacking.fold(visible, self.paths.len());
+
         self.image_view.set_visible(visible.clone());
         self.grid_view.set_visible(visible);
+    }
+
+    /// Keeps the stacks up to date while the folder is being read.
+    ///
+    /// The scan arrives in batches, so the sheet folds up as the reading gets
+    /// to each run rather than after a wait in front of a still screen; while
+    /// it is going the frame is asked for again, because nothing else on
+    /// screen is changing to ask for it.
+    fn handle_stacking(&mut self, ctx: &egui::Context) {
+        if self.stacking.poll(&self.paths) {
+            self.apply_narrowing();
+        }
+
+        if self.stacking.progress().is_some() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(120));
+        }
+    }
+
+    /// Shows the folder stacked, or puts every frame back.
+    fn toggle_stacking(&mut self) {
+        if self.stacking.is_on() {
+            self.stacking.turn_off();
+            self.notices.say("Stacks off");
+        } else {
+            self.stacking.turn_on(&self.paths);
+            self.notices.say("Reading the folder for stacks");
+        }
+
+        self.apply_narrowing();
+    }
+
+    /// Opens or closes the stack the cursor is in.
+    ///
+    /// Turning stacking on first when it is off: a key that does nothing at
+    /// all is worse than one that does the obvious thing, and the obvious
+    /// thing to do with a stack key on an unstacked folder is to stack it.
+    fn toggle_stack(&mut self) {
+        if !self.stacking.is_on() {
+            self.toggle_stacking();
+            return;
+        }
+
+        let Some(index) = self.cursor_index() else {
+            return;
+        };
+
+        // The frame standing for a stack that opens should stay the frame on
+        // screen, so opening one lands where the eye already was.
+        if self.stacking.toggle(index) {
+            self.apply_narrowing();
+            self.go_to(index);
+        }
+    }
+
+    /// Changes which frame stands for the stack the cursor is in.
+    fn step_standing(&mut self, forward: bool) {
+        let Some(index) = self.cursor_index() else {
+            return;
+        };
+
+        if let Some(standing) = self.stacking.step_standing(index, forward) {
+            self.apply_narrowing();
+            self.go_to(standing);
+        }
+    }
+
+    /// Steps to the next run of frames, or the one before it.
+    fn step_stack(&mut self, forward: bool) {
+        let Some(index) = self.cursor_index() else {
+            return;
+        };
+
+        if let Some(landing) = self.stacking.stacks().step_stack(index, forward) {
+            self.go_to(landing);
+        }
+    }
+
+    /// The store position the keyboard is on, in whichever view is up.
+    fn cursor_index(&self) -> Option<usize> {
+        match self.mode {
+            Mode::Grid => self.grid_view.cursor(),
+            _ => Some(self.image_view.selected_index()).filter(|at| *at < self.paths.len()),
+        }
+    }
+
+    /// Puts both views on a store position.
+    fn go_to(&mut self, index: usize) {
+        let Some(path) = self.paths.get(index).cloned() else {
+            return;
+        };
+
+        self.image_view.select_path(&path);
+        self.grid_view.focus_on(index);
     }
 
     /// Draws the filter bar and applies whatever it changed.
@@ -431,12 +540,40 @@ impl App {
             _ => self.image_view.position().1,
         };
 
-        let changed = filter_bar::ui(
+        // Read out and handed back rather than borrowed: the bar is drawn
+        // with the whole application borrowed already, and the detector cannot
+        // be asked to read the folder again from inside the closure that is
+        // drawing it.
+        let mut settings = self.stacking.settings();
+        let mut state = filter_bar::StackState {
+            on: self.stacking.is_on(),
+            found: self.stacking.stacks().len(),
+            stacked: self.stacking.stacks().stacked(),
+            all_collapsed: self.stacking.stacks().all_collapsed(),
+            reading: self.stacking.progress(),
+            settings: &mut settings,
+        };
+
+        let (changed, stacked) = filter_bar::ui(
             ctx,
             self.filter_visible,
             &mut self.narrowing,
             (shown, self.paths.len()),
+            &mut state,
         );
+
+        if stacked.toggled {
+            self.toggle_stacking();
+        }
+
+        if stacked.retuned && self.stacking.retune(settings, &self.paths) {
+            self.apply_narrowing();
+        }
+
+        if let Some(collapsed) = stacked.set_all {
+            self.stacking.set_all(collapsed);
+            self.apply_narrowing();
+        }
 
         if changed {
             self.apply_narrowing();
@@ -574,6 +711,12 @@ impl App {
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
             Command::ToggleFilmstrip => self.filmstrip_visible = !self.filmstrip_visible,
+            Command::ToggleStacking => self.toggle_stacking(),
+            Command::ToggleStack => self.toggle_stack(),
+            Command::StandingBack => self.step_standing(false),
+            Command::StandingForward => self.step_standing(true),
+            Command::PreviousStack => self.step_stack(false),
+            Command::NextStack => self.step_stack(true),
             Command::ShowKeys => {
                 self.cheat_sheet_visible = !self.cheat_sheet_visible;
                 // The key that opened it is still going down this frame, and
@@ -702,6 +845,7 @@ impl eframe::App for App {
         self.show_overlays(ctx);
         self.show_views(ctx);
         self.handle_watcher();
+        self.handle_stacking(ctx);
 
         if self.watcher.is_active() {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));

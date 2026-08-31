@@ -2,6 +2,30 @@
 
 ## 2026-08-31
 
+- **Stacks, on `Ctrl + G`.** A folder shot properly is mostly repetition: five
+  frames of one expression, three exposures of one view, a hundred from a
+  camera on a timer. A contact sheet that shows all of them shows the same
+  photograph five times over. Stacked, thirteen frames become six cells — each
+  with a count and a glyph for what kind of run it is — and the six are six
+  different photographs.
+
+  Nothing is written. Lightroom keeps its stacks in a catalogue and Bridge in a
+  hidden file beside the pictures; these are worked out from what the files
+  already say, every time, so turning them off leaves nothing behind. `E` opens
+  the run under the cursor, `,` and `.` walk a folded one without opening it,
+  `Ctrl` and the arrows step over a burst rather than through it, and the
+  status bar says `series 2 · frame 4 of 17 · stack 6 of 41` the whole time.
+
+  The frame standing for a folded run is the sharpest one that could be
+  measured, which is the question a burst is usually asking. The filter bar
+  carries the rest: how many runs were found, fold and open all, the longest
+  pause that is still one run, and a slider for how alike two frames have to be
+  — a judgement rather than a number, so it is dragged and watched.
+
+  Built on the same list of positions the filter narrows, so stacking composes
+  with filtering and ordering and nothing is decoded twice for it. A rule that
+  hides the frame standing for a run leaves the run standing on the next frame
+  that survived, rather than taking the whole burst out of the folder.
 - **Keywords with levels.** A tag written `Places|Slovakia|Tatras` is filed
   under its levels rather than flattened: the path goes into
   `lr:hierarchicalSubject`, which is where Lightroom, darktable, digiKam,

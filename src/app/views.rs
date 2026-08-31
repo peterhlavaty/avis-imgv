@@ -79,7 +79,7 @@ impl App {
 
         if self.mode == Mode::Grid {
             self.ensure_marks();
-            self.grid_view.ui(ctx, &self.marks);
+            self.grid_view.ui(ctx, &self.marks, self.stacking.stacks());
 
             if let Some(path) = self.grid_view.take_selected() {
                 self.image_view.select_path(&path);
@@ -115,6 +115,10 @@ impl App {
                 watching: self.watcher.is_active(),
                 advancing: self.advancing,
                 paired,
+                place: self
+                    .stacking
+                    .stacks()
+                    .place_of(self.image_view.selected_index()),
                 ..Default::default()
             },
             marks,

@@ -173,6 +173,60 @@ pub fn picked(ui: &egui::Ui, picture: Rect, selected: bool) {
     );
 }
 
+/// The plate a closed stack wears, and the bar down the side of an open one.
+///
+/// Warm rather than blue: the blue is the selection and the cursor, and a
+/// stack is a fact about the folder rather than something the user has picked.
+const STACK: Color32 = Color32::from_rgb(226, 186, 120);
+const STACK_PLATE: Color32 = Color32::from_rgba_premultiplied(30, 24, 14, 190);
+
+/// Says that a cell stands for a run of frames rather than for one.
+///
+/// A closed stack gets a plate in the corner with its count and a glyph for
+/// what kind of run it is — the number is the important half, because "this is
+/// one of seventeen" is the thing that changes what you do next. An open stack
+/// gets a bar down its left edge instead, so a run that has been opened still
+/// reads as one block rather than as loose frames that happen to be adjacent.
+pub fn stack(ui: &egui::Ui, picture: Rect, glyph: &str, frames: usize, collapsed: bool) {
+    if picture.width() <= 0.0 {
+        return;
+    }
+
+    let painter = ui.painter();
+
+    if !collapsed {
+        let bar = Rect::from_min_max(picture.min, pos2(picture.left() + 3.0, picture.bottom()));
+
+        painter.rect_filled(bar, 0.0, STACK);
+        return;
+    }
+
+    let height = (picture.height() * 0.16).clamp(14.0, 24.0);
+    let text = format!("{glyph} {frames}");
+    let font = FontId::proportional(height * 0.62);
+
+    // Measured rather than guessed: the count is one character for a bracket
+    // and three for a timelapse, and a plate cut to fit the first hides the
+    // second.
+    let galley = painter.layout_no_wrap(text.clone(), font.clone(), STACK);
+    let plate = Rect::from_min_size(
+        pos2(
+            picture.right() - galley.size().x - 12.0,
+            picture.top() + 3.0,
+        ),
+        Vec2::new(galley.size().x + 9.0, height),
+    );
+
+    painter.rect_filled(plate, 3.0, STACK_PLATE);
+    painter.rect_stroke(
+        plate,
+        3.0,
+        Stroke::new(1.0_f32, STACK),
+        egui::StrokeKind::Inside,
+    );
+    painter.text(plate.center(), Align2::CENTER_CENTER, text, font, STACK);
+}
+
 /// Outlines the cell the image view is on, and the one the keyboard is on.
 ///
 /// Two different things, and the sheet used to mark neither: opening the
