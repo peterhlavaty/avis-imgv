@@ -17,6 +17,7 @@
 use eframe::egui::{self, RichText};
 
 use crate::app::mode::Mode;
+use crate::config::registry::Scope;
 use crate::config::{bindings, Config};
 
 use super::keys::describe;
@@ -30,17 +31,18 @@ struct Row {
     description: &'static str,
 }
 
-/// Which sections of the registry are worth showing in each mode.
+/// Which scopes are live in each mode.
 ///
-/// "General" and "Ratings and tags" are everywhere, because they are: the
-/// modes, the panels, the marks. The rest follows what is on screen.
-fn sections_for(mode: Mode) -> &'static [&'static str] {
+/// Read off the registry rather than off a heading, which is the same change
+/// the clash checker made: a scope states where a binding is *read*, and a
+/// heading only happens to. `Everywhere` is in every mode, because it is.
+fn scopes_for(mode: Mode) -> &'static [Scope] {
     match mode {
-        Mode::Grid => &["General", "Gallery", "Ratings and tags"],
-        Mode::Image | Mode::Slideshow => &["General", "Image view", "Ratings and tags"],
+        Mode::Grid => &[Scope::Everywhere, Scope::Gallery, Scope::Overlay],
+        Mode::Image | Mode::Slideshow => &[Scope::Everywhere, Scope::ImageView, Scope::Overlay],
         // A folder job draws no photographs, so the marking and navigation
         // keys are not what somebody is looking for there.
-        Mode::Rename | Mode::TimeShift | Mode::Group => &["General"],
+        Mode::Rename | Mode::TimeShift | Mode::Group => &[Scope::Everywhere],
     }
 }
 
@@ -69,30 +71,39 @@ pub fn ui(
     // before the window is: a scrolling area has no natural height of its own
     // — it is happy to be one line tall — so a window sized to its contents
     // ends up sized to nothing, and the list is clipped after a dozen rows.
-    let sections: Vec<(&'static str, Vec<Row>)> = sections_for(mode)
+    let live = scopes_for(mode);
+
+    let sections: Vec<(&'static str, Vec<Row>)> = bindings::SECTIONS
         .iter()
         .map(|section| {
             let rows: Vec<Row> = bindings
                 .iter()
-                .filter(|binding| binding.section == *section)
+                .filter(|binding| bindings::heading(binding) == *section)
+                .filter(|binding| live.contains(&binding.scope()))
+                .filter(|binding| binding.exists(config))
                 .filter_map(|binding| {
-                    let key = describe(binding.get(config)?);
+                    // A fixed key has no shortcut field to read; its name is
+                    // written on the row itself.
+                    let key = match binding.fixed() {
+                        Some(name) => name.to_string(),
+                        None => describe(binding.get(config)?),
+                    };
 
                     // Over the key as well as the name and the sentence: "what
                     // does F3 do" is asked as often as "what is the key for
                     // stacking".
                     if !needle.is_empty()
                         && !key.to_lowercase().contains(&needle)
-                        && !binding.name.to_lowercase().contains(&needle)
-                        && !binding.description.to_lowercase().contains(&needle)
+                        && !binding.name().to_lowercase().contains(&needle)
+                        && !binding.description().to_lowercase().contains(&needle)
                     {
                         return None;
                     }
 
                     Some(Row {
                         key,
-                        name: binding.name,
-                        description: binding.description,
+                        name: binding.name(),
+                        description: binding.description(),
                     })
                 })
                 .collect();
@@ -207,47 +218,45 @@ mod tests {
     #[test]
     fn every_mode_has_something_to_show() {
         for mode in Mode::ALL {
-            assert!(!sections_for(*mode).is_empty(), "{mode:?}");
+            assert!(!scopes_for(*mode).is_empty(), "{mode:?}");
         }
     }
 
     /// The keys on screen are the ones for what is on screen.
     #[test]
     fn a_mode_shows_its_own_keys_and_not_the_others() {
-        let grid = sections_for(Mode::Grid);
-        let image = sections_for(Mode::Image);
+        let grid = scopes_for(Mode::Grid);
+        let image = scopes_for(Mode::Image);
 
-        assert!(grid.contains(&"Gallery"));
-        assert!(!grid.contains(&"Image view"));
+        assert!(grid.contains(&Scope::Gallery));
+        assert!(!grid.contains(&Scope::ImageView));
 
-        assert!(image.contains(&"Image view"));
-        assert!(!image.contains(&"Gallery"));
+        assert!(image.contains(&Scope::ImageView));
+        assert!(!image.contains(&Scope::Gallery));
     }
 
-    /// Every section named here has to exist in the registry, or a rename
-    /// would silently empty the sheet.
+    /// The keys read in every mode are shown in every mode, which is what
+    /// makes the sheet a complete answer rather than most of one.
     #[test]
-    fn every_named_section_is_a_real_one() {
+    fn what_is_read_everywhere_is_shown_everywhere() {
         for mode in Mode::ALL {
-            for section in sections_for(*mode) {
-                assert!(
-                    bindings::SECTIONS.contains(section),
-                    "{section} is not a section of the registry"
-                );
-            }
+            assert!(scopes_for(*mode).contains(&Scope::Everywhere), "{mode:?}");
         }
     }
 
-    /// And every section of the registry is shown somewhere, or a whole group
+    /// Every scope a binding can carry is shown in some mode, or a whole group
     /// of keys would be undocumented on screen.
     #[test]
-    fn every_section_of_the_registry_is_shown_in_some_mode() {
-        for section in bindings::SECTIONS {
+    fn every_scope_a_binding_has_is_shown_in_some_mode() {
+        for binding in bindings::all() {
+            let scope = binding.scope();
             assert!(
                 Mode::ALL
                     .iter()
-                    .any(|mode| sections_for(*mode).contains(section)),
-                "{section} is shown in no mode"
+                    .any(|mode| scopes_for(*mode).contains(&scope)),
+                "{} is read in {} and shown in no mode",
+                binding.path(),
+                scope.label()
             );
         }
     }
@@ -319,7 +328,7 @@ mod tests {
         let bindings = bindings::all();
         let found = bindings
             .iter()
-            .find(|binding| binding.name == "Gallery")
+            .find(|binding| binding.name() == "Gallery")
             .and_then(|binding| binding.get(&config))
             .map(describe);
 

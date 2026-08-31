@@ -80,6 +80,9 @@ pub struct App {
     settings: Config,
     keys: keys::State,
     keys_visible: bool,
+    /// Whether the keyboard editor is the reason the viewer is deaf, so only
+    /// it undoes that.
+    muted_for_keys: bool,
     slideshow_visible: bool,
     /// A fullscreen change asked for by a mode, sent on the next frame.
     pending_fullscreen: Option<bool>,
@@ -262,6 +265,7 @@ impl App {
             settings,
             keys: keys::State::default(),
             keys_visible: false,
+            muted_for_keys: false,
             slideshow_visible: false,
             pending_fullscreen: None,
             was_fullscreen: fullscreen,

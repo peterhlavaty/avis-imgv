@@ -40,6 +40,28 @@ impl Corner {
         Corner::BottomRight,
     ];
 
+    /// The word the file holds for this corner.
+    ///
+    /// The registry is keyed on what a forum answer quotes, which is what the
+    /// document says rather than what the control says.
+    pub fn value(self) -> &'static str {
+        match self {
+            Corner::Off => "off",
+            Corner::TopLeft => "top_left",
+            Corner::TopRight => "top_right",
+            Corner::BottomLeft => "bottom_left",
+            Corner::BottomRight => "bottom_right",
+        }
+    }
+
+    /// The corner that word names, if it names one.
+    pub fn of(value: &str) -> Option<Corner> {
+        Corner::ALL
+            .iter()
+            .copied()
+            .find(|corner| corner.value() == value)
+    }
+
     /// The next corner round, for the key that cycles it.
     ///
     /// Through the corners and then off, so one key both moves it out of the

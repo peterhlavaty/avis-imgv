@@ -181,6 +181,14 @@ pub fn read_file(path: &Path) -> std::io::Result<Vec<TagCategory>> {
 ///
 /// A relative name is taken as relative to the configuration file, which is
 /// where somebody writing `"keywords.txt"` into it means.
+/// Where a configured keyword file actually is.
+///
+/// A relative path is taken against the configuration directory rather than the
+/// working one, which is the sort of thing the row on the page has to say.
+pub fn resolve(named: &str) -> Option<PathBuf> {
+    Some(beside_the_config(named))
+}
+
 fn beside_the_config(named: &str) -> PathBuf {
     let named = PathBuf::from(named);
     if named.is_absolute() {

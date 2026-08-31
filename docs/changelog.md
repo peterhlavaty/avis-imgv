@@ -1,5 +1,57 @@
 # Change Log
 
+## 2026-09-01
+
+- **One table the file and the window both read.** The configuration is a
+  hundred and eleven fields spread over a dozen structs, which is the right
+  shape for JSON and the wrong shape for a person. There is now one row per
+  field carrying where it is drawn, what it is called, what it means in a
+  sentence, other programs' words for it, its path in the file, what kind of
+  control it wants, when a change takes effect, where it is read, and the pair
+  of accessors that reach it.
+
+  Almost nothing on screen changes for it. It is the foundation the settings
+  window, the search, the changed-from-default marker, the per-field reset and
+  the load-time check are all views over, and the keyboard editor is its first
+  consumer and the proof it works.
+
+  A test walks `Config::default()` and fails the build if the file carries a key
+  the table has never heard of, or the table names a key the file does not
+  carry. Another asks it thirty-five questions in the words somebody would
+  actually type — "blurry thumbnails", "where do rejects go", "why is my raw
+  small", "color class", "text too small", "cr3" — and fails if any of them
+  stops landing.
+- **The keyboard editor answers ten complaints.** A search box over the name,
+  the sentence and the key itself. A reset per row and per section, and the
+  global one is named ("Put the 69 key bindings back"), confirmed, and no longer
+  walks every row on one unconfirmed click. Delete or Backspace on an armed row
+  means "no key", a state the list could already draw and nothing could produce.
+  The viewer goes deaf while a row is armed — pressing Delete used to send the
+  photograph on screen to the bin *and* fail to capture. A successful change
+  says what it did, in a status line that had been declared and read and never
+  written. And `cmd` is emitted on macOS rather than folded into `ctrl`.
+- **Clashes are decided by where a key is read.** The check compared only
+  within a heading, on the sound ground that the gallery and the image view are
+  never on screen at once — but "General" is live in *every* mode, so the
+  collision it was blind to is the one that bites: Quit on the gallery's scroll
+  key means the folder scrolls and the program exits. Every binding now records
+  where it is read, and that is what the checker compares.
+- **The keys the program reads for itself are in the list.** `?`, `F10`,
+  `Escape`, `Home`, `End`, `PageUp`, `PageDown`, `Tab`, `/`, the contact
+  sheet's arrows, the tree's six and the destination digits are drawn read-only,
+  so the clash checker can see them and a search for "cheat sheet" finds one.
+  So is the shortcut on a user action, which was the one shortcut in the file
+  the editor could not reach — which is why the shipped example's trash action
+  could never fire.
+- **`Config::check()`.** What is wrong with a file, said once at load: a screen
+  profile that matches nothing, a keyword list that is not there, a blank
+  rejects folder whose key therefore does nothing, a destination with no path, a
+  tenth destination where there are nine digits, an action with no command, a
+  key name that is not a key name, and a number outside what its control can
+  produce. Every one of those reached only a log file whose own path the program
+  never stated. Nothing is changed by it: an out-of-range value is reported and
+  left exactly as written, because hand-editing wins.
+
 ## 2026-08-31
 
 - **The right button does something.** On a fresh install, right-clicking a
@@ -286,7 +338,7 @@
   asked for speculatively, for every photograph within reach, before the
   preload window had been queued — so a folder of large JPEGs was decoded
   twice over and the second, expensive decode competed with the one browsing
-  was waiting on. Throughput on a folder of 4624×2600 JPEGs went from 37
+  was waiting on. Throughput on a folder of 4624Ã2600 JPEGs went from 37
   images a second to 51, and the slowest frame from 54ms to 14ms. A
   photograph smaller than the display cap now costs one decode rather than
   two, because its ordinary copy already is its own pixels.

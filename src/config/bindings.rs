@@ -1,541 +1,255 @@
-//! Every key the viewer listens for, in one list.
+//! Every key the viewer listens for, as a filtered view over the registry.
 //!
-//! The keyboard map lives in the configuration as three dozen separate fields,
-//! which is the right shape for reading it and the wrong shape for showing it
-//! to somebody. This is the other view of the same thing: a flat list with a
-//! sentence explaining each entry, and a way to reach the field behind it.
+//! This module used to *be* the table: a flat list of the sixty shortcut
+//! fields, with a sentence each and a pair of accessors reaching the field
+//! behind it. That idea was right and too narrow — the other eighty fields of
+//! the configuration wanted exactly the same treatment — so the table moved to
+//! [`registry`] and this became the view of it the keyboard editor and the
+//! cheat sheet already had.
 //!
-//! Adding a shortcut to the configuration and not to this list means it cannot
-//! be changed from the interface, so the two are meant to be edited together.
+//! What changed for them: the fixed keys are now in the list, drawn read-only,
+//! so the clash checker can see them; the shortcut on a user action is
+//! reachable, which it never was; and clashes are decided by where a binding is
+//! *read* rather than by which heading it happened to be filed under.
+//!
+//! [`registry`]: super::registry
 
+use super::registry::{self, Access, Row, Scope};
 use super::{Config, Shortcut};
 
-/// Where a binding's field lives.
-///
-/// A pair of accessors rather than one: reading happens every frame the editor
-/// is open and must not need a mutable borrow of the whole configuration. The
-/// star ratings are one list rather than six fields, so reaching them takes an
-/// index where everything else takes a function.
-#[derive(Clone, Copy)]
-enum Field {
-    Fixed(fn(&Config) -> &Shortcut, fn(&mut Config) -> &mut Shortcut),
-    Rating(usize),
-    Label(usize),
-}
-
 /// One thing a key can be bound to.
+///
+/// A borrowed view of a registry row rather than a copy of one, so there is
+/// nowhere for the two to disagree.
 #[derive(Clone, Copy)]
 pub struct Binding {
-    /// Which part of the viewer it belongs to, for grouping the list.
-    pub section: &'static str,
-    /// What it does, as a heading.
-    pub name: &'static str,
-    /// What it does, in a sentence.
-    pub description: &'static str,
-    field: Field,
+    row: &'static Row,
 }
 
 impl Binding {
+    /// Which part of the viewer it belongs to, for grouping the list.
+    pub fn section(&self) -> &'static str {
+        section_of(self.row.scope)
+    }
+
+    /// What it does, as a heading.
+    pub fn name(&self) -> &'static str {
+        self.row.label
+    }
+
+    /// What it does, in a sentence.
+    pub fn description(&self) -> &'static str {
+        self.row.sentence
+    }
+
+    /// Where the value is read, which is where it can clash.
+    pub fn scope(&self) -> Scope {
+        self.row.scope
+    }
+
+    /// Its path in the configuration file, which is its identity.
+    pub fn path(&self) -> &'static str {
+        self.row.path
+    }
+
+    /// Whether the interface may change it. A fixed key is drawn and not
+    /// edited: it is in the list so the clash checker can see it.
+    pub fn is_editable(&self) -> bool {
+        self.row.access.is_writable()
+    }
+
+    /// The registry row behind it, for whatever needs more than this view.
+    pub fn row(&self) -> &'static Row {
+        self.row
+    }
+
     /// The shortcut currently bound, if the configuration still has it.
     pub fn get<'a>(&self, config: &'a Config) -> Option<&'a Shortcut> {
-        match self.field {
-            Field::Fixed(read, _) => Some(read(config)),
-            Field::Rating(index) => config.tags.sc_rating.get(index),
-            Field::Label(index) => config.tags.sc_label.get(index),
+        self.row.access.shortcut(config)
+    }
+
+    /// Whether this row exists for this configuration.
+    ///
+    /// A user action row is one of nine written into the table; a file with two
+    /// actions in it has two, and the other seven are not rows at all.
+    pub fn exists(&self, config: &Config) -> bool {
+        self.fixed().is_some() || self.get(config).is_some()
+    }
+
+    /// A fixed key's name, for the rows nobody can change.
+    pub fn fixed(&self) -> Option<&'static str> {
+        match self.row.access {
+            Access::Fixed(name) => Some(name),
+            _ => None,
         }
     }
 
     /// Replaces what this binding is bound to.
     pub fn set(&self, config: &mut Config, shortcut: Shortcut) {
-        match self.field {
-            Field::Fixed(_, write) => *write(config) = shortcut,
-            Field::Rating(index) => {
-                if let Some(field) = config.tags.sc_rating.get_mut(index) {
-                    *field = shortcut;
-                }
-            }
-            Field::Label(index) => {
-                if let Some(field) = config.tags.sc_label.get_mut(index) {
-                    *field = shortcut;
-                }
-            }
-        }
+        self.row.access.set_shortcut(config, shortcut);
+    }
+
+    /// Puts it back to what a fresh configuration binds it to.
+    pub fn reset(&self, config: &mut Config) {
+        self.row.access.reset(config);
+    }
+
+    /// Whether it differs from that.
+    pub fn changed(&self, config: &Config) -> bool {
+        self.row.changed(config)
     }
 }
 
 /// Sections, in the order the editor lists them.
-pub const SECTIONS: &[&str] = &["General", "Image view", "Gallery", "Ratings and tags"];
+///
+/// Now derived from the scope rather than written on each row, so the heading a
+/// binding appears under and the rule deciding whether it can clash are the
+/// same fact rather than two.
+pub const SECTIONS: &[&str] = &[
+    "General",
+    "Image view",
+    "Gallery",
+    "Ratings and tags",
+    "Fixed keys",
+];
 
-/// Builds one binding.
-macro_rules! binding {
-    ($section:expr, $name:expr, $description:expr, $($field:tt)+) => {
-        Binding {
-            section: $section,
-            name: $name,
-            description: $description,
-            field: Field::Fixed(
-                |config| &config.$($field)+,
-                |config| &mut config.$($field)+,
-            ),
-        }
-    };
+/// The heading a scope is listed under.
+fn section_of(scope: Scope) -> &'static str {
+    match scope {
+        Scope::Everywhere => "General",
+        Scope::ImageView => "Image view",
+        Scope::Gallery => "Gallery",
+        Scope::Overlay => "Fixed keys",
+        Scope::None => "General",
+    }
 }
 
 /// Every key the viewer listens for.
 pub fn all() -> Vec<Binding> {
-    let mut bindings = vec![
-        binding!(
-            "General",
-            "Next mode",
-            "Move round the modes: image, gallery, bulk rename, shift capture time, group shots, slideshow.",
-            general.sc_next_mode
-        ),
-        binding!(
-            "General",
-            "Gallery",
-            "Switch between the image and the contact sheet.",
-            general.sc_toggle_gallery
-        ),
-        binding!("General", "Menu", "Show or hide the menu bar.", general.sc_menu),
-        binding!(
-            "General",
-            "Filmstrip",
-            "Show or hide the strip of thumbnails under the photograph.",
-            general.sc_filmstrip
-        ),
-        binding!(
-            "Gallery",
-            "Stacks",
-            "Show the folder stacked: every burst, bracket and timelapse as one cell.",
-            general.sc_stacks
-        ),
-        binding!(
-            "Gallery",
-            "Open or close a stack",
-            "Show what is inside the run of frames the cursor is on, or fold it back up.",
-            general.sc_toggle_stack
-        ),
-        binding!(
-            "Gallery",
-            "Which frame shows the stack",
-            "Walk the frames of a closed stack without opening it. Nobody searches for \"standing\".",
-            general.sc_standing_back
-        ),
-        binding!(
-            "Gallery",
-            "Show the next frame instead",
-            "The same, forwards.",
-            general.sc_standing_forward
-        ),
-        binding!(
-            "Gallery",
-            "Previous stack",
-            "Step to the run of frames before this one, over a burst rather than through it.",
-            general.sc_previous_stack
-        ),
-        binding!(
-            "Gallery",
-            "Next stack",
-            "Step to the run of frames after this one.",
-            general.sc_next_stack
-        ),
-        binding!(
-            "General",
-            "Side panel",
-            "Show or hide the metadata and cache readout down the side.",
-            general.sc_toggle_side_panel
-        ),
-        binding!(
-            "General",
-            "Tag panel",
-            "Show or hide the panel for stars and keywords.",
-            tags.sc_toggle_tag_panel
-        ),
-        binding!(
-            "General",
-            "Navigation bar",
-            "Type a path to open instead of picking one.",
-            general.sc_navigator
-        ),
-        binding!(
-            "General",
-            "Directory tree",
-            "Open the folder tree beside the image.",
-            general.sc_dir_tree
-        ),
-        binding!(
-            "General",
-            "Flatten folders",
-            "Read the pictures out of every sub folder as though they were one.",
-            general.sc_flatten_dir
-        ),
-        binding!(
-            "General",
-            "Watch the folder",
-            "Pick up pictures that appear or change while the viewer is open.",
-            general.sc_watch_directory
-        ),
-        binding!(
-            "General",
-            "To the bin",
-            "Send the picture on screen to the platform's bin, along with its sidecar.",
-            general.sc_delete
-        ),
-        binding!(
-            "General",
-            "Delete for good",
-            "Delete it outright, for the cards and shares that have no bin. Asked about first.",
-            general.sc_delete_permanently
-        ),
-        binding!(
-            "General",
-            "Move to…",
-            "Send the picture on screen to one of the folders on the panel.",
-            cull.sc_move
-        ),
-        binding!(
-            "General",
-            "Copy to…",
-            "Put a copy of it in one of them, leaving the photograph where it is.",
-            cull.sc_copy
-        ),
-        binding!(
-            "General",
-            "To the rejected folder",
-            "Move it into the folder for the frames that are not staying, which is what a card or a network share has instead of a bin.",
-            cull.sc_reject_folder
-        ),
-        binding!(
-            "General",
-            "Undo",
-            "Put back whatever the last thing that touched a file did.",
-            cull.sc_undo
-        ),
-        binding!(
-            "General",
-            "Filter",
-            "Show or hide the bar that narrows and orders the folder.",
-            general.sc_filter
-        ),
-        binding!(
-            "General",
-            "Show everything",
-            "Set the filter aside without forgetting it, so what it is hiding can be looked at.",
-            general.sc_suspend_filter
-        ),
-        binding!(
-            "General",
-            "Fullscreen",
-            "Fill the screen, and give it back.",
-            general.sc_fullscreen
-        ),
-        binding!("General", "Quit", "Close the viewer.", general.sc_exit),
-        binding!(
-            "Image view",
-            "Next image",
-            "Move to the next picture in the folder.",
-            image_view.sc_next
-        ),
-        binding!(
-            "Image view",
-            "Previous image",
-            "Move to the one before it.",
-            image_view.sc_prev
-        ),
-        binding!(
-            "Image view",
-            "Fit",
-            "Show the whole picture, as large as the window allows.",
-            image_view.sc_fit
-        ),
-        binding!(
-            "Image view",
-            "Fill",
-            "Fill the window, cropping whichever side overflows.",
-            image_view.sc_fit_maximize
-        ),
-        binding!(
-            "Image view",
-            "Keep filling",
-            "Carry on filling the window as you move through the folder.",
-            image_view.sc_latch_fit_maximize
-        ),
-        binding!(
-            "Image view",
-            "Fit width",
-            "Make the picture exactly as wide as the window.",
-            image_view.sc_fit_horizontal
-        ),
-        binding!(
-            "Image view",
-            "Fit height",
-            "Make it exactly as tall.",
-            image_view.sc_fit_vertical
-        ),
-        binding!(
-            "Image view",
-            "Zoom step",
-            "Double the magnification, returning to fitted once it goes far enough.",
-            image_view.sc_zoom
-        ),
-        binding!(
-            "Image view",
-            "Zoom in",
-            "Magnify a little more.",
-            image_view.sc_zoom_in
-        ),
-        binding!(
-            "Image view",
-            "Zoom out",
-            "Magnify a little less.",
-            image_view.sc_zoom_out
-        ),
-        binding!(
-            "Image view",
-            "Actual pixels",
-            "One screen pixel for each pixel of the photograph.",
-            image_view.sc_one_to_one
-        ),
-        binding!(
-            "Image view",
-            "Repeat the last view",
-            "Put this picture at the zoom and position the last one was left at, for comparing two frames of the same thing.",
-            image_view.sc_repeat_place
-        ),
-        binding!(
-            "Image view",
-            "Compare",
-            "Pin this picture and the next side by side, sharing one zoom and one pan. Tab moves which one the keys are about, / drops it, Escape leaves.",
-            image_view.sc_compare
-        ),
-        binding!(
-            "Image view",
-            "Pan up",
-            "Move the view up, for as long as the key is held.",
-            image_view.sc_pan_up
-        ),
-        binding!("Image view", "Pan down", "Move the view down.", image_view.sc_pan_down),
-        binding!("Image view", "Pan left", "Move the view left.", image_view.sc_pan_left),
-        binding!(
-            "Image view",
-            "Pan right",
-            "Move the view right.",
-            image_view.sc_pan_right
-        ),
-        binding!(
-            "Image view",
-            "White frame",
-            "Show or hide the white border around the photograph.",
-            image_view.sc_frame
-        ),
-        binding!(
-            "Image view",
-            "More side by side",
-            "Show one more picture beside the current one.",
-            image_view.sc_more_images_shown
-        ),
-        binding!(
-            "Image view",
-            "Fewer side by side",
-            "Show one fewer.",
-            image_view.sc_less_images_shown
-        ),
-        binding!(
-            "Image view",
-            "Mark clipping and focus",
-            "Mark what has clipped, then what is in focus, then nothing.",
-            image_view.sc_marks
-        ),
-        binding!(
-            "Image view",
-            "What it says about itself",
-            "Move the photograph's own details round its corners, and off again.",
-            image_view.sc_overlay
-        ),
-        binding!(
-            "Gallery",
-            "Scroll down",
-            "Move half a row down the contact sheet.",
-            grid_view.sc_scroll
-        ),
-        binding!(
-            "Gallery",
-            "More per row",
-            "Fit one more thumbnail across, making them smaller.",
-            grid_view.sc_more_per_row
-        ),
-        binding!(
-            "Gallery",
-            "Fewer per row",
-            "Fit one fewer, making them larger.",
-            grid_view.sc_less_per_row
-        ),
-        binding!(
-            "Gallery",
-            "What the cells say",
-            "Cycle what is drawn under each thumbnail: nothing, the marks, or the marks and the file name.",
-            grid_view.sc_cycle_badges
-        ),
-        binding!(
-            "Gallery",
-            "Pick out",
-            "Pick the photograph under the cursor out, or put it back. Everything picked out is what the next mark, move or deletion applies to.",
-            grid_view.sc_select
-        ),
-        binding!(
-            "Gallery",
-            "Pick out everything",
-            "Pick out every photograph on show, or put them all back if they already are.",
-            grid_view.sc_select_all
-        ),
-    ];
-
-    bindings.extend([
-        binding!(
-            "Ratings and tags",
-            "Keep",
-            "Mark the picture on screen as one to keep. Pressing it again takes the mark off.",
-            tags.sc_pick
-        ),
-        binding!(
-            "Ratings and tags",
-            "Reject",
-            "Mark it as one to throw out. Pressing it again puts it back.",
-            tags.sc_reject
-        ),
-        binding!(
-            "Ratings and tags",
-            "No flag",
-            "Take whichever of those two marks it carries back off it.",
-            tags.sc_unflag
-        ),
-        binding!(
-            "Ratings and tags",
-            "Advance after marking",
-            "Turn on and off moving to the next picture as soon as one is rated, flagged or labelled.",
-            tags.sc_toggle_advance
-        ),
-    ]);
-
-    for (index, label) in crate::metadata::xmp::Label::CHOICES.iter().enumerate() {
-        bindings.push(Binding {
-            section: "Ratings and tags",
-            name: label.name(),
-            description: LABEL_DESCRIPTIONS[index],
-            field: Field::Label(index),
-        });
-    }
-
-    for stars in 0..=crate::metadata::xmp::MAX_RATING {
-        bindings.push(Binding {
-            section: "Ratings and tags",
-            name: RATING_NAMES[stars as usize],
-            description: RATING_DESCRIPTIONS[stars as usize],
-            field: Field::Rating(stars as usize),
-        });
-    }
-
-    bindings
+    registry::rows()
+        .iter()
+        .filter(|row| row.access.is_a_key())
+        .map(|row| Binding { row })
+        .collect()
 }
 
-const LABEL_DESCRIPTIONS: &[&str] = &[
-    "Put the red label on the picture on screen. Pressing it again takes it off.",
-    "Put the yellow label on it.",
-    "Put the green label on it.",
-    "Put the blue label on it.",
-    "Put the purple label on it.",
-];
+/// The heading the marks are listed under, which is not a scope.
+///
+/// The ratings, the colour labels and the flags are read everywhere, so their
+/// scope says "General" — but somebody looking for the key that puts three
+/// stars on a photograph looks under the marks. The one place where the list a
+/// person reads and the rule the checker applies are deliberately different,
+/// and the reason is written here rather than left to be worked out.
+pub fn heading(binding: &Binding) -> &'static str {
+    if binding.path().starts_with("tags.") {
+        return "Ratings and tags";
+    }
 
-const RATING_NAMES: &[&str] = &[
-    "No stars",
-    "One star",
-    "Two stars",
-    "Three stars",
-    "Four stars",
-    "Five stars",
-];
+    if binding.fixed().is_some() {
+        return "Fixed keys";
+    }
 
-const RATING_DESCRIPTIONS: &[&str] = &[
-    "Take the rating off the picture on screen.",
-    "Put one star on the picture on screen.",
-    "Put two stars on it.",
-    "Put three stars on it.",
-    "Put four stars on it.",
-    "Put five stars on it.",
-];
+    binding.section()
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn every_binding_explains_itself() {
+    fn every_binding_has_a_section_the_editor_lists() {
         for binding in all() {
-            assert!(!binding.name.is_empty(), "{} has no name", binding.section);
             assert!(
-                binding.description.ends_with('.'),
-                "{} is not a sentence",
-                binding.name
-            );
-            assert!(
-                SECTIONS.contains(&binding.section),
-                "{} is in no section",
-                binding.name
+                SECTIONS.contains(&heading(&binding)),
+                "{} is filed under {}, which the editor does not draw",
+                binding.path(),
+                heading(&binding)
             );
         }
     }
 
     #[test]
-    fn no_two_bindings_share_a_name_within_a_section() {
-        let mut seen: Vec<(&str, &str)> = all()
-            .iter()
-            .map(|binding| (binding.section, binding.name))
-            .collect();
-
-        let before = seen.len();
-        seen.sort_unstable();
-        seen.dedup();
-
-        assert_eq!(seen.len(), before);
-    }
-
-    #[test]
-    fn a_binding_reaches_the_field_it_names() {
-        let mut config = Config::default();
-        let bindings = all();
-
-        let next = bindings
-            .iter()
-            .find(|binding| binding.name == "Next image")
-            .expect("the list has it");
-
-        next.set(&mut config, Shortcut::new("z", &[]));
-        assert_eq!(config.image_view.sc_next.key, "z");
-    }
-
-    #[test]
-    fn the_star_ratings_reach_their_places_in_the_list() {
+    fn a_binding_reads_and_writes_its_field() {
         let mut config = Config::default();
         let bindings = all();
 
         let three = bindings
             .iter()
-            .find(|binding| binding.name == "Three stars")
+            .find(|binding| binding.name() == "Three stars")
             .expect("the list has it");
 
         three.set(&mut config, Shortcut::new("F5", &[]));
         assert_eq!(config.tags.sc_rating[3].key, "F5");
     }
 
+    /// The count is what stops a shortcut being added to the configuration and
+    /// quietly left out of the editor. It used to be 54 fixed bindings plus 11
+    /// generated ones; the fixed keys of the program itself are in the list
+    /// now, which is the point of moving to the registry.
     #[test]
     fn every_shortcut_in_the_configuration_can_be_changed_from_the_list() {
-        // The count is what stops a shortcut being added to the configuration
-        // and quietly left out of the editor.
-        let fixed = all()
+        let fresh = Config::default();
+        let editable = all()
             .iter()
-            .filter(|binding| binding.section != "Ratings and tags")
+            .filter(|b| b.is_editable() && b.exists(&fresh))
             .count();
 
-        assert_eq!(fixed, 54, "a shortcut was added without a description");
+        assert_eq!(
+            editable, 69,
+            "a shortcut was added to the configuration without a registry row"
+        );
+    }
+
+    /// And the keys the program reads for itself are drawn without being
+    /// editable, so the clash checker can see them.
+    #[test]
+    fn the_fixed_keys_are_in_the_list_and_are_not_editable() {
+        let fixed: Vec<_> = all().into_iter().filter(|b| b.fixed().is_some()).collect();
+
+        assert!(!fixed.is_empty());
+        for binding in fixed {
+            assert!(!binding.is_editable(), "{} is editable", binding.path());
+        }
+    }
+
+    /// The one shortcut in the file the editor could not reach.
+    #[test]
+    fn a_user_action_gets_a_row_when_the_file_has_one() {
+        let mut config = Config::default();
+        config
+            .image_view
+            .user_actions
+            .push(crate::config::UserAction {
+                shortcut: Shortcut::new("e", &[]),
+                exec: "gimp {}".to_string(),
+                callback: None,
+            });
+
+        let bindings = all();
+        let action = bindings
+            .iter()
+            .find(|b| b.path() == "image_view.user_actions[0].shortcut")
+            .expect("the table has nine of them");
+
+        assert!(action.exists(&config));
+        assert_eq!(action.get(&config).map(|s| s.key.as_str()), Some("e"));
+
+        // And the other eight are not rows for this file.
+        let missing = bindings
+            .iter()
+            .find(|b| b.path() == "image_view.user_actions[1].shortcut")
+            .expect("the table has nine of them");
+        assert!(!missing.exists(&config));
+    }
+
+    /// A search for the key that shows the keys finds one.
+    #[test]
+    fn the_cheat_sheet_key_is_in_the_list() {
+        let found = all()
+            .into_iter()
+            .find(|binding| binding.path() == "fixed.cheat_sheet")
+            .expect("the fixed keys are in the list");
+
+        assert_eq!(found.fixed(), Some("?"));
     }
 }

@@ -135,6 +135,16 @@ fn shift_is_exact(key: Key) -> bool {
     )
 }
 
+/// Whether egui can read a key by this name.
+///
+/// An unknown name becomes the unreachable sentinel `Ctrl+Alt+Shift+Cmd+F20`,
+/// so a typo makes a command permanently unpressable and the only record used
+/// to be a log line. Both spellings are accepted, since `Key::from_name` takes
+/// several for the same key.
+pub fn names_a_key(name: &str) -> bool {
+    Key::from_name(name).is_some() || Key::from_name(&utils::capitalize_first_char(name)).is_some()
+}
+
 pub fn default_shortcut() -> KeyboardShortcut {
     //Bogus shortcut as default so we don't have to use option
     //Easier when implementing the shortcuts

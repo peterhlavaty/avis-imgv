@@ -44,6 +44,19 @@ pub enum Prefer {
 impl Prefer {
     pub const ALL: &'static [Prefer] = &[Prefer::Off, Prefer::Jpeg, Prefer::Raw];
 
+    /// The word the file holds.
+    pub fn value(self) -> &'static str {
+        match self {
+            Prefer::Off => "off",
+            Prefer::Jpeg => "jpeg",
+            Prefer::Raw => "raw",
+        }
+    }
+
+    pub fn of(value: &str) -> Option<Prefer> {
+        Prefer::ALL.iter().copied().find(|it| it.value() == value)
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Prefer::Off => "Show both",

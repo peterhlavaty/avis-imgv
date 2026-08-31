@@ -141,6 +141,18 @@ impl App {
         let outcome = keys::show(ctx, &mut open, &mut self.keys, &mut self.settings);
         self.keys_visible = open;
 
+        // While a row is armed the viewer has to stop reading its own keys, or
+        // the key being captured also does whatever it does the rest of the
+        // time: arming a row and pressing Delete sent the photograph on screen
+        // to the bin, and the capture failed as well. Only ever cleared by
+        // whoever set it, so this does not un-mute a question that is up.
+        if self.keys.is_listening() {
+            crate::utils::set_mute_state(ctx, true);
+            self.muted_for_keys = true;
+        } else if std::mem::take(&mut self.muted_for_keys) {
+            crate::utils::set_mute_state(ctx, false);
+        }
+
         if outcome.is_none() {
             return;
         }

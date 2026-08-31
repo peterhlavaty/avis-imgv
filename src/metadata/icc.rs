@@ -18,6 +18,14 @@ const HEADER_SIZE: usize = 128;
 const TAG_ENTRY_SIZE: usize = 12;
 const DESCRIPTION_TAG: &[u8; 4] = b"desc";
 
+/// Whether any bundled profile answers to this name.
+///
+/// The same substring match the decoder uses, so the check and the consumer
+/// cannot disagree about whether a name resolves.
+pub fn is_known(description: &str) -> bool {
+    built_in(description).is_some()
+}
+
 /// The built-in profile whose name `description` mentions.
 pub fn built_in(description: &str) -> Option<&'static [u8]> {
     let description = description.to_lowercase();

@@ -4,6 +4,7 @@ pub mod bindings;
 pub mod defaults;
 pub mod load;
 pub mod migrate;
+pub mod registry;
 pub mod shortcut;
 
 use serde::{Deserialize, Serialize};
@@ -126,6 +127,46 @@ pub enum RawQuality {
     Fast,
     Balanced,
     Best,
+}
+
+impl RawSource {
+    pub const ALL: &'static [RawSource] = &[RawSource::Preview, RawSource::Develop];
+
+    /// The word the file holds, which is what the registry is keyed on and what
+    /// a forum answer quotes.
+    pub fn value(self) -> &'static str {
+        match self {
+            RawSource::Preview => "preview",
+            RawSource::Develop => "develop",
+        }
+    }
+
+    pub fn of(value: &str) -> Option<RawSource> {
+        RawSource::ALL
+            .iter()
+            .copied()
+            .find(|it| it.value() == value)
+    }
+}
+
+impl RawQuality {
+    pub const ALL: &'static [RawQuality] =
+        &[RawQuality::Fast, RawQuality::Balanced, RawQuality::Best];
+
+    pub fn value(self) -> &'static str {
+        match self {
+            RawQuality::Fast => "fast",
+            RawQuality::Balanced => "balanced",
+            RawQuality::Best => "best",
+        }
+    }
+
+    pub fn of(value: &str) -> Option<RawQuality> {
+        RawQuality::ALL
+            .iter()
+            .copied()
+            .find(|it| it.value() == value)
+    }
 }
 
 /// The star rating and tagging panel.
@@ -511,6 +552,19 @@ pub enum Motion {
 
 impl Motion {
     pub const ALL: &'static [Motion] = &[Motion::Still, Motion::Zoom, Motion::Reveal];
+
+    /// The word the file holds.
+    pub fn value(self) -> &'static str {
+        match self {
+            Motion::Still => "still",
+            Motion::Zoom => "zoom",
+            Motion::Reveal => "reveal",
+        }
+    }
+
+    pub fn of(value: &str) -> Option<Motion> {
+        Motion::ALL.iter().copied().find(|it| it.value() == value)
+    }
 
     pub fn label(self) -> &'static str {
         match self {
