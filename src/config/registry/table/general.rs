@@ -44,7 +44,17 @@ pub fn rows() -> Vec<Row> {
             ],
             Live,
             None,
-            decimal!(0.5, 3.0, "", true, general.text_scaling),
+            // Read as a percentage rather than a multiplier: 125 per cent is what
+            // a person means, and 1.25 is what the file holds. The file keeps
+            // its own notation, because that is what a forum answer quotes.
+            Access::Float {
+                get: |c| c.general.text_scaling * 100.0,
+                set: |c, v| c.general.text_scaling = v / 100.0,
+                min: 50.0,
+                max: 300.0,
+                unit: " %",
+                rail: true,
+            },
         ),
         row!(
             ThePhotograph / Panels,
@@ -140,6 +150,9 @@ fn keys() -> Vec<Row> {
         row!(KeysAndMouse / Keys, "general.sc_suspend_filter", "Show everything",
             "Set the filter aside without forgetting it, so what it is hiding can be looked at.",
             ["unfilter", "show all"], Live, Everywhere, key!(general.sc_suspend_filter)),
+        row!(KeysAndMouse / Keys, "general.sc_settings", "Settings",
+            "Opens the settings window on the page it was last left on.",
+            ["settings", "preferences", "options", "configure"], Live, Everywhere, key!(general.sc_settings)),
         row!(KeysAndMouse / Keys, "general.sc_fullscreen", "Fullscreen",
             "Fill the screen, and give it back.",
             ["full screen", "maximise"], Live, Everywhere, key!(general.sc_fullscreen)),

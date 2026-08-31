@@ -6,6 +6,7 @@
 
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::atomic::replace;
 use crate::metadata::xmp::{self, Xmp};
@@ -42,6 +43,41 @@ pub fn candidates(image: &Path) -> Vec<PathBuf> {
     paths
 }
 
+/// Which naming a new sidecar gets, for the whole process.
+///
+/// A static rather than a parameter threaded through every caller: the writing
+/// happens on a background thread with an image path and nothing else, and this
+/// is one value the whole program agrees about. Both forms are still *read*,
+/// most specific first, and a sidecar that already exists is edited rather than
+/// joined by a second — so changing this changes only what gets created for a
+/// photograph that has none.
+static ADOBE_NAMING: AtomicBool = AtomicBool::new(false);
+
+/// Sets it from the configuration.
+pub fn name_like_adobe(on: bool) {
+    ADOBE_NAMING.store(on, Ordering::Relaxed);
+}
+
+/// Where a sidecar this viewer creates goes.
+pub fn new_path_for(image: &Path) -> PathBuf {
+    if !ADOBE_NAMING.load(Ordering::Relaxed) {
+        return path_for(image);
+    }
+
+    match image.file_stem() {
+        Some(stem) => {
+            let adobe = image.with_file_name(stem).with_extension("xmp");
+            // Never the photograph itself, which it would be for an .xmp.
+            if adobe == image {
+                path_for(image)
+            } else {
+                adobe
+            }
+        }
+        None => path_for(image),
+    }
+}
+
 /// Reads the first sidecar that exists and parses.
 pub fn read(image: &Path) -> Option<Xmp> {
     candidates(image)
@@ -61,7 +97,7 @@ pub fn write(image: &Path, annotations: &Xmp) -> std::io::Result<()> {
     let target = candidates(image)
         .into_iter()
         .find(|path| path.exists())
-        .unwrap_or_else(|| path_for(image));
+        .unwrap_or_else(|| new_path_for(image));
 
     let existing = match std::fs::read_to_string(&target) {
         Ok(document) => Some(document),

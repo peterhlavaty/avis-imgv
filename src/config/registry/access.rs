@@ -106,6 +106,12 @@ pub enum Access {
     ),
     /// A list with an editor of its own.
     Records(List, fn(&Config) -> usize),
+    /// A set of named booleans, drawn as ticks: one decision made of parts.
+    Flags {
+        get: fn(&Config, &str) -> bool,
+        set: fn(&mut Config, &str, bool),
+        options: &'static [Choice],
+    },
     /// One of the sixty keyboard fields.
     Key(fn(&Config) -> &Shortcut, fn(&mut Config) -> &mut Shortcut),
     /// One of the six rating shortcuts, by its position in the list.
@@ -194,6 +200,20 @@ impl Access {
         }
     }
 
+    /// Whether one named boolean of a set is on.
+    pub fn flag(&self, config: &Config, name: &str) -> Option<bool> {
+        match self {
+            Access::Flags { get, .. } => Some(get(config, name)),
+            _ => None,
+        }
+    }
+
+    pub fn set_flag(&self, config: &mut Config, name: &str, on: bool) {
+        if let Access::Flags { set, .. } = self {
+            set(config, name, on);
+        }
+    }
+
     /// Which variant an enumerated field holds, as the file spells it.
     pub fn choice(&self, config: &Config) -> Option<&'static str> {
         match self {
@@ -225,6 +245,9 @@ impl Access {
             Access::Text(get, _) | Access::Template(get, _) => get(a) != get(b),
             Access::Path(get, _) | Access::Colour(get, _) => get(a) != get(b),
             Access::Records(_, count) => count(a) != count(b),
+            Access::Flags { get, options, .. } => options
+                .iter()
+                .any(|option| get(a, option.value) != get(b, option.value)),
             Access::Key(get, _) => !same_key(get(a), get(b)),
             Access::RatingKey(i) => match (a.tags.sc_rating.get(*i), b.tags.sc_rating.get(*i)) {
                 (Some(a), Some(b)) => !same_key(a, b),
@@ -319,6 +342,11 @@ impl Access {
             Access::Text(get, set) | Access::Template(get, set) => set(config, get(&fresh)),
             Access::Path(get, set) | Access::Colour(get, set) => set(config, get(&fresh)),
             Access::Records(list, _) => reset_records(*list, config, &fresh),
+            Access::Flags { get, set, options } => {
+                for option in *options {
+                    set(config, option.value, get(&fresh, option.value));
+                }
+            }
             Access::Key(get, _) => {
                 let wanted = get(&fresh).clone();
                 self.set_shortcut(config, wanted);

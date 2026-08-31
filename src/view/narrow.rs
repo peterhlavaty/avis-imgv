@@ -48,7 +48,8 @@ impl Default for Rules {
 }
 
 /// Which flag a photograph has to carry.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum FlagRule {
     #[default]
     Any,
@@ -67,6 +68,21 @@ impl FlagRule {
         FlagRule::Rejected,
         FlagRule::Unflagged,
     ];
+
+    /// The word the file holds.
+    pub fn value(self) -> &'static str {
+        match self {
+            FlagRule::Any => "any",
+            FlagRule::NotRejected => "not_rejected",
+            FlagRule::Picked => "picked",
+            FlagRule::Rejected => "rejected",
+            FlagRule::Unflagged => "unflagged",
+        }
+    }
+
+    pub fn of(value: &str) -> Option<FlagRule> {
+        FlagRule::ALL.iter().copied().find(|it| it.value() == value)
+    }
 
     pub fn label(self) -> &'static str {
         match self {
@@ -100,6 +116,21 @@ pub enum LabelRule {
 }
 
 impl LabelRule {
+    /// The rule a stored word names.
+    ///
+    /// Anything the build does not recognise is "any", which is the rule that
+    /// hides nothing: a filter nobody asked for is worse than no filter.
+    pub fn of(value: &str) -> LabelRule {
+        match value {
+            "none" => LabelRule::None,
+            other => Label::CHOICES
+                .iter()
+                .position(|label| label.name().eq_ignore_ascii_case(other))
+                .map(LabelRule::One)
+                .unwrap_or(LabelRule::Any),
+        }
+    }
+
     /// What this rule is called, for the bar and for the empty screen.
     pub fn label(self) -> String {
         match self {
@@ -122,7 +153,8 @@ impl LabelRule {
 }
 
 /// What the collection is ordered by.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum SortBy {
     /// The order the crawler found them in, which is already natural by name.
     #[default]
@@ -134,6 +166,20 @@ pub enum SortBy {
 
 impl SortBy {
     pub const ALL: &'static [SortBy] = &[SortBy::Name, SortBy::Stars, SortBy::Label, SortBy::Flag];
+
+    /// The word the file holds.
+    pub fn value(self) -> &'static str {
+        match self {
+            SortBy::Name => "name",
+            SortBy::Stars => "stars",
+            SortBy::Label => "label",
+            SortBy::Flag => "flag",
+        }
+    }
+
+    pub fn of(value: &str) -> Option<SortBy> {
+        SortBy::ALL.iter().copied().find(|it| it.value() == value)
+    }
 
     pub fn label(self) -> &'static str {
         match self {
@@ -156,6 +202,26 @@ pub struct Narrowing {
 }
 
 impl Narrowing {
+    /// What a folder opens as.
+    ///
+    /// The order and the filter used to be whatever `Default` said, which is a
+    /// perfectly good answer nobody could change: somebody who culls with
+    /// "everything but the rejects" up had to set it again on every launch.
+    pub fn of(config: &crate::config::BrowsingConfig) -> Narrowing {
+        Narrowing {
+            rules: Rules {
+                min_stars: config.min_stars.min(MAX_RATING as u8),
+                max_stars: config.max_stars.min(MAX_RATING as u8),
+                flag: config.flag,
+                label: LabelRule::of(&config.label),
+                ..Rules::default()
+            },
+            sort: config.sort,
+            descending: config.descending,
+            suspended: false,
+        }
+    }
+
     /// Whether this would change anything about the collection.
     pub fn is_idle(&self) -> bool {
         self.suspended

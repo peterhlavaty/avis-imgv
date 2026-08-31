@@ -42,13 +42,26 @@ pub struct Settings {
     pub min_frames: usize,
 }
 
+impl Settings {
+    /// What the configuration says a run of frames is.
+    ///
+    /// One set of thresholds, read by the contact sheet's stacking and by the
+    /// organiser's Group shots. There used to be two, tuned by two control sets
+    /// that did not even span the same ranges, so there were answers one
+    /// surface could express and the other could not. Two answers to "is this
+    /// one burst?" is a defect whether or not anybody navigates between them.
+    pub fn of(config: &crate::config::GroupConfig) -> Settings {
+        Settings {
+            max_gap: config.max_gap.max(0.0) as f64,
+            tolerance: config.tolerance,
+            min_frames: config.min_frames.max(2),
+        }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Settings {
-        Settings {
-            max_gap: 60.0,
-            tolerance: 12,
-            min_frames: 2,
-        }
+        Settings::of(&crate::config::GroupConfig::default())
     }
 }
 

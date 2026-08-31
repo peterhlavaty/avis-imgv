@@ -49,6 +49,8 @@ pub enum Command {
     Undo,
     /// Show the keys, for the mode that is on screen.
     ShowKeys,
+    /// Open the whole settings window.
+    ShowSettings,
     /// Show or hide the strip of thumbnails under the photograph.
     ToggleFilmstrip,
     /// Show the folder stacked, or put every frame back.
@@ -125,6 +127,7 @@ pub fn collect(
         (&config.sc_delete_permanently, Command::DeletePermanently),
         (&config.sc_fullscreen, Command::ToggleFullscreen),
         (&config.sc_filter, Command::ToggleFilter),
+        (&config.sc_settings, Command::ShowSettings),
         (&config.sc_suspend_filter, Command::SuspendFilter),
         (&cull.sc_move, Command::MoveTo),
         (&cull.sc_copy, Command::CopyTo),

@@ -80,10 +80,13 @@ pub struct App {
     settings: Config,
     keys: keys::State,
     keys_visible: bool,
+    /// The settings window's own state: which page, what is searched for,
+    /// what the file complained about.
+    settings_state: crate::ui::settings::State,
+    settings_visible: bool,
     /// Whether the keyboard editor is the reason the viewer is deaf, so only
     /// it undoes that.
     muted_for_keys: bool,
-    slideshow_visible: bool,
     /// A fullscreen change asked for by a mode, sent on the next frame.
     pending_fullscreen: Option<bool>,
     /// Whether the window was already fullscreen before a mode asked for it,
@@ -165,6 +168,10 @@ pub struct App {
     legend_visible: bool,
     placeholders_visible: bool,
     messages_visible: bool,
+    /// A theme change asked for by the settings window, applied on the next
+    /// frame: `set_theme` inside a frame that has already begun is a frame
+    /// drawn half in each.
+    pending_theme: Option<bool>,
     /// Full size decodes on their way to the clipboard.
     copying: verbs::Copying,
     /// Text waiting to go on the clipboard, which needs a context to do.
@@ -182,7 +189,8 @@ impl App {
         fullscreen: bool,
         benchmark: bool,
     ) -> App {
-        theme::apply_theme(&cc.egui_ctx);
+        theme::apply_theme(&cc.egui_ctx, config.general.theme == "light");
+        crate::annotations::sidecar::name_like_adobe(config.tags.sidecar_naming == "replacing");
         apply_text_scaling(&cc.egui_ctx, config.general.text_scaling);
 
         if fullscreen {
@@ -214,8 +222,13 @@ impl App {
 
         // Read before the configuration is handed round, and the only thing
         // wanted from it here.
-        let filmstrip = settings.grid_view.filmstrip_height > 0.0;
+        // Its own field now. It used to be derived from the height, which is
+        // why the key that shows the strip did nothing on a fresh install: the
+        // default height is zero.
+        let filmstrip =
+            settings.grid_view.filmstrip_visible || settings.general.panels_at_start.filmstrip;
         let advancing = config.tags.advance_after_marking;
+        let panels = config.general.panels_at_start;
 
         // Read here because this is where the adapter is: it was told to the
         // log at startup and to nothing a person can see.
@@ -246,10 +259,10 @@ impl App {
             navigator_path: String::new(),
             paths: Vec::new(),
             flattened: false,
-            organize_view: OrganizeView::new(),
+            organize_view: OrganizeView::new(&config.group),
             mode: Mode::default(),
-            menu_visible: first_session || session.menu_visible,
-            side_panel_visible: false,
+            menu_visible: panels.menu || first_session || session.menu_visible,
+            side_panel_visible: panels.side_panel,
             metrics_visible: false,
             overlay: None,
             watcher: watcher::DirectoryWatcher::default(),
@@ -259,14 +272,15 @@ impl App {
             catalog: Catalog::configured(&config.tags),
             recent_tags: RecentTags::load(config.tags.recent_tags),
             tag_panel: tag_panel::State::default(),
-            tag_panel_visible: false,
+            tag_panel_visible: panels.tag_panel,
             tag_config: config.tags,
             benchmark: benchmark.then(|| Benchmark::new(BENCHMARK_IMAGES)),
             settings,
             keys: keys::State::default(),
             keys_visible: false,
+            settings_state: crate::ui::settings::State::default(),
+            settings_visible: false,
             muted_for_keys: false,
-            slideshow_visible: false,
             pending_fullscreen: None,
             was_fullscreen: fullscreen,
             notices: Notices::default(),
@@ -277,8 +291,8 @@ impl App {
             last_errand: None,
             asking: None,
             journal: Journal::default(),
-            narrowing: Narrowing::default(),
-            stacking: Stacking::default(),
+            narrowing: Narrowing::of(&config.browsing),
+            stacking: Stacking::of(&config.group, config.browsing.stack_by_default),
             filter_visible: false,
             marks: Vec::new(),
             pairs: Pairs::default(),
@@ -296,6 +310,7 @@ impl App {
             legend_visible: false,
             placeholders_visible: false,
             messages_visible: false,
+            pending_theme: None,
             copying: verbs::Copying::default(),
             pending_clipboard: None,
             pending_commands: Vec::new(),
@@ -799,6 +814,7 @@ impl App {
             Command::StandingForward => self.step_standing(true),
             Command::PreviousStack => self.step_stack(false),
             Command::NextStack => self.step_stack(true),
+            Command::ShowSettings => self.open_settings(),
             Command::ShowKeys => {
                 self.cheat_sheet_visible = !self.cheat_sheet_visible;
                 // The key that opened it is still going down this frame, and
@@ -925,6 +941,7 @@ impl eframe::App for App {
 
         let menu_keys = panels::MenuKeys {
             cheat_sheet: "?".to_string(),
+            settings: keys::describe(&self.config.sc_settings),
         };
         if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode, &menu_keys) {
             self.handle_menu(action);
@@ -948,7 +965,7 @@ impl eframe::App for App {
         self.show_pending_delete(ctx);
         self.show_pending_undo(ctx);
         self.show_keyboard(ctx);
-        self.show_slideshow_settings(ctx);
+        self.show_settings(ctx);
         self.show_conflict(ctx);
         self.show_help_windows(ctx);
         self.apply_fullscreen(ctx);
@@ -961,6 +978,11 @@ impl eframe::App for App {
 
         if self.watcher.is_active() {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        }
+
+        if let Some(light) = self.pending_theme.take() {
+            theme::apply_theme(ctx, light);
+            apply_text_scaling(ctx, self.config.text_scaling);
         }
 
         self.handle_pending_commands(ctx);

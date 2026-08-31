@@ -20,6 +20,7 @@ macro_rules! fixed {
             access: Access::Fixed($key),
             effect: Effect::None,
             scope: Scope::$scope,
+            explained: None,
         }
     };
 }

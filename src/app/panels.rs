@@ -4,7 +4,6 @@ use eframe::egui::{self, RichText};
 
 use crate::app::mode::Mode;
 use crate::cache::StoreStats;
-use crate::config::{Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
 /// Something picked from the menu bar.
@@ -16,6 +15,8 @@ pub enum MenuAction {
     Mode(Mode),
     /// Send every rejected picture in the folder to the bin.
     BinRejected,
+    /// Open the whole settings window.
+    AllSettings,
     /// Open the editor for the keyboard map.
     Keyboard,
     /// Open the slideshow settings.
@@ -41,6 +42,7 @@ pub enum MenuAction {
 #[derive(Debug, Clone, Default)]
 pub struct MenuKeys {
     pub cheat_sheet: String,
+    pub settings: String,
 }
 
 /// Draws the menu bar, returning what the user picked.
@@ -91,6 +93,21 @@ pub fn top_menu(
                 });
 
                 ui.menu_button("Settings", |ui| {
+                    // The third entry on a menu that has had two since it was
+                    // written. Keyboard and Slideshow stay as deep links to
+                    // two of the eleven pages, because they are the only
+                    // settings routes anybody has learned.
+                    if ui
+                        .button(format!("All settings…  {}", keys.settings))
+                        .on_hover_text("Every setting the viewer has, with a search box")
+                        .clicked()
+                    {
+                        action = Some(MenuAction::AllSettings);
+                        ui.close();
+                    }
+
+                    ui.separator();
+
                     if ui
                         .button("Keyboard…")
                         .on_hover_text("Every key the viewer reads, and what it does")
@@ -197,69 +214,6 @@ fn help_menu(ui: &mut egui::Ui, keys: &MenuKeys, action: &mut Option<MenuAction>
             }
         }
     });
-}
-
-/// Draws the slideshow settings, returning whether anything changed.
-pub fn slideshow_settings(
-    ctx: &egui::Context,
-    open: &mut bool,
-    config: &mut SlideshowConfig,
-) -> bool {
-    let mut changed = false;
-
-    egui::Window::new("Slideshow")
-        .open(open)
-        .default_width(420.0)
-        .show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Hold each picture for:");
-                changed |= ui
-                    .add(
-                        egui::DragValue::new(&mut config.seconds_per_image)
-                            .range(1..=600)
-                            // Off, everywhere. egui clamps the value it is
-                            // handed whether or not anybody edited it, writes
-                            // the clamped number back through the borrowed
-                            // reference and then reports a change — so opening
-                            // this window rewrote a hand-written 900 to 600.
-                            .clamp_existing_to_range(false)
-                            .suffix(" s"),
-                    )
-                    .changed();
-            });
-
-            ui.add_space(6.0);
-            ui.label("While it is up:");
-
-            for motion in Motion::ALL {
-                let picked = ui.radio_value(&mut config.motion, *motion, motion.label());
-                changed |= picked.changed();
-
-                ui.indent(("motion", motion.label()), |ui| {
-                    ui.weak(motion.description());
-                });
-            }
-
-            if config.motion == Motion::Zoom {
-                ui.add_space(6.0);
-                ui.horizontal(|ui| {
-                    ui.label("Creep closer by:");
-                    changed |= ui
-                        .add(
-                            egui::DragValue::new(&mut config.percent_zoom)
-                                .range(0.0..=200.0)
-                                .clamp_existing_to_range(false)
-                                .suffix(" %"),
-                        )
-                        .changed();
-                });
-            }
-
-            ui.add_space(6.0);
-            ui.weak("The arrow keys still work; moving by hand restarts the clock.");
-        });
-
-    changed
 }
 
 /// Draws the metadata of the open image, in the order the configuration lists.
@@ -464,7 +418,7 @@ pub fn first_run_hint(ctx: &egui::Context, menu_key: &str) {
         .show_separator_line(false)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.weak(format!("Press ? for the keys · {menu_key} for the menu"));
+                ui.weak(format!("Press ? for the keys Â· {menu_key} for the menu"));
             });
         });
 }

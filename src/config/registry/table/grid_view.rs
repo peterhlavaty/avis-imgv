@@ -19,9 +19,9 @@ pub fn rows() -> Vec<Row> {
             TheContactSheet / Cells,
             "grid_view.cell_aspect",
             "The shape of the cells",
-            "How wide a cell's picture is against its height. 1.50 is the three to two \
-             most cameras shoot; a square sheet of landscape photographs draws about \
-             forty-four per cent of itself in grey.",
+            "How wide a cell's picture is against its height, read as 1 : this. 1.50 is \
+             the three to two most cameras shoot; a square sheet of landscape \
+             photographs draws about forty-four per cent of itself in grey.",
             ["aspect", "shape", "square", "ratio", "letterbox"],
             Live,
             None,
@@ -67,6 +67,7 @@ pub fn rows() -> Vec<Row> {
             Rebuild,
             None,
             whole!(usize, 1, 4096, "", false, grid_view.gpu_resident_thumbnails),
+            explained: "No control, for the same reason as the count above it: the \n                        graphics card budget bounds both in bytes.",
         ),
         row!(
             KeysAndMouse / Menus,

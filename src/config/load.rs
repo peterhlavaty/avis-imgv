@@ -255,6 +255,8 @@ impl Config {
             tags: section(&map, "tags", &mut partial),
             raw: section(&map, "raw", &mut partial),
             cull: section(&map, "cull", &mut partial),
+            browsing: section(&map, "browsing", &mut partial),
+            group: section(&map, "group", &mut partial),
             partial,
             migrated: Vec::new(),
             document: Some(map),

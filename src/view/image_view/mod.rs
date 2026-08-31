@@ -32,7 +32,6 @@ use crate::ui::menus::Verb;
 use crate::utils;
 use crate::view::visible::Visible;
 use input::Command;
-use layout::BACKGROUND;
 use slideshow::Slideshow;
 use viewports::{Place, Viewports};
 
@@ -43,12 +42,6 @@ use viewports::{Place, Viewports};
 /// Two, because a comparison is nearly always between two frames of the same
 /// thing; `Ctrl + Plus` widens it from there.
 const COMPARE_PANES: usize = 2;
-
-/// How far `Page Up` and `Page Down` move.
-///
-/// A round number rather than a screenful, because the image view shows one
-/// photograph and a screenful of one is one.
-const PAGE: usize = 10;
 
 const MAX_IMAGES_SHOWN: usize = 8;
 
@@ -91,6 +84,12 @@ pub struct ImageView {
     previous_place: Place,
     images_shown: usize,
     jump_to: String,
+    /// The grey behind the photograph, as the configuration spells it.
+    ///
+    /// Held as the string rather than the colour so a hand-edited value that
+    /// this build cannot read is still what the file says, and the fallback
+    /// happens where it is drawn.
+    backdrop: String,
     callback: Option<Callback>,
     /// A verb from the context menu that this view cannot carry out itself.
     verb: Option<(Verb, PathBuf)>,
@@ -136,6 +135,7 @@ impl ImageView {
             previous_place: Place::UNTOUCHED,
             images_shown: config.nr_images_shown.clamp(1, MAX_IMAGES_SHOWN),
             jump_to: String::new(),
+            backdrop: crate::config::default_backdrop(),
             callback: None,
             verb: None,
             bar_actions: Vec::new(),
@@ -260,8 +260,8 @@ impl ImageView {
             Command::StopComparing => self.stop_comparing(),
             Command::First => self.jump_to_end(false),
             Command::Last => self.jump_to_end(true),
-            Command::PageForward => self.page(true, PAGE),
-            Command::PageBack => self.page(false, PAGE),
+            Command::PageForward => self.page(true, self.config.page.max(1)),
+            Command::PageBack => self.page(false, self.config.page.max(1)),
             // Fitting and filling are about the panel rather than about a
             // point in the picture, so they hold its middle; everything that
             // magnifies holds whatever is under the pointer.
@@ -274,7 +274,11 @@ impl ImageView {
             Command::FitHorizontal => self.zooming(ctx, CENTRE, zoom::fit_horizontal),
             Command::FitVertical => self.zooming(ctx, CENTRE, zoom::fit_vertical),
             Command::ZoomStep => {
-                self.zooming(ctx, POINTER, |viewport, _| zoom::step(viewport));
+                let factor = self.config.zoom_step_factor;
+                let ceiling = self.config.zoom_step_max;
+                self.zooming(ctx, POINTER, |viewport, _| {
+                    zoom::step(viewport, factor, ceiling)
+                });
             }
             Command::ZoomBy(factor) => {
                 self.zooming(ctx, POINTER, |viewport, _| zoom::by(viewport, factor));
@@ -582,7 +586,9 @@ impl ImageView {
                     .as_ref(),
             )
             .and_then(|hex| Color32::from_hex(hex).ok())
-            .unwrap_or(BACKGROUND)
+            // The slideshow override stays the per-mode exception it already
+            // is; everything else reads the one field.
+            .unwrap_or_else(|| crate::ui::theme::backdrop(&self.backdrop))
     }
 
     fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks) {

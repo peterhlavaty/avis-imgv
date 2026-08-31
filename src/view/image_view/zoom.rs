@@ -8,7 +8,9 @@ use eframe::epaint::Vec2;
 use super::canvas::{self, Metrics, Viewport};
 
 /// Highest magnification the zoom step reaches before wrapping back to fitted.
-const MAX_STEP: f32 = 8.0;
+///
+/// The default of `image_view.zoom_step_max`.
+pub const MAX_STEP: f32 = 8.0;
 
 /// Shows the whole image, fitted to the panel.
 pub fn fit(viewport: &mut Viewport) {
@@ -39,10 +41,17 @@ pub fn fit_vertical(viewport: &mut Viewport, metrics: &Metrics) {
     );
 }
 
-/// Doubles the magnification, returning to fitted once it goes far enough.
-pub fn step(viewport: &mut Viewport) {
-    viewport.zoom = if viewport.zoom < MAX_STEP {
-        viewport.zoom * 2.0
+/// Multiplies the magnification, returning to fitted once it goes far enough.
+///
+/// The factor and the ceiling arrive from the configuration rather than being
+/// written here: one key both magnifies and gets out, and how far it goes
+/// before it does is a judgement about the photographs somebody looks at.
+pub fn step(viewport: &mut Viewport, factor: f32, ceiling: f32) {
+    let factor = if factor > 1.0 { factor } else { 2.0 };
+    let ceiling = if ceiling > 1.0 { ceiling } else { MAX_STEP };
+
+    viewport.zoom = if viewport.zoom < ceiling {
+        viewport.zoom * factor
     } else {
         1.0
     };
@@ -192,12 +201,36 @@ mod tests {
         let mut viewport = viewport();
 
         for expected in [2.0, 4.0, 8.0] {
-            step(&mut viewport);
+            step(&mut viewport, 2.0, MAX_STEP);
             assert_eq!(viewport.zoom, expected);
         }
 
-        step(&mut viewport);
+        step(&mut viewport, 2.0, MAX_STEP);
         assert_eq!(viewport.zoom, 1.0);
+    }
+
+    /// The factor and the ceiling come from the configuration now, and a
+    /// nonsense one falls back rather than freezing the zoom where it is.
+    #[test]
+    fn a_configured_factor_and_ceiling_are_used() {
+        let mut viewport = viewport();
+
+        step(&mut viewport, 1.5, 3.0);
+        assert_eq!(viewport.zoom, 1.5);
+        step(&mut viewport, 1.5, 3.0);
+        assert_eq!(viewport.zoom, 2.25);
+        step(&mut viewport, 1.5, 3.0);
+        assert_eq!(viewport.zoom, 3.375);
+        step(&mut viewport, 1.5, 3.0);
+        assert_eq!(viewport.zoom, 1.0);
+    }
+
+    #[test]
+    fn a_nonsense_factor_falls_back_rather_than_freezing() {
+        let mut viewport = viewport();
+
+        step(&mut viewport, 0.0, 0.0);
+        assert_eq!(viewport.zoom, 2.0);
     }
 
     #[test]

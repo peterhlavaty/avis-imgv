@@ -512,8 +512,8 @@ A mode of its own: the window goes fullscreen, the status bar goes away, and
 the pictures change themselves. The arrow keys still work — moving by hand just
 restarts the clock — and leaving the mode puts the window back the way it was.
 
-**Settings → Slideshow…** sets how long each picture is held and what happens
-while it is up:
+The **Slideshow** page of the settings window sets how long each picture is held
+and what happens while it is up:
 
 | | |
 |---|---|
@@ -525,6 +525,48 @@ The last is for pictures that do not match the shape of the screen: rather than
 letterboxing a panorama into a strip down the middle, it fills the screen at
 the picture's own proportions and moves along the overflowing side, arriving at
 the far edge exactly as the picture's turn ends.
+
+## Settings
+
+`Ctrl + ,` opens the settings window on the page it was last left on;
+**Settings → All settings…** does the same. Eleven pages, named for what you are
+doing rather than for what the field is made of:
+
+| | |
+|---|---|
+| **Opening a folder** | What a launch starts with, and what a folder opens as: its order, its filter, whether its bursts are folded, and what counts as one run of frames. |
+| **The photograph** | The overlay, the frame, the ground behind it, and how far one press of a movement key goes. |
+| **The contact sheet** | The cells and the strip of thumbnails. |
+| **Stars, flags and labels** | The marks, and what a new sidecar is called. |
+| **Keywords** | The keyword list, a keyword file, and the panel. |
+| **Moving and deleting** | Where photographs go, and which of the reversible things ask first. |
+| **Raw files** | Whether a raw file shows the camera's preview or the developed sensor data, and what pairs with what. |
+| **Slideshow** | How long each picture is held, and whether it moves. |
+| **Speed and memory** | What is held in RAM and on the graphics card, and how hard the viewer works. |
+| **The window** | Light or dark, text size, the panels, and the file paths. |
+| **Keys and mouse** | Every key the viewer reads, including the ones it reads for itself. |
+
+The search box holds the cursor when the window opens. It is over the name, the
+sentence, other programs' words for the same thing, and the path — so "blurry
+thumbnails" finds the thumbnail resolution, "where do rejects go" finds the
+rejects folder, and `cache.ram_budget_mb` pasted from a forum post lands on the
+control. It never comes back empty.
+
+Every change is written as it is made. A bullet beside a row that differs from
+its default puts it back when clicked; a count beside each page in the list says
+how many of its rows were changed. Reset always says how much it covers — this
+setting, this page, or everything — and the wider two show what they would change
+before changing it.
+
+**Save what I have changed…** writes out only the fields that differ from the
+defaults: a small file that goes into version control and onto another machine.
+Key bindings and machine-specific paths are left out unless asked for.
+
+If something in the configuration file cannot be acted on — a screen profile
+that matches nothing, a keyword file that is not there, a rejects folder with no
+name — the window says so across the top, with a button that goes to the
+control. A value outside what a control can produce is shown, marked, and left
+exactly as it was written: hand-editing always wins.
 
 ## Changing the keys
 

@@ -183,9 +183,9 @@ mod tests {
     }
 
     /// The count is what stops a shortcut being added to the configuration and
-    /// quietly left out of the editor. It used to be 54 fixed bindings plus 11
-    /// generated ones; the fixed keys of the program itself are in the list
-    /// now, which is the point of moving to the registry.
+    /// quietly left out of the editor. Fifty-nine written fields, plus the six
+    /// ratings and the five colour labels; the keys the program reads for
+    /// itself are in the list too, and are not editable.
     #[test]
     fn every_shortcut_in_the_configuration_can_be_changed_from_the_list() {
         let fresh = Config::default();
@@ -195,7 +195,7 @@ mod tests {
             .count();
 
         assert_eq!(
-            editable, 69,
+            editable, 70,
             "a shortcut was added to the configuration without a registry row"
         );
     }

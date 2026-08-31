@@ -10,6 +10,8 @@ use super::canvas::{self, Metrics, Style, Viewport};
 
 /// Backdrop behind the images, neutral enough not to shift how a photograph
 /// reads against it.
+///
+/// The default of `general.backdrop`, which is what is actually drawn.
 pub const BACKGROUND: Color32 = Color32::from_rgb(119, 119, 119);
 
 /// What one frame of the central panel produced.

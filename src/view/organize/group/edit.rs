@@ -102,11 +102,11 @@ mod tests {
     }
 
     fn view_with(groups: Vec<Group>, loose: Vec<Entry>) -> OrganizeView {
-        let mut view = OrganizeView::new();
-        view.groups = groups;
-        view.loose = loose;
-
-        view
+        OrganizeView {
+            groups,
+            loose,
+            ..OrganizeView::default()
+        }
     }
 
     fn names(entries: &[Entry]) -> Vec<&str> {

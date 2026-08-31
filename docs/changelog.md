@@ -2,6 +2,73 @@
 
 ## 2026-09-01
 
+- **A settings window.** Forty-one settings could only be reached by editing a
+  JSON file, six more were nudged by a key and thrown away on exit, and
+  twenty-seven did not exist. All of them now have a control, on one of eleven
+  pages named for what somebody is doing rather than for what the field is made
+  of: Opening a folder · The photograph · The contact sheet · Stars, flags and
+  labels · Keywords · Moving and deleting · Raw files · Slideshow · Speed and
+  memory · The window · Keys and mouse. `Ctrl + ,` opens it on the page it was
+  last left on, and **Settings → All settings…** is the third entry on a menu
+  that has had two since it was written.
+
+  Every page is a view over one table, so a row's name, its sentence, its
+  control, its range and when it takes effect are all one declaration. Nothing
+  is called General, Advanced, Miscellaneous or Other.
+- **A search box, with the cursor already in it.** Typing "blurry thumbnails"
+  finds the thumbnail resolution and lets you change it there. An exact path
+  pasted from a forum post — `cache.ram_budget_mb` — lands on the control and
+  nothing else. It never returns nothing: a query where no row matches every
+  word is re-run as an "any word" search under a line saying so.
+- **Every change is written as it is made.** No OK, no Cancel, no Apply. The one
+  qualification is arithmetic: a rail that rebuilt the caches on every frame
+  would rebuild them sixty times a second, so a row whose effect is a rebuild
+  waits for the gesture to end.
+- **A bullet beside every row that differs from its default**, which is a button:
+  clicking it puts that one field back. The page list carries a count, so "I
+  changed something and I do not remember where" costs one glance rather than
+  eleven pages. Reset always carries a scope — this setting, this page, or
+  everything — and the wider two say what they would change before changing it.
+  The global one copies the file to `config.json.bak` first.
+- **What is wrong with the file is drawn across the top of the window**, one row
+  per complaint, each with a button that goes to the control. A misspelled screen
+  profile, a keyword list that is not there, a rejects folder with no name whose
+  key therefore does nothing, a destination with no path, a key name that is not
+  a key name. All of those used to reach a log file whose own path the program
+  never stated. Nothing is changed by it: a value outside what a control can
+  produce is shown, marked, and left exactly as written.
+- **Settings can be carried to another machine as a patch.** "Save what I have
+  changed…" writes only the fields that differ from their defaults — a small,
+  readable, diffable file. Key bindings are opted into and never included by
+  default, and machine-specific paths are left out for the same reason.
+- **Twenty-seven settings that did not exist.** What a folder opens as: its
+  order, its filter, whether its bursts are folded, and whether the filter
+  survives opening another folder. What a run of frames is — one set of
+  thresholds now, read by the contact sheet's stacking *and* by Group shots,
+  which used to hold two that could not even express the same values. What a
+  launch starts with: the mode, fullscreen, a folder, and which panels are up.
+  Five constants that governed every movement key: the zoom step, the step-zoom
+  factor and ceiling, the pan speed, and how many photographs a page is. What is
+  drawn under a cell, whether the strip is up and which edge it sits against, and
+  whether a single click opens a photograph. What new sidecars are called —
+  `photo.cr2.xmp` or `photo.xmp`, which is the difference between Lightroom
+  seeing your ratings and not. Which of the reversible things ask first. And the
+  theme and the ground behind the photograph.
+- **A light interface.** The theme was dark whatever anybody wanted, above a
+  reason that is sound and too wide: a light surround does shift how a photograph
+  reads, but what surrounds the photograph is the *backdrop*, which is now its own
+  field. Changing either takes effect at once — a theme setting that only applied
+  at the next launch would be worse than none.
+- **Six controls taken away.** A field is a setting only when two reasonable
+  people would choose differently. The photographs kept either side is trimmed by
+  the RAM budget, so the number in the file was never the number in force; the
+  two GPU counts are counts where the bound is bytes; the upload budget is
+  computed from the frame time the viewer already measures. Each of the four
+  keeps a line on the page that used to hold it, saying where its value comes
+  from now — so the answer to "where did that setting go" is on the page.
+- **The slideshow window becomes a page.** It drew three of the five slideshow
+  fields and omitted the other two.
+
 - **One table the file and the window both read.** The configuration is a
   hundred and eleven fields spread over a dozen structs, which is the right
   shape for JSON and the wrong shape for a person. There is now one row per

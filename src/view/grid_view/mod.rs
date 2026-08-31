@@ -31,6 +31,8 @@ use crate::view::visible::Visible;
 use cell::Badges;
 use layout::Layout;
 
+/// The default ground behind a thumbnail, used before a configuration is in
+/// hand. What is actually drawn derives from `general.backdrop`.
 const CELL_BACKGROUND: Color32 = Color32::from_rgb(119, 119, 119);
 const CELL_BORDER: Color32 = Color32::from_rgb(48, 48, 48);
 
@@ -68,6 +70,8 @@ pub struct GridView {
     visible: Visible,
     /// The photographs picked out for the next command to act on.
     selection: Selection,
+    /// The ground behind a thumbnail, derived from `general.backdrop`.
+    backdrop: Color32,
 }
 
 impl GridView {
@@ -81,6 +85,7 @@ impl GridView {
         GridView {
             store: ImageStore::new(render_state, loader, store_config, output_profile),
             columns: config.images_per_row.max(1),
+            badges: Badges::of(&config.badges),
             config,
             selected: None,
             callback: None,
@@ -89,9 +94,9 @@ impl GridView {
             scroll_to: None,
             cursor: 0,
             current: 0,
-            badges: Badges::default(),
             visible: Visible::default(),
             selection: Selection::default(),
+            backdrop: CELL_BACKGROUND,
         }
     }
 
@@ -201,7 +206,13 @@ impl GridView {
 
     /// Takes a changed configuration, for when the keyboard map is edited.
     pub fn set_config(&mut self, config: GridViewConfig) {
+        self.badges = Badges::of(&config.badges);
         self.config = config;
+    }
+
+    /// The ground behind a thumbnail, derived from the one backdrop field.
+    pub fn set_backdrop(&mut self, hex: &str) {
+        self.backdrop = crate::ui::theme::backdrop(hex);
     }
 
     /// Scrolls to `index` on the next frame drawn.
@@ -371,7 +382,7 @@ impl GridView {
             rect.max,
         );
 
-        ui.painter().rect_filled(picture, 0, CELL_BACKGROUND);
+        ui.painter().rect_filled(picture, 0, self.backdrop);
 
         let name = self.file_name(index);
         let caption = self.caption(index, &name);

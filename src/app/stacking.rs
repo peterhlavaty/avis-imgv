@@ -36,6 +36,16 @@ pub struct Stacking {
 }
 
 impl Stacking {
+    /// What the configuration says a run of frames is, and whether a folder
+    /// opens with them folded.
+    pub fn of(config: &crate::config::GroupConfig, on: bool) -> Stacking {
+        Stacking {
+            on,
+            settings: Settings::of(config),
+            ..Stacking::default()
+        }
+    }
+
     pub fn is_on(&self) -> bool {
         self.on
     }

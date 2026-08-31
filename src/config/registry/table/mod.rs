@@ -17,6 +17,31 @@ use super::Row;
 /// stream, which is what lets `image_view.overlay_text_size` be written once
 /// rather than four times.
 macro_rules! row {
+    // With a line saying why it has no control of its own.
+    (
+        $page:ident / $group:ident,
+        $path:literal,
+        $label:literal,
+        $sentence:literal,
+        [$($alias:literal),* $(,)?],
+        $effect:ident,
+        $scope:ident,
+        $access:expr,
+        explained: $explained:literal $(,)?
+    ) => {
+        Row {
+            page: Page::$page,
+            group: Group::$group,
+            path: $path,
+            label: $label,
+            sentence: $sentence,
+            aliases: &[$($alias),*],
+            effect: Effect::$effect,
+            scope: Scope::$scope,
+            access: $access,
+            explained: Some($explained),
+        }
+    };
     (
         $page:ident / $group:ident,
         $path:literal,
@@ -37,6 +62,7 @@ macro_rules! row {
             effect: Effect::$effect,
             scope: Scope::$scope,
             access: $access,
+            explained: None,
         }
     };
 }
@@ -97,6 +123,8 @@ macro_rules! key {
     };
 }
 
+mod added;
+mod browsing;
 mod cache;
 mod cull;
 mod fixed;
@@ -140,6 +168,8 @@ pub fn rows() -> &'static [Row] {
         rows.extend(raw::rows());
         rows.extend(slideshow::rows());
         rows.extend(cache::rows());
+        rows.extend(browsing::rows());
+        rows.extend(added::rows());
         rows.extend(fixed::rows());
 
         rows

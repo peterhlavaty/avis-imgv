@@ -14,11 +14,20 @@ use epaint::{
 
 /// Installs the theme and, with the `custom_font` feature, the bundled font.
 ///
-/// The theme is deliberately dark whatever the desktop prefers: a light
-/// surround shifts how the photograph in front of it reads.
-pub fn apply_theme(ctx: &egui::Context) {
+/// It used to be dark whatever anybody wanted, above a reason that is sound and
+/// too wide: a light surround does shift how the photograph in front of it
+/// reads, but what surrounds the photograph is the *backdrop*, which is its own
+/// field and which this does not touch. A theme setting that lied would be
+/// worse than none, so this one is live: the function is called from one place
+/// and nothing else in the program holds a `Visuals` of its own.
+pub fn apply_theme(ctx: &egui::Context, light: bool) {
     #[cfg(feature = "custom_font")]
     apply_fonts(ctx);
+
+    if light {
+        apply_light(ctx);
+        return;
+    }
 
     ctx.set_theme(ThemePreference::Dark);
     let previous_theme = Visuals::dark();
@@ -99,4 +108,76 @@ pub fn apply_fonts(ctx: &egui::Context) {
     mut_fonts.insert(1, "custom_font_italic".to_owned());
 
     ctx.set_fonts(fonts);
+}
+
+/// The light palette.
+///
+/// Built the same way as the dark one, from egui's own light visuals with the
+/// same five greys inverted, so the two are the same design rather than two
+/// designs. The ground behind the photograph is not among them.
+#[allow(clippy::needless_pass_by_value)]
+fn apply_light(ctx: &egui::Context) {
+    ctx.set_theme(ThemePreference::Light);
+    let previous_theme = Visuals::light();
+
+    let accent = Color32::from_rgb(40, 40, 40);
+    let bg = Color32::from_rgb(238, 238, 238);
+    let wbg = Color32::from_rgb(70, 70, 70);
+    let extreme_bg = Color32::from_rgb(252, 252, 252);
+    let light_bg = Color32::from_rgb(120, 120, 120);
+    let font = Color32::from_rgb(40, 40, 40);
+
+    ctx.set_visuals_of(
+        Theme::Light,
+        egui::Visuals {
+            override_text_color: Some(font),
+            window_fill: bg,
+            panel_fill: bg,
+            button_frame: true,
+            extreme_bg_color: extreme_bg,
+            widgets: style::Widgets {
+                noninteractive: create_widget_visuals(
+                    previous_theme.widgets.noninteractive,
+                    wbg,
+                    accent,
+                ),
+                inactive: create_widget_visuals(
+                    previous_theme.widgets.inactive,
+                    extreme_bg,
+                    accent,
+                ),
+                hovered: create_widget_visuals(previous_theme.widgets.hovered, light_bg, bg),
+                active: create_widget_visuals(previous_theme.widgets.active, wbg, light_bg),
+                open: create_widget_visuals(previous_theme.widgets.open, wbg, bg),
+            },
+            ..previous_theme
+        },
+    );
+}
+
+/// The grey behind the photograph, from what the file holds.
+///
+/// Falls back to the default rather than to something arbitrary, because a
+/// backdrop nobody can read the value of is a backdrop nobody can fix.
+pub fn backdrop(hex: &str) -> Color32 {
+    Color32::from_hex(hex).unwrap_or(Color32::from_rgb(119, 119, 119))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_backdrop_reads_from_its_hex() {
+        assert_eq!(backdrop("#000000"), Color32::BLACK);
+        assert_eq!(backdrop("#777777"), Color32::from_rgb(119, 119, 119));
+    }
+
+    /// A colour the file cannot answer for falls back to the default rather
+    /// than to black, which would look like a bug.
+    #[test]
+    fn nonsense_falls_back_to_the_default_grey() {
+        assert_eq!(backdrop("not a colour"), Color32::from_rgb(119, 119, 119));
+        assert_eq!(backdrop(""), Color32::from_rgb(119, 119, 119));
+    }
 }

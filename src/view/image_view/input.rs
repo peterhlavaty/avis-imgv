@@ -14,11 +14,10 @@ use crate::utils;
 ///
 /// A quarter each way: small enough to arrive at a particular framing, large
 /// enough that crossing a useful range does not take twenty presses.
+///
+/// The default of `image_view.zoom_step`, kept here so the fallbacks below have
+/// something to say when there is no configuration in hand.
 const ZOOM_STEP: f32 = 1.25;
-
-/// How fast a held pan key moves the image, as a share of the panel per
-/// second.
-const PAN_SPEED: f32 = 1.5;
 
 /// Something the image view can be asked to do.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -75,6 +74,14 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         return Vec::new();
     }
 
+    // From the configuration rather than a constant: how far one press moves
+    // is a judgement about the photographs somebody looks at.
+    let step = if config.zoom_step > 1.0 {
+        config.zoom_step
+    } else {
+        ZOOM_STEP
+    };
+
     let bindings = [
         (&config.sc_next, Command::Next),
         (&config.sc_prev, Command::Previous),
@@ -84,8 +91,8 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_fit_horizontal, Command::FitHorizontal),
         (&config.sc_fit_vertical, Command::FitVertical),
         (&config.sc_zoom, Command::ZoomStep),
-        (&config.sc_zoom_in, Command::ZoomBy(ZOOM_STEP)),
-        (&config.sc_zoom_out, Command::ZoomBy(1.0 / ZOOM_STEP)),
+        (&config.sc_zoom_in, Command::ZoomBy(step)),
+        (&config.sc_zoom_out, Command::ZoomBy(1.0 / step)),
         (&config.sc_one_to_one, Command::ZoomToPercent(100.0)),
         (&config.sc_repeat_place, Command::RepeatPlace),
         (&config.sc_frame, Command::ToggleFrame),
@@ -182,7 +189,7 @@ pub fn panning(ctx: &egui::Context, config: &ImageViewConfig, panel: Vec2, secon
     }
 
     // A diagonal should not be faster than a straight line.
-    let step = PAN_SPEED * seconds.clamp(0.0, 0.1);
+    let step = config.pan_speed.max(0.0) * seconds.clamp(0.0, 0.1);
 
     direction.normalized() * Vec2::new(panel.x * step, panel.y * step)
 }

@@ -130,6 +130,7 @@ fn labels() -> Vec<Row> {
             access: Access::LabelKey(index),
             effect: Effect::Live,
             scope: Scope::Everywhere,
+            explained: None,
         })
         .collect()
 }
@@ -147,6 +148,7 @@ fn ratings() -> Vec<Row> {
             access: Access::RatingKey(stars),
             effect: Effect::Live,
             scope: Scope::Everywhere,
+            explained: None,
         })
         .collect()
 }

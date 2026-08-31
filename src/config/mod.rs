@@ -1,6 +1,7 @@
 //! The configuration file: its shape, its defaults, and how it is loaded.
 
 pub mod bindings;
+pub mod browsing;
 pub mod defaults;
 pub mod load;
 pub mod migrate;
@@ -11,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::actions::Callback;
 
+pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, PanelsAtStart};
 pub use defaults::*;
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
@@ -32,6 +34,12 @@ pub struct Config {
     pub tags: TagConfig,
     pub raw: RawConfig,
     pub cull: CullConfig,
+    /// What a folder opens as: its order, its filter, whether it is stacked.
+    #[serde(default)]
+    pub browsing: BrowsingConfig,
+    /// What counts as one run of frames, read by both surfaces that detect one.
+    #[serde(default)]
+    pub group: GroupConfig,
     /// Whether something in the file on disk could not be read.
     ///
     /// A configuration that was only partly understood must never be written
@@ -71,6 +79,8 @@ impl Default for Config {
             tags: TagConfig::default(),
             raw: RawConfig::default(),
             cull: CullConfig::default(),
+            browsing: BrowsingConfig::default(),
+            group: GroupConfig::default(),
             partial: false,
             migrated: Vec::new(),
             document: None,
@@ -217,6 +227,16 @@ pub struct TagConfig {
     /// so the setting decides which way round the extra keystroke goes.
     #[serde(default = "default_advance_after_marking")]
     pub advance_after_marking: bool,
+    /// What a sidecar this viewer creates is called.
+    ///
+    /// Both forms are *read*, most specific first, and a sidecar that already
+    /// exists is edited rather than joined by a second. This is only what gets
+    /// created for a photograph that has none. `photo.cr2.xmp` is the default
+    /// because it is the only one of the two that can tell a raw's keywords
+    /// from its JPEG twin's, which is a correctness property rather than a
+    /// preference.
+    #[serde(default = "default_sidecar_naming")]
+    pub sidecar_naming: String,
     /// Turns that on and off without opening the settings.
     #[serde(default = "default_sc_toggle_advance")]
     pub sc_toggle_advance: Shortcut,
@@ -236,6 +256,9 @@ pub struct CullConfig {
     /// happens.
     #[serde(default = "default_rejected_folder")]
     pub rejected_folder: String,
+    /// Which of the reversible things ask first.
+    #[serde(default)]
+    pub confirm: Confirmations,
 
     #[serde(default = "default_sc_move")]
     pub sc_move: Shortcut,
@@ -252,6 +275,7 @@ impl Default for CullConfig {
         CullConfig {
             destinations: default_destinations(),
             rejected_folder: default_rejected_folder(),
+            confirm: Confirmations::default(),
             sc_move: default_sc_move(),
             sc_copy: default_sc_copy(),
             sc_reject_folder: default_sc_reject_folder(),
@@ -325,6 +349,54 @@ pub struct GeneralConfig {
     /// folder visited lately. A cull is rarely one sitting.
     #[serde(default = "default_restore_session")]
     pub restore_session: bool,
+    /// Which mode a launch starts in.
+    ///
+    /// The precedence, which the row on the page states: a path on the command
+    /// line, then the restored session, then the startup folder, then the
+    /// working directory.
+    #[serde(default = "default_start_in")]
+    pub start_in: String,
+    /// Whether the window fills the screen when it opens.
+    ///
+    /// `--fullscreen` says the same thing for one launch; this says it for
+    /// every launch.
+    #[serde(default)]
+    pub start_fullscreen: bool,
+    /// The folder to open when nothing else names one.
+    ///
+    /// Reached only when no path was given and there is no session to restore,
+    /// which is what stops the viewer opening the working directory of whatever
+    /// launched it — nobody's choice.
+    #[serde(default)]
+    pub start_folder: Option<String>,
+    /// Which panels a launch starts with.
+    #[serde(default)]
+    pub panels_at_start: PanelsAtStart,
+    /// Starting width of the metadata panel, in points.
+    #[serde(default = "default_side_panel_width")]
+    pub side_panel_width: f32,
+    /// Light or dark.
+    ///
+    /// The theme was hardcoded to dark above a reason that is sound and too
+    /// wide: what surrounds the *photograph* is the backdrop, which is a
+    /// separate value the theme does not touch.
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    /// The grey behind the photograph, as a hex colour.
+    ///
+    /// Separate from the theme, and the thing the theme's own argument is
+    /// really about: a light interface does not have to mean a light ground
+    /// under the picture.
+    #[serde(default = "default_backdrop")]
+    pub backdrop: String,
+    /// Which page the settings window was last left on.
+    ///
+    /// Kept here rather than in the session file, because `on_exit` returns
+    /// early when `restore_session` is off — a preference kept there is a
+    /// preference some people silently do not have. A key the window writes and
+    /// nobody sets, like `version`.
+    #[serde(default)]
+    pub last_settings_page: String,
 
     #[serde(default = "default_sc_toggle_gallery")]
     pub sc_toggle_gallery: Shortcut,
@@ -380,6 +452,13 @@ pub struct GeneralConfig {
     pub sc_filter: Shortcut,
     /// Sets the rules aside without forgetting them, so "what did I hide?" is
     /// one key and answering it costs nothing.
+    /// Opens the settings window on the page it was last left on.
+    ///
+    /// Plain Comma is the key that walks the frames of a folded stack, so the
+    /// modified one is free — and like every other key it is a registry row
+    /// rather than a hardcoded one.
+    #[serde(default = "default_sc_settings")]
+    pub sc_settings: Shortcut,
     #[serde(default = "default_sc_suspend_filter")]
     pub sc_suspend_filter: Shortcut,
 }
@@ -429,6 +508,25 @@ pub struct ImageViewConfig {
     /// its own size it is a postage stamp in the middle of the screen.
     #[serde(default = "default_enlarge_to_fit")]
     pub enlarge_to_fit: bool,
+    /// How much one press of the zoom keys changes the magnification.
+    #[serde(default = "default_zoom_step")]
+    pub zoom_step: f32,
+    /// How much one press of the step-zoom key changes it.
+    ///
+    /// Doubling, by default: that key exists to get from fitted to something
+    /// worth judging in as few presses as possible.
+    #[serde(default = "default_zoom_step_factor")]
+    pub zoom_step_factor: f32,
+    /// How far the step-zoom key goes before wrapping back to fitted.
+    #[serde(default = "default_zoom_step_max")]
+    pub zoom_step_max: f32,
+    /// How fast a held pan key moves the view, in screens a second.
+    #[serde(default = "default_pan_speed")]
+    pub pan_speed: f32,
+    /// How many photographs a screenful is, for the keys that walk a long
+    /// folder quickly.
+    #[serde(default = "default_page")]
+    pub page: usize,
     #[serde(default = "default_name_format")]
     pub name_format: String,
     #[serde(default = "default_user_actions")]
@@ -530,6 +628,28 @@ pub struct GridViewConfig {
     /// while somebody is looking for the one that was not blurred.
     #[serde(default = "default_caption_format")]
     pub caption_format: String,
+    /// What is drawn under each thumbnail when a folder opens. The key cycles
+    /// it for the session.
+    #[serde(default = "default_badges")]
+    pub badges: String,
+    /// Whether the strip of thumbnails is up when a folder opens.
+    ///
+    /// Split out of `filmstrip_height`, which stored a height and a visibility
+    /// in one number — which is why the key that shows the strip did nothing on
+    /// a fresh install: the default height is zero.
+    #[serde(default)]
+    pub filmstrip_visible: bool,
+    /// Which edge of the window the strip sits against.
+    #[serde(default = "default_filmstrip_edge")]
+    pub filmstrip_edge: String,
+    /// Whether a single click on a cell opens that photograph.
+    ///
+    /// Off: a click picks out and a double click opens. A culling tool's
+    /// contact sheet is a surface you act *on*, and a plain click that closes
+    /// it contradicts the cursor, the selection, Ctrl-click, Shift-click, Space
+    /// and Enter all at once.
+    #[serde(default)]
+    pub click_opens: bool,
     #[serde(default = "default_sc_select")]
     pub sc_select: Shortcut,
     #[serde(default = "default_sc_select_all")]
@@ -621,6 +741,14 @@ impl Default for GeneralConfig {
             text_scaling: default_text_scaling(),
             metadata_tags: default_metadata_tags(),
             restore_session: default_restore_session(),
+            start_in: default_start_in(),
+            start_fullscreen: false,
+            start_folder: None,
+            panels_at_start: PanelsAtStart::default(),
+            side_panel_width: default_side_panel_width(),
+            theme: default_theme(),
+            backdrop: default_backdrop(),
+            last_settings_page: String::new(),
             sc_toggle_gallery: default_sc_toggle_gallery(),
             sc_next_mode: default_sc_next_mode(),
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
@@ -635,6 +763,7 @@ impl Default for GeneralConfig {
             sc_delete_permanently: default_sc_delete_permanently(),
             sc_fullscreen: default_sc_fullscreen(),
             sc_filter: default_sc_filter(),
+            sc_settings: default_sc_settings(),
             sc_suspend_filter: default_sc_suspend_filter(),
             sc_exit: default_sc_exit(),
             sc_menu: default_sc_menu(),
@@ -657,6 +786,11 @@ impl Default for ImageViewConfig {
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             scroll_navigation: default_scroll_navigation(),
             enlarge_to_fit: default_enlarge_to_fit(),
+            zoom_step: default_zoom_step(),
+            zoom_step_factor: default_zoom_step_factor(),
+            zoom_step_max: default_zoom_step_max(),
+            pan_speed: default_pan_speed(),
+            page: default_page(),
             user_actions: default_user_actions(),
             context_menu: default_ctx_menu(),
             name_format: default_name_format(),
@@ -705,6 +839,10 @@ impl Default for GridViewConfig {
             sc_less_per_row: default_sc_less_per_row(),
             sc_cycle_badges: default_sc_cycle_badges(),
             caption_format: default_caption_format(),
+            badges: default_badges(),
+            filmstrip_visible: false,
+            filmstrip_edge: default_filmstrip_edge(),
+            click_opens: false,
             filmstrip_height: default_filmstrip_height(),
             sc_select: default_sc_select(),
             sc_select_all: default_sc_select_all(),
@@ -739,6 +877,7 @@ impl Default for TagConfig {
             sc_unflag: default_sc_unflag(),
             sc_label: default_sc_label(),
             advance_after_marking: default_advance_after_marking(),
+            sidecar_naming: default_sidecar_naming(),
             sc_toggle_advance: default_sc_toggle_advance(),
         }
     }

@@ -83,6 +83,7 @@ pub fn rows() -> Vec<Row> {
             Rebuild,
             None,
             whole!(u64, 1, 100, " ms", false, cache.upload_budget_ms),
+            explained: "No control: it is computed from the frame time the viewer is \n                        already measuring every frame. A value written by hand still \n                        wins, for whoever is chasing a stutter.",
         ),
     ]
 }

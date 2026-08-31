@@ -45,6 +45,24 @@ pub enum Badges {
 impl Badges {
     pub const ALL: &'static [Badges] = &[Badges::None, Badges::Marks, Badges::Full];
 
+    /// The word the file holds.
+    pub fn value(self) -> &'static str {
+        match self {
+            Badges::None => "none",
+            Badges::Marks => "marks",
+            Badges::Full => "full",
+        }
+    }
+
+    /// What a stored word means. Anything unrecognised is the useful middle.
+    pub fn of(value: &str) -> Badges {
+        Badges::ALL
+            .iter()
+            .copied()
+            .find(|it| it.value() == value)
+            .unwrap_or(Badges::Marks)
+    }
+
     pub fn next(self) -> Badges {
         match self {
             Badges::None => Badges::Marks,

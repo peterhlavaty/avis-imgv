@@ -53,6 +53,16 @@ pub struct Row {
     pub effect: Effect,
     /// Where the value is read, which for a shortcut is where it can clash.
     pub scope: Scope,
+    /// Why this row has no control of its own, where it has none.
+    ///
+    /// Six controls come off the pages under the rule that a field is only a
+    /// setting when two reasonable people would choose differently. Four of
+    /// the six end with no control anywhere — the two GPU counts, the
+    /// loaded-image radius and the upload budget — and each keeps a line on
+    /// the page that used to hold it, saying where its value now comes from.
+    /// The answer to "where did that setting go" belongs on the page rather
+    /// than in a document nobody has.
+    pub explained: Option<&'static str>,
 }
 
 impl Row {
@@ -95,9 +105,15 @@ pub fn row(path: &str) -> Option<&'static Row> {
     rows().iter().find(|row| row.path == path)
 }
 
-/// Every row drawn on one page.
+/// Every row drawn on one page, block by block in reading order.
 pub fn on_page(page: Page) -> impl Iterator<Item = &'static Row> {
-    rows().iter().filter(move |row| row.page == page)
+    let mut found: Vec<&'static Row> = rows().iter().filter(|row| row.page == page).collect();
+
+    // A stable sort, so within a block the rows keep the order the table
+    // declares them in — which is the order somebody reading the file sees.
+    found.sort_by_key(|row| row.group.order());
+
+    found.into_iter()
 }
 
 #[cfg(test)]

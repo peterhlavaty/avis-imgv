@@ -97,6 +97,11 @@ impl ImageView {
         self.config = config;
     }
 
+    /// The grey behind the photograph, as the configuration spells it.
+    pub fn set_backdrop(&mut self, hex: &str) {
+        self.backdrop = hex.to_string();
+    }
+
     pub fn selected_index(&self) -> usize {
         self.cursor
     }

@@ -137,6 +137,39 @@ pub enum Group {
 }
 
 impl Group {
+    /// Where this block sits on its page.
+    ///
+    /// The rows come off the registry in the order the table declares them,
+    /// which is by section of the *file*; a page is a view over that, so the
+    /// blocks have to be put in the order somebody reads them. `Plain` first,
+    /// because it is what the page is about; `Footer` last, because it is what
+    /// is under the separator.
+    pub fn order(self) -> u8 {
+        match self {
+            Group::Plain => 0,
+            Group::Starting => 1,
+            Group::Browsing => 2,
+            Group::Grouping => 3,
+            Group::Overlay => 4,
+            Group::Framing => 5,
+            Group::Movement => 6,
+            Group::Cells => 7,
+            Group::Filmstrip => 8,
+            Group::Destinations => 9,
+            Group::Confirmations => 10,
+            Group::Developing => 11,
+            Group::Memory => 12,
+            Group::Graphics => 13,
+            Group::Work => 14,
+            Group::Appearance => 15,
+            Group::Panels => 16,
+            Group::Mouse => 17,
+            Group::Keys => 18,
+            Group::Menus => 19,
+            Group::Footer => 20,
+        }
+    }
+
     /// The heading, or nothing for the rows that need none.
     pub fn label(self) -> Option<&'static str> {
         Some(match self {

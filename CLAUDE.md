@@ -98,7 +98,7 @@ one piece of the work each.
 | `src/app/` | wiring, input, modes, panels, the file watcher, `--benchmark` |
 | `src/annotations/` | stars, flags, labels and tags, written to XMP sidecars |
 | `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping |
-| `src/config/` | the configuration file, its defaults, and migrations between versions |
+| `src/config/` | the configuration file, its defaults, migrations between versions, and `registry/` — one row per field, which the settings window, the search and the key editor are all views over |
 | `src/session.rs` | what is remembered between runs: window, folder, position |
 | `src/ui/` | shared widgets, the notice bar, the key binding clash check |
 

@@ -88,6 +88,7 @@ pub fn rows() -> Vec<Row> {
             Rebuild,
             None,
             whole!(usize, 1, 4096, "", false, image_view.nr_loaded_images),
+            explained: "No control: the RAM budget above already decides this, and \n                        trims whatever is written here to what it holds. At the \n                        default budget it is about 22 on a 4K monitor and about 90 on \n                        a 1080p one. The readout beside the budget says the number in \n                        force.",
         ),
         row!(
             SpeedAndMemory / Graphics,
@@ -101,6 +102,7 @@ pub fn rows() -> Vec<Row> {
             Rebuild,
             None,
             whole!(usize, 1, 512, "", false, image_view.gpu_resident_images),
+            explained: "No control: the graphics card budget bounds this in bytes, \n                        which is the honest bound. A count cannot tell two hundred \n                        thumbnails from two hundred sixty-megapixel photographs.",
         ),
         row!(
             SpeedAndMemory / Memory,
@@ -148,7 +150,17 @@ pub fn rows() -> Vec<Row> {
             ["border", "frame", "white", "matte"],
             Live,
             None,
-            decimal!(0.0, 0.5, "", true, image_view.frame_size_relative_to_image),
+            // Per cent of the shorter edge. The file holds 0.2; a person means
+            // twenty per cent, and one of those is not a number anybody can
+            // picture.
+            Access::Float {
+                get: |c| c.image_view.frame_size_relative_to_image * 100.0,
+                set: |c, v| c.image_view.frame_size_relative_to_image = v / 100.0,
+                min: 0.0,
+                max: 50.0,
+                unit: " %",
+                rail: true,
+            },
         ),
         row!(
             KeysAndMouse / Mouse,
@@ -238,6 +250,7 @@ fn action_keys() -> Vec<Row> {
             access: Access::ActionKey(index),
             effect: Effect::Live,
             scope: Scope::ImageView,
+            explained: None,
         })
         .collect()
 }

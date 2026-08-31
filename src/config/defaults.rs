@@ -513,3 +513,83 @@ pub fn default_start_with_frame_enabled() -> bool {
 pub fn default_image_frame_background_color_override() -> Option<String> {
     None
 }
+
+/// Which mode a launch starts in. The image view, which is what a viewer is.
+pub fn default_start_in() -> String {
+    "image".to_string()
+}
+
+/// The metadata panel's starting width, in points.
+///
+/// A hardcoded `default_width(340.)` until now, which meant dragging the edge
+/// was a gesture the viewer forgot on the way out.
+pub fn default_side_panel_width() -> f32 {
+    340.0
+}
+
+/// Dark, which is what the viewer has always been.
+///
+/// Not because a light interface is wrong, but because the reason the theme was
+/// hardcoded — that a light surround shifts how the photograph reads — is
+/// really about the backdrop, and the backdrop is its own field now.
+pub fn default_theme() -> String {
+    "dark".to_string()
+}
+
+/// The grey behind the photograph.
+///
+/// Neutral enough not to shift how a photograph reads against it, which is the
+/// whole reason it is a middle grey and not the theme's own background.
+pub fn default_backdrop() -> String {
+    "#777777".to_string()
+}
+
+/// How much one press of the zoom keys changes the magnification.
+pub fn default_zoom_step() -> f32 {
+    1.25
+}
+
+/// How much the step-zoom key changes it: doubling.
+pub fn default_zoom_step_factor() -> f32 {
+    2.0
+}
+
+/// How far the step-zoom key goes before wrapping back to fitted.
+pub fn default_zoom_step_max() -> f32 {
+    8.0
+}
+
+/// How fast a held pan key moves the view, in screens a second.
+pub fn default_pan_speed() -> f32 {
+    1.5
+}
+
+/// How many photographs a screenful is.
+pub fn default_page() -> usize {
+    10
+}
+
+/// What is drawn under a thumbnail: the marks, which is the useful middle.
+pub fn default_badges() -> String {
+    "marks".to_string()
+}
+
+/// Which edge the strip of thumbnails sits against.
+pub fn default_filmstrip_edge() -> String {
+    "bottom".to_string()
+}
+
+/// What a new sidecar is called.
+///
+/// The full-name form, because it is the only one of the two that can tell a
+/// raw's keywords from its JPEG twin's.
+pub fn default_sidecar_naming() -> String {
+    "with_extension".to_string()
+}
+
+/// `Ctrl + ,` for the settings, which is what every program on every platform
+/// uses. Plain Comma is the key that walks a folded stack, so the modified one
+/// is free.
+pub fn default_sc_settings() -> Shortcut {
+    Shortcut::new("Comma", &[MOD_CTRL])
+}

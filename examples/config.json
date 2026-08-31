@@ -20,6 +20,11 @@
     "frame_size_relative_to_image": 0.2,
     "scroll_navigation": true,
     "enlarge_to_fit": true,
+    "zoom_step": 1.25,
+    "zoom_step_factor": 2.0,
+    "zoom_step_max": 8.0,
+    "pan_speed": 1.5,
+    "page": 10,
     "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
     "user_actions": [],
     "context_menu": [],
@@ -139,6 +144,10 @@
     },
     "filmstrip_height": 0.0,
     "caption_format": "{name}.{ext}",
+    "badges": "marks",
+    "filmstrip_visible": false,
+    "filmstrip_edge": "bottom",
+    "click_opens": false,
     "sc_select": {
       "key": "Space",
       "modifiers": []
@@ -169,6 +178,19 @@
       "Directory"
     ],
     "restore_session": true,
+    "start_in": "image",
+    "start_fullscreen": false,
+    "start_folder": null,
+    "panels_at_start": {
+      "menu": false,
+      "side_panel": false,
+      "tag_panel": false,
+      "filmstrip": false
+    },
+    "side_panel_width": 340.0,
+    "theme": "dark",
+    "backdrop": "#777777",
+    "last_settings_page": "",
     "sc_toggle_gallery": {
       "key": "Backspace",
       "modifiers": []
@@ -266,6 +288,12 @@
     "sc_filter": {
       "key": "F3",
       "modifiers": []
+    },
+    "sc_settings": {
+      "key": "Comma",
+      "modifiers": [
+        "ctrl"
+      ]
     },
     "sc_suspend_filter": {
       "key": "Backslash",
@@ -379,6 +407,7 @@
       }
     ],
     "advance_after_marking": false,
+    "sidecar_naming": "with_extension",
     "sc_toggle_advance": {
       "key": "a",
       "modifiers": [
@@ -407,6 +436,11 @@
       }
     ],
     "rejected_folder": "_Rejected",
+    "confirm": {
+      "bin_several": true,
+      "empty_rejects": true,
+      "undo_several": true
+    },
     "sc_move": {
       "key": "m",
       "modifiers": [
@@ -431,5 +465,20 @@
         "ctrl"
       ]
     }
+  },
+  "browsing": {
+    "sort": "name",
+    "descending": false,
+    "flag": "any",
+    "min_stars": 0,
+    "max_stars": 5,
+    "label": "any",
+    "filter_follows_folder": true,
+    "stack_by_default": false
+  },
+  "group": {
+    "max_gap": 60.0,
+    "tolerance": 12,
+    "min_frames": 2
   }
 }

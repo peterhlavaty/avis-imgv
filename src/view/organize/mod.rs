@@ -80,12 +80,12 @@ pub struct OrganizeView {
 
 impl Default for OrganizeView {
     fn default() -> Self {
-        Self::new()
+        Self::new(&crate::config::GroupConfig::default())
     }
 }
 
 impl OrganizeView {
-    pub fn new() -> OrganizeView {
+    pub fn new(config: &crate::config::GroupConfig) -> OrganizeView {
         OrganizeView {
             all: Vec::new(),
             scan: None,
@@ -99,7 +99,10 @@ impl OrganizeView {
             rename: renaming::Options::default(),
             offset: shifting::Offset::default(),
             chosen_fields: BTreeSet::new(),
-            grouping: Grouping::default(),
+            // The same thresholds the contact sheet stacks by. Two answers
+            // to "is this one burst?" is a defect whether or not anybody
+            // navigates between the two surfaces.
+            grouping: Grouping::of(config),
             thumbnail_height: thumbnails::SIZES[2].1,
             thumbnails: thumbnails::Thumbnails::default(),
             groups: Vec::new(),
@@ -280,14 +283,14 @@ mod tests {
     use crate::organize::rename::Planned;
 
     fn view_over(names: &[&str]) -> OrganizeView {
-        let mut view = OrganizeView::new();
-        view.all = names
-            .iter()
-            .map(|name| Entry::new(PathBuf::from("/photos").join(name)))
-            .collect();
-        view.stale = true;
-
-        view
+        OrganizeView {
+            all: names
+                .iter()
+                .map(|name| Entry::new(PathBuf::from("/photos").join(name)))
+                .collect(),
+            stale: true,
+            ..OrganizeView::default()
+        }
     }
 
     #[test]
