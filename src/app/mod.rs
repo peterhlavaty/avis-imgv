@@ -198,6 +198,10 @@ impl App {
             app.notices.say(clash);
         }
 
+        for said in &app.settings.migrated {
+            app.notices.say(format!("Brought forward: {said}"));
+        }
+
         if app.settings.partial {
             app.notices.say(
                 "Part of the configuration file could not be read; those settings are \

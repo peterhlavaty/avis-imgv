@@ -506,6 +506,19 @@ sRGB and Adobe RGB (ClayRGB) come from
 fully populated example is in `examples/config.json`; valid key and modifier
 names are in `examples/keys.txt`.
 
+A section the viewer cannot make sense of costs that section and nothing else,
+and a file that was only partly understood is never written back over — so one
+misplaced comma cannot quietly replace everything you had configured with the
+defaults.
+
+The file carries a `version`. When a *default* moves — a key that used to mean
+one thing and now means another — a file still holding the old binding would
+leave two commands fighting over it, with the loser doing nothing and saying
+nothing. So the viewer brings such a file forward on the way in, says in the
+corner what it moved, and writes it back once. It only ever touches a setting
+that still holds the old default: anything you have actually chosen is yours,
+including choosing the old binding back.
+
 ### Cache
 
 These are the knobs that decide how far ahead of you the viewer runs.

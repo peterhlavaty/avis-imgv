@@ -2,7 +2,7 @@
 
 use std::{fs, io::ErrorKind, path::PathBuf};
 
-use super::Config;
+use super::{migrate, Config};
 use crate::{APPLICATION, ORGANIZATION, QUALIFIER};
 
 impl Config {
@@ -90,7 +90,18 @@ impl Config {
             }
         };
 
-        let cfg = Self::from_json(&config_json);
+        let mut cfg = Self::from_json(&config_json);
+
+        // Brought up to date on the way in, and written back out so it is only
+        // done once. A file that was only partly understood is not written
+        // over — the same rule as everywhere else — so it is migrated in
+        // memory and left alone on disk.
+        cfg.migrated = migrate::apply(&mut cfg);
+        if !cfg.migrated.is_empty() && !cfg.partial {
+            if let Err(e) = cfg.save() {
+                tracing::error!("Could not write the brought-forward config: {e}");
+            }
+        }
 
         // The whole configuration is one long line, so it stays out of the
         // way unless something needs explaining.
@@ -126,6 +137,10 @@ impl Config {
         let mut partial = false;
 
         Config {
+            version: map
+                .get("version")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0) as u32,
             image_view: section(&map, "image_view", &mut partial),
             grid_view: section(&map, "grid_view", &mut partial),
             general: section(&map, "general", &mut partial),
@@ -135,6 +150,7 @@ impl Config {
             raw: section(&map, "raw", &mut partial),
             cull: section(&map, "cull", &mut partial),
             partial,
+            migrated: Vec::new(),
         }
     }
 }

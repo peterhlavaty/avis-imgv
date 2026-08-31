@@ -2,6 +2,23 @@
 
 ## 2026-08-30
 
+- **The configuration file has a version, and is brought forward.** A default
+  that moves is the one change `serde` cannot absorb: it fills in the keys a
+  file is missing, never the ones that have since moved, so an older file
+  keeps the old binding for ever and two commands end up on one key.
+
+  Two such bindings are put right, both found on a real configuration: `Space`
+  on the contact sheet, which is now "pick this one out" and was "scroll down
+  half a row"; and `Plus`/`Minus`, which were both "more images side by side"
+  and "zoom in" — zoom won, so the side-by-side view was simply unreachable,
+  which is what the startup clash warning had been reporting without being
+  able to do anything about it.
+
+  A step only ever touches a setting that still holds the *old default*, so a
+  binding anybody has actually chosen — including choosing the old one back —
+  is left alone. What was moved is said in the corner rather than done
+  quietly, and a file that was only partly understood is migrated in memory
+  and left alone on disk.
 - **A Fujifilm raw's clock can be shifted.** A RAF keeps its EXIF inside the
   JPEG it embeds, and only one caller knew that — so the capture-time shift,
   which asks the container directly, found no timestamps in a RAF at all and

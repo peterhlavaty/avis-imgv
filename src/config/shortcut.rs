@@ -11,7 +11,7 @@ pub const MOD_CTRL: &str = "ctrl";
 pub const MOD_MAC_CMD: &str = "mac_cmd";
 pub const MOD_CMD: &str = "cmd";
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(from = "ShortcutData")]
 pub struct Shortcut {
     pub key: String,
@@ -20,6 +20,30 @@ pub struct Shortcut {
     #[serde(default = "default_shortcut")]
     pub kbd_shortcut: KeyboardShortcut,
 }
+
+/// Two shortcuts are the same when they name the same key with the same
+/// modifiers, whatever order those were written in.
+///
+/// Written out rather than derived because the modifiers are a list in a
+/// configuration file and `["ctrl", "shift"]` is the same shortcut as
+/// `["shift", "ctrl"]` — and because the built `KeyboardShortcut` is derived
+/// from the other two and has nothing of its own to say.
+impl PartialEq for Shortcut {
+    fn eq(&self, other: &Self) -> bool {
+        if self.key != other.key || self.modifiers.len() != other.modifiers.len() {
+            return false;
+        }
+
+        let mut mine: Vec<&str> = self.modifiers.iter().map(String::as_str).collect();
+        let mut theirs: Vec<&str> = other.modifiers.iter().map(String::as_str).collect();
+        mine.sort_unstable();
+        theirs.sort_unstable();
+
+        mine == theirs
+    }
+}
+
+impl Eq for Shortcut {}
 
 #[derive(Deserialize, Serialize)]
 pub struct ShortcutData {

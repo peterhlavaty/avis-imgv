@@ -3,6 +3,7 @@
 pub mod bindings;
 pub mod defaults;
 pub mod load;
+pub mod migrate;
 pub mod shortcut;
 
 use serde::{Deserialize, Serialize};
@@ -12,9 +13,16 @@ use crate::actions::Callback;
 pub use defaults::*;
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
-#[derive(Deserialize, Serialize, Default, Clone)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(default)]
 pub struct Config {
+    /// Which build's conventions this file was written to.
+    ///
+    /// Absent — and so nought — in every file written before versions
+    /// existed, which is exactly the set of files that needs every migration
+    /// step. See [`migrate`].
+    #[serde(default)]
+    pub version: u32,
     pub image_view: ImageViewConfig,
     pub grid_view: GridViewConfig,
     pub general: GeneralConfig,
@@ -32,6 +40,32 @@ pub struct Config {
     /// permanent.
     #[serde(skip)]
     pub partial: bool,
+    /// What was brought forward from an older file, for the user to be told.
+    ///
+    /// A migration changes a setting somebody may have been relying on, so it
+    /// says so rather than doing it quietly.
+    #[serde(skip)]
+    pub migrated: Vec<&'static str>,
+}
+
+impl Default for Config {
+    /// A configuration built here is by definition current, so nobody
+    /// starting today is told that anything moved.
+    fn default() -> Self {
+        Config {
+            version: migrate::CURRENT,
+            image_view: ImageViewConfig::default(),
+            grid_view: GridViewConfig::default(),
+            general: GeneralConfig::default(),
+            cache: CacheConfig::default(),
+            slideshow: SlideshowConfig::default(),
+            tags: TagConfig::default(),
+            raw: RawConfig::default(),
+            cull: CullConfig::default(),
+            partial: false,
+            migrated: Vec::new(),
+        }
+    }
 }
 
 /// What to do with camera raw files.
