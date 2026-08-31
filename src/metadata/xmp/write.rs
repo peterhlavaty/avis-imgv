@@ -9,7 +9,7 @@ use std::io::Cursor;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::{NsReader, Writer};
 
-use super::{namespace_of, Namespace, Xmp, NS_DC, NS_DIGIKAM, NS_RDF, NS_XMP};
+use super::{namespace_of, Namespace, Xmp, NS_DC, NS_DIGIKAM, NS_LIGHTROOM, NS_RDF, NS_XMP};
 
 /// Identifies documents this viewer wrote, in the toolkit field every XMP
 /// writer stamps.
@@ -163,6 +163,7 @@ fn is_ours_named(namespace: Namespace, name: &str) -> bool {
         (Namespace::Xmp, "Rating")
             | (Namespace::Xmp, "Label")
             | (Namespace::Dc, "subject")
+            | (Namespace::Lightroom, "hierarchicalSubject")
             | (Namespace::DigiKam, "PickLabel")
     )
 }
@@ -217,6 +218,7 @@ fn write_description(
 
     writer.write_event(Event::Start(rebuilt))?;
     write_keywords(writer, &xmp.keywords)?;
+    write_hierarchy(writer, &xmp.hierarchy)?;
 
     // A self-closing description has to become a pair now that it has content.
     if self_closing {
@@ -228,42 +230,82 @@ fn write_description(
 
 /// Writes `dc:subject` as an unordered bag, the form every reader understands.
 fn write_keywords(writer: &mut Sink, keywords: &[String]) -> std::io::Result<()> {
-    if keywords.is_empty() {
+    write_bag(writer, "dc:subject", "xmlns:dc", NS_DC, keywords)
+}
+
+/// And `lr:hierarchicalSubject`, for the readers that understand paths.
+///
+/// Beside the flat list rather than instead of it: a program that knows about
+/// hierarchies reads this one, and a program that does not still finds the
+/// keyword in `dc:subject`. Writing only the paths would leave the second kind
+/// seeing nothing at all.
+fn write_hierarchy(writer: &mut Sink, paths: &[String]) -> std::io::Result<()> {
+    write_bag(
+        writer,
+        "lr:hierarchicalSubject",
+        "xmlns:lr",
+        NS_LIGHTROOM,
+        paths,
+    )
+}
+
+/// One bag of strings under a named element.
+fn write_bag(
+    writer: &mut Sink,
+    element: &str,
+    prefix: &str,
+    namespace: &str,
+    items: &[String],
+) -> std::io::Result<()> {
+    if items.is_empty() {
         return Ok(());
     }
 
     // Both elements carry their own namespace declaration so the block stays
     // valid wherever it is inserted.
-    let mut subject = BytesStart::new("dc:subject");
-    subject.push_attribute(("xmlns:dc", NS_DC));
-    writer.write_event(Event::Start(subject))?;
+    let mut opening = BytesStart::new(element);
+    opening.push_attribute((prefix, namespace));
+    writer.write_event(Event::Start(opening))?;
 
     let mut bag = BytesStart::new("rdf:Bag");
     bag.push_attribute(("xmlns:rdf", NS_RDF));
     writer.write_event(Event::Start(bag))?;
 
-    for keyword in keywords {
+    for item in items {
         writer.write_event(Event::Start(BytesStart::new("rdf:li")))?;
-        writer.write_event(Event::Text(BytesText::new(keyword)))?;
+        writer.write_event(Event::Text(BytesText::new(item)))?;
         writer.write_event(Event::End(BytesEnd::new("rdf:li")))?;
     }
 
     writer.write_event(Event::End(BytesEnd::new("rdf:Bag")))?;
-    writer.write_event(Event::End(BytesEnd::new("dc:subject")))
+    writer.write_event(Event::End(BytesEnd::new(element)))
 }
 
 /// A complete document, for a file that has no sidecar yet.
 fn fresh(xmp: &Xmp) -> String {
-    let items: String = xmp
-        .keywords
-        .iter()
-        .map(|keyword| format!("     <rdf:li>{}</rdf:li>\n", escape(keyword)))
-        .collect();
+    let bag = |element: &str, values: &[String]| {
+        if values.is_empty() {
+            return String::new();
+        }
 
-    let subject = if items.is_empty() {
+        let items: String = values
+            .iter()
+            .map(|value| format!("     <rdf:li>{}</rdf:li>\n", escape(value)))
+            .collect();
+
+        format!("   <{element}>\n    <rdf:Bag>\n{items}    </rdf:Bag>\n   </{element}>\n")
+    };
+
+    let subject = format!(
+        "{}{}",
+        bag("dc:subject", &xmp.keywords),
+        bag("lr:hierarchicalSubject", &xmp.hierarchy)
+    );
+
+    let lightroom_ns = if xmp.hierarchy.is_empty() {
         String::new()
     } else {
-        format!("   <dc:subject>\n    <rdf:Bag>\n{items}    </rdf:Bag>\n   </dc:subject>\n")
+        format!("\n    xmlns:lr=\"{NS_LIGHTROOM}\"")
     };
 
     let label = match &xmp.label {
@@ -286,7 +328,7 @@ fn fresh(xmp: &Xmp) -> String {
  <rdf:RDF xmlns:rdf="{NS_RDF}">
   <rdf:Description rdf:about=""
     xmlns:xmp="{NS_XMP}"
-    xmlns:dc="{NS_DC}"{digikam_ns}
+    xmlns:dc="{NS_DC}"{digikam_ns}{lightroom_ns}
    xmp:Rating="{rating}"{label}{pick}>
 {subject}  </rdf:Description>
  </rdf:RDF>
@@ -318,6 +360,75 @@ mod tests {
     /// The document `update` produces, for the cases that must produce one.
     fn updated(existing: Option<&str>, xmp: &Xmp) -> String {
         update(existing, xmp).expect("a document")
+    }
+
+    /// Both forms are written, which is the whole point: a program that
+    /// understands paths reads one and a program that does not reads the
+    /// other.
+    #[test]
+    fn a_hierarchy_is_written_beside_the_flat_keywords() {
+        let xmp = Xmp {
+            rating: 3,
+            keywords: vec!["Tatras".to_string()],
+            hierarchy: vec!["Places|Slovakia|Tatras".to_string()],
+            ..Xmp::default()
+        };
+
+        let written = updated(None, &xmp);
+
+        assert!(written.contains("<dc:subject>"), "{written}");
+        assert!(written.contains("lr:hierarchicalSubject"), "{written}");
+        assert!(written.contains("Places|Slovakia|Tatras"), "{written}");
+        assert!(written.contains(NS_LIGHTROOM), "the namespace is declared");
+
+        let read = read::read(&written).expect("it reads back");
+        assert_eq!(read.keywords, xmp.keywords);
+        assert_eq!(read.hierarchy, xmp.hierarchy);
+    }
+
+    /// And editing a document that already has one replaces it rather than
+    /// leaving two.
+    #[test]
+    fn an_existing_hierarchy_is_replaced_not_duplicated() {
+        let first = updated(
+            None,
+            &Xmp {
+                hierarchy: vec!["Places|Slovakia".to_string()],
+                ..Xmp::default()
+            },
+        );
+
+        let second = updated(
+            Some(&first),
+            &Xmp {
+                hierarchy: vec!["Places|Austria".to_string()],
+                ..Xmp::default()
+            },
+        );
+
+        assert_eq!(
+            second.matches("lr:hierarchicalSubject").count(),
+            2,
+            "one opening and one closing tag: {second}"
+        );
+        assert!(!second.contains("Slovakia"), "{second}");
+        assert!(second.contains("Austria"), "{second}");
+    }
+
+    /// A photograph with no hierarchy writes none, rather than an empty bag
+    /// and a namespace nothing uses.
+    #[test]
+    fn no_hierarchy_writes_no_element() {
+        let written = updated(
+            None,
+            &Xmp {
+                keywords: vec!["Autumn".to_string()],
+                ..Xmp::default()
+            },
+        );
+
+        assert!(!written.contains("hierarchicalSubject"), "{written}");
+        assert!(!written.contains(NS_LIGHTROOM), "{written}");
     }
 
     #[test]
@@ -477,6 +588,7 @@ mod tests {
             picked: true,
             label: Some("Green".to_string()),
             keywords: vec!["Keeper".to_string()],
+            hierarchy: Vec::new(),
         };
 
         let written = updated(None, &marked);

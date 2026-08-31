@@ -126,6 +126,16 @@ pub struct TagConfig {
     /// them in the order given here and searches both tag and category names.
     #[serde(default = "default_tag_categories")]
     pub categories: Vec<TagCategory>,
+    /// A keyword list exported from another program, read at startup and added
+    /// to the categories above.
+    ///
+    /// Every photo application can export its keywords as an indented text
+    /// file, and a photographer with years of them in Lightroom or digiKam
+    /// should not have to type them again here. Indentation makes the
+    /// hierarchy, and a keyword filed under levels is written to the sidecar
+    /// with them.
+    #[serde(default)]
+    pub catalog_file: Option<String>,
     /// How many recently used tags to remember between sessions.
     #[serde(default = "default_recent_tags")]
     pub recent_tags: usize,
@@ -632,6 +642,7 @@ impl Default for TagConfig {
     fn default() -> Self {
         TagConfig {
             categories: default_tag_categories(),
+            catalog_file: None,
             recent_tags: default_recent_tags(),
             panel_width: default_tag_panel_width(),
             sc_toggle_tag_panel: default_sc_toggle_tag_panel(),

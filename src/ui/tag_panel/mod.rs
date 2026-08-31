@@ -8,9 +8,9 @@ pub mod model;
 
 use eframe::egui::{self, RichText};
 
-use crate::metadata::xmp::{Flag, Label, MAX_RATING};
+use crate::metadata::xmp::{leaf_of, Flag, Label, MAX_RATING};
 
-pub use model::{sections, Sections, Source};
+pub use model::{rows_under, sections, Row, Sections, Source};
 
 /// A filled and an empty star, drawn side by side to make a rating.
 const FILLED: &str = "★";
@@ -23,6 +23,9 @@ const REMOVE: &str = "×";
 /// The blue the contact sheet marks a selection with, so the panel saying
 /// how many it will touch reads as part of the same thing.
 const SELECTED: egui::Color32 = egui::Color32::from_rgb(126, 168, 224);
+
+/// How far one level of a tag tree is indented, in points.
+const LEVEL: f32 = 12.;
 
 /// What the user asked for by clicking in the panel.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -186,11 +189,13 @@ fn on_image(ui: &mut egui::Ui, sections: &Sections) -> Vec<Action> {
 
     ui.horizontal_wrapped(|ui| {
         for tag in &sections.on_image {
-            if ui
-                .selectable_label(true, format!("{tag} {REMOVE}"))
-                .on_hover_text("Remove")
-                .clicked()
-            {
+            // The leaf is the keyword; the path above it is context, so it is
+            // there to be read on hover rather than taking up the whole panel.
+            let response = ui
+                .selectable_label(true, format!("{} {REMOVE}", leaf_of(tag)))
+                .on_hover_text(hover(tag, "Remove"));
+
+            if response.clicked() {
                 actions.push(Action::RemoveTag(tag.clone()));
             }
         }
@@ -237,6 +242,11 @@ fn offered(ui: &mut egui::Ui, sections: &Sections) -> Vec<Action> {
 }
 
 /// One titled row of clickable tags.
+///
+/// Flat keywords wrap as chips, which fits a great many of them into a narrow
+/// panel. Keywords with levels are drawn as a tree instead: forty of them
+/// wrapped into a paragraph is a wall of words in which the same leaf appears
+/// under two different parents with nothing to tell them apart.
 fn chips(ui: &mut egui::Ui, title: &str, tags: &[String]) -> Vec<Action> {
     let mut actions = Vec::new();
 
@@ -247,6 +257,10 @@ fn chips(ui: &mut egui::Ui, title: &str, tags: &[String]) -> Vec<Action> {
     ui.add_space(8.);
     ui.label(RichText::new(title).strong());
 
+    if tags.iter().any(|tag| leaf_of(tag) != tag) {
+        return tree(ui, title, tags);
+    }
+
     ui.horizontal_wrapped(|ui| {
         for tag in tags {
             if ui.selectable_label(false, tag).clicked() {
@@ -256,4 +270,35 @@ fn chips(ui: &mut egui::Ui, title: &str, tags: &[String]) -> Vec<Action> {
     });
 
     actions
+}
+
+/// Tags with levels, one to a line and indented by depth.
+fn tree(ui: &mut egui::Ui, title: &str, tags: &[String]) -> Vec<Action> {
+    let mut actions = Vec::new();
+
+    for row in rows_under(title, tags) {
+        ui.horizontal(|ui| {
+            ui.add_space(row.depth as f32 * LEVEL);
+
+            let response = ui
+                .selectable_label(false, &row.leaf)
+                .on_hover_text(hover(&row.path, "Add"));
+
+            if response.clicked() {
+                actions.push(Action::AddTag(row.path.clone()));
+            }
+        });
+    }
+
+    actions
+}
+
+/// What to say when the pointer rests on a tag: the whole path, when there is
+/// more to it than the word on screen.
+fn hover(tag: &str, verb: &str) -> String {
+    if leaf_of(tag) == tag {
+        return verb.to_string();
+    }
+
+    format!("{verb}  ·  {tag}")
 }

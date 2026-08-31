@@ -100,6 +100,30 @@ photograph carries either way.
   typing something new offers to create it. `tags.categories` is the list you
   always want to hand, and searching matches a category name too, so typing
   "places" offers everything filed under Places.
+- **Tags with levels.** A keyword written `Places|Slovakia|Tatras` is filed
+  under its levels: the panel draws it as a tree, the sidecar records the path
+  where Lightroom, darktable, digiKam and exiftool read it, and the keyword
+  itself still goes into `dc:subject` so a program that has never heard of
+  hierarchies finds it anyway. Narrowing by `Slovakia` then finds everything
+  below it, and taking the keyword off takes its path with it.
+
+  `tags.catalog_file` points at a keyword list exported from another program —
+  one tag a line, indentation making the hierarchy — so years of keywords built
+  up in Lightroom or digiKam do not have to be typed again:
+
+  ```text
+  # Where I shoot
+  Places
+      Slovakia
+          Tatras
+      Austria
+  Subjects
+      Portrait
+  ```
+
+  A relative name is taken against the configuration file, the outermost level
+  becomes a category in the panel, and a list that cannot be read is a warning
+  in the log rather than a refusal to start.
 
 **Advance after marking.** `Ctrl + Shift + A`, or `tags.advance_after_marking`
 in the configuration, makes a rating, a flag or a label move to the next
@@ -169,6 +193,7 @@ and reported rather than replaced.
 | Keep | `digiKam:PickLabel` = `3` |
 | Colour label | `xmp:Label`, always the English colour name, and read back against the names Bridge and Lightroom use as well |
 | Tags | `dc:subject`, as an `rdf:Bag` |
+| Tags with levels | `lr:hierarchicalSubject`, as an `rdf:Bag` of `Places|Slovakia|Tatras` paths, beside the flat keywords rather than instead of them |
 
 Rejecting clears the stars and rating clears the rejection, because they are the
 same field — which is the convention rather than a limitation.
@@ -653,7 +678,8 @@ break the pairing it depends on.
 
 | Key | Meaning | Default |
 |-----|---------|---------|
-| `categories` | The tags you always want to hand, grouped. Searching matches category names as well as tag names. | Status, Subject |
+| `categories` | The tags you always want to hand, grouped. Searching matches category names as well as tag names. A tag may be a path: `Places|Slovakia|Tatras`. | Status, Subject |
+| `catalog_file` | A keyword list exported from another program, read at startup and added to the categories above. Indentation makes the hierarchy; a relative name is taken against the configuration file. | null |
 | `recent_tags` | How many recently used tags to remember | 12 |
 | `panel_width` | Starting width of the panel, in points | 260 |
 | `sc_toggle_tag_panel` | Shortcut that opens the panel | `K` |

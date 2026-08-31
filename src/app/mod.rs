@@ -202,7 +202,7 @@ impl App {
             perf_metrics: PerfMetrics::new(),
             config: config.general,
             annotations: AnnotationStore::new(),
-            catalog: Catalog::new(config.tags.categories.clone()),
+            catalog: Catalog::configured(&config.tags),
             recent_tags: RecentTags::load(config.tags.recent_tags),
             tag_panel: tag_panel::State::default(),
             tag_panel_visible: false,

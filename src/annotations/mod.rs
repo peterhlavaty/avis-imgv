@@ -14,7 +14,7 @@ pub mod writer;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use crate::metadata::xmp::{Flag, Label, Xmp};
+use crate::metadata::xmp::{self, Flag, Label, Xmp};
 
 pub use catalog::Catalog;
 pub use recent::RecentTags;
@@ -134,40 +134,79 @@ impl AnnotationStore {
     }
 
     /// Adds a keyword. Returns whether it was not already there.
+    ///
+    /// A tag with bars in it is a path — `Places|Slovakia|Tatras` — and goes
+    /// in twice: the whole path into the hierarchy, and its last level into
+    /// the flat keywords. That is what Lightroom, darktable and digiKam all
+    /// write, and it is why a keyword filed under two levels is still found by
+    /// a program that has never heard of levels.
     pub fn add_tag(&mut self, image: &Path, tag: &str) -> bool {
-        let tag = tag.trim().to_string();
-        if tag.is_empty() {
+        let path = tag.trim().to_string();
+        if path.is_empty() {
             return false;
         }
 
+        let levels = xmp::levels_of(&path);
+        let Some(leaf) = levels.last().map(|leaf| (*leaf).to_string()) else {
+            return false;
+        };
+
+        // Normalised, so `Places | Slovakia` and `Places|Slovakia` are one
+        // keyword rather than two that look alike.
+        let path = levels.join(&xmp::HIERARCHY_SEPARATOR.to_string());
+        let filed = levels.len() > 1;
+
         self.edit(image, |annotations| {
-            if annotations.keywords.contains(&tag) {
-                return false;
+            let mut changed = false;
+
+            if !annotations.keywords.contains(&leaf) {
+                annotations.keywords.push(leaf.clone());
+                annotations.keywords.sort();
+                changed = true;
             }
 
-            annotations.keywords.push(tag.clone());
-            annotations.keywords.sort();
-            true
+            if filed && !annotations.hierarchy.contains(&path) {
+                annotations.hierarchy.push(path.clone());
+                annotations.hierarchy.sort();
+                changed = true;
+            }
+
+            changed
         })
     }
 
     /// Removes a keyword. Returns whether it was there.
+    ///
+    /// Takes the paths that end in it with it: leaving
+    /// `Places|Slovakia|Tatras` behind after removing `Tatras` would leave the
+    /// photograph tagged in Lightroom and untagged here.
     pub fn remove_tag(&mut self, image: &Path, tag: &str) -> bool {
-        self.edit(image, |annotations| {
-            let before = annotations.keywords.len();
-            annotations.keywords.retain(|existing| existing != tag);
+        let leaf = xmp::leaf_of(tag).to_string();
 
-            annotations.keywords.len() != before
+        self.edit(image, |annotations| {
+            let before = (annotations.keywords.len(), annotations.hierarchy.len());
+
+            annotations.keywords.retain(|existing| *existing != leaf);
+            annotations
+                .hierarchy
+                .retain(|path| xmp::leaf_of(path) != leaf);
+
+            (annotations.keywords.len(), annotations.hierarchy.len()) != before
         })
     }
 
     /// Adds a keyword, or removes it when the image already has it.
+    ///
+    /// By the keyword rather than the whole path: a photograph tagged `Tatras`
+    /// already has `Places|Slovakia|Tatras`, and a shortcut that added it a
+    /// second time under its levels would never turn anything off.
     pub fn toggle_tag(&mut self, image: &Path, tag: &str) -> bool {
+        let leaf = xmp::leaf_of(tag);
         let present = self
             .get(image, None)
             .keywords
             .iter()
-            .any(|existing| existing == tag);
+            .any(|existing| existing == leaf);
 
         if present {
             self.remove_tag(image, tag);
@@ -206,15 +245,34 @@ impl AnnotationStore {
     }
 
     /// Every keyword seen on the images visited so far.
+    ///
+    /// With its levels where the folder records them: a keyword the panel
+    /// offers back should carry the same path it was read with, or applying it
+    /// to the next photograph would quietly flatten it.
     pub fn known_tags(&self) -> Vec<&str> {
         let mut tags: Vec<&str> = self
             .entries
             .values()
-            .flat_map(|annotations| annotations.keywords.iter().map(String::as_str))
+            .flat_map(|annotations| {
+                annotations.keywords.iter().map(|keyword| {
+                    annotations
+                        .hierarchy
+                        .iter()
+                        .find(|path| xmp::leaf_of(path) == keyword)
+                        .unwrap_or(keyword)
+                        .as_str()
+                })
+            })
             .collect();
 
-        tags.sort_unstable();
-        tags.dedup();
+        // Sorted by the keyword itself, with the path breaking ties: two
+        // photographs can file one keyword under different parents, and the
+        // panel has room to offer it once. Ordering by the leaf puts those two
+        // side by side, so the same one is dropped every time.
+        tags.sort_unstable_by(|one, other| {
+            (xmp::leaf_of(one), *one).cmp(&(xmp::leaf_of(other), *other))
+        });
+        tags.dedup_by(|one, other| xmp::leaf_of(one) == xmp::leaf_of(other));
         tags
     }
 
@@ -437,5 +495,98 @@ mod tests {
         store.forget(&path);
 
         assert!(store.peek(&path).is_none());
+    }
+
+    #[test]
+    fn a_tag_with_levels_is_filed_under_them_and_kept_flat_as_well() {
+        let mut store = store();
+        let path = image();
+        seed(&mut store, &path, Xmp::default());
+
+        assert!(store.add_tag(&path, "Places|Slovakia|Tatras"));
+
+        let annotations = store.peek(&path).unwrap();
+        // The leaf is the keyword every reader understands...
+        assert_eq!(annotations.keywords, vec!["Tatras"]);
+        // ...and the path is there for the readers that understand levels.
+        assert_eq!(annotations.hierarchy, vec!["Places|Slovakia|Tatras"]);
+    }
+
+    /// Typed with spaces round the bars, as somebody reading it aloud would.
+    #[test]
+    fn the_levels_of_a_tag_are_tidied_before_they_are_filed() {
+        let mut store = store();
+        let path = image();
+        seed(&mut store, &path, Xmp::default());
+
+        assert!(store.add_tag(&path, " Places | Slovakia | Tatras "));
+        assert_eq!(
+            store.peek(&path).unwrap().hierarchy,
+            vec!["Places|Slovakia|Tatras"]
+        );
+
+        // And so the same keyword written the other way is not filed twice.
+        assert!(!store.add_tag(&path, "Places|Slovakia|Tatras"));
+    }
+
+    #[test]
+    fn a_keyword_already_on_the_image_can_still_be_given_its_levels() {
+        let mut store = store();
+        let path = image();
+        seed(&mut store, &path, Xmp::default());
+
+        assert!(store.add_tag(&path, "Tatras"));
+        assert!(store.add_tag(&path, "Places|Slovakia|Tatras"));
+
+        let annotations = store.peek(&path).unwrap();
+        assert_eq!(annotations.keywords, vec!["Tatras"]);
+        assert_eq!(annotations.hierarchy, vec!["Places|Slovakia|Tatras"]);
+    }
+
+    /// Removing the keyword takes its path with it: leaving the path behind
+    /// would leave the photograph tagged in Lightroom and untagged here.
+    #[test]
+    fn removing_a_keyword_removes_the_paths_that_end_in_it() {
+        let mut store = store();
+        let path = image();
+        seed(&mut store, &path, Xmp::default());
+
+        store.add_tag(&path, "Places|Slovakia|Tatras");
+        store.add_tag(&path, "Places|Austria");
+
+        assert!(store.remove_tag(&path, "Tatras"));
+
+        let annotations = store.peek(&path).unwrap();
+        assert_eq!(annotations.keywords, vec!["Austria"]);
+        assert_eq!(annotations.hierarchy, vec!["Places|Austria"]);
+    }
+
+    #[test]
+    fn a_shortcut_turns_a_filed_keyword_off_by_its_own_name() {
+        let mut store = store();
+        let path = image();
+        seed(&mut store, &path, Xmp::default());
+
+        assert!(store.toggle_tag(&path, "Places|Slovakia|Tatras"));
+        // Off again, whether it is named by its path or by its leaf.
+        assert!(!store.toggle_tag(&path, "Tatras"));
+
+        let annotations = store.peek(&path).unwrap();
+        assert!(annotations.keywords.is_empty());
+        assert!(annotations.hierarchy.is_empty());
+    }
+
+    #[test]
+    fn a_keyword_seen_with_levels_is_offered_back_with_them() {
+        let mut store = store();
+        let one = image();
+        let other = one.with_file_name("other.jpg");
+
+        seed(&mut store, &one, Xmp::default());
+        seed(&mut store, &other, Xmp::default());
+        store.add_tag(&one, "Places|Slovakia|Tatras");
+        store.add_tag(&other, "Winter");
+
+        assert_eq!(store.known_tags(), vec!["Places|Slovakia|Tatras", "Winter"]);
     }
 }

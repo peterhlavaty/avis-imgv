@@ -25,6 +25,15 @@ pub const NS_RDF: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 /// digiKam's own namespace, which is where the one mark nobody standardised —
 /// picked, as opposed to rejected — is written.
 pub const NS_DIGIKAM: &str = "http://www.digikam.org/ns/1.0/";
+/// Lightroom's namespace, which is where `hierarchicalSubject` lives — and
+/// where darktable, digiKam, Bridge and exiftool all look for it.
+pub const NS_LIGHTROOM: &str = "http://ns.adobe.com/lightroom/1.0/";
+
+/// What separates the levels of a hierarchical keyword.
+///
+/// A vertical bar, which is what every program that writes these uses. Not
+/// configurable: the whole value of the field is that other programs read it.
+pub const HIERARCHY_SEPARATOR: char = '|';
 
 /// The namespaces this reader cares about, reduced to a value that does not
 /// borrow the parser.
@@ -34,6 +43,8 @@ pub enum Namespace {
     Dc,
     Rdf,
     DigiKam,
+    /// Lightroom's, which is where hierarchical keywords live.
+    Lightroom,
     Other,
 }
 
@@ -48,6 +59,7 @@ pub fn namespace_of(resolved: &ResolveResult<'_>) -> Namespace {
         NS_DC => Namespace::Dc,
         NS_RDF => Namespace::Rdf,
         NS_DIGIKAM => Namespace::DigiKam,
+        NS_LIGHTROOM => Namespace::Lightroom,
         _ => Namespace::Other,
     }
 }
@@ -174,7 +186,36 @@ pub struct Xmp {
     /// viewer does not offer survives a round trip.
     pub label: Option<String>,
     /// Keywords, in the order the document lists them.
+    ///
+    /// The leaves, which is what `dc:subject` holds and what every program
+    /// that does not know about hierarchies reads.
     pub keywords: Vec<String>,
+    /// The same keywords with their paths, as `Places|Slovakia|Tatras`.
+    ///
+    /// Kept beside the flat list rather than instead of it, because that is
+    /// what Lightroom, darktable and digiKam all do: a program that
+    /// understands hierarchies reads this one, and a program that does not
+    /// still finds the keyword in `dc:subject`. Writing only the paths would
+    /// leave the second kind seeing nothing.
+    pub hierarchy: Vec<String>,
+}
+
+/// The last part of a hierarchical keyword, which is the keyword itself.
+///
+/// `Places|Slovakia|Tatras` is the keyword `Tatras`, filed under two levels.
+pub fn leaf_of(path: &str) -> &str {
+    path.rsplit(HIERARCHY_SEPARATOR)
+        .next()
+        .unwrap_or(path)
+        .trim()
+}
+
+/// The levels of a hierarchical keyword, outermost first.
+pub fn levels_of(path: &str) -> Vec<&str> {
+    path.split(HIERARCHY_SEPARATOR)
+        .map(str::trim)
+        .filter(|level| !level.is_empty())
+        .collect()
 }
 
 impl Xmp {
@@ -255,6 +296,36 @@ pub fn parse_pick(text: &str) -> Option<bool> {
     let pick: i32 = text.trim().parse().ok()?;
 
     Some(pick == PICKED)
+}
+
+#[cfg(test)]
+mod hierarchy_tests {
+    use super::*;
+
+    #[test]
+    fn the_keyword_is_the_last_level() {
+        assert_eq!(leaf_of("Places|Slovakia|Tatras"), "Tatras");
+        assert_eq!(leaf_of("Tatras"), "Tatras");
+        assert_eq!(leaf_of(""), "");
+    }
+
+    /// Written by hand in a text file, so the spacing round the bars is
+    /// whatever somebody typed.
+    #[test]
+    fn the_levels_are_trimmed_and_the_empty_ones_dropped() {
+        assert_eq!(
+            levels_of(" Places | Slovakia | Tatras "),
+            vec!["Places", "Slovakia", "Tatras"]
+        );
+        assert_eq!(levels_of("Places||Tatras"), vec!["Places", "Tatras"]);
+        assert_eq!(levels_of("|"), Vec::<&str>::new());
+    }
+
+    #[test]
+    fn a_flat_keyword_is_one_level() {
+        assert_eq!(levels_of("Autumn"), vec!["Autumn"]);
+        assert_eq!(leaf_of("Autumn"), "Autumn");
+    }
 }
 
 #[cfg(test)]

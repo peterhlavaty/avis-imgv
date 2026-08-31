@@ -106,6 +106,25 @@ fn keywords_match_the_record() {
     );
 }
 
+/// A keyword filed under levels is written twice: the path in Lightroom's
+/// `hierarchicalSubject`, and the leaf in `dc:subject` where every reader
+/// looks. Which of the two a program reads is exactly what a round trip
+/// cannot see.
+#[test]
+fn a_hierarchy_matches_the_record() {
+    check(
+        "hierarchy",
+        &Xmp {
+            keywords: vec!["Tatras".to_string(), "Vienna".to_string()],
+            hierarchy: vec![
+                "Places|Slovakia|Tatras".to_string(),
+                "Places|Austria|Vienna".to_string(),
+            ],
+            ..Xmp::default()
+        },
+    );
+}
+
 /// And every one of them still reads back as what it was, so the record is a
 /// record of something correct rather than only of something stable.
 #[test]
@@ -142,6 +161,17 @@ fn every_record_reads_back_as_what_it_says() {
                     "Tatras".to_string(),
                     "Winter & Ice".to_string(),
                     "<odd>".to_string(),
+                ],
+                ..Xmp::default()
+            },
+        ),
+        (
+            "hierarchy",
+            Xmp {
+                keywords: vec!["Tatras".to_string(), "Vienna".to_string()],
+                hierarchy: vec![
+                    "Places|Slovakia|Tatras".to_string(),
+                    "Places|Austria|Vienna".to_string(),
                 ],
                 ..Xmp::default()
             },

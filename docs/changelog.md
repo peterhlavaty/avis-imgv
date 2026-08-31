@@ -1,5 +1,34 @@
 # Change Log
 
+## 2026-08-31
+
+- **Keywords with levels.** A tag written `Places|Slovakia|Tatras` is filed
+  under its levels rather than flattened: the path goes into
+  `lr:hierarchicalSubject`, which is where Lightroom, darktable, digiKam,
+  Bridge and exiftool all look, and the keyword itself still goes into
+  `dc:subject` so a program that has never heard of hierarchies finds it
+  anyway. Writing only the path would leave that second kind of program seeing
+  an untagged photograph.
+
+  The panel draws them as a tree instead of a wrapped row of chips — forty
+  keywords three levels deep is a wall of words in which the same leaf appears
+  under two parents with nothing to tell them apart. A keyword on the image
+  shows its own name with the path on hover, taking a keyword off takes the
+  paths that end in it with it, and the shortcut that toggles one recognises it
+  by its name however it is filed.
+
+  Narrowing by `Slovakia` now finds everything below it, which is most of the
+  reason to have levels at all.
+- **A keyword list read from a text file**, on `tags.catalog_file`. Every photo
+  application can export its keywords as an indented list, and a photographer
+  with years of them in Lightroom or digiKam should not have to type them again
+  into a JSON file. Indentation makes the hierarchy, tabs or spaces; a line
+  with bars in it is taken as a path as it stands, so a flat export reads as
+  well as an indented one; `#` starts a note. The outermost level becomes a
+  category in the panel, a relative name is taken against the configuration
+  file, and a list that cannot be read is a warning in the log rather than a
+  refusal to start.
+
 ## 2026-08-30
 
 - **A filmstrip under the photograph**, on `Ctrl + T` and

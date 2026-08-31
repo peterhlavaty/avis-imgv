@@ -489,4 +489,35 @@ mod tests {
 
         assert!(shown(&narrowing).is_empty());
     }
+
+    /// Filing a keyword under levels puts every one of them in reach of the
+    /// filter: a folder tagged down to the town is narrowed to the country.
+    #[test]
+    fn narrowing_by_a_parent_level_finds_what_is_filed_under_it() {
+        let mut filter = Rules {
+            keyword: "slovakia".to_string(),
+            ..Rules::default()
+        };
+
+        assert!(filter.matches_keyword(&marks(
+            0,
+            Flag::Unflagged,
+            None,
+            &["Places|Slovakia|Tatras"]
+        )));
+        assert!(!filter.matches_keyword(&marks(
+            0,
+            Flag::Unflagged,
+            None,
+            &["Places|Austria|Vienna"]
+        )));
+        // And the keyword itself still finds it.
+        filter.keyword = "tatras".to_string();
+        assert!(filter.matches_keyword(&marks(
+            0,
+            Flag::Unflagged,
+            None,
+            &["Places|Slovakia|Tatras"]
+        )));
+    }
 }

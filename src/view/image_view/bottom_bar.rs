@@ -3,7 +3,7 @@
 use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
-use crate::metadata::xmp::{Flag, Label, Xmp};
+use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
 
 use super::input::Command;
 
@@ -22,6 +22,10 @@ pub struct Marks {
     /// Kept here as well as in the annotation store, because the filter asks
     /// about every photograph in the folder at once and a lookup per file per
     /// keystroke is the thing this list exists to avoid.
+    ///
+    /// With their levels where the sidecar records them, so narrowing by
+    /// `Slovakia` finds everything filed underneath it and not only what is
+    /// tagged with the word itself.
     pub keywords: Vec<String>,
 }
 
@@ -31,7 +35,18 @@ impl Marks {
             stars: annotations.stars(),
             flag: annotations.flag(),
             label: annotations.known_label(),
-            keywords: annotations.keywords.clone(),
+            keywords: annotations
+                .keywords
+                .iter()
+                .map(|keyword| {
+                    annotations
+                        .hierarchy
+                        .iter()
+                        .find(|path| leaf_of(path) == keyword)
+                        .unwrap_or(keyword)
+                        .clone()
+                })
+                .collect(),
         }
     }
 }

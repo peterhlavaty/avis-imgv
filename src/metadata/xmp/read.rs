@@ -56,6 +56,13 @@ pub fn read(document: &str) -> Option<Xmp> {
                     }
                     (Namespace::Rdf, "li") => collected.clear(),
                     (Namespace::Rdf, _) => saw_rdf = true,
+                    // Lightroom's hierarchical form, read into its own list:
+                    // a program that understands paths reads this and one that
+                    // does not still finds the leaves in `dc:subject`.
+                    (Namespace::Lightroom, "hierarchicalSubject") if opening => {
+                        collecting = Some(Collecting::Hierarchy);
+                        collected.clear();
+                    }
                     (Namespace::Dc, "subject") if opening => {
                         collecting = Some(Collecting::Keywords);
                         // Whatever the previous property left behind is not
@@ -79,6 +86,15 @@ pub fn read(document: &str) -> Option<Xmp> {
                     (Namespace::Rdf, "li") if collecting == Some(Collecting::Keywords) => {
                         push_keyword(&mut found.keywords, &collected);
                         collected.clear();
+                    }
+                    (Namespace::Rdf, "li") if collecting == Some(Collecting::Hierarchy) => {
+                        push_keyword(&mut found.hierarchy, &collected);
+                        collected.clear();
+                    }
+                    (Namespace::Lightroom, "hierarchicalSubject") => {
+                        push_keyword(&mut found.hierarchy, &collected);
+                        collected.clear();
+                        collecting = None;
                     }
                     (Namespace::Dc, "subject") => {
                         // Some writers store a single keyword as plain text
@@ -115,6 +131,8 @@ pub fn read(document: &str) -> Option<Xmp> {
 enum Collecting {
     Scalar(Property),
     Keywords,
+    /// Lightroom's `hierarchicalSubject`, whose items are paths.
+    Hierarchy,
 }
 
 /// The scalar properties may also appear as attributes of `rdf:Description`,
