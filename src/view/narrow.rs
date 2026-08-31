@@ -100,6 +100,18 @@ pub enum LabelRule {
 }
 
 impl LabelRule {
+    /// What this rule is called, for the bar and for the empty screen.
+    pub fn label(self) -> String {
+        match self {
+            LabelRule::Any => "Any".to_string(),
+            LabelRule::None => "No colour".to_string(),
+            LabelRule::One(index) => Label::CHOICES
+                .get(index)
+                .map(|label| label.name().to_string())
+                .unwrap_or_else(|| "Any".to_string()),
+        }
+    }
+
     fn matches(self, label: Option<Label>) -> bool {
         match self {
             LabelRule::Any => true,
@@ -218,6 +230,41 @@ fn flag_key(marks: &Marks) -> usize {
 }
 
 impl Rules {
+    /// The rules in force, one sentence each, for saying what emptied a folder.
+    ///
+    /// "Nothing matches the filter" is a true statement that names nothing a
+    /// person can act on; these are what they would have to undo.
+    pub fn sentences(&self) -> Vec<String> {
+        let mut said = Vec::new();
+        let whole = Rules::default();
+
+        if self.min_stars != whole.min_stars || self.max_stars != whole.max_stars {
+            said.push(format!("Stars: {} to {}", self.min_stars, self.max_stars));
+        }
+
+        if self.flag != whole.flag {
+            said.push(format!("Flag: {}", self.flag.label()));
+        }
+
+        if self.label != whole.label {
+            said.push(format!("Colour: {}", self.label.label()));
+        }
+
+        if !self.name_contains.is_empty() {
+            said.push(format!("Name contains \"{}\"", self.name_contains));
+        }
+
+        if !self.extensions.is_empty() {
+            said.push(format!("Type: {}", self.extensions));
+        }
+
+        if !self.keyword.is_empty() {
+            said.push(format!("Keyword contains \"{}\"", self.keyword));
+        }
+
+        said
+    }
+
     /// Whether a photograph passes every rule.
     pub fn matches(&self, path: &Path, marks: &Marks) -> bool {
         self.matches_stars(marks)

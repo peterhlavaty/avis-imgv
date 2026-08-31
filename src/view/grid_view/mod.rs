@@ -18,6 +18,8 @@ use crate::actions::{self, Callback};
 use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
 use crate::config::{shortcut, GridViewConfig};
+use crate::ui::empty::{self, Asked, Nothing};
+use crate::ui::menus::{Chosen, Verb};
 use crate::utils;
 use crate::view::texture;
 
@@ -48,6 +50,10 @@ pub struct GridView {
     /// Set when the user picks an image, consumed by the app.
     selected: Option<PathBuf>,
     callback: Option<Callback>,
+    /// A verb from the context menu that the sheet cannot carry out itself.
+    verb: Option<(Verb, PathBuf)>,
+    /// What the screen with nothing on it was clicked to do.
+    asked: Option<Asked>,
     /// Image to scroll to on the next frame.
     scroll_to: Option<usize>,
     /// Where the keyboard is, as a position in what is on show. Not where the
@@ -78,6 +84,8 @@ impl GridView {
             config,
             selected: None,
             callback: None,
+            verb: None,
+            asked: None,
             scroll_to: None,
             cursor: 0,
             current: 0,
@@ -242,7 +250,7 @@ impl GridView {
     ///
     /// `marks` is what every photograph in the collection carries, in the same
     /// order, so the sheet can draw them without asking the disk per cell.
-    pub fn ui(&mut self, ctx: &egui::Context, marks: &[Marks], stacks: &Stacks) {
+    pub fn ui(&mut self, ctx: &egui::Context, marks: &[Marks], stacks: &Stacks, nothing: &Nothing) {
         if self.store.tick() {
             ctx.request_repaint();
         }
@@ -257,17 +265,11 @@ impl GridView {
                 self.columns,
                 shown,
                 self.config.cell_aspect,
-                self.badges.caption_height(),
+                self.badges,
             );
 
             if shown == 0 {
-                let says = if self.store.is_empty() {
-                    "No images here"
-                } else {
-                    "Nothing matches the filter"
-                };
-
-                ui.centered_and_justified(|ui| ui.label(says));
+                self.asked = empty::ui(ui, nothing);
                 return;
             }
 
@@ -408,6 +410,22 @@ impl GridView {
                 stack.len(),
                 stack.collapsed,
             );
+
+            // The glyph is a shape with no legend anywhere on screen, so it
+            // says what it is where somebody is looking at it.
+            if let Some(response) = &response {
+                response.clone().on_hover_text(format!(
+                    "{} of {} frames. {} {}",
+                    if stack.collapsed { "One" } else { "Open:" },
+                    stack.len(),
+                    stack.kind.label(),
+                    if stack.collapsed {
+                        "— the key opens it."
+                    } else {
+                        "— the key folds it back up."
+                    }
+                ));
+            }
         }
 
         cell::caption(ui, strip, self.badges, marks, &caption);
@@ -457,11 +475,53 @@ impl GridView {
             }
         }
 
-        if let Some(callback) =
-            actions::show_context_menu(&self.config.context_menu, response, &path)
-        {
-            self.callback = Some(Callback::from_callback(callback, Some(path)));
+        // What the menu is about: the selection where the cell is in it, and
+        // this one photograph where it is not. Somebody who has picked out
+        // two hundred and right-clicks one of them means the two hundred.
+        let count = if self.selection.contains(index) {
+            self.selection.len().max(1)
+        } else {
+            1
+        };
+
+        let chosen = actions::show_context_menu(
+            Verb::ON_A_CELL,
+            &self.config.context_menu,
+            response,
+            &path,
+            count,
+        );
+
+        match chosen {
+            None => {}
+            Some(Chosen::Verb(Verb::Open)) => self.selected = Some(path),
+            Some(Chosen::Verb(verb)) => self.verb = Some((verb, path)),
+            Some(Chosen::Entry(i)) => {
+                if let Some(callback) = self
+                    .config
+                    .context_menu
+                    .get(i)
+                    .and_then(|entry| entry.callback.clone())
+                {
+                    self.callback = Some(Callback::from_callback(callback, Some(path)));
+                }
+            }
         }
+    }
+
+    /// What the screen with nothing on it was clicked to do.
+    pub fn take_asked(&mut self) -> Option<Asked> {
+        self.asked.take()
+    }
+
+    /// The verb the menu asked for that the sheet cannot carry out itself.
+    pub fn take_verb(&mut self) -> Option<(Verb, PathBuf)> {
+        self.verb.take()
+    }
+
+    /// Whether the sheet has nothing to draw.
+    pub fn shows_nothing(&self) -> bool {
+        self.visible.is_empty()
     }
 
     /// Which photograph the sheet says is on show, and how many there are.

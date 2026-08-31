@@ -11,8 +11,20 @@ use eframe::epaint::{pos2, Stroke, Vec2};
 use crate::metadata::xmp::Flag;
 use crate::view::image_view::bottom_bar::Marks;
 
-/// How much of the cell the marks strip takes, and how it is drawn.
-pub const CAPTION_HEIGHT: f32 = 20.0;
+/// How much of the cell the marks strip takes.
+///
+/// A fraction rather than a flat twenty points: at sixteen columns a flat
+/// strip is proportionally enormous, and at one column the stars are a sliver
+/// in a wall. The font inside it already scales this way and only its cap had
+/// to move.
+pub const CAPTION_FRACTION: f32 = 0.11;
+
+/// The strip never goes below this, whatever the cell measures: a strip too
+/// short to hold a star is worse than one slightly out of proportion.
+pub const CAPTION_FLOOR: f32 = 14.0;
+
+/// And never above this, so a contact sheet of one column is not half caption.
+pub const CAPTION_CEILING: f32 = 34.0;
 
 /// What is drawn under each thumbnail.
 ///
@@ -41,11 +53,13 @@ impl Badges {
         }
     }
 
-    /// How tall the strip under the picture has to be.
-    pub fn caption_height(self) -> f32 {
+    /// How tall the strip under the picture has to be, for a cell this wide.
+    pub fn caption_height(self, cell: f32) -> f32 {
         match self {
             Badges::None => 0.0,
-            Badges::Marks | Badges::Full => CAPTION_HEIGHT,
+            Badges::Marks | Badges::Full => {
+                (cell * CAPTION_FRACTION).clamp(CAPTION_FLOOR, CAPTION_CEILING)
+            }
         }
     }
 
@@ -293,9 +307,18 @@ mod tests {
 
     #[test]
     fn only_the_sets_that_draw_something_reserve_room() {
-        assert_eq!(Badges::None.caption_height(), 0.0);
-        assert!(Badges::Marks.caption_height() > 0.0);
-        assert!(Badges::Full.caption_height() > 0.0);
+        assert_eq!(Badges::None.caption_height(160.0), 0.0);
+        assert!(Badges::Marks.caption_height(160.0) > 0.0);
+        assert!(Badges::Full.caption_height(160.0) > 0.0);
+
+        // A narrow cell keeps a strip tall enough to hold a star, and a wide
+        // one does not turn into half caption.
+        assert_eq!(Badges::Marks.caption_height(40.0), CAPTION_FLOOR);
+        assert_eq!(Badges::Marks.caption_height(2000.0), CAPTION_CEILING);
+        assert!(
+            Badges::Marks.caption_height(400.0) > Badges::Marks.caption_height(120.0),
+            "a bigger cell gets a bigger strip"
+        );
     }
 
     #[test]

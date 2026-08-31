@@ -57,6 +57,11 @@ pub struct Session {
     pub window: Option<Geometry>,
     /// The folder that was open.
     pub folder: Option<PathBuf>,
+    /// Whether the menu bar was up.
+    ///
+    /// It starts up on a first run — nothing else on screen says the program
+    /// has menus — and thereafter is whatever it was left at.
+    pub menu_visible: bool,
     /// Which photograph was being looked at, per folder, most recent first.
     ///
     /// A list rather than a map so the order is the recency, which is what
@@ -123,6 +128,18 @@ impl Session {
             .iter()
             .find(|(remembered, _)| remembered == folder)
             .map(|(_, image)| image.as_path())
+    }
+
+    /// The folders visited lately, most recent first.
+    ///
+    /// The list has been kept since positions were remembered and has never
+    /// been shown to anybody.
+    pub fn recent_folders(&self, most: usize) -> impl Iterator<Item = &Path> {
+        self.positions
+            .iter()
+            .map(|(folder, _)| folder.as_path())
+            .filter(|folder| folder.is_dir())
+            .take(most)
     }
 
     /// Records where the viewer is, moving that folder to the front.

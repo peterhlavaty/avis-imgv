@@ -16,7 +16,7 @@
 //! The answer is a proposal, not a verdict: every group can be retyped,
 //! dissolved, or have frames taken out of it before anything moves.
 
-mod classify;
+pub mod classify;
 mod split;
 
 pub use classify::Kind;

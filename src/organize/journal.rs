@@ -43,6 +43,20 @@ pub enum Step {
 }
 
 impl Step {
+    /// How many files undoing this would touch.
+    ///
+    /// A bulk undo is the frightening one: two hundred files go back where
+    /// they were with no chance to look at the sentence saying so.
+    pub fn files(&self) -> usize {
+        match self {
+            Step::Moved(moves) => moves.len(),
+            Step::Copied(made) => made.len(),
+            Step::Binned(binned) => binned.len(),
+            Step::Marked { .. } => 1,
+            Step::Many(steps) => steps.iter().map(Step::files).sum(),
+        }
+    }
+
     /// What undoing this would do, in a sentence, so nothing happens silently.
     pub fn describe(&self) -> String {
         match self {

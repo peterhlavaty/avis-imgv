@@ -8,7 +8,8 @@ use std::{path::Path, process::Command};
 
 use eframe::egui::Response;
 
-use crate::{actions::callback::Callback, config::ContextMenuEntry};
+use crate::config::ContextMenuEntry;
+use crate::ui::menus::{self, Chosen, Verb};
 
 /// Fills the placeholders in one argument.
 ///
@@ -139,26 +140,37 @@ pub fn get_command_args(cmd: &str) -> Vec<String> {
     args
 }
 
+/// Draws the menu for one photograph and reports what was asked for.
+///
+/// The built-in verbs come first and the user's own entries under a separator;
+/// an entry that runs is reported back as its callback, and a verb is reported
+/// as itself for whoever can carry it out. The menu used to return before
+/// registering anything when the entry list was empty — which it is on a fresh
+/// install — so the second button did nothing at all.
 pub fn show_context_menu(
-    entries: &Vec<ContextMenuEntry>,
+    verbs: &[Verb],
+    entries: &[ContextMenuEntry],
     response: &Response,
     path: &Path,
-) -> Option<Callback> {
-    if entries.is_empty() {
-        return None;
-    }
+    count: usize,
+) -> Option<Chosen> {
+    let mut result = None;
 
-    let mut result: Option<Callback> = None;
     response.context_menu(|ui| {
-        ui.set_max_width(300.);
-        for entry in entries {
-            let button_resp = ui.button(&entry.description);
+        let Some(chosen) = menus::rows(ui, verbs, entries, count) else {
+            return;
+        };
 
-            if button_resp.clicked() {
+        match chosen {
+            Chosen::Verb(verb) => result = Some(Chosen::Verb(verb)),
+            Chosen::Entry(i) => {
+                let Some(entry) = entries.get(i) else {
+                    return;
+                };
+
                 if execute(&entry.exec, path) {
-                    result = entry.callback.clone();
+                    result = Some(Chosen::Entry(i));
                 }
-                ui.close();
             }
         }
     });

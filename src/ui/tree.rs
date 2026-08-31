@@ -219,7 +219,10 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                 })
                 .show(ui, |ui| {
                     ui.set_width(area_width);
-                    ui.heading("Directory Tree");
+                    ui.heading("Directory Tree")
+                        .on_hover_text(
+                            "The folders around the one that is open, with how many \n                             photographs each holds. Click to fold or unfold, \n                             double-click to open, Enter opens the highlighted one.",
+                        );
                     ui.separator();
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
@@ -266,6 +269,16 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                             // which is both inverted — a left click expanded —
                             // and unsaid, and it is spoken for by the menu the
                             // folder is going to carry.
+                            let label = label.on_hover_text(if entry.img_count > 0 {
+                                format!(
+                                    "{} — {} photographs. Double-click to open it.",
+                                    entry.path.display(),
+                                    entry.img_count
+                                )
+                            } else {
+                                format!("{} — no photographs in it", entry.path.display())
+                            });
+
                             if label.clicked() {
                                 selected_at = Some(i);
                                 toggled_at = Some(i);

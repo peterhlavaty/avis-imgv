@@ -115,6 +115,7 @@ impl App {
                         ui,
                         self.image_view.active_metadata(),
                         &self.config.metadata_tags,
+                        !self.paths.is_empty(),
                     );
 
                     if let Some(found) = self.image_view.active_histogram() {

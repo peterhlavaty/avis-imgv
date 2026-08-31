@@ -40,9 +40,15 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                             None => get_suggestions(input),
                         };
 
-                        let editor_resp = ui.add(
-                            egui::TextEdit::singleline(input).desired_width(ui.available_width()),
-                        );
+                        let editor_resp = ui
+                            .add(
+                                egui::TextEdit::singleline(input)
+                                    .hint_text("Type a folder")
+                                    .desired_width(ui.available_width()),
+                            )
+                            .on_hover_text(
+                                "Tab completes what is highlighted, the arrows move the \n                                 highlight, Enter opens it, Escape leaves.",
+                            );
 
                         editor_resp.request_focus();
 
@@ -50,7 +56,9 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                         let mut selected_path: Option<String> = None;
 
                         for (i, suggestion) in suggestions.iter().enumerate() {
-                            let sl = ui.selectable_label(selected_index == i, suggestion);
+                            let sl = ui
+                                .selectable_label(selected_index == i, suggestion)
+                                .on_hover_text("Enter opens this folder");
                             if sl.clicked() {
                                 selected_path = Some(suggestion.clone());
                             }

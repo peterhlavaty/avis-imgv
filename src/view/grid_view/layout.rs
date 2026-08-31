@@ -3,6 +3,8 @@
 
 use std::ops::Range;
 
+use super::cell::Badges;
+
 /// A grid sized for the available width.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Layout {
@@ -33,7 +35,7 @@ impl Layout {
         columns: usize,
         total: usize,
         aspect: f32,
-        caption: f32,
+        badges: Badges,
     ) -> Layout {
         let columns = columns.max(1);
         let exact = (available_width / columns as f32).max(1.0);
@@ -48,7 +50,9 @@ impl Layout {
         };
 
         let picture = (cell / aspect).floor().max(1.0);
-        let caption = caption.max(0.0).floor();
+        // Measured against the cell, so the strip stays in proportion at one
+        // column and at sixteen.
+        let caption = badges.caption_height(cell).max(0.0).floor();
 
         Layout {
             columns,
@@ -84,7 +88,7 @@ mod tests {
 
     /// Three columns of three-to-two pictures with no caption strip.
     fn layout(width: f32, columns: usize, total: usize) -> Layout {
-        Layout::new(width, columns, total, 1.5, 0.0)
+        Layout::new(width, columns, total, 1.5, Badges::None)
     }
 
     #[test]
@@ -109,16 +113,26 @@ mod tests {
 
     #[test]
     fn the_caption_strip_makes_the_row_taller() {
-        let grid = Layout::new(900.0, 3, 10, 1.5, 18.0);
+        let grid = Layout::new(900.0, 3, 10, 1.5, Badges::Marks);
 
         assert_eq!(grid.picture, 200.0);
-        assert_eq!(grid.row, 218.0);
-        assert_eq!(grid.scroll_offset_of(3), 218.0);
+        assert_eq!(grid.row, 233.0);
+        assert_eq!(grid.scroll_offset_of(3), 233.0);
+    }
+
+    /// The strip is a fraction of the cell, so sixteen columns do not get the
+    /// same twenty points one column gets.
+    #[test]
+    fn the_strip_follows_the_cell() {
+        let wide = Layout::new(1600.0, 2, 10, 1.5, Badges::Marks);
+        let narrow = Layout::new(1600.0, 16, 10, 1.5, Badges::Marks);
+
+        assert!(wide.row - wide.picture > narrow.row - narrow.picture);
     }
 
     #[test]
     fn a_square_cell_is_still_available() {
-        let grid = Layout::new(900.0, 3, 10, 1.0, 0.0);
+        let grid = Layout::new(900.0, 3, 10, 1.0, Badges::None);
 
         assert_eq!(grid.picture, grid.cell);
     }
@@ -126,7 +140,7 @@ mod tests {
     #[test]
     fn a_nonsense_aspect_does_not_produce_a_nonsense_cell() {
         for aspect in [0.0, -2.0, f32::NAN, f32::INFINITY] {
-            let grid = Layout::new(900.0, 3, 10, aspect, 0.0);
+            let grid = Layout::new(900.0, 3, 10, aspect, Badges::None);
             assert!(grid.picture >= 1.0, "{aspect}");
             assert!(grid.row.is_finite(), "{aspect}");
         }

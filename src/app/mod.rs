@@ -1,6 +1,7 @@
 //! The application: which folder is open, which view shows it, and the wiring
 //! between them.
 
+mod about;
 pub mod benchmark;
 mod chrome;
 mod conflict;
@@ -12,6 +13,7 @@ mod settings;
 pub mod stacking;
 mod stores;
 pub mod tagging;
+mod verbs;
 mod views;
 pub mod watcher;
 
@@ -90,6 +92,9 @@ pub struct App {
     advancing: bool,
     /// A deletion the user has been asked about but has not answered.
     pending_delete: Option<cull::Pending>,
+    /// A bulk undo that has been asked about but not answered, as the sentence
+    /// saying what it would do.
+    pending_undo: Option<String>,
     /// Where photographs were last sent, so the same key twice repeats it.
     last_destination: Option<Slot>,
     last_errand: Option<Errand>,
@@ -129,6 +134,8 @@ pub struct App {
     cheat_sheet_visible: bool,
     /// Set on the frame it was opened, so that frame's key does not close it.
     cheat_sheet_opened: bool,
+    /// What is being searched for in the cheat sheet.
+    cheat_sheet_query: String,
     /// The keywords this folder has been seen to use, and the revision of the
     /// annotations they were read at.
     ///
@@ -139,6 +146,29 @@ pub struct App {
     /// Whether the question about a configuration file edited underneath the
     /// viewer is on screen.
     conflict_visible: bool,
+    /// Whether the first-run hint is still on screen.
+    ///
+    /// Dismissed by pressing either of the two keys it names, and not shown at
+    /// all after the first session.
+    hint_visible: bool,
+    /// Whether this is the first run: there was no session file to read.
+    ///
+    /// `Session::load` hands back a default for a missing file and an
+    /// unreadable one alike, so the file itself has to be looked for.
+    first_session: bool,
+    /// What this build is, read once when the window is made.
+    about: about::About,
+    about_visible: bool,
+    legend_visible: bool,
+    placeholders_visible: bool,
+    messages_visible: bool,
+    /// Full size decodes on their way to the clipboard.
+    copying: verbs::Copying,
+    /// Text waiting to go on the clipboard, which needs a context to do.
+    pending_clipboard: Option<String>,
+    /// Commands raised from a place with no egui context to hand, run at the
+    /// end of the frame that raised them.
+    pending_commands: Vec<Command>,
 }
 
 impl App {
@@ -173,10 +203,24 @@ impl App {
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
         let settings = config.clone();
+        // A first run is one with no session file. `Session::load` hands back
+        // a default for a missing file and an unreadable one alike, so the
+        // file itself has to be looked for.
+        let first_session = Session::path().is_none_or(|path| !path.exists());
+        let session = Session::load();
+
         // Read before the configuration is handed round, and the only thing
         // wanted from it here.
         let filmstrip = settings.grid_view.filmstrip_height > 0.0;
         let advancing = config.tags.advance_after_marking;
+
+        // Read here because this is where the adapter is: it was told to the
+        // log at startup and to nothing a person can see.
+        let about = about::About {
+            version: env!("CARGO_PKG_VERSION"),
+            adapter: describe_adapter(&render_state),
+            libraw: crate::decoder::raw::version(),
+        };
 
         let mut app = App {
             image_view: ImageView::new(
@@ -201,7 +245,7 @@ impl App {
             flattened: false,
             organize_view: OrganizeView::new(),
             mode: Mode::default(),
-            menu_visible: false,
+            menu_visible: first_session || session.menu_visible,
             side_panel_visible: false,
             metrics_visible: false,
             overlay: None,
@@ -224,6 +268,7 @@ impl App {
             notices: Notices::default(),
             advancing,
             pending_delete: None,
+            pending_undo: None,
             last_destination: None,
             last_errand: None,
             asking: None,
@@ -233,16 +278,37 @@ impl App {
             filter_visible: false,
             marks: Vec::new(),
             pairs: Pairs::default(),
-            session: Session::load(),
+            session,
             filmstrip_visible: filmstrip,
             cheat_sheet_visible: false,
             cheat_sheet_opened: false,
+            cheat_sheet_query: String::new(),
             seen_tags: (None, Vec::new()),
             conflict_visible: false,
+            first_session,
+            hint_visible: first_session,
+            about,
+            about_visible: false,
+            legend_visible: false,
+            placeholders_visible: false,
+            messages_visible: false,
+            copying: verbs::Copying::default(),
+            pending_clipboard: None,
+            pending_commands: Vec::new(),
         };
 
         for clash in keys::clashes(&app.settings) {
-            app.notices.say(clash);
+            app.notices.warn(clash);
+        }
+
+        // A first run has just written a configuration file somewhere the
+        // person has never looked, and the README gives the wrong place on two
+        // of the three platforms.
+        if first_session {
+            if let Some(path) = Config::path() {
+                app.notices
+                    .say(format!("Settings are kept in {}", path.display()));
+            }
         }
 
         for said in &app.settings.migrated {
@@ -250,7 +316,7 @@ impl App {
         }
 
         if app.settings.partial {
-            app.notices.say(
+            app.notices.fail(
                 "Part of the configuration file could not be read; those settings are \
                  at their defaults and the file is not being written over",
             );
@@ -607,6 +673,14 @@ impl App {
         self.session.remember(&base, showing.as_deref());
     }
 
+    /// Records the chrome that is remembered between runs.
+    ///
+    /// Cheap, and outside the early return above, because the menu bar is not a
+    /// position: it is what the person left the window looking like.
+    fn note_chrome(&mut self) {
+        self.session.menu_visible = self.menu_visible;
+    }
+
     /// Where the window is, as the platform reports it this frame.
     ///
     /// Taken while running rather than on the way out, because by the time the
@@ -685,7 +759,7 @@ impl App {
         self.open_within(paths, selected, Some(path.to_path_buf()));
     }
 
-    fn apply(&mut self, command: Command, ctx: &egui::Context) {
+    pub(super) fn apply(&mut self, command: Command, ctx: &egui::Context) {
         match command {
             Command::Exit => ctx.send_viewport_cmd(ViewportCommand::Close),
             Command::ToggleGrid => {
@@ -759,6 +833,22 @@ impl App {
         self.open_directory(&base, selected.as_deref());
     }
 
+    /// Reads the open folder again, keeping the photograph on screen.
+    ///
+    /// What pairing changes is what the collection *is*, so the answer to a
+    /// change of `raw.pair_with_jpeg` is a re-read rather than a restart.
+    pub(super) fn reopen_folder(&mut self) {
+        let base = self.base_path.clone();
+        let selected = self.image_view.active_path();
+
+        self.open_directory(&base, selected.as_deref());
+    }
+
+    /// Runs one command from somewhere that has no context to hand.
+    pub(super) fn apply_command(&mut self, command: Command) {
+        self.pending_commands.push(command);
+    }
+
     /// Moves anything that failed on a background thread onto the screen.
     fn report_problems(&mut self) {
         for problem in self.annotations.problems() {
@@ -829,21 +919,34 @@ impl eframe::App for App {
                 self.perf_metrics.display_metrics(ui)
             });
 
-        if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode) {
+        let menu_keys = panels::MenuKeys {
+            cheat_sheet: "?".to_string(),
+        };
+        if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode, &menu_keys) {
             self.handle_menu(action);
         }
 
         if self.cheat_sheet_visible {
             let just_opened = std::mem::take(&mut self.cheat_sheet_opened);
-            self.cheat_sheet_visible = cheat_sheet::ui(ctx, &self.settings, self.mode, just_opened);
+            self.cheat_sheet_visible = cheat_sheet::ui(
+                ctx,
+                &self.settings,
+                self.mode,
+                just_opened,
+                &mut self.cheat_sheet_query,
+            );
         }
 
+        self.show_first_run_hint(ctx);
+        panels::typing_notice(ctx);
         self.show_filter_bar(ctx);
         self.show_destinations(ctx);
         self.show_pending_delete(ctx);
+        self.show_pending_undo(ctx);
         self.show_keyboard(ctx);
         self.show_slideshow_settings(ctx);
         self.show_conflict(ctx);
+        self.show_help_windows(ctx);
         self.apply_fullscreen(ctx);
         self.show_side_panel(ctx);
         self.show_tag_panel(ctx);
@@ -856,12 +959,15 @@ impl eframe::App for App {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
         }
 
+        self.handle_pending_commands(ctx);
+        self.handle_copying(ctx);
         self.report_problems();
         if self.notices.ui(ctx) {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
 
         self.note_position(ctx);
+        self.note_chrome();
         self.run_benchmark(ctx);
         self.perf_metrics.end_frame();
     }
@@ -875,6 +981,17 @@ impl eframe::App for App {
 
         self.session.save();
     }
+}
+
+/// Which graphics adapter the photographs are being drawn on.
+///
+/// Said out loud because "the viewer is slow" and "the colours are wrong" are
+/// both questions whose answer often starts here, and the answer reached only
+/// a log file whose own path was written into that same log.
+fn describe_adapter(render_state: &eframe::egui_wgpu::RenderState) -> String {
+    let info = render_state.adapter.get_info();
+
+    format!("{} — {:?}, {:?}", info.name, info.device_type, info.backend)
 }
 
 /// The most pixels an image could ever be shown across on this screen.

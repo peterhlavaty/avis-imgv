@@ -36,11 +36,17 @@ pub fn show(ui: &mut egui::Ui, histogram: &Histogram) {
     }
 
     ui.add_space(20.0);
-    ui.label(RichText::new("Tones").heading());
+    ui.label(RichText::new("Tones").heading())
+        .on_hover_text(
+            "How the photograph's tones are distributed, counted on the worker while \n             the pixels were already in hand. Left is black, right is white.",
+        );
     ui.add_space(10.0);
 
     let width = ui.available_width().max(64.0);
-    let (rect, _) = ui.allocate_exact_size(Vec2::new(width, HEIGHT), Sense::hover());
+    let (rect, area) = ui.allocate_exact_size(Vec2::new(width, HEIGHT), Sense::hover());
+    area.on_hover_text(
+        "Grey is brightness, which is the shape most people read; red, green and blue \n         are the channels behind it. A wall against either edge is clipping.",
+    );
     let painter = ui.painter();
 
     painter.rect_filled(rect, 2.0, Color32::from_rgb(28, 28, 28));

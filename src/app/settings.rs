@@ -7,14 +7,19 @@
 
 use eframe::egui::{self, ViewportCommand};
 
+use crate::actions::reveal;
 use crate::config::load::Save;
 use crate::config::Config;
 use crate::formats;
-use crate::ui::keys;
+use crate::ui::{keys, legend, notice, placeholders};
 
+use super::about;
 use super::conflict;
 use super::panels::{self, MenuAction};
 use super::{App, Mode};
+
+/// Where the manual lives. The README, which is what the program has.
+const MANUAL: &str = "https://github.com/hats-np/avis-imgv#readme";
 
 impl App {
     /// Carries out whatever the menu bar was asked for.
@@ -43,6 +48,38 @@ impl App {
             MenuAction::Mode(mode) => self.set_mode(mode),
             MenuAction::Keyboard => self.keys_visible = true,
             MenuAction::Slideshow => self.slideshow_visible = true,
+            MenuAction::CheatSheet => {
+                self.cheat_sheet_visible = true;
+                self.cheat_sheet_opened = true;
+            }
+            MenuAction::MarksLegend => self.legend_visible = true,
+            MenuAction::Placeholders => self.placeholders_visible = true,
+            MenuAction::Messages => self.messages_visible = true,
+            MenuAction::About => self.about_visible = true,
+            MenuAction::OpenConfigFile => self.open_named_file(Config::path(), "configuration"),
+            MenuAction::OpenLogFile => self.open_named_file(crate::logging::path(), "log"),
+            MenuAction::OpenManual => {
+                if !reveal::with_the_system(std::path::Path::new(MANUAL)) {
+                    self.notices.fail("Could not open the manual.");
+                }
+            }
+        }
+    }
+
+    /// Opens one of the viewer's own files with whatever the system uses.
+    fn open_named_file(&mut self, path: Option<std::path::PathBuf>, name: &str) {
+        let Some(path) = path else {
+            self.notices.fail(format!(
+                "There is no configuration directory, so no {name} file."
+            ));
+            return;
+        };
+
+        if !reveal::with_the_system(&path) {
+            self.notices.fail(format!(
+                "Could not open the {name} file at {}.",
+                path.display()
+            ));
         }
     }
 
@@ -71,6 +108,25 @@ impl App {
         }
 
         self.save_settings();
+    }
+
+    /// Draws the windows the Help menu opens.
+    pub(super) fn show_help_windows(&mut self, ctx: &egui::Context) {
+        if self.about_visible {
+            about::ui(ctx, &mut self.about_visible, &self.about);
+        }
+
+        if self.legend_visible {
+            legend::ui(ctx, &mut self.legend_visible);
+        }
+
+        if self.placeholders_visible {
+            placeholders::ui(ctx, &mut self.placeholders_visible);
+        }
+
+        if self.messages_visible {
+            notice::history_window(ctx, &mut self.messages_visible, &mut self.notices);
+        }
     }
 
     /// Sends whatever fullscreen change a mode asked for.

@@ -7,6 +7,7 @@
 
 use eframe::egui;
 
+use crate::ui::empty::Nothing;
 use crate::view::image_view::bottom_bar::{Flags, Marks};
 use crate::view::organize::Done;
 
@@ -79,7 +80,20 @@ impl App {
 
         if self.mode == Mode::Grid {
             self.ensure_marks();
-            self.grid_view.ui(ctx, &self.marks, self.stacking.stacks());
+            // Built only on the frames it is drawn on: the sentences are
+            // allocated, and this runs once a frame for every folder.
+            let nothing = if self.grid_view.shows_nothing() {
+                self.nothing_to_show()
+            } else {
+                Nothing::default()
+            };
+
+            self.grid_view
+                .ui(ctx, &self.marks, self.stacking.stacks(), &nothing);
+
+            if let Some(asked) = self.grid_view.take_asked() {
+                self.run_asked(asked);
+            }
 
             if let Some(path) = self.grid_view.take_selected() {
                 self.image_view.select_path(&path);
@@ -88,6 +102,10 @@ impl App {
 
             if let Some(callback) = self.grid_view.take_callback() {
                 self.execute_callback(callback);
+            }
+
+            if let Some((verb, path)) = self.grid_view.take_verb() {
+                self.run_verb(verb, path);
             }
 
             return;
@@ -108,6 +126,12 @@ impl App {
             .as_ref()
             .is_some_and(|path| !self.pairs.partners_of(path).is_empty());
 
+        let nothing = if self.image_view.shows_nothing() {
+            self.nothing_to_show()
+        } else {
+            Nothing::default()
+        };
+
         self.image_view.ui(
             ctx,
             Flags {
@@ -122,10 +146,23 @@ impl App {
                 ..Default::default()
             },
             marks,
+            &nothing,
         );
+
+        if let Some(asked) = self.image_view.take_asked() {
+            self.run_asked(asked);
+        }
 
         if let Some(callback) = self.image_view.take_callback() {
             self.execute_callback(callback);
+        }
+
+        if let Some((verb, path)) = self.image_view.take_verb() {
+            self.run_verb(verb, path);
+        }
+
+        for action in self.image_view.take_bar_actions() {
+            self.run_bar_action(action);
         }
     }
 

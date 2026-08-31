@@ -2,6 +2,101 @@
 
 ## 2026-08-31
 
+- **The right button does something.** On a fresh install, right-clicking a
+  photograph used to do nothing at all: the default entry list is empty and the
+  menu returned before registering anything when it was. There is now a menu on
+  the photograph and on a cell — fit, actual pixels, fill, compare, move to the
+  bin, copy the path, copy the picture, show it in the file manager — with
+  whatever you configured appended under a separator, in your order, unchanged.
+
+  **Copy the picture** puts the file's own pixels on the clipboard, decoded at
+  full size and turned the right way up, on a thread of its own so a sixty
+  megapixel raw does not stop the window. The count goes in the label, so a
+  selection of twenty-four right-clicked says "Move 24 photographs to the bin".
+- **A Help menu, and an About window.** The menu bar was three menus and eleven
+  items with no Help. It now carries the keys, the keyboard editor, a legend for
+  the marks, the template placeholders, the recent messages, the configuration
+  file, the log file, the manual and About — which names the version, the
+  graphics adapter, whether this build can develop a raw file, and both file
+  paths with a button that copies them. Three of the most confusing behaviours
+  in the program are diagnosable from that one window; all three used to reach a
+  log file whose own path was written only into that log.
+- **Six dead words become doors.** **Flattened**, **Watching**, **Filling**,
+  **Advancing**, **Comparing** and **RAW+JPEG** sat in the status bar as bare
+  labels with no tooltip and no way to act on them. Each now says what it means
+  and carries the verb that turns it off. Two of them carry a setting rather
+  than a mode: **Advancing** is the only place `tags.advance_after_marking` is
+  visible in the running program, and **RAW+JPEG** the only place
+  `raw.pair_with_jpeg` is — and its three sentences, "Show both", "Show the
+  JPEG", "Show the raw", had been written since pairing was built and drawn
+  nowhere. Changing it re-reads the folder rather than waiting for a restart.
+  The marking overlay joins them, so a photograph covered in red says why.
+- **A screen that offers a folder.** "No images here" was four words on grey,
+  and it is the first thing most people see, because with no argument the
+  crawler reads the working directory. It becomes **Open a folder**, **Open
+  files**, and the last six folders visited — a list the session file has been
+  keeping since positions were remembered and has never shown to anybody. A
+  folder emptied by the filter is a different screen: it names the rules that
+  emptied it and offers **Show everything**. The tag panel draws a line instead
+  of nothing, and the metadata panel says "No photograph open" rather than
+  "Loading…", which was a lie that never resolved.
+- **A first run that is not a tour.** The menu bar starts visible when there is
+  no session file, and thereafter is wherever it was left. One line in the
+  corner names `?` and `F1`, and goes as soon as either is pressed. And a notice
+  says where the configuration file has just been created.
+- **Notices have severities, and a history.** Everything was the same alarm red
+  — for "Moved 12 photographs to Selects" and for "Access is denied" alike — and
+  there was no history: four lines, six seconds, and the rest dropped without a
+  word. There are now three fills, and **Help → Recent messages…** holds the last
+  hundred. The band itself stays untouchable on purpose: during a cull something
+  is in it after nearly every gesture, and a band that takes the pointer would
+  own a strip across the top of the photograph — including its own new menu —
+  for six seconds at a time.
+- **A focused text field says so.** The whole viewer goes deaf while any field
+  holds focus, with `Escape` the only way out, and nothing on screen said any of
+  it — so the symptom was a viewer that had stopped answering its keys. One line
+  in the corner now says which key brings them back.
+- **Undo says what it is about to do.** The sentence has always been built at
+  the right moment and shown at the wrong one: it was read before the undo ran
+  and reported afterwards. One file still goes back without asking; anything
+  more says what it would do and waits.
+- **The cheat sheet is reachable and readable.** It was the best documentation
+  in the program, behind one key nothing mentioned. It is now in the Help menu,
+  it draws each binding's sentence — which has existed on every row all along
+  and was read only by the keyboard editor — and it has a search box. With a box
+  to type in, "any key closes it" had to go: Escape, a click outside, or any key
+  while the box does not hold the cursor.
+- **Ninety-five explanations, where there were thirty-three.** Five panels that
+  had none — the filmstrip, the folder tree, the navigator, the frame timings
+  and the whole sort-and-filter apparatus of three modes — now explain
+  themselves, as do every line of the cache readout, the histogram and its two
+  figures, and the stack badge on a cell. The three folder jobs each say **this
+  cannot be undone**, because the journal does not cover them. Two hover strings
+  carrying stray whitespace from broken continuations are fixed, and so is the
+  empty string that used to lay out and paint a frame for nothing.
+- **Two stack glyphs that were drawing empty boxes.** `◐` is in Hack, which is
+  the *monospace* family, and `❏` is in none of the fonts loaded at all, so both
+  drew tofu wherever they appeared. They become `◑` and `▣`, which are in the
+  proportional chain. Writing the legend is what made it visible.
+- **"Stack" stops being one word for three things.** The status bar built its
+  line from the function that names a *folder*, so a focus stack read "stack 3 ·
+  frame 4 of 17 · stack 3 of 41" — one word for two things, and the same number
+  twice. It reads `Focus stack 3 · frame 4 of 17 · stack 6 of 41` now. The filter
+  bar counts stacks rather than runs, and the two frame-standing keys are called
+  "Which frame shows the stack" and "Show the next frame instead", because
+  nobody searches for "standing".
+- **The strip under a cell is a fraction of the cell.** It was a flat twenty
+  points whatever the cell measured, so at sixteen columns it was proportionally
+  enormous and at one column the stars were a sliver in a wall.
+- **The three files people are told to read.** The README gave the configuration
+  path as `~/.config/avis-imgv/config.json`, which is right on Linux and wrong on
+  Windows and macOS; all three are now listed. `examples/config.json` held 103 of
+  the 110 fields with no `version`, so copying it wholesale meant both migration
+  steps re-applied — it and `examples/keys.txt` are generated from the defaults
+  now, by `cargo run --example write_defaults`.
+
+## 2026-08-31
+
 - **The viewer stops editing files nobody asked it to edit.** Opening the
   slideshow window used to rewrite a hand-written `"seconds_per_image": 900`
   down to 600 on the frame it appeared, with nobody touching anything: egui

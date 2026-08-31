@@ -493,9 +493,92 @@ impl App {
     }
 
     /// Puts back whatever the last thing that touched a file did.
+    ///
+    /// `Step::describe` has always built the sentence at the right moment and
+    /// shown it at the wrong one: it was read *before* the undo ran and
+    /// reported afterwards, so a bulk undo happened silently and then said what
+    /// it had done. One file goes back without asking, because the sentence
+    /// afterwards is enough for one file; anything more says what it is about
+    /// to do and waits.
     pub(super) fn undo(&mut self) {
         let Some(step) = self.journal.peek() else {
             self.notices.say("Nothing to undo");
+            return;
+        };
+
+        if step.files() > 1 {
+            self.pending_undo = Some(step.describe());
+            return;
+        }
+
+        self.carry_out_undo();
+    }
+
+    /// Draws the question a bulk undo asks, and does what it is told.
+    pub(super) fn show_pending_undo(&mut self, ctx: &egui::Context) {
+        let Some(said) = self.pending_undo.clone() else {
+            return;
+        };
+
+        // A window asking a question owns the keyboard while it is up.
+        utils::set_mute_state(ctx, true);
+
+        let mut answered = None;
+
+        egui::Window::new("Undo")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                ui.label(format!("This will {said}."));
+                ui.add_space(10.0);
+
+                ui.horizontal(|ui| {
+                    if ui.button("Do it").clicked() {
+                        answered = Some(true);
+                    }
+                    if ui.button("Leave it").clicked() {
+                        answered = Some(false);
+                    }
+                });
+
+                ui.add_space(6.0);
+                ui.label(egui::RichText::new("Enter or Y to undo · Escape to leave it").weak());
+            });
+
+        let said_no = ctx.input_mut(|i| {
+            let escaped = i.consume_key(egui::Modifiers::NONE, egui::Key::Escape);
+            escaped | i.consume_key(egui::Modifiers::NONE, egui::Key::N)
+        });
+
+        let said_yes = ctx.input_mut(|i| {
+            let yes = i.consume_key(egui::Modifiers::NONE, egui::Key::Y);
+            yes | i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)
+        });
+
+        if said_no {
+            answered = Some(false);
+        } else if said_yes {
+            answered = Some(true);
+        }
+
+        match answered {
+            Some(true) => {
+                self.pending_undo = None;
+                utils::set_mute_state(ctx, false);
+                self.carry_out_undo();
+            }
+            Some(false) => {
+                self.pending_undo = None;
+                utils::set_mute_state(ctx, false);
+            }
+            None => {}
+        }
+    }
+
+    /// Does the undo itself, having been agreed to or not needing to be.
+    fn carry_out_undo(&mut self) {
+        let Some(step) = self.journal.peek() else {
             return;
         };
 

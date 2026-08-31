@@ -2,6 +2,7 @@
 //! shortcuts or context menu entries, and the callbacks that run afterwards.
 
 pub mod callback;
+pub mod reveal;
 pub mod user_action;
 
 pub use callback::Callback;

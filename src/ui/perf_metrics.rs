@@ -72,13 +72,30 @@ impl PerfMetrics {
     }
 
     pub fn display_metrics(&mut self, ui: &mut egui::Ui) {
-        ui.monospace(format!(
-            "{:.0} fps • frame {:.2}ms • recent {:.2}ms • worst {:.2}ms",
-            self.frames_per_second(),
-            millis(self.last),
-            millis(self.recent_mean()),
-            millis(self.longest),
-        ));
+        ui.horizontal(|ui| {
+            ui.monospace(format!("{:.0} fps", self.frames_per_second()))
+                .on_hover_text(
+                    "Frames a second, from the mean of the last sixty. Sixty is the \
+                     usual ceiling: a monitor does not show more.",
+                );
+            ui.monospace("•");
+
+            ui.monospace(format!("frame {:.2}ms", millis(self.last)))
+                .on_hover_text("How long the last frame took to draw");
+            ui.monospace("•");
+
+            ui.monospace(format!("recent {:.2}ms", millis(self.recent_mean())))
+                .on_hover_text(
+                    "The mean of the last sixty frames, which is what the rate is read from",
+                );
+            ui.monospace("•");
+
+            ui.monospace(format!("worst {:.2}ms", millis(self.longest)))
+                .on_hover_text(
+                    "The slowest frame since the viewer started. A single slow frame is a \
+                     stutter somebody saw.",
+                );
+        });
     }
 }
 

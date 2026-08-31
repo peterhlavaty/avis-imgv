@@ -12,7 +12,7 @@ pub mod slideshow;
 pub mod viewports;
 pub mod zoom;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use eframe::egui::{self, Response};
@@ -24,9 +24,11 @@ use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 
-use bottom_bar::{Flags, Marks, Status};
+use bottom_bar::{BarAction, Flags, Marks, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
 
+use crate::ui::empty::{Asked, Nothing};
+use crate::ui::menus::Verb;
 use crate::utils;
 use crate::view::visible::Visible;
 use input::Command;
@@ -90,6 +92,12 @@ pub struct ImageView {
     images_shown: usize,
     jump_to: String,
     callback: Option<Callback>,
+    /// A verb from the context menu that this view cannot carry out itself.
+    verb: Option<(Verb, PathBuf)>,
+    /// What the status bar was clicked to do, on its way to the application.
+    bar_actions: Vec<BarAction>,
+    /// What the screen with nothing on it was clicked to do.
+    asked: Option<Asked>,
     config: ImageViewConfig,
     slideshow_config: SlideshowConfig,
     slideshow: Option<Slideshow>,
@@ -129,6 +137,9 @@ impl ImageView {
             images_shown: config.nr_images_shown.clamp(1, MAX_IMAGES_SHOWN),
             jump_to: String::new(),
             callback: None,
+            verb: None,
+            bar_actions: Vec::new(),
+            asked: None,
             slideshow,
             slideshow_config,
             config,
@@ -152,7 +163,7 @@ impl ImageView {
     ///
     /// `marks` are the stars, flag and label on the image on screen, which the status
     /// bar shows so rating with the panel closed is not silent.
-    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks) {
+    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks, nothing: &Nothing) {
         if self.warm() {
             ctx.request_repaint();
         }
@@ -165,9 +176,9 @@ impl ImageView {
             self.show_bottom_bar(ctx, flags, marks);
         }
 
-        let response = self.show_images(ctx);
+        let response = self.show_images(ctx, nothing);
         self.handle_pointer(ctx, &response);
-        self.handle_context_menu(&response);
+        self.handle_context_menu(ctx, &response);
         self.run_slideshow(ctx);
     }
 
@@ -322,6 +333,11 @@ impl ImageView {
     /// what is on show rather than in the store, because with the rejects
     /// hidden the picture beside this one should be the next one a person
     /// would reach, not the one they have already said no to.
+    /// Whether there is any photograph to draw.
+    pub fn shows_nothing(&self) -> bool {
+        self.panes().is_empty()
+    }
+
     fn panes(&self) -> Vec<usize> {
         if let Some(comparing) = &self.comparing {
             return comparing.clone();
@@ -514,7 +530,7 @@ impl ImageView {
         }
     }
 
-    fn show_images(&mut self, ctx: &egui::Context) -> Response {
+    fn show_images(&mut self, ctx: &egui::Context, nothing: &Nothing) -> Response {
         self.prepare_marks(ctx);
 
         let background = self.background_colour();
@@ -539,9 +555,14 @@ impl ImageView {
             &panes,
             self.cursor,
             &mut self.viewport,
-            &style,
-            background,
+            &layout::Painting {
+                style: &style,
+                background,
+                nothing,
+            },
         );
+
+        self.asked = shown.asked;
 
         // Zooming and the status bar both work from the geometry of the image
         // the user is looking at.
@@ -581,6 +602,7 @@ impl ImageView {
             flags: Flags {
                 filling: self.viewport.maximize,
                 comparing,
+                marking: self.marking,
                 ..flags
             },
         };
@@ -594,6 +616,18 @@ impl ImageView {
         for command in outcome.commands {
             self.apply(command, ctx);
         }
+
+        self.bar_actions.extend(outcome.bar);
+    }
+
+    /// What the screen with nothing on it was clicked to do.
+    pub fn take_asked(&mut self) -> Option<Asked> {
+        self.asked.take()
+    }
+
+    /// What the status bar was clicked to do that the view cannot do itself.
+    pub fn take_bar_actions(&mut self) -> Vec<BarAction> {
+        std::mem::take(&mut self.bar_actions)
     }
 
     /// Builds the clipping or focus mask for the photograph on screen.

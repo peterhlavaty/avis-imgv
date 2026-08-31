@@ -4,6 +4,7 @@ use eframe::egui::{self, Response, Sense};
 use eframe::epaint::{Color32, Vec2};
 
 use crate::cache::{ImageState, ImageStore};
+use crate::ui::empty::{self, Asked, Nothing};
 
 use super::canvas::{self, Metrics, Style, Viewport};
 
@@ -17,6 +18,17 @@ pub struct Shown {
     pub response: Response,
     /// Geometry of the image under the cursor.
     pub metrics: Metrics,
+    /// What the screen with nothing on it was clicked to do.
+    pub asked: Option<Asked>,
+}
+
+/// How the panel is painted, as against what is in it.
+pub struct Painting<'a> {
+    pub style: &'a Style,
+    /// The grey behind the photograph.
+    pub background: Color32,
+    /// What to draw when there is no photograph to draw.
+    pub nothing: &'a Nothing,
 }
 
 /// Draws `count` images starting at `cursor`, side by side.
@@ -29,22 +41,23 @@ pub fn show(
     panes: &[usize],
     focused: usize,
     viewport: &mut Viewport,
-    style: &Style,
-    background: Color32,
+    painting: &Painting<'_>,
 ) -> Shown {
+    let Painting {
+        style,
+        background,
+        nothing,
+    } = painting;
+    let background = *background;
+
     let mut metrics = Metrics::default();
+    let mut asked = None;
 
     let response = egui::CentralPanel::default()
         .frame(egui::Frame::NONE.fill(background))
         .show(ctx, |ui| {
             if panes.is_empty() {
-                let says = if store.is_empty() {
-                    "No images here"
-                } else {
-                    "Nothing matches the filter"
-                };
-
-                ui.centered_and_justified(|ui| ui.label(says));
+                asked = empty::ui(ui, nothing);
                 return;
             }
 
@@ -87,7 +100,11 @@ pub fn show(
         .response
         .interact(Sense::click());
 
-    Shown { response, metrics }
+    Shown {
+        response,
+        metrics,
+        asked,
+    }
 }
 
 /// `leading` is the pane the keys are about: it owns the viewport, it is

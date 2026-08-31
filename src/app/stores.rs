@@ -66,7 +66,7 @@ pub fn thumbnail_store(cache: &CacheConfig, view: &GridViewConfig) -> StoreConfi
 }
 
 /// Translates the raw settings into what the developer takes.
-fn raw_options(raw: &RawConfig) -> raw::Options {
+pub fn raw_options(raw: &RawConfig) -> raw::Options {
     raw::Options {
         develop: raw.source == RawSource::Develop,
         demosaic: match raw.quality {

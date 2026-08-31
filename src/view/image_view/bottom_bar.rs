@@ -3,7 +3,9 @@
 use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
+use crate::decoder::overlays::Overlay;
 use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
+use crate::organize::pairs::Prefer;
 use crate::view::stacks::Place;
 
 use super::input::Command;
@@ -76,6 +78,12 @@ pub struct Flags {
     /// for seventeen frames looks exactly like a cell that stands for one, and
     /// somebody culling has to know which they are looking at.
     pub place: Option<Place>,
+    /// Which mask is painted over the photograph, when one is.
+    ///
+    /// `Overlay::label` has existed since the overlays were written and was
+    /// called by a test alone; the marking mode reached no status flag at all,
+    /// so a photograph covered in red was unexplained.
+    pub marking: Overlay,
 }
 
 /// Everything the bar draws, borrowed from the view.
@@ -99,6 +107,153 @@ pub struct Outcome {
     pub commands: Vec<Command>,
     /// A zero based index typed into the jump field.
     pub jump_to: Option<usize>,
+    /// What the bar's own words asked for that the view cannot do itself.
+    pub bar: Vec<BarAction>,
+}
+
+/// What one of the status bar's words was clicked to do.
+///
+/// Six words used to sit in the bar as bare labels with no tooltip and no way
+/// to act on them, two of them the only place in the running program a setting
+/// was visible at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BarAction {
+    /// Fold sub-directories into the collection, or stop.
+    ToggleFlatten,
+    /// Watch the folder for changes, or stop.
+    ToggleWatching,
+    /// Whether a mark moves on to the next photograph by itself.
+    SetAdvancing(bool),
+    /// Which half of a raw+JPEG pair is the one browsed.
+    SetPairing(Prefer),
+}
+
+/// Draws the words saying what mode the viewer is in, and takes their clicks.
+///
+/// Each word is a door: it says what it means, and its menu carries the verb
+/// that turns it off. Four of the six carry a verb the program already has;
+/// **Advancing** and **RAW+JPEG** carry a setting, and are the only place in
+/// the running program either of those two is visible.
+fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> Vec<BarAction> {
+    let mut asked = Vec::new();
+
+    if flags.flattened {
+        let word = ui
+            .add(egui::Label::new("Flattened").sense(Sense::click()))
+            .on_hover_text(
+                "Photographs in sub-folders are part of this collection. \
+                 Right-click for more.",
+            );
+
+        word.context_menu(|ui| {
+            if ui.button("Only this folder").clicked() {
+                asked.push(BarAction::ToggleFlatten);
+                ui.close();
+            }
+        });
+    }
+
+    if flags.watching {
+        let word = ui
+            .add(egui::Label::new("Watching").sense(Sense::click()))
+            .on_hover_text(
+                "The folder is being watched, so a file written into it appears. \
+                 Right-click for more.",
+            );
+
+        word.context_menu(|ui| {
+            if ui.button("Stop watching the folder").clicked() {
+                asked.push(BarAction::ToggleWatching);
+                ui.close();
+            }
+        });
+    }
+
+    if flags.filling {
+        let word = ui
+            .add(egui::Label::new("Filling").sense(Sense::click()))
+            .on_hover_text(
+                "Every photograph fills the window, cropping whichever side is longer. \
+                 Right-click for more.",
+            );
+
+        word.context_menu(|ui| {
+            if ui.button("Fit the whole photograph instead").clicked() {
+                commands.push(Command::Fit);
+                ui.close();
+            }
+        });
+    }
+
+    if flags.advancing {
+        let word = ui
+            .add(egui::Label::new("Advancing").sense(Sense::click()))
+            .on_hover_text(
+                "A star, a flag or a label moves on to the next photograph. \
+                 Right-click for more.",
+            );
+
+        word.context_menu(|ui| {
+            if ui
+                .button("Stay on the photograph after marking it")
+                .clicked()
+            {
+                asked.push(BarAction::SetAdvancing(false));
+                ui.close();
+            }
+        });
+    }
+
+    if flags.comparing {
+        let word = ui
+            .add(egui::Label::new("Comparing").sense(Sense::click()))
+            .on_hover_text("Several photographs are pinned side by side. Right-click for more.");
+
+        word.context_menu(|ui| {
+            if ui.button("Stop comparing").clicked() {
+                commands.push(Command::StopComparing);
+                ui.close();
+            }
+        });
+    }
+
+    if flags.marking != Overlay::Off {
+        let word = ui
+            .add(egui::Label::new(flags.marking.label()).sense(Sense::click()))
+            .on_hover_text(
+                "A mask is painted over the photograph. Help → What the marks mean \n                 says what the colours are. Right-click for more.",
+            );
+
+        word.context_menu(|ui| {
+            if ui.button("Show the photograph as it is").clicked() {
+                commands.push(Command::CycleMarks);
+                ui.close();
+            }
+        });
+    }
+
+    if flags.paired {
+        let word = ui
+            .add(egui::Label::new("RAW+JPEG").sense(Sense::click()))
+            .on_hover_text(
+                "This frame was shot as two files, and a rating, a move or a deletion \
+                 is about to happen to both. Right-click for more.",
+            );
+
+        // The three sentences this needs have been written since pairing was
+        // built and drawn nowhere; this is the only place in the running
+        // program the setting behind them is visible.
+        word.context_menu(|ui| {
+            for prefer in Prefer::ALL {
+                if ui.button(prefer.label()).clicked() {
+                    asked.push(BarAction::SetPairing(*prefer));
+                    ui.close();
+                }
+            }
+        });
+    }
+
+    asked
 }
 
 /// Draws the bar and reports the interactions it produced.
@@ -123,9 +278,13 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     ),
                     egui::Label::new(counted),
                 )
+                // Two calls rather than one with an empty string: an empty
+                // hover text still lays out and paints a frame.
                 .on_hover_text(match status.hidden {
-                    0 => String::new(),
-                    hidden => format!("{hidden} more are hidden by the filter"),
+                    0 => "Which photograph of how many, in the order on screen".to_string(),
+                    hidden => format!(
+                        "Which photograph of how many. {hidden} more are hidden by the filter."
+                    ),
                 });
 
                 if let Some(place) = status.flags.place {
@@ -137,22 +296,13 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
 
                     ui.label(egui::RichText::new(place.describe()).color(colour))
                         .on_hover_text(
-                            "One run of frames. The colour says it is folded up;                              the key that opens it shows the rest.",
+                            "One run of frames. The colour says it is folded up; \n                             the key that opens it shows the rest.",
                         );
                 }
 
-                for (active, label) in [
-                    (status.flags.flattened, "Flattened"),
-                    (status.flags.watching, "Watching"),
-                    (status.flags.filling, "Filling"),
-                    (status.flags.advancing, "Advancing"),
-                    (status.flags.comparing, "Comparing"),
-                    (status.flags.paired, "RAW+JPEG"),
-                ] {
-                    if active {
-                        ui.label(label);
-                    }
-                }
+                outcome
+                    .bar
+                    .extend(flag_words(ui, &status.flags, &mut outcome.commands));
 
                 marks(ui, &status.marks);
 
@@ -263,7 +413,7 @@ fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
             .clamping(egui::SliderClamping::Edits)
             .logarithmic(true)
             .show_value(false)
-            .text("🔎"),
+            .text("ð"),
     );
 
     if slider.changed() {

@@ -491,7 +491,9 @@ apart.
 The frame that stands for a folded run is the sharpest one that could be
 measured, which is usually the question a burst is asking. `,` and `.` change
 it, and the status bar says where you are the whole time:
-`series 2 · frame 4 of 17 · stack 6 of 41`, in amber while the run is folded.
+`Series 2 · frame 4 of 17 · stack 6 of 41`, in amber while the run is folded.
+The first word is the kind of run, and **Help → What the marks mean** is the
+legend for the four glyphs.
 
 It is the same mechanism as the filter — a list of positions into the folder —
 so stacking composes with narrowing and ordering, and nothing is decoded twice
@@ -531,6 +533,40 @@ where it applies and each with a sentence saying what it does. Click a key,
 press the one you want, and it is written to the configuration file straight
 away; escape leaves it alone. Two things on one key are not refused — sometimes
 that is what a person means — but they are pointed out.
+
+## Help
+
+`F1` shows the menu bar, which starts up on a first run and thereafter is
+wherever it was left.
+
+**Help** carries the things a person needs when the program has stopped
+explaining itself:
+
+| | |
+|---|---|
+| **Keys… `?`** | Every key bound in the mode on screen, with what it does and a box to search them. |
+| **Keyboard…** | Change what a key does. |
+| **What the marks mean** | The legend: the four stack glyphs, the three states of the strip under a cell, the overlay colours, the border round a pinned pane. |
+| **Template placeholders…** | Everything that may go in a name template, an overlay line or a cell caption. Click one to copy it. |
+| **Recent messages…** | The last hundred things the viewer said, whether or not they were read. The band across the top holds four for six seconds and drops the rest; this does not. |
+| **Open the configuration file** · **Open the log file** | With whatever the system uses for them. |
+| **About** | The version, the graphics adapter being drawn on, whether this build can develop a raw file, and both file paths with a button that copies them. |
+
+## The right button
+
+Right-clicking a photograph or a cell offers what can be done to it: fit,
+actual pixels, fill, compare, move to the bin, copy the path, copy the picture,
+and show it in the file manager. **Copy the picture** puts the file's own pixels
+on the clipboard, decoded at full size and turned the right way up, on a thread
+of its own so a sixty megapixel raw does not stop the window.
+
+Whatever `image_view.context_menu` and `grid_view.context_menu` hold is appended
+under a separator, in the order it is written, unchanged.
+
+The words in the status bar are doors as well. **Flattened**, **Watching**,
+**Filling**, **Advancing**, **Comparing** and **RAW+JPEG** each say what they
+mean and carry the verb that turns them off — and **Advancing** and **RAW+JPEG**
+are the only place in the running program those two settings are visible at all.
 
 ## Supported image formats
 
@@ -591,8 +627,17 @@ sRGB and Adobe RGB (ClayRGB) come from
 
 ## Configuration
 
-`~/.config/avis-imgv/config.json`, created with the defaults on first run. A
-fully populated example is in `examples/config.json`; valid key and modifier
+Created with the defaults on first run, at:
+
+| Platform | Where |
+|---|---|
+| Linux | `~/.config/avis-imgv/config.json` |
+| Windows | `%APPDATA%\avis-imgv\avis-imgv\config\config.json` |
+| macOS | `~/Library/Application Support/com.avis-imgv.avis-imgv/config.json` |
+
+**Help ▸ Open the configuration file** opens it, and **Help ▸ About** shows the
+path on this machine with a button that copies it. A fully populated example is
+in `examples/config.json`, generated from the defaults; valid key and modifier
 names are in `examples/keys.txt`.
 
 A section the viewer cannot make sense of costs that section and nothing else,

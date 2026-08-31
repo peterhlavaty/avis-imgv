@@ -65,6 +65,15 @@ pub fn show(
         .frame(egui::Frame::NONE.fill(BACKGROUND).inner_margin(4.0))
         .exact_height(height)
         .show(ctx, |ui| {
+            ui.interact(
+                ui.max_rect(),
+                ui.id().with("strip hover"),
+                egui::Sense::hover(),
+            )
+            .on_hover_text(
+                "Every photograph in the folder, in order. Click one to open it; \n                 drag the top edge to make the strip taller.",
+            );
+
             ui.spacing_mut().item_spacing = Vec2::new(GAP, 0.0);
 
             let cell = (height - 8.0).max(16.0);
@@ -86,7 +95,12 @@ pub fn show(
                     ui.spacing_mut().item_spacing = Vec2::new(GAP, 0.0);
 
                     for index in visible.iter() {
-                        if draw_cell(ui, store, index, index == cursor, cell) {
+                        let name = store
+                            .path(index)
+                            .and_then(|path| path.file_name())
+                            .map(|name| name.to_string_lossy().into_owned());
+
+                        if draw_cell(ui, store, index, index == cursor, cell, name.as_deref()) {
                             picked.selected = Some(index);
                         }
                     }
@@ -104,6 +118,7 @@ fn draw_cell(
     index: usize,
     current: bool,
     cell: f32,
+    name: Option<&str>,
 ) -> bool {
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(cell), Sense::click());
 
@@ -149,6 +164,12 @@ fn draw_cell(
 
     if response.hovered() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+
+    // Named, because a strip of forty thumbnails forty pixels across is a
+    // strip in which nothing can be read.
+    if let Some(name) = name {
+        response.clone().on_hover_text(name);
     }
 
     response.clicked()

@@ -4,10 +4,13 @@
 //! gesture into a movement of the viewport, and a click into whatever the user
 //! configured it to run.
 
+use std::path::PathBuf;
+
 use eframe::egui::{self, PointerButton, Response};
 use eframe::epaint::Vec2;
 
 use crate::actions::{self, Callback};
+use crate::ui::menus::{Chosen, Verb};
 
 use super::{input, ImageView};
 
@@ -72,16 +75,47 @@ impl ImageView {
         pan
     }
 
-    pub(super) fn handle_context_menu(&mut self, response: &Response) {
+    pub(super) fn handle_context_menu(&mut self, ctx: &egui::Context, response: &Response) {
         let Some(path) = self.active_path() else {
             return;
         };
 
-        if let Some(callback) =
-            actions::show_context_menu(&self.config.context_menu, response, &path)
-        {
-            self.callback = Some(Callback::from_callback(callback, Some(path)));
+        let chosen = actions::show_context_menu(
+            Verb::ON_A_PHOTOGRAPH,
+            &self.config.context_menu,
+            response,
+            &path,
+            1,
+        );
+
+        match chosen {
+            None => {}
+            // The zoom verbs are about what this view draws and are done here;
+            // the rest need the folder, the journal or a decode thread, and go
+            // up to whoever has them.
+            Some(Chosen::Verb(Verb::Fit)) => self.apply(input::Command::Fit, ctx),
+            Some(Chosen::Verb(Verb::Fill)) => self.apply(input::Command::Fill, ctx),
+            Some(Chosen::Verb(Verb::ActualPixels)) => {
+                self.apply(input::Command::ZoomToPercent(100.0), ctx)
+            }
+            Some(Chosen::Verb(Verb::Compare)) => self.apply(input::Command::Compare, ctx),
+            Some(Chosen::Verb(verb)) => self.verb = Some((verb, path)),
+            Some(Chosen::Entry(i)) => {
+                if let Some(callback) = self
+                    .config
+                    .context_menu
+                    .get(i)
+                    .and_then(|entry| entry.callback.clone())
+                {
+                    self.callback = Some(Callback::from_callback(callback, Some(path)));
+                }
+            }
         }
+    }
+
+    /// The verb the menu asked for that this view cannot carry out itself.
+    pub fn take_verb(&mut self) -> Option<(Verb, PathBuf)> {
+        self.verb.take()
     }
 
     pub(super) fn run_user_action(&mut self, index: usize, ctx: &egui::Context) {

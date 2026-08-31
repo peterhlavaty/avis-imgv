@@ -117,13 +117,13 @@ pub fn all() -> Vec<Binding> {
         ),
         binding!(
             "Gallery",
-            "Frame standing for a stack",
-            "Walk the frames of a closed stack without opening it.",
+            "Which frame shows the stack",
+            "Walk the frames of a closed stack without opening it. Nobody searches for \"standing\".",
             general.sc_standing_back
         ),
         binding!(
             "Gallery",
-            "Next frame standing for a stack",
+            "Show the next frame instead",
             "The same, forwards.",
             general.sc_standing_forward
         ),

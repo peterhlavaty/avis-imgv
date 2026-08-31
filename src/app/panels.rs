@@ -20,10 +20,36 @@ pub enum MenuAction {
     Keyboard,
     /// Open the slideshow settings.
     Slideshow,
+    /// The glance-at list of what the keys currently are.
+    CheatSheet,
+    /// The legend for the glyphs, badges and overlay colours.
+    MarksLegend,
+    /// What may go in a name template, and what each placeholder expands to.
+    Placeholders,
+    /// Everything the viewer has said lately, whether or not it was seen.
+    Messages,
+    OpenConfigFile,
+    OpenLogFile,
+    OpenManual,
+    About,
+}
+
+/// The keys the menu names beside its own rows.
+///
+/// Rendered from the bindings rather than written into the labels, so a rebind
+/// stays correct: Microsoft asks for exactly that of a menu that names a key.
+#[derive(Debug, Clone, Default)]
+pub struct MenuKeys {
+    pub cheat_sheet: String,
 }
 
 /// Draws the menu bar, returning what the user picked.
-pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAction> {
+pub fn top_menu(
+    ctx: &egui::Context,
+    visible: bool,
+    mode: Mode,
+    keys: &MenuKeys,
+) -> Option<MenuAction> {
     let mut action = None;
 
     egui::TopBottomPanel::top("menu")
@@ -65,20 +91,112 @@ pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAc
                 });
 
                 ui.menu_button("Settings", |ui| {
-                    if ui.button("Keyboard…").clicked() {
+                    if ui
+                        .button("Keyboard…")
+                        .on_hover_text("Every key the viewer reads, and what it does")
+                        .clicked()
+                    {
                         action = Some(MenuAction::Keyboard);
                         ui.close();
                     }
 
-                    if ui.button("Slideshow…").clicked() {
+                    if ui
+                        .button("Slideshow…")
+                        .on_hover_text("How long each picture is held, and whether it moves")
+                        .clicked()
+                    {
                         action = Some(MenuAction::Slideshow);
                         ui.close();
                     }
                 });
+
+                help_menu(ui, keys, &mut action);
             });
         });
 
     action
+}
+
+/// The Help menu.
+///
+/// The menu bar was three menus and eleven items with no Help at all, so the
+/// cheat sheet, the configuration file and the log were reachable only by
+/// somebody who already knew they existed.
+fn help_menu(ui: &mut egui::Ui, keys: &MenuKeys, action: &mut Option<MenuAction>) {
+    ui.menu_button("Help", |ui| {
+        let rows: [(String, &str, MenuAction); 4] = [
+            (
+                format!("Keys…  {}", keys.cheat_sheet),
+                "What every key does in the mode on screen",
+                MenuAction::CheatSheet,
+            ),
+            (
+                "Keyboard…".to_string(),
+                "Change what a key does",
+                MenuAction::Keyboard,
+            ),
+            (
+                "What the marks mean".to_string(),
+                "The glyphs on a stack, the badges on a cell and the overlay colours",
+                MenuAction::MarksLegend,
+            ),
+            (
+                "Template placeholders…".to_string(),
+                "What may go in a name template, and what each one expands to",
+                MenuAction::Placeholders,
+            ),
+        ];
+
+        for (label, hint, picked) in rows {
+            if ui.button(label).on_hover_text(hint).clicked() {
+                *action = Some(picked);
+                ui.close();
+            }
+        }
+
+        ui.separator();
+
+        if ui
+            .button("Recent messages…")
+            .on_hover_text("Everything the viewer has said lately, whether or not it was seen")
+            .clicked()
+        {
+            *action = Some(MenuAction::Messages);
+            ui.close();
+        }
+
+        ui.separator();
+
+        let rows = [
+            (
+                "Open the configuration file",
+                "Every setting, as JSON",
+                MenuAction::OpenConfigFile,
+            ),
+            (
+                "Open the log file",
+                "What the viewer has been doing, and what went wrong",
+                MenuAction::OpenLogFile,
+            ),
+            (
+                "Open the manual",
+                "The README, in a browser",
+                MenuAction::OpenManual,
+            ),
+            (
+                "About",
+                "Which build this is, what it is drawing on, and where its files are",
+                MenuAction::About,
+            ),
+        ];
+
+        for (label, hint, picked) in rows {
+            if ui.button(label).on_hover_text(hint).clicked() {
+                *action = Some(picked);
+                ui.close();
+            }
+        }
+    });
 }
 
 /// Draws the slideshow settings, returning whether anything changed.
@@ -145,20 +263,30 @@ pub fn slideshow_settings(
 }
 
 /// Draws the metadata of the open image, in the order the configuration lists.
-pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[String]) {
+///
+/// `open` says whether there is a photograph at all: with no folder the panel
+/// said "Loading…", which is a lie that never resolves.
+pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[String], open: bool) {
     ui.add_space(20.);
     ui.label(RichText::new("Image Metadata").heading());
     ui.add_space(10.);
 
     let Some(metadata) = metadata else {
-        ui.label("Loading…");
+        if open {
+            ui.label("Reading it…");
+        } else {
+            ui.weak("No photograph open.");
+        }
         return;
     };
+
+    let mut drawn = 0;
 
     for tag in tags {
         let Some(value) = metadata.tags.get(tag) else {
             continue;
         };
+        drawn += 1;
 
         ui.horizontal(|ui| {
             ui.label(RichText::new(format!("{tag}:")).strong());
@@ -169,6 +297,19 @@ pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[St
                 .on_hover_text(value);
         });
     }
+
+    // A tag the configuration asks for that the file does not carry is skipped
+    // in silence, so a list of eight that draws none looked like a failure.
+    if drawn == 0 {
+        ui.weak("This photograph carries none of the tags being asked for.");
+    } else if drawn < tags.len() {
+        ui.add_space(4.0);
+        ui.weak(format!(
+            "{} of {} asked for; the rest are not in this file.",
+            drawn,
+            tags.len()
+        ));
+    }
 }
 
 /// Draws how full the caches are, so the effect of the budgets is visible.
@@ -177,13 +318,27 @@ pub fn cache_stats(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreSta
     ui.label(RichText::new("Cache").heading());
     ui.add_space(10.);
 
-    for (label, stats) in [("Images", images), ("Thumbnails", thumbnails)] {
+    for (label, stats, hint) in [
+        (
+            "Images",
+            images,
+            "Full size photographs. How many of the folder are decoded and waiting, \
+             and how many of those have a texture on the graphics card.",
+        ),
+        (
+            "Thumbnails",
+            thumbnails,
+            "The contact sheet's own copies, decoded small. They are kept whichever \
+             view is on screen, so the sheet opens instantly.",
+        ),
+    ] {
         ui.horizontal(|ui| {
             ui.label(RichText::new(format!("{label}:")).strong());
             ui.label(format!(
                 "{}/{} in RAM • {} on GPU",
                 stats.in_ram, stats.total, stats.on_gpu
-            ));
+            ))
+            .on_hover_text(hint);
         });
     }
 
@@ -191,14 +346,19 @@ pub fn cache_stats(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreSta
         ui.label(format!(
             "{} ready to zoom into at full resolution",
             images.at_full_resolution
-        ));
+        ))
+        .on_hover_text(
+            "Browsing keeps a copy no larger than the screen. These are the ones whose \
+             own pixels are also in hand, so magnifying them costs nothing.",
+        );
     }
 
     ui.add_space(6.0);
     memory(ui, images, thumbnails);
 
     if images.failed > 0 {
-        ui.label(format!("{} image(s) could not be opened", images.failed));
+        ui.label(format!("{} image(s) could not be opened", images.failed))
+            .on_hover_text("The log says why for each of them");
     }
 }
 
@@ -216,31 +376,40 @@ fn memory(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreStats) {
             "Decoded",
             images.resident_bytes + thumbnails.resident_bytes,
             Some(images.budget_bytes + thumbnails.budget_bytes),
+            "Pixels in RAM, waiting to be drawn. Governed by the RAM budget; when it \
+             is full the photograph furthest from the cursor is dropped.",
         ),
         (
             "On the GPU",
             images.gpu_bytes + thumbnails.gpu_bytes,
             Some(images.gpu_budget_bytes + thumbnails.gpu_budget_bytes),
+            "Textures on the graphics card: the same pixels again, plus a third for \
+             the mip chain. Governed by the GPU budget.",
         ),
         (
             "Thumbnails standing in",
             images.preview_bytes + thumbnails.preview_bytes,
             None,
+            "The camera's own embedded preview, kept so a photograph that has not \
+             been decoded yet still shows something.",
         ),
         (
             "Metadata read ahead",
             images.scanned_bytes + thumbnails.scanned_bytes,
             Some(images.scanned_budget_bytes + thumbnails.scanned_budget_bytes),
+            "EXIF and XMP read from the same buffer as the decode, so the panel and \
+             the filter never wait on a file.",
         ),
     ];
 
-    for (label, held, budget) in rows {
+    for (label, held, budget, hint) in rows {
         ui.horizontal(|ui| {
             ui.label(RichText::new(format!("{label}:")).weak());
             ui.label(match budget {
                 Some(budget) => format!("{} of {}", format_mib(held), format_mib(budget)),
                 None => format_mib(held),
-            });
+            })
+            .on_hover_text(hint);
         });
     }
 
@@ -251,11 +420,53 @@ fn memory(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreStats) {
             format_mib(images.held_bytes() + thumbnails.held_bytes())
         ))
         .strong(),
+    )
+    .on_hover_text(
+        "The four rows above added up. One figure used to be shown and it counted \
+         only the first, so on a large folder it was a fraction of what was really held.",
     );
 }
 
 fn format_mib(bytes: usize) -> String {
     format!("{:.0} MiB", bytes as f64 / (1024.0 * 1024.0))
+}
+
+/// One line saying the keyboard has been taken, and which key gets it back.
+///
+/// `are_inputs_muted` is `explicit-mute || memory.focused().is_some()`, so the
+/// whole viewer goes deaf while any text field holds focus — the filter bar's
+/// three, the tag panel's one, the folder jobs' eight — with `Escape` the only
+/// way out and `Alt+Q` the only shortcut that survives. Nothing on screen said
+/// any of it, so the symptom was a viewer that had stopped answering its keys.
+pub fn typing_notice(ctx: &egui::Context) {
+    if !ctx.memory(|memory| memory.focused().is_some()) {
+        return;
+    }
+
+    egui::TopBottomPanel::bottom("typing")
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new("Typing — Escape to get the keys back.")
+                        .color(ui.visuals().warn_fg_color),
+                );
+            });
+        });
+}
+
+/// One line, on the first session only, naming the two keys nothing else does.
+///
+/// Not a tour and not a dialogue: two keys in the corner, gone as soon as
+/// either is pressed. Somebody who already knows the program never sees it.
+pub fn first_run_hint(ctx: &egui::Context, menu_key: &str) {
+    egui::TopBottomPanel::bottom("first run")
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.weak(format!("Press ? for the keys · {menu_key} for the menu"));
+            });
+        });
 }
 
 #[cfg(test)]

@@ -61,15 +61,21 @@ fn sorting(ui: &mut egui::Ui, view: &mut OrganizeView) {
                 egui::TextEdit::singleline(&mut view.sort_tag)
                     .desired_width(WIDE)
                     .hint_text("tag, such as ISO"),
-            );
+            )
+            .on_hover_text("Any tag the files carry, spelled as it appears in the metadata panel");
         }
 
-        if ui.button(view.direction.label()).clicked() {
+        if ui
+            .button(view.direction.label())
+            .on_hover_text("Turns the order round")
+            .clicked()
+        {
             view.direction = view.direction.flipped();
         }
 
         let (selected, total) = view.counts();
-        ui.label(egui::RichText::new(format!("· {selected} of {total} files")).weak());
+        ui.label(egui::RichText::new(format!("· {selected} of {total} files")).weak())
+            .on_hover_text("How many the filter is letting through, out of the whole folder");
     });
 }
 
@@ -81,9 +87,15 @@ fn filtering(ui: &mut egui::Ui, view: &mut OrganizeView) {
             "Filter (on)".to_string()
         };
 
-        ui.toggle_value(&mut view.filter_open, label);
+        ui.toggle_value(&mut view.filter_open, label)
+            .on_hover_text("Narrows what the job below acts on. Nothing is hidden from disk.");
 
-        if !view.filter.is_empty() && ui.button("Clear").clicked() {
+        if !view.filter.is_empty()
+            && ui
+                .button("Clear")
+                .on_hover_text("Takes every rule off, so the job acts on the whole folder")
+                .clicked()
+        {
             view.filter = crate::organize::Filter::new();
         }
     });
@@ -97,18 +109,21 @@ fn filtering(ui: &mut egui::Ui, view: &mut OrganizeView) {
     ui.indent("organize filter", |ui| {
         ui.horizontal(|ui| {
             ui.label("Name contains:");
-            ui.add(egui::TextEdit::singleline(&mut filter.name_contains).desired_width(WIDE));
+            ui.add(egui::TextEdit::singleline(&mut filter.name_contains).desired_width(WIDE))
+                .on_hover_text("Part of the file name, ignoring case");
 
             ui.label("Type:");
             ui.add(
                 egui::TextEdit::singleline(&mut filter.extensions)
                     .desired_width(WIDE)
                     .hint_text("jpg, cr3"),
-            );
+            )
+            .on_hover_text("Extensions, comma separated, without dots. Empty means any.");
         });
 
         ui.horizontal(|ui| {
-            ui.label("Size between:");
+            ui.label("Size between:")
+                .on_hover_text("The file on disk, in bytes. Either end may be left empty.");
             optional_number(ui, &mut filter.min_size, "any");
             ui.label("and");
             optional_number(ui, &mut filter.max_size, "any");
@@ -121,12 +136,16 @@ fn filtering(ui: &mut egui::Ui, view: &mut OrganizeView) {
                 egui::TextEdit::singleline(&mut filter.metadata_tag)
                     .desired_width(WIDE)
                     .hint_text("tag, such as Camera Model Name"),
-            );
+            )
+            .on_hover_text("Spelled as it appears in the metadata panel");
             ui.label("contains");
             ui.add(
                 egui::TextEdit::singleline(&mut filter.metadata_contains)
                     .desired_width(WIDE)
                     .hint_text("anything"),
+            )
+            .on_hover_text(
+                "Part of the value, ignoring case. Empty keeps anything that has the tag at all.",
             );
         });
 
@@ -136,27 +155,31 @@ fn filtering(ui: &mut egui::Ui, view: &mut OrganizeView) {
                 egui::DragValue::new(&mut filter.min_rating)
                     .range(0..=5)
                     .clamp_existing_to_range(false),
-            );
+            )
+            .on_hover_text("Fewest stars to act on");
             ui.label("and");
             ui.add(
                 egui::DragValue::new(&mut filter.max_rating)
                     .range(0..=5)
                     .clamp_existing_to_range(false),
-            );
+            )
+            .on_hover_text("Most stars to act on");
 
             ui.label("Tagged:");
             ui.add(
                 egui::TextEdit::singleline(&mut filter.with_any_tag)
                     .desired_width(WIDE)
                     .hint_text("any of these"),
-            );
+            )
+            .on_hover_text("Keywords, comma separated. A file carrying any of them is kept.");
 
             ui.label("but not:");
             ui.add(
                 egui::TextEdit::singleline(&mut filter.without_tags)
                     .desired_width(WIDE)
                     .hint_text("none of these"),
-            );
+            )
+            .on_hover_text("Keywords, comma separated. A file carrying any of them is left out.");
         });
     });
 }

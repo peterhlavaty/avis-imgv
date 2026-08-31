@@ -1,14 +1,6 @@
 {
+  "version": 1,
   "image_view": {
-    "nr_loaded_images": 512,
-    "gpu_resident_images": 8,
-    "max_image_edge": 0,
-    "nr_images_shown": 1,
-    "should_wait": true,
-    "frame_size_relative_to_image": 0.2,
-    "scroll_navigation": true,
-    "enlarge_to_fit": true,
-    "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
     "overlay_corner": "off",
     "overlay_format": "{name}\n$({iso} ISO)$( • ƒ{aperture})$( • {shutter})$( • {focal})",
     "overlay_text_size": 15.0,
@@ -20,38 +12,17 @@
       "key": "c",
       "modifiers": []
     },
-    "user_actions": [
-      {
-        "shortcut": {
-          "key": "c",
-          "modifiers": [
-            "shift"
-          ]
-        },
-        "exec": "bash -c 'magick {} png:- | wl-copy && notify-send -i {} \"Copied Image to Clipboard!\" -t 5000'",
-        "callback": null
-      },
-      {
-        "shortcut": {
-          "key": "delete",
-          "modifiers": []
-        },
-        "exec": "bash -c 'mkdir -p $HOME/trash && mv -f {} $HOME/trash && notify-send -i $HOME/trash/{/} \"Moved Image to Trash!\" -t 5000 -u critical'",
-        "callback": "Pop"
-      }
-    ],
-    "context_menu": [
-      {
-        "description": "Copy to Clipboard",
-        "exec": "bash -c 'magick {} png:- | wl-copy && notify-send -i {} \"Copied Image to Clipboard!\" -t 5000'",
-        "callback": null
-      },
-      {
-        "description": "Delete",
-        "exec": "bash -c 'mkdir -p $HOME/trash && mv -f {} $HOME/trash && notify-send -i $HOME/trash/{/} \"Moved Image to Trash!\" -t 5000 -u critical'",
-        "callback": "Pop"
-      }
-    ],
+    "nr_loaded_images": 512,
+    "gpu_resident_images": 8,
+    "max_image_edge": 0,
+    "nr_images_shown": 1,
+    "should_wait": true,
+    "frame_size_relative_to_image": 0.2,
+    "scroll_navigation": true,
+    "enlarge_to_fit": true,
+    "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
+    "user_actions": [],
+    "context_menu": [],
     "sc_fit": {
       "key": "f",
       "modifiers": []
@@ -72,15 +43,15 @@
       "key": "ArrowLeft",
       "modifiers": []
     },
-    "sc_repeat_place": {
-      "key": "r",
-      "modifiers": []
-    },
     "sc_one_to_one": {
       "key": "1",
       "modifiers": [
         "alt"
       ]
+    },
+    "sc_repeat_place": {
+      "key": "r",
+      "modifiers": []
     },
     "sc_fit_horizontal": {
       "key": "h",
@@ -147,18 +118,7 @@
     "preloaded_rows": 1,
     "thumbnail_resolution": 512,
     "gpu_resident_thumbnails": 256,
-    "context_menu": [
-      {
-        "description": "Copy to Clipboard",
-        "exec": "bash -c 'magick {} png:- | wl-copy && notify-send -i {} \"Copied Image to Clipboard!\" -t 5000'",
-        "callback": null
-      },
-      {
-        "description": "Delete",
-        "exec": "bash -c 'mkdir -p $HOME/trash && mv -f {} $HOME/trash && notify-send -i $HOME/trash/{/} \"Moved Image to Trash!\" -t 5000 -u critical'",
-        "callback": "Pop"
-      }
-    ],
+    "context_menu": [],
     "sc_scroll": {
       "key": "PageDown",
       "modifiers": []
@@ -177,8 +137,8 @@
         "ctrl"
       ]
     },
-    "caption_format": "{name}.{ext}",
     "filmstrip_height": 0.0,
+    "caption_format": "{name}.{ext}",
     "sc_select": {
       "key": "Space",
       "modifiers": []
@@ -208,6 +168,7 @@
       "Color Space",
       "Directory"
     ],
+    "restore_session": true,
     "sc_toggle_gallery": {
       "key": "Backspace",
       "modifiers": []
@@ -258,6 +219,36 @@
         "ctrl"
       ]
     },
+    "sc_stacks": {
+      "key": "g",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_toggle_stack": {
+      "key": "e",
+      "modifiers": []
+    },
+    "sc_standing_back": {
+      "key": "Comma",
+      "modifiers": []
+    },
+    "sc_standing_forward": {
+      "key": "Period",
+      "modifiers": []
+    },
+    "sc_previous_stack": {
+      "key": "ArrowLeft",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_next_stack": {
+      "key": "ArrowRight",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
     "sc_delete": {
       "key": "delete",
       "modifiers": []
@@ -279,15 +270,14 @@
     "sc_suspend_filter": {
       "key": "Backslash",
       "modifiers": []
-    },
-    "restore_session": true
+    }
   },
   "cache": {
     "ram_budget_mb": 4096,
     "decode_threads": 0,
     "previews_resident": 16,
-    "gpu_budget_mb": 1024,
     "full_resolution_neighbours": 1,
+    "gpu_budget_mb": 1024,
     "upload_budget_ms": 8
   },
   "slideshow": {
@@ -305,8 +295,7 @@
           "Keeper",
           "Portfolio",
           "To edit",
-          "Sent",
-          "Reject"
+          "Sent"
         ]
       },
       {
@@ -318,23 +307,9 @@
           "Wildlife",
           "Architecture"
         ]
-      },
-      {
-        "name": "Places",
-        "tags": [
-          "Slovakia",
-          "Tatras",
-          "Bratislava"
-        ]
-      },
-      {
-        "name": "Client",
-        "tags": [
-          "Personal",
-          "Commissioned"
-        ]
       }
     ],
+    "catalog_file": null,
     "recent_tags": 12,
     "panel_width": 260.0,
     "sc_toggle_tag_panel": {
@@ -413,12 +388,12 @@
     }
   },
   "raw": {
+    "pair_with_jpeg": "jpeg",
     "source": "preview",
     "quality": "balanced",
     "camera_white_balance": true,
     "auto_brighten": true,
-    "highlight_mode": 0,
-    "pair_with_jpeg": "jpeg"
+    "highlight_mode": 0
   },
   "cull": {
     "destinations": [

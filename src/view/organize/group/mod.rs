@@ -106,7 +106,13 @@ fn actions(ui: &mut egui::Ui, view: &mut OrganizeView) -> Option<Done> {
     ui.horizontal(|ui| {
         let button = egui::Button::new(format!("Tidy {} group(s) into folders", planned.len()));
 
-        if ui.add_enabled(!planned.is_empty(), button).clicked() {
+        if ui
+            .add_enabled(!planned.is_empty(), button)
+            .on_hover_text(
+                "Moves the frames of each group into a folder of its own. This cannot \n                 be undone: the journal covers moves, copies and marks, not folder jobs.",
+            )
+            .clicked()
+        {
             let outcome = gather::apply(&planned);
 
             view.status = outcome.summary();
@@ -259,7 +265,7 @@ fn loose(ui: &mut egui::Ui, view: &mut OrganizeView) -> Option<Change> {
                                     egui::RichText::new(format!("◈ {:.1}", found.score())).weak(),
                                 )
                                 .on_hover_text(
-                                    "How sharp it looked, for comparing with frames of the                                      same scene",
+                                    "How sharp it looked, for comparing with frames of \n                                     the same scene",
                                 );
                             }
 

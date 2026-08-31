@@ -122,7 +122,13 @@ fn actions(ui: &mut egui::Ui, view: &mut OrganizeView, planned: &[Planned]) -> O
     ui.horizontal(|ui| {
         let button = egui::Button::new(format!("Change {changing} file(s)"));
 
-        if ui.add_enabled(ready, button).clicked() {
+        if ui
+            .add_enabled(ready, button)
+            .on_hover_text(
+                "Writes the corrected times into the files. This cannot be undone: the \n                 journal covers moves, copies and marks, not folder jobs.",
+            )
+            .clicked()
+        {
             let outcome = timeshift::apply(planned, &view.chosen_fields, view.offset);
 
             view.status = outcome.summary();

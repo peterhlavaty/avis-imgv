@@ -102,7 +102,13 @@ fn actions(ui: &mut egui::Ui, view: &mut OrganizeView, planned: &[Planned]) -> O
     ui.horizontal(|ui| {
         let button = egui::Button::new(format!("Rename {changing} file(s)"));
 
-        if ui.add_enabled(changing > 0, button).clicked() {
+        if ui
+            .add_enabled(changing > 0, button)
+            .on_hover_text(
+                "Renames the files on disk. This cannot be undone: the journal covers \n                 moves, copies and marks, not folder jobs.",
+            )
+            .clicked()
+        {
             let outcome = rename::apply(planned);
 
             view.status = outcome.summary();

@@ -97,6 +97,10 @@ impl App {
     /// Draws the rating and tagging panel and applies what was clicked.
     pub(super) fn show_tag_panel(&mut self, ctx: &egui::Context) {
         let Some(path) = self.marked_path() else {
+            // The panel used to return before drawing anything, so the key
+            // that opens it changed no pixel on an empty folder and looked
+            // broken.
+            tag_panel::nothing_open(ctx, self.tag_panel_visible, self.tag_config.panel_width);
             return;
         };
 

@@ -114,7 +114,8 @@ fn stacks(ui: &mut egui::Ui, state: &mut StackState<'_>) -> StackOutcome {
         return outcome;
     }
 
-    ui.label(RichText::new(format!("{} runs · {} frames", state.found, state.stacked)).weak());
+    ui.label(RichText::new(format!("{} stacks · {} frames", state.found, state.stacked)).weak())
+        .on_hover_text("How many runs of frames the folder holds, and how many frames are in them");
 
     let (label, wanted) = if state.all_collapsed {
         ("Open all", false)

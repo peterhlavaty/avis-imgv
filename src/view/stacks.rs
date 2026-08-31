@@ -78,12 +78,16 @@ pub struct Place {
 }
 
 impl Place {
-    /// `series 3 · frame 4 of 17 · stack 6 of 41`, for the bar under the
+    /// `Focus stack 3 · frame 4 of 17 · stack 6 of 41`, for the bar under the
     /// photograph.
+    ///
+    /// `Kind::label` and not `Kind::folder`, whose documented job is to name a
+    /// *folder*: a focus stack read "stack 3 · frame 4 of 17 · stack 3 of 41",
+    /// which uses one word for two things and prints the same number twice.
     pub fn describe(&self) -> String {
         format!(
             "{} {} · frame {} of {} · stack {} of {}",
-            self.kind.folder(),
+            self.kind.label(),
             self.stack,
             self.frame,
             self.frames,
@@ -359,12 +363,18 @@ impl Stacks {
 /// Shapes rather than colours: the cell already says the rating and the flag
 /// in colour, and a burst and a bracket are different questions rather than
 /// different amounts of the same one.
+///
+/// Every one of them has to be in a font the proportional chain actually
+/// loads — the bundled Atkinson, then Ubuntu-Light, NotoEmoji and
+/// emoji-icon-font. `◐` and `❏` were not: `◐` is in Hack, which is the
+/// *monospace* family, and `❏` is in none of them, so both drew an empty box
+/// wherever they appeared. The legend is what made that visible.
 pub fn glyph(kind: Kind) -> &'static str {
     match kind {
-        Kind::Hdr => "◐",
+        Kind::Hdr => "◑",
         Kind::FocusStack => "◎",
         Kind::Timelapse => "⏱",
-        Kind::Series => "❏",
+        Kind::Series => "▣",
     }
 }
 
@@ -526,7 +536,7 @@ mod tests {
         assert!(stacks.place_of(3).is_none());
         assert_eq!(
             stacks.place_of(0).unwrap().describe(),
-            "series 1 · frame 1 of 3 · stack 1 of 2"
+            "Series 1 · frame 1 of 3 · stack 1 of 2"
         );
     }
 

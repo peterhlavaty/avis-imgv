@@ -49,6 +49,24 @@ pub struct State {
 ///
 /// Nothing is drawn while `visible` is false, and the panel animates in and
 /// out with it.
+/// Draws the panel greyed, for when there is no photograph to talk about.
+///
+/// The panel used to return before drawing anything, so pressing its key on an
+/// empty folder changed no pixel and looked like a key that did nothing.
+pub fn nothing_open(ctx: &egui::Context, visible: bool, width: f32) {
+    egui::SidePanel::left("tag_panel")
+        .resizable(true)
+        .show_separator_line(false)
+        .default_width(width)
+        .min_width(180.)
+        .show_animated(ctx, visible, |ui| {
+            ui.add_space(20.);
+            ui.label(RichText::new("Rating & Tags").heading());
+            ui.add_space(10.);
+            ui.weak("No photograph open. Stars, flags, colours and keywords go on one.");
+        });
+}
+
 pub fn ui(
     ctx: &egui::Context,
     visible: bool,
