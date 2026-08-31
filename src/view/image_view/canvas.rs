@@ -67,7 +67,7 @@ impl Viewport {
 
 /// What the last draw worked out, needed by the zoom commands and the status
 /// bar.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct Metrics {
     /// Full resolution of the texture.
     pub image_size: Vec2,
@@ -83,6 +83,52 @@ pub struct Metrics {
     /// What the uploaded resolution has to cover, so it is measured in the
     /// same physical pixels a texture is.
     pub drawn_width: f32,
+    /// Screen pixels to a logical point, as the window is scaled right now.
+    ///
+    /// A texture is measured in pixels and a layout in points, so anything
+    /// that compares the two — what "100%" means, above all — needs this and
+    /// is wrong without it.
+    pub pixels_per_point: f32,
+    /// Where on screen the image ended up.
+    ///
+    /// Needed to zoom about the pointer: the panel is not the picture, and a
+    /// letterboxed photograph sits somewhere inside it.
+    pub rect: Rect,
+}
+
+/// Nothing drawn yet, which every zoom command has to be safe against.
+///
+/// Written out rather than derived because a rectangle has no default: an
+/// empty one at the origin is the honest answer here, and `Rect::ZERO` is it.
+impl Default for Metrics {
+    fn default() -> Self {
+        Metrics {
+            image_size: Vec2::ZERO,
+            available_size: Vec2::ZERO,
+            fit_size: Vec2::ZERO,
+            percentage_zoom: 0.0,
+            drawn_width: 0.0,
+            pixels_per_point: 1.0,
+            rect: Rect::ZERO,
+        }
+    }
+}
+
+impl Metrics {
+    /// Size the whole image takes at the current zoom, in points.
+    pub fn scaled(&self, zoom: f32) -> Vec2 {
+        self.fit_size * zoom
+    }
+
+    /// The window onto it, which is the smaller of the image and the panel.
+    pub fn display(&self, zoom: f32) -> Vec2 {
+        let scaled = self.scaled(zoom);
+
+        Vec2::new(
+            scaled.x.min(self.available_size.x),
+            scaled.y.min(self.available_size.y),
+        )
+    }
 }
 
 /// Draws `texture` into the current `ui`, returning the geometry it used.
@@ -131,28 +177,35 @@ pub fn draw(
         viewport.pan = pan;
     }
 
-    let metrics = Metrics {
-        image_size: texture.size,
-        available_size: available,
-        fit_size,
-        percentage_zoom: if texture.size.x > 0.0 {
-            scaled.x * 100.0 / texture.size.x
-        } else {
-            0.0
-        },
-        drawn_width: scaled.x * ui.ctx().pixels_per_point(),
-    };
+    let pixels_per_point = ui.ctx().pixels_per_point();
+    let drawn_width = scaled.x * pixels_per_point;
 
-    let display_size = if style.frame.enabled {
+    let framed = if style.frame.enabled {
         paint_frame(ui, display_size, style.frame.relative_size)
     } else {
         display_size
     };
 
-    let (rect, _) = ui.allocate_exact_size(display_size, Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(framed, Sense::hover());
     texture::draw(ui, rect, texture, uv);
 
-    metrics
+    Metrics {
+        image_size: texture.size,
+        available_size: available,
+        fit_size,
+        // Against the pixels the screen actually has, not the points the
+        // layout is measured in. They are the same thing only at 100% window
+        // scaling, and everywhere else this used to report a photograph drawn
+        // one pixel for one pixel as 80%.
+        percentage_zoom: if texture.size.x > 0.0 {
+            drawn_width * 100.0 / texture.size.x
+        } else {
+            0.0
+        },
+        drawn_width,
+        pixels_per_point,
+        rect,
+    }
 }
 
 /// Where the view sits `progress` of the way across a picture larger than the

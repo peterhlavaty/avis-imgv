@@ -48,6 +48,17 @@ const PAGE: usize = 10;
 
 const MAX_IMAGES_SHOWN: usize = 8;
 
+/// What a zoom holds still: the middle of the picture, or the point the
+/// pointer is over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Anchor {
+    Centre,
+    Pointer,
+}
+
+use Anchor::Centre as CENTRE;
+use Anchor::Pointer as POINTER;
+
 pub struct ImageView {
     store: ImageStore,
     /// Position in the store, not in what is on show.
@@ -152,6 +163,55 @@ impl ImageView {
         self.run_slideshow(ctx);
     }
 
+    /// Applies a zoom and moves the pan so that a chosen point stays where it
+    /// is.
+    ///
+    /// Zooming used to keep the middle of the *panel* whatever the user was
+    /// looking at, so magnifying something near an edge pushed it further out
+    /// of sight with every step — the one thing zoom is for.
+    fn zooming(
+        &mut self,
+        ctx: &egui::Context,
+        anchor: Anchor,
+        change: impl FnOnce(&mut Viewport, &Metrics),
+    ) {
+        let held = match anchor {
+            Anchor::Centre => Vec2::splat(0.5),
+            Anchor::Pointer => self.pointer_anchor(ctx),
+        };
+
+        let before = self.viewport.zoom;
+        change(&mut self.viewport, &self.metrics);
+
+        self.viewport.pan = zoom::hold(
+            &self.metrics,
+            self.viewport.pan,
+            before,
+            self.viewport.zoom,
+            held,
+        );
+    }
+
+    /// Where the pointer is over the drawn photograph, nought to one.
+    ///
+    /// The middle when it is somewhere else entirely, because a keyboard zoom
+    /// should not depend on where the mouse happens to be resting.
+    fn pointer_anchor(&self, ctx: &egui::Context) -> Vec2 {
+        let rect = self.metrics.rect;
+        let Some(at) = ctx.input(|i| i.pointer.latest_pos()) else {
+            return Vec2::splat(0.5);
+        };
+
+        if !rect.contains(at) || rect.width() <= 0.0 || rect.height() <= 0.0 {
+            return Vec2::splat(0.5);
+        }
+
+        Vec2::new(
+            (at.x - rect.left()) / rect.width(),
+            (at.y - rect.top()) / rect.height(),
+        )
+    }
+
     fn apply(&mut self, command: Command, ctx: &egui::Context) {
         match command {
             Command::Next => {
@@ -183,18 +243,27 @@ impl ImageView {
             Command::Last => self.jump_to_end(true),
             Command::PageForward => self.page(true, PAGE),
             Command::PageBack => self.page(false, PAGE),
-            Command::Fit => zoom::fit(&mut self.viewport),
-            Command::Fill => zoom::fill(&mut self.viewport, &self.metrics),
+            // Fitting and filling are about the panel rather than about a
+            // point in the picture, so they hold its middle; everything that
+            // magnifies holds whatever is under the pointer.
+            Command::Fit => self.zooming(ctx, CENTRE, |viewport, _| zoom::fit(viewport)),
+            Command::Fill => self.zooming(ctx, CENTRE, zoom::fill),
             Command::ToggleFillLatch => {
                 self.viewport.maximize = !self.viewport.maximize;
                 self.viewport.maximized = false;
             }
-            Command::FitHorizontal => zoom::fit_horizontal(&mut self.viewport, &self.metrics),
-            Command::FitVertical => zoom::fit_vertical(&mut self.viewport, &self.metrics),
-            Command::ZoomStep => zoom::step(&mut self.viewport),
-            Command::ZoomBy(factor) => zoom::by(&mut self.viewport, factor),
+            Command::FitHorizontal => self.zooming(ctx, CENTRE, zoom::fit_horizontal),
+            Command::FitVertical => self.zooming(ctx, CENTRE, zoom::fit_vertical),
+            Command::ZoomStep => {
+                self.zooming(ctx, POINTER, |viewport, _| zoom::step(viewport));
+            }
+            Command::ZoomBy(factor) => {
+                self.zooming(ctx, POINTER, |viewport, _| zoom::by(viewport, factor));
+            }
             Command::ZoomToPercent(percent) => {
-                zoom::to_percent(&mut self.viewport, &self.metrics, percent)
+                self.zooming(ctx, POINTER, |viewport, metrics| {
+                    zoom::to_percent(viewport, metrics, percent)
+                });
             }
             Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,
@@ -477,7 +546,6 @@ impl ImageView {
         let comparing = self.is_comparing();
         let mut status = Status {
             jump_to: &mut self.jump_to,
-            zoom: &mut self.viewport.zoom,
             // One based for the user, and zero when there is nothing open.
             position: total.min(at + 1),
             total,

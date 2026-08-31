@@ -665,6 +665,18 @@ viewer logs that it is showing previews instead.
 | / | Drop that pane; the survivors re-tile |
 | Escape | Leave the comparison |
 
+Zooming keeps the point under the pointer, so magnifying an eye near the edge
+of the frame brings the eye closer rather than pushing it off screen. The keys
+that are about the panel rather than about a point in the picture — fit, fill,
+fit horizontal, fit vertical — hold the middle instead.
+
+`100%` means one image pixel to one **screen** pixel, counted in the pixels the
+screen actually has rather than in the points a window at 125% scaling is laid
+out in. The readout beside the slider says the same number, and the slider runs
+from 1% to 1600% logarithmically: it used to run from a tenth to ten times the
+*fitted* size, which on a twenty-four megapixel photograph could not reach
+actual size at all.
+
 Zoom and pan belong to the image, not to the window: leaving a photograph
 half way into a corner and coming back to it later finds it exactly there.
 

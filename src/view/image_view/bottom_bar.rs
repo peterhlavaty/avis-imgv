@@ -51,7 +51,6 @@ pub struct Flags {
 /// Everything the bar draws, borrowed from the view.
 pub struct Status<'a> {
     pub jump_to: &'a mut String,
-    pub zoom: &'a mut f32,
     /// One based, as shown to the user.
     pub position: usize,
     pub total: usize,
@@ -123,10 +122,9 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                 ui.with_layout(
                     egui::Layout::right_to_left(eframe::emath::Align::Max),
                     |ui| {
-                        ui.add_sized(
-                            Vec2::new(200., ui.available_height()),
-                            egui::Slider::new(status.zoom, 0.1..=10.0).text("🔎"),
-                        );
+                        outcome
+                            .commands
+                            .extend(zoom_slider(ui, status.percentage_zoom));
 
                         outcome
                             .commands
@@ -193,6 +191,41 @@ fn jump_field(ui: &mut egui::Ui, status: &mut Status<'_>) -> Option<usize> {
     typed
         .filter(|position| (1..=status.total).contains(position))
         .map(|position| position - 1)
+}
+
+/// Smallest and largest the slider reaches, as a percentage of the
+/// photograph's own pixels.
+///
+/// The slider used to run from a tenth to ten times *the fitted size*, which
+/// on a twenty-four megapixel photograph in a normal window could not reach
+/// one-for-one at all: fitted is about a twelfth of native, so ten times
+/// fitted is still less than actual size. It runs in the same percentages the
+/// readout beside it shows now, logarithmically, so a drag covers the whole
+/// range and the useful end of it is not squeezed into the first millimetre.
+const MIN_PERCENT: f32 = 1.0;
+const MAX_PERCENT: f32 = 1600.0;
+
+fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
+    // Before the first frame there is no magnification to show, and a slider
+    // sitting at its floor would look like one.
+    if percentage_zoom <= 0.0 {
+        return Vec::new();
+    }
+
+    let mut percent = percentage_zoom.clamp(MIN_PERCENT, MAX_PERCENT);
+    let slider = ui.add_sized(
+        Vec2::new(200., ui.available_height()),
+        egui::Slider::new(&mut percent, MIN_PERCENT..=MAX_PERCENT)
+            .logarithmic(true)
+            .show_value(false)
+            .text("🔎"),
+    );
+
+    if slider.changed() {
+        return vec![Command::ZoomToPercent(percent)];
+    }
+
+    Vec::new()
 }
 
 fn zoom_label(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {

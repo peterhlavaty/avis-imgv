@@ -2,6 +2,21 @@
 
 ## 2026-08-30
 
+- **Zoom that holds its point.** Magnifying used to keep the middle of the
+  *panel*, so zooming in on something near an edge pushed it further out of
+  sight with every step — the one thing zoom is for. The point under the
+  pointer stays under the pointer now, for the keys, the wheel and a pinch
+  alike; fit, fill and the two fit-to-an-edge commands hold the middle, being
+  about the panel rather than about a point in the picture.
+- Fixed: `100%` was counted in layout points rather than in the pixels the
+  screen has, so on a window at 125% scaling a photograph drawn one pixel for
+  one pixel reported itself as 80% — and asking for 100% drew it a quarter
+  larger than it claimed.
+- Fixed: the zoom slider ran from a tenth to ten times the *fitted* size. On a
+  twenty-four megapixel photograph in a normal window fitted is about a
+  twelfth of actual size, so the slider could not reach one-for-one at all. It
+  runs from 1% to 1600% of the photograph's own pixels now, logarithmically,
+  in the same percentages the readout beside it shows.
 - **A selection, on `Space`.** The contact sheet picks photographs out:
   `Space` toggles the one under the cursor, `Shift` with the arrow keys picks
   out everything walked over, `Ctrl + A` takes everything on show, `Ctrl` and

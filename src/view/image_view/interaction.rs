@@ -9,7 +9,7 @@ use eframe::epaint::Vec2;
 
 use crate::actions::{self, Callback};
 
-use super::{input, zoom, ImageView};
+use super::{input, ImageView};
 
 impl ImageView {
     pub(super) fn handle_pointer(&mut self, ctx: &egui::Context, response: &Response) {
@@ -21,9 +21,11 @@ impl ImageView {
             }
         }
 
+        // Through the same command as the keys, so a pinch holds the point
+        // under the fingers rather than the middle of the panel.
         let zoom_delta = ctx.input(|i| i.zoom_delta());
         if zoom_delta != 1.0 {
-            zoom::by(&mut self.viewport, zoom_delta);
+            self.apply(input::Command::ZoomBy(zoom_delta), ctx);
         }
 
         let keyboard = self.keyboard_panning(ctx);
