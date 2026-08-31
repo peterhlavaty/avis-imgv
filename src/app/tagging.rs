@@ -103,10 +103,12 @@ impl App {
         self.load_annotations(&path);
         let applies_to = self.marked_paths().len();
 
+        self.refresh_seen_tags();
+
         let actions = {
             // Tags typed on other images of this folder are offered again
             // without having to be configured.
-            let seen = self.annotations.known_tags();
+            let seen: Vec<&str> = self.seen_tags.1.iter().map(String::as_str).collect();
             let empty = Xmp::default();
             let source = tag_panel::Source {
                 annotations: self.annotations.peek(&path).unwrap_or(&empty),
@@ -168,6 +170,28 @@ impl App {
 
         self.refresh_marks(&targets);
         self.recent_tags.save_if_changed();
+    }
+
+    /// Rebuilds the keyword list the panel offers, if it would have changed.
+    ///
+    /// A walk over every entry in the folder, sorted and deduplicated, which
+    /// was being done on every frame the panel was open — on a folder of two
+    /// thousand rated photographs that is real work to arrive back where it
+    /// started, since keywords change only when somebody types one.
+    fn refresh_seen_tags(&mut self) {
+        let revision = self.annotations.revision();
+        if self.seen_tags.0 == Some(revision) {
+            return;
+        }
+
+        self.seen_tags = (
+            Some(revision),
+            self.annotations
+                .known_tags()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+        );
     }
 
     /// Applies something to every photograph in `targets`, recording it as one

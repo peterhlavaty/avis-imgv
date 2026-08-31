@@ -110,28 +110,30 @@ impl DirectoryWatcher {
         }
     }
 
-    /// Takes the changes seen since the last call.
+    /// Takes the events seen since the last call.
     ///
-    /// `known` decides whether a path is an addition or a modification.
-    pub fn take_changes(&mut self, known: impl Fn(&Path) -> bool) -> Changes {
+    /// Handed out unclassified because deciding what is an arrival and what is
+    /// a change needs to know what the collection holds, and building that
+    /// answer is only worth doing when there is something to answer about — a
+    /// watched folder is quiet almost every frame.
+    pub fn take_events(&mut self) -> Vec<Event> {
         let Ok(mut queue) = self.events.try_lock() else {
             // Contended for one frame at most; the events stay queued.
-            return Changes::default();
+            return Vec::new();
         };
 
-        let events = std::mem::take(&mut *queue);
-        drop(queue);
-
-        classify(events, known)
+        std::mem::take(&mut *queue)
     }
 }
 
 /// Sorts watcher events into arrivals, changes and departures.
 ///
+/// `known` decides whether a path is already in the collection.
+///
 /// A rename arrives as a remove and a create, which is exactly right: the old
 /// name leaves the collection and the new one joins it at its own sorted
 /// position.
-fn classify(events: Vec<Event>, known: impl Fn(&Path) -> bool) -> Changes {
+pub fn classify(events: Vec<Event>, known: impl Fn(&Path) -> bool) -> Changes {
     let mut changes = Changes::default();
 
     for event in events {
@@ -280,6 +282,6 @@ mod tests {
         let mut watcher = DirectoryWatcher::default();
 
         assert!(!watcher.is_active());
-        assert!(watcher.take_changes(|_| false).is_empty());
+        assert!(watcher.take_events().is_empty());
     }
 }

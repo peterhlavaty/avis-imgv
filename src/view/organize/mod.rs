@@ -66,6 +66,13 @@ pub struct OrganizeView {
     /// groups are read again — but not on every frame, which would throw away
     /// every correction the user had made.
     groups_stale: bool,
+    /// Changes whenever `selection` is rebuilt, so anything derived from it
+    /// can tell without comparing the whole list.
+    selection_revision: u64,
+    /// What a rename would do, and what that was worked out for.
+    planned: Vec<organize::rename::Planned>,
+    plan_rows: Vec<table::Row>,
+    planned_for: Option<(u64, organize::rename::Options)>,
 
     /// The last thing that happened, shown under the buttons.
     status: String,
@@ -98,6 +105,10 @@ impl OrganizeView {
             groups: Vec::new(),
             loose: Vec::new(),
             groups_stale: true,
+            selection_revision: 0,
+            planned: Vec::new(),
+            plan_rows: Vec::new(),
+            planned_for: None,
             status: String::new(),
         }
     }
@@ -186,6 +197,26 @@ impl OrganizeView {
         organize::sort::sort(&mut self.selection, &key, self.direction);
 
         self.stale = false;
+        self.selection_revision += 1;
+    }
+
+    /// Works out what a rename would do, if it would differ from last time.
+    ///
+    /// The plan is a new name for every file in the folder, built from a
+    /// template, and the table under it is a pair of strings per row. Both
+    /// were being rebuilt on every frame the panel was drawn, which on a
+    /// folder of two thousand files is a great deal of work to arrive back at
+    /// the same answer — a rename plan changes when the selection changes or
+    /// when somebody types in the template box, and at no other time.
+    pub(super) fn plan_rename(&mut self) {
+        let wanted = (self.selection_revision, self.rename.clone());
+        if self.planned_for.as_ref() == Some(&wanted) {
+            return;
+        }
+
+        self.planned = organize::rename::plan(&self.selection, &self.rename);
+        self.plan_rows = rename::rows(&self.planned);
+        self.planned_for = Some(wanted);
     }
 
     /// Reads the selection into groups again, if something has moved.
@@ -246,6 +277,7 @@ impl OrganizeView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::organize::rename::Planned;
 
     fn view_over(names: &[&str]) -> OrganizeView {
         let mut view = OrganizeView::new();
@@ -275,6 +307,62 @@ mod tests {
         view.refresh();
 
         assert_eq!(view.counts(), (1, 2));
+    }
+
+    /// The plan is worked out when it would differ and not otherwise, and
+    /// what it hands back is the same either way.
+    #[test]
+    fn the_rename_plan_is_kept_between_frames() {
+        let mut view = view_over(&["b.jpg", "a.jpg"]);
+        view.refresh();
+        view.rename.template = "{counter}".into();
+
+        view.plan_rename();
+        let first = view.planned_for.clone();
+        assert_eq!(view.planned.len(), 2);
+        assert_eq!(view.plan_rows.len(), 2);
+        let names: Vec<String> = view.planned.iter().map(Planned::new_name).collect();
+
+        // Drawn again with nothing changed: not worked out again.
+        view.plan_rename();
+        assert_eq!(view.planned_for, first);
+        assert_eq!(
+            view.planned
+                .iter()
+                .map(Planned::new_name)
+                .collect::<Vec<_>>(),
+            names
+        );
+
+        // Typing in the template box is a change.
+        view.rename.template = "{name}-x".into();
+        view.plan_rename();
+        assert_ne!(view.planned_for, first);
+        assert_ne!(
+            view.planned
+                .iter()
+                .map(Planned::new_name)
+                .collect::<Vec<_>>(),
+            names
+        );
+    }
+
+    /// And a different selection is a different plan, even when the options
+    /// have not moved: the counter follows the order.
+    #[test]
+    fn narrowing_the_selection_replans() {
+        let mut view = view_over(&["a.jpg", "b.png"]);
+        view.refresh();
+        view.plan_rename();
+
+        assert_eq!(view.planned.len(), 2);
+
+        view.filter.extensions = "jpg".into();
+        view.stale = true;
+        view.refresh();
+        view.plan_rename();
+
+        assert_eq!(view.planned.len(), 1);
     }
 
     #[test]

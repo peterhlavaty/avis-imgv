@@ -2,6 +2,25 @@
 
 ## 2026-08-30
 
+- **Four kinds of work that every frame was doing again.** None of them shows
+  up in the benchmark, which moves to a new photograph every frame and never
+  opens a panel — they are what the viewer does while somebody is looking at
+  something rather than racing past it.
+  - The four preload windows each store computes are kept between frames and
+    rebuilt only when the cursor, the collection or the radius has moved. The
+    duplicate check inside them, which scanned everything collected so far on
+    every step and so squared the radius, is replaced by the arithmetic that
+    says where the one duplicate can be: where the window reaches half way
+    round and meets itself.
+  - The folder watcher copied every path in the folder on every frame to
+    decide what a change was about, before finding out there were no changes.
+    It looks at the events first and builds an index only when there are any.
+  - The keyword list the tag panel offers — a walk over every entry in the
+    folder, sorted and deduplicated — is rebuilt when the annotations change
+    rather than on every frame the panel is open.
+  - The rename plan and the table under it — a new name for every file in the
+    folder, and two strings per row — are worked out when the selection or the
+    template changes, which is when they can differ.
 - **A raw and a JPEG shot together are one photograph.** A camera set to
   raw+JPEG writes two files of the same frame; browsing both means walking the
   shoot twice, rating everything twice, and letting the two copies disagree —

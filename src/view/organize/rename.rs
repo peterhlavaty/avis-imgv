@@ -13,11 +13,20 @@ pub fn show(ui: &mut egui::Ui, view: &mut OrganizeView) -> Option<Done> {
     template(ui, &mut view.rename);
     counter(ui, &mut view.rename);
 
-    let planned = rename::plan(&view.selection, &view.rename);
+    view.plan_rename();
+
+    // Borrowed out and handed back: drawing the buttons needs the view, and
+    // the plan lives on it.
+    let planned = std::mem::take(&mut view.planned);
+    let rows = std::mem::take(&mut view.plan_rows);
+
     let done = actions(ui, view, &planned);
 
     ui.add_space(6.0);
-    table::show(ui, ("Now", "Would become"), &rows(&planned));
+    table::show(ui, ("Now", "Would become"), &rows);
+
+    view.planned = planned;
+    view.plan_rows = rows;
 
     done
 }
@@ -107,7 +116,7 @@ fn actions(ui: &mut egui::Ui, view: &mut OrganizeView, planned: &[Planned]) -> O
     done
 }
 
-fn rows(planned: &[Planned]) -> Vec<Row> {
+pub(super) fn rows(planned: &[Planned]) -> Vec<Row> {
     planned
         .iter()
         .map(|plan| Row {

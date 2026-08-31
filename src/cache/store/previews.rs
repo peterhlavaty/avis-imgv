@@ -5,7 +5,6 @@
 //! on screen while the decoders work, and what fills the side panel.
 
 use super::super::loader::ImageKey;
-use super::super::policy;
 use super::ImageStore;
 
 impl ImageStore {
@@ -15,12 +14,11 @@ impl ImageStore {
     /// in the moment between an image being asked for and its decode landing,
     /// and reading the front of every file in a wide window would take disk
     /// bandwidth away from the decoders that actually need it.
-    pub(super) fn preview_window(&self) -> Vec<usize> {
-        policy::window(
-            self.cursor,
-            self.paths.len(),
-            self.config.previews_resident / 2,
-        )
+    pub(super) fn preview_window(&mut self) -> &[usize] {
+        let radius = self.config.previews_resident / 2;
+        let (cursor, total) = (self.cursor, self.paths.len());
+
+        self.windows.previews.get(cursor, total, radius)
     }
 
     /// Reads the front of the files around the cursor, which gives their
@@ -30,26 +28,34 @@ impl ImageStore {
             return;
         }
 
-        for index in &self.preview_window() {
+        // Handed over so the loop can change the store it came from.
+        let radius = self.config.previews_resident / 2;
+        let (cursor, total) = (self.cursor, self.paths.len());
+        self.windows.previews.get(cursor, total, radius);
+        let window = self.windows.previews.take();
+
+        for index in window.iter().copied() {
             // Once the real image is decoded a thumbnail is no longer wanted.
-            if self.preview_requested.contains(index) || self.ram.contains(*index) {
+            if self.preview_requested.contains(&index) || self.ram.contains(index) {
                 continue;
             }
 
-            let Some(path) = self.paths.get(*index) else {
+            let Some(path) = self.paths.get(index) else {
                 continue;
             };
 
-            self.preview_requested.insert(*index);
+            self.preview_requested.insert(index);
             self.preview_loader.submit(
                 ImageKey {
                     generation: self.generation,
-                    index: *index,
+                    index,
                 },
                 path.clone(),
                 self.preview_responder.clone(),
             );
         }
+
+        self.windows.previews.give_back(window);
     }
 
     /// Takes in the previews that have been read.

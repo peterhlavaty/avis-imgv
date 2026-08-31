@@ -109,6 +109,13 @@ pub struct App {
     /// touches a file expands through this so that none of them has to know
     /// that pairing exists.
     pairs: Pairs,
+    /// The keywords this folder has been seen to use, and the revision of the
+    /// annotations they were read at.
+    ///
+    /// `None` until the panel has been opened once. An empty list is a real
+    /// answer — most folders have no keywords in them — so "not read yet" has
+    /// to be something other than "read, and empty".
+    seen_tags: (Option<u64>, Vec<String>),
 }
 
 impl App {
@@ -200,6 +207,7 @@ impl App {
             filter_visible: false,
             marks: Vec::new(),
             pairs: Pairs::default(),
+            seen_tags: (None, Vec::new()),
         };
 
         for clash in keys::clashes(&app.settings) {

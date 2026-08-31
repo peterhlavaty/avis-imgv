@@ -34,25 +34,87 @@ pub fn furthest(
 ///
 /// This is both the set worth having in memory and the order to load it in.
 pub fn window(cursor: usize, total: usize, radius: usize) -> Vec<usize> {
+    let mut indices = Vec::new();
+    fill(&mut indices, cursor, total, radius);
+
+    indices
+}
+
+/// The same, into a buffer that is already there.
+///
+/// Four of these are wanted every frame by every store, and they are the same
+/// four as last frame nearly always — see [`Window`], which is what actually
+/// calls this.
+pub fn fill(indices: &mut Vec<usize>, cursor: usize, total: usize, radius: usize) {
+    indices.clear();
     if total == 0 {
-        return Vec::new();
+        return;
     }
 
     let cursor = cursor % total;
     let radius = radius.min(total / 2);
-    let mut indices = Vec::with_capacity((radius * 2 + 1).min(total));
+    indices.reserve((radius * 2 + 1).min(total));
     indices.push(cursor);
 
     for step in 1..=radius {
         // Forward first: most navigation goes that way.
         indices.push((cursor + step) % total);
-        let backward = (cursor + total - step % total) % total;
-        if !indices.contains(&backward) {
-            indices.push(backward);
+
+        // The backward index duplicates a forward one in exactly one case:
+        // when the window reaches half way round and meets itself on the far
+        // side. `radius` is already capped at half the collection, so that is
+        // the last step of an even-sized one and nothing else — which is worth
+        // knowing, because the alternative was scanning everything collected
+        // so far on every step, and squaring the radius to save one index.
+        if 2 * step != total {
+            indices.push((cursor + total - step) % total);
         }
     }
+}
 
-    indices
+/// A window kept between frames, recomputed only when it would differ.
+///
+/// The cursor, the collection and the radius are all the same as last frame
+/// for as long as nobody is navigating, which is most of the time — and while
+/// somebody *is* navigating is exactly when the frame budget matters.
+#[derive(Debug, Default)]
+pub struct Window {
+    indices: Vec<usize>,
+    /// Cursor, collection size and radius the indices were computed for.
+    ///
+    /// `None` until the first computation, so an empty collection is still
+    /// only worked out once.
+    computed_for: Option<(usize, usize, usize)>,
+}
+
+impl Window {
+    /// The window for these parameters, computed only if it has changed.
+    pub fn get(&mut self, cursor: usize, total: usize, radius: usize) -> &[usize] {
+        let wanted = (cursor, total, radius);
+
+        if self.computed_for != Some(wanted) {
+            fill(&mut self.indices, cursor, total, radius);
+            self.computed_for = Some(wanted);
+        }
+
+        &self.indices
+    }
+
+    /// Hands the buffer over so the caller can iterate it while changing what
+    /// it borrowed it from, and [`Window::give_back`] returns it.
+    pub fn take(&mut self) -> Vec<usize> {
+        std::mem::take(&mut self.indices)
+    }
+
+    pub fn give_back(&mut self, indices: Vec<usize>) {
+        self.indices = indices;
+    }
+
+    /// Forgets what was computed, for when the collection has changed under
+    /// it in a way the parameters do not show.
+    pub fn forget(&mut self) {
+        self.computed_for = None;
+    }
 }
 
 /// Share of the budget the window is allowed to fill.
@@ -207,6 +269,78 @@ mod tests {
         assert_eq!(furthest([0, 5].into_iter(), 0, 10, 5), Some(0));
         assert_eq!(furthest([5].into_iter(), 0, 10, 5), None);
         assert_eq!(furthest([].into_iter(), 0, 10, 5), None);
+    }
+
+    /// The case the duplicate check existed for: a window that reaches half
+    /// way round meets itself, and the far index must appear once.
+    #[test]
+    fn a_window_that_meets_itself_lists_each_index_once() {
+        for total in [2usize, 4, 6, 8, 9, 10, 11] {
+            for radius in 0..=total {
+                let found = window(0, total, radius);
+                let mut sorted = found.clone();
+                sorted.sort_unstable();
+                sorted.dedup();
+
+                assert_eq!(
+                    found.len(),
+                    sorted.len(),
+                    "total {total}, radius {radius}: {found:?}"
+                );
+            }
+        }
+    }
+
+    /// And it still lists everything it should: a radius of half the
+    /// collection reaches every photograph in it.
+    #[test]
+    fn a_full_radius_reaches_everything() {
+        for total in [1usize, 2, 3, 4, 7, 8] {
+            let found = window(0, total, total);
+            assert_eq!(found.len(), total, "total {total}: {found:?}");
+        }
+    }
+
+    /// A memoised window is the same window.
+    #[test]
+    fn a_kept_window_matches_a_fresh_one() {
+        let mut kept = Window::default();
+
+        for (cursor, total, radius) in [(0, 10, 2), (5, 10, 2), (5, 10, 4), (0, 0, 3), (3, 7, 9)] {
+            assert_eq!(
+                kept.get(cursor, total, radius),
+                window(cursor, total, radius),
+                "{cursor} of {total} by {radius}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_kept_window_is_recomputed_only_when_it_would_differ() {
+        let mut kept = Window::default();
+
+        assert_eq!(kept.get(5, 100, 2), &[5, 6, 4, 7, 3]);
+        assert_eq!(kept.computed_for, Some((5, 100, 2)));
+
+        // Same parameters: the buffer is handed back as it stands.
+        assert_eq!(kept.get(5, 100, 2), &[5, 6, 4, 7, 3]);
+
+        assert_eq!(kept.get(6, 100, 2), &[6, 7, 5, 8, 4]);
+        assert_eq!(kept.computed_for, Some((6, 100, 2)));
+    }
+
+    #[test]
+    fn a_window_handed_over_and_back_is_unchanged() {
+        let mut kept = Window::default();
+        let first = kept.get(2, 10, 1).to_vec();
+
+        let borrowed = kept.take();
+        assert_eq!(borrowed, first);
+        kept.give_back(borrowed);
+
+        // The parameters have not changed, so it is not recomputed — and what
+        // comes back is what went in.
+        assert_eq!(kept.get(2, 10, 1), first);
     }
 
     #[test]

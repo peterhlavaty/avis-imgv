@@ -23,6 +23,16 @@ pub use recent::RecentTags;
 pub struct AnnotationStore {
     entries: HashMap<PathBuf, Xmp>,
     writer: writer::Writer,
+    /// Bumped whenever the entries change in a way anything derived from them
+    /// would notice.
+    ///
+    /// The keyword list the tag panel offers is a walk over every entry in the
+    /// folder, sorted and deduplicated. It is wanted once a frame while the
+    /// panel is open and changes only when somebody types a keyword, so the
+    /// panel keeps its own copy and compares this rather than building it
+    /// again on every frame of a folder with two thousand rated photographs
+    /// in it.
+    revision: u64,
 }
 
 impl Default for AnnotationStore {
@@ -36,6 +46,7 @@ impl AnnotationStore {
         AnnotationStore {
             entries: HashMap::new(),
             writer: writer::Writer::new(),
+            revision: 0,
         }
     }
 
@@ -52,6 +63,7 @@ impl AnnotationStore {
                 .unwrap_or_default();
 
             self.entries.insert(image.to_path_buf(), loaded);
+            self.revision += 1;
         }
 
         // The entry was just inserted if it was missing.
@@ -170,7 +182,9 @@ impl AnnotationStore {
     ///
     /// Used when the file changes underneath us.
     pub fn forget(&mut self, image: &Path) {
-        self.entries.remove(image);
+        if self.entries.remove(image).is_some() {
+            self.revision += 1;
+        }
     }
 
     /// Forgets everything, for when the whole folder has moved underneath us.
@@ -180,6 +194,15 @@ impl AnnotationStore {
     /// worse than reading them all again.
     pub fn forget_all(&mut self) {
         self.entries.clear();
+        self.revision += 1;
+    }
+
+    /// A number that changes whenever the entries do.
+    ///
+    /// What anything caching a view of them compares, rather than rebuilding
+    /// that view every frame.
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     /// Every keyword seen on the images visited so far.
@@ -228,7 +251,10 @@ impl AnnotationStore {
             return false;
         }
 
-        self.writer.save(image.to_path_buf(), annotations.clone());
+        let saved = annotations.clone();
+
+        self.revision += 1;
+        self.writer.save(image.to_path_buf(), saved);
         true
     }
 }
@@ -364,6 +390,42 @@ mod tests {
         );
 
         assert_eq!(store.known_tags(), vec!["One", "Shared"]);
+    }
+
+    /// What the tag panel compares instead of rebuilding its list.
+    #[test]
+    fn the_revision_moves_whenever_the_entries_do() {
+        let dir = std::env::temp_dir().join("avis-annotations-revision");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let image = dir.join("a.jpg");
+
+        let mut store = AnnotationStore::new();
+        let start = store.revision();
+
+        // Reading an image in is a change: its keywords join the folder's.
+        store.get(&image, None);
+        let after_read = store.revision();
+        assert_ne!(after_read, start);
+
+        // Reading it again is not.
+        store.get(&image, None);
+        assert_eq!(store.revision(), after_read);
+
+        // A keyword is.
+        assert!(store.add_tag(&image, "Tatras"));
+        let after_tag = store.revision();
+        assert_ne!(after_tag, after_read);
+
+        // A keyword that was already there is not.
+        assert!(!store.add_tag(&image, "Tatras"));
+        assert_eq!(store.revision(), after_tag);
+
+        // And forgetting is.
+        store.forget(&image);
+        assert_ne!(store.revision(), after_tag);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

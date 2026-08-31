@@ -5,14 +5,20 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use super::super::loader::{ImageKey, Job, Loaded};
-use super::super::policy;
 use super::ImageStore;
 
 impl ImageStore {
     /// Queues everything in the window that is neither cached nor in flight.
     pub(super) fn request_window(&mut self) {
-        let window = self.window();
+        // Borrowed out and handed back rather than copied: the loop below
+        // changes the very store the window lives in.
+        let radius = self.effective_radius();
+        let (cursor, total) = (self.cursor, self.paths.len());
+        self.windows.decode.get(cursor, total, radius);
+
+        let window = self.windows.decode.take();
         if window.is_empty() {
+            self.windows.decode.give_back(window);
             return;
         }
 
@@ -28,7 +34,7 @@ impl ImageStore {
         // Requests decoded past the window are dropped by the workers.
         self.focus.set_position(self.cursor, window.len());
 
-        for (priority, index) in window.into_iter().enumerate() {
+        for (priority, index) in window.iter().copied().enumerate() {
             if self.ram.contains(index)
                 || self.requested.contains(&index)
                 || self.failed.contains(&index)
@@ -54,6 +60,8 @@ impl ImageStore {
                 responder: self.responder.clone(),
             });
         }
+
+        self.windows.decode.give_back(window);
     }
 
     /// Moves finished decodes into the RAM cache.
@@ -103,7 +111,11 @@ impl ImageStore {
         // as many textures as the cache holds evicts one to make room for
         // the next and then wants the evicted one back, and the uploads
         // never stop.
-        let wanted = policy::window(self.cursor, total, (self.gpu.capacity() - 1) / 2);
+        let radius = (self.gpu.capacity() - 1) / 2;
+        let cursor = self.cursor;
+        self.windows.upload.get(cursor, total, radius);
+
+        let wanted = self.windows.upload.take();
         let resident: HashSet<usize> = wanted.iter().copied().collect();
 
         // Textures outside the window are dropped so capacity is spent on what
@@ -111,13 +123,13 @@ impl ImageStore {
         self.gpu.retain(|index| resident.contains(&index));
 
         // Thumbnails are kept over the same narrow window they are read for.
-        let previewed: HashSet<usize> = self.preview_window().into_iter().collect();
+        let previewed: HashSet<usize> = self.preview_window().iter().copied().collect();
         self.previews.retain(|index| previewed.contains(&index));
 
         let started = Instant::now();
         let mut uploaded = 0;
 
-        for index in wanted {
+        for index in wanted.iter().copied() {
             if self.gpu.contains(index) {
                 continue;
             }
@@ -138,6 +150,7 @@ impl ImageStore {
             }
         }
 
+        self.windows.upload.give_back(wanted);
         uploaded > 0
     }
 }

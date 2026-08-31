@@ -70,6 +70,32 @@ pub struct ImageStore {
     /// Metadata read from the front of each file, available long before the
     /// image itself is.
     scanned: HashMap<PathBuf, Metadata>,
+    /// The four preload windows, kept between frames.
+    ///
+    /// Each is wanted once a frame and is the same as last frame's for as long
+    /// as nobody is navigating; recomputing all four every frame for every
+    /// store was work done to arrive back where it started.
+    windows: Windows,
+}
+
+/// The windows a store keeps: what to decode, what to upload, what to read the
+/// front of, and what to hold at full resolution.
+#[derive(Debug, Default)]
+struct Windows {
+    decode: policy::Window,
+    upload: policy::Window,
+    previews: policy::Window,
+    full: policy::Window,
+}
+
+impl Windows {
+    /// Forgets all four, for when the collection has changed underneath them.
+    fn forget(&mut self) {
+        self.decode.forget();
+        self.upload.forget();
+        self.previews.forget();
+        self.full.forget();
+    }
 }
 
 impl ImageStore {
@@ -128,6 +154,7 @@ impl ImageStore {
             preview_results,
             preview_responder,
             preview_requested: HashSet::new(),
+            windows: Windows::default(),
             scanned: HashMap::new(),
             config,
         }
@@ -152,6 +179,12 @@ impl ImageStore {
     /// Replaces the collection, discarding everything cached about the old one.
     pub fn set_paths(&mut self, paths: Vec<PathBuf>) {
         self.generation += 1;
+
+        // A different collection of the same length is a different collection.
+        // The kept windows are keyed by cursor, size and radius, none of which
+        // has to change when a folder is read again — so they are told rather
+        // than left to notice.
+        self.windows.forget();
         self.paths = paths;
         self.cursor = 0;
 
@@ -382,11 +415,6 @@ impl ImageStore {
             failed: self.failed.len(),
         }
     }
-
-    fn window(&self) -> Vec<usize> {
-        policy::window(self.cursor, self.paths.len(), self.effective_radius())
-    }
-
     /// Preload radius trimmed to what the budget can actually hold.
     fn effective_radius(&self) -> usize {
         policy::budgeted_radius(

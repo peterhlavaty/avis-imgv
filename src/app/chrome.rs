@@ -4,7 +4,8 @@
 //! None of it is what the viewer is for, and all of it has to be drawn every
 //! frame, which is why it is here rather than in the middle of the wiring.
 
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, ViewportCommand};
 
@@ -13,6 +14,7 @@ use crate::ui::{navigator, tree};
 
 use super::input::{self, Overlay};
 use super::panels;
+use super::watcher;
 use super::App;
 
 /// How much of the window a side panel may take before it is the window.
@@ -24,10 +26,17 @@ impl App {
             return;
         }
 
-        let known: Vec<PathBuf> = self.paths.clone();
-        let changes = self
-            .watcher
-            .take_changes(|path| known.iter().any(|candidate| candidate == path));
+        // The events first, and the collection looked at only if there are
+        // any. A watched folder is quiet almost every frame, and this used to
+        // copy every path in it before finding that out — then answer each
+        // question with a walk down the copy.
+        let events = self.watcher.take_events();
+        if events.is_empty() {
+            return;
+        }
+
+        let known: HashSet<&Path> = self.paths.iter().map(PathBuf::as_path).collect();
+        let changes = watcher::classify(events, |path| known.contains(path));
 
         if changes.is_empty() {
             return;

@@ -155,7 +155,13 @@ impl ImageStore {
             return;
         }
 
-        for index in self.full_window() {
+        // Handed over so the loop can change the store it came from.
+        let radius = self.config.full_resolution_neighbours;
+        let (cursor, total) = (self.cursor, self.paths.len());
+        self.windows.full.get(cursor, total, radius);
+        let window = self.windows.full.take();
+
+        for index in window.iter().copied() {
             if self.full.contains(index)
                 || self.full_requested.contains(&index)
                 || self.failed.contains(&index)
@@ -182,6 +188,8 @@ impl ImageStore {
                 responder: self.full_responder.clone(),
             });
         }
+
+        self.windows.full.give_back(window);
     }
 
     /// Takes in the full resolution decodes that have finished.
@@ -216,14 +224,6 @@ impl ImageStore {
         }
 
         collected
-    }
-
-    fn full_window(&self) -> Vec<usize> {
-        super::policy::window(
-            self.cursor,
-            self.paths.len(),
-            self.config.full_resolution_neighbours,
-        )
     }
 }
 
