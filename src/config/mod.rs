@@ -258,6 +258,13 @@ pub struct GeneralConfig {
     pub text_scaling: f32,
     #[serde(default = "default_metadata_tags")]
     pub metadata_tags: Vec<String>,
+    /// Whether to open where the last run left off.
+    ///
+    /// The window's size and place, the folder that was open, and — the one
+    /// that earns its keep — which photograph was being looked at in each
+    /// folder visited lately. A cull is rarely one sitting.
+    #[serde(default = "default_restore_session")]
+    pub restore_session: bool,
 
     #[serde(default = "default_sc_toggle_gallery")]
     pub sc_toggle_gallery: Shortcut,
@@ -487,6 +494,7 @@ impl Default for GeneralConfig {
             output_icc_profile: default_output_icc_profile(),
             text_scaling: default_text_scaling(),
             metadata_tags: default_metadata_tags(),
+            restore_session: default_restore_session(),
             sc_toggle_gallery: default_sc_toggle_gallery(),
             sc_next_mode: default_sc_next_mode(),
             sc_toggle_side_panel: default_sc_toggle_side_panel(),

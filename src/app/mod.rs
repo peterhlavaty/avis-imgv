@@ -25,6 +25,7 @@ use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
 use crate::organize::journal::Journal;
 use crate::organize::pairs::Pairs;
+use crate::session::{Geometry, Session};
 use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
 use crate::ui::{cheat_sheet, filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
@@ -109,6 +110,8 @@ pub struct App {
     /// touches a file expands through this so that none of them has to know
     /// that pairing exists.
     pairs: Pairs,
+    /// Where the last run left off, kept up to date and written on the way out.
+    session: Session,
     /// Whether the sheet of keys is up.
     ///
     /// Not the editor, which is a settings window: this is the glance-at list
@@ -214,6 +217,7 @@ impl App {
             filter_visible: false,
             marks: Vec::new(),
             pairs: Pairs::default(),
+            session: Session::load(),
             cheat_sheet_visible: false,
             cheat_sheet_opened: false,
             seen_tags: (None, Vec::new()),
@@ -234,11 +238,38 @@ impl App {
             );
         }
 
-        app.open_within(
-            std::mem::take(&mut opening.images),
-            opening.selected.as_deref(),
-            opening.folder,
-        );
+        // Where the command line said, or where the last run left off when it
+        // said nothing. A path that was typed always wins: somebody who named a
+        // folder meant that folder. With nothing named the working directory is
+        // what was read, and the working directory of a viewer started from a
+        // desktop icon is nobody's choice.
+        let restoring = app.config.restore_session && !opening.named;
+
+        if let Some(folder) = app.session.folder.clone().filter(|_| restoring) {
+            tracing::info!("Restoring the last session in {}", folder.display());
+            let landing = app.session.position_in(&folder).map(Path::to_path_buf);
+            app.open_directory(&folder, landing.as_deref());
+        } else {
+            let folder = opening.folder.clone();
+            let landing = opening
+                .selected
+                .clone()
+                // Nothing named, but this folder has been culled before: pick
+                // up where that left off rather than at the first frame.
+                .or_else(|| {
+                    let folder = folder.as_deref()?;
+                    app.config
+                        .restore_session
+                        .then(|| app.session.position_in(folder).map(Path::to_path_buf))?
+                });
+
+            app.open_within(
+                std::mem::take(&mut opening.images),
+                landing.as_deref(),
+                opening.folder,
+            );
+        }
+
         app
     }
 
@@ -400,6 +431,56 @@ impl App {
 
         if changed {
             self.apply_narrowing();
+        }
+    }
+
+    /// Records where the viewer is, so the next run can start here.
+    ///
+    /// Called every frame and costs a comparison: the session is written on the
+    /// way out, not on every step through a folder.
+    fn note_position(&mut self, ctx: &egui::Context) {
+        if !self.config.restore_session {
+            return;
+        }
+
+        self.note_window(ctx);
+
+        let showing = self.marked_path();
+        let already = self.session.position_in(&self.base_path);
+
+        if already == showing.as_deref() && self.session.folder.as_deref() == Some(&self.base_path)
+        {
+            return;
+        }
+
+        let base = self.base_path.clone();
+        self.session.remember(&base, showing.as_deref());
+    }
+
+    /// Where the window is, as the platform reports it this frame.
+    ///
+    /// Taken while running rather than on the way out, because by the time the
+    /// viewer is closing the window may already have been given up — and a
+    /// maximised window reports the size it would be if it were not, which is
+    /// the size worth restoring alongside the maximised flag.
+    fn note_window(&mut self, ctx: &egui::Context) {
+        let found = ctx.input(|i| {
+            let viewport = i.viewport();
+
+            viewport.inner_rect.map(|rect| Geometry {
+                width: rect.width(),
+                height: rect.height(),
+                x: Some(rect.min.x),
+                y: Some(rect.min.y),
+                maximised: viewport.maximized.unwrap_or(false),
+            })
+        });
+
+        // A window being dragged reports a new place every frame, and none of
+        // them is worth writing until the viewer closes — so this only keeps
+        // the latest, and the file is written once.
+        if let Some(found) = found.filter(Geometry::is_usable) {
+            self.session.window = Some(found);
         }
     }
 
@@ -621,8 +702,19 @@ impl eframe::App for App {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
 
+        self.note_position(ctx);
         self.run_benchmark(ctx);
         self.perf_metrics.end_frame();
+    }
+
+    /// Written on the way out: the window as it stands, and where the viewer
+    /// had got to in every folder it visited.
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if !self.config.restore_session {
+            return;
+        }
+
+        self.session.save();
     }
 }
 

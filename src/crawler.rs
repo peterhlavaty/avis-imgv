@@ -22,6 +22,14 @@ pub struct Opening {
     /// directory, and asking to flatten an empty folder crawled everything the
     /// user owns.
     pub folder: Option<PathBuf>,
+    /// Whether a path was actually named on the command line.
+    ///
+    /// Not the same as having found a folder: with no arguments at all the
+    /// working directory is read, and the working directory of a viewer
+    /// started from a desktop icon is nobody's choice. What decides whether
+    /// the last session is restored is whether somebody typed a path, and this
+    /// is the only place that knows.
+    pub named: bool,
 }
 
 /// Reads the command line and returns the collection to open, plus the image
@@ -36,7 +44,10 @@ pub fn paths_from_args() -> Opening {
 
     match args.len() {
         0 => crawl_current_dir(),
-        1 => from_single_arg(&args[0]),
+        1 => Opening {
+            named: true,
+            ..from_single_arg(&args[0])
+        },
         // Several paths: treat them as the collection itself, and let the
         // folder be worked out from them.
         _ => Opening {
@@ -45,6 +56,7 @@ pub fn paths_from_args() -> Opening {
                 .map(PathBuf::from)
                 .filter(|path| formats::is_supported(path))
                 .collect(),
+            named: true,
             ..Opening::default()
         },
     }
@@ -56,6 +68,7 @@ fn crawl_current_dir() -> Opening {
             images: crawl(&dir, false),
             selected: None,
             folder: Some(dir),
+            named: false,
         },
         Err(e) => {
             tracing::error!("Failure reading the working directory -> {e}");
@@ -73,6 +86,7 @@ fn from_single_arg(arg: &str) -> Opening {
             images: crawl(&path, false),
             selected: None,
             folder: Some(path),
+            named: false,
         };
     }
 
@@ -81,6 +95,7 @@ fn from_single_arg(arg: &str) -> Opening {
             images: crawl(parent, false),
             selected: Some(path.clone()),
             folder: Some(parent.to_path_buf()),
+            named: false,
         },
         None => Opening {
             images: vec![path],

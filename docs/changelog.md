@@ -2,6 +2,12 @@
 
 ## 2026-08-30
 
+- **It opens where you left off.** The window's size and place, the folder
+  that was open, and — the one that earns its keep — which photograph was
+  being looked at in each of the last sixty-four folders. Culling a shoot is
+  rarely one sitting, and starting somebody at the first frame again throws
+  away the only piece of state that took any effort to build. A path named on
+  the command line always wins; `general.restore_session` turns it off.
 - **The keys, on `?`.** Generated from the same table the key editor writes,
   so it shows the keys that are actually bound rather than the ones the
   documentation remembers, and narrowed to what is on screen — the image

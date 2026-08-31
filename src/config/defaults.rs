@@ -105,6 +105,9 @@ pub fn default_max_image_edge() -> u32 {
 pub fn default_should_wait() -> bool {
     true
 }
+pub fn default_restore_session() -> bool {
+    true
+}
 pub fn default_metadata_tags() -> Vec<String> {
     [
         "File Name",

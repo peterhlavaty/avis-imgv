@@ -25,6 +25,7 @@ pub mod formats;
 pub mod logging;
 pub mod metadata;
 pub mod organize;
+pub mod session;
 pub mod ui;
 pub mod utils;
 pub mod view;

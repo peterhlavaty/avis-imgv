@@ -542,6 +542,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | Key | Meaning | Default |
 |-----|---------|---------|
 | `output_icc_profile` | Display profile to convert into | `srgb` |
+| `restore_session` | Open where the last run left off: the window's size and place, the folder that was open, and which photograph was being looked at in each folder visited lately. A path named on the command line always wins. | true |
 | `text_scaling` | Interface text scale | 1.25 |
 | `metadata_tags` | Tags shown in the side panel, in order | File Name, Date/Time Original, Camera Model Name, Lens Model, Focal Length, Aperture, Shutter Speed, ISO, Image Size, File Size, Color Space, Directory |
 | `sc_delete` | Send the picture on screen to the bin | `Delete` |

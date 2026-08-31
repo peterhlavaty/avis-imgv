@@ -260,7 +260,8 @@
     "sc_suspend_filter": {
       "key": "Backslash",
       "modifiers": []
-    }
+    },
+    "restore_session": true
   },
   "cache": {
     "ram_budget_mb": 4096,

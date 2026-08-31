@@ -44,9 +44,13 @@ fn main() {
     let fullscreen = args.iter().any(|arg| arg == "--fullscreen");
     let benchmark = args.iter().any(|arg| arg == "--benchmark");
 
+    // Read here rather than in the app: the window's size and place have to be
+    // decided before the window is made.
+    let session = avis_imgv::session::Session::load();
+
     if let Err(e) = eframe::run_native(
         "Avis Image Viewer",
-        native_options(),
+        native_options(session.window),
         Box::new(move |cc| Ok(Box::new(App::new(cc, slideshow, fullscreen, benchmark)))),
     ) {
         tracing::error!("{e}");
@@ -58,7 +62,7 @@ fn main() {
 /// Low powered hardware caps texture sizes well below the 8192 egui assumes —
 /// a Raspberry Pi 5 stops at 4096 — and the decoder needs the real number to
 /// know how far to downscale.
-fn native_options() -> NativeOptions {
+fn native_options(window: Option<avis_imgv::session::Geometry>) -> NativeOptions {
     let device_descriptor = Arc::new(|adapter: &wgpu::Adapter| {
         let limits = adapter.limits();
         tracing::info!("Max 2D texture size: {}", limits.max_texture_dimension_2d);
@@ -78,6 +82,30 @@ fn native_options() -> NativeOptions {
             }),
             ..Default::default()
         },
+        viewport: viewport(window),
         ..Default::default()
+    }
+}
+
+/// The window as it was left, where that is worth restoring.
+///
+/// A window of no size is what a minimised one reports on some platforms, and
+/// opening as a sliver nobody can find is worse than opening at the default.
+/// The position is only restored where the platform gave one — Wayland does
+/// not — and eframe puts an unplaced window where the compositor wants it.
+fn viewport(window: Option<avis_imgv::session::Geometry>) -> eframe::egui::ViewportBuilder {
+    let builder = eframe::egui::ViewportBuilder::default();
+
+    let Some(window) = window.filter(avis_imgv::session::Geometry::is_usable) else {
+        return builder;
+    };
+
+    let builder = builder
+        .with_inner_size([window.width, window.height])
+        .with_maximized(window.maximised);
+
+    match (window.x, window.y) {
+        (Some(x), Some(y)) => builder.with_position([x, y]),
+        _ => builder,
     }
 }
