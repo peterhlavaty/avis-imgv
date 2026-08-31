@@ -221,6 +221,59 @@ mod tests {
         out
     }
 
+    /// A Fuji raw: a fixed header pointing at an ordinary JPEG, which is
+    /// where the EXIF lives.
+    fn raf_with_dates(original: &str, modified: &str) -> Vec<u8> {
+        let preview = jpeg_with_dates(original, modified);
+
+        let mut data = b"FUJIFILMCCD-RAW".to_vec();
+        data.resize(128, 0);
+        let offset = data.len();
+        data.extend_from_slice(&preview);
+
+        // The header holds the offset and length of the embedded JPEG, big
+        // endian, at a fixed place.
+        data[84..88].copy_from_slice(&(offset as u32).to_be_bytes());
+        data[88..92].copy_from_slice(&(preview.len() as u32).to_be_bytes());
+
+        data
+    }
+
+    /// The capture-time shift asks the container for timestamps directly, and
+    /// for a Fujifilm raw it used to be told there were none — so shifting a
+    /// Fuji shoot's clock silently did nothing.
+    #[test]
+    fn a_fuji_raw_carries_its_dates_where_the_shift_can_find_them() {
+        let data = raf_with_dates("2023:07:14 09:30:00", "2023:07:14 09:30:05");
+        let found = fields(&data, Some(Format::Raw));
+
+        assert_eq!(
+            names(&found),
+            vec!["Date/Time Original", "Modify Date"],
+            "{found:?}"
+        );
+    }
+
+    /// And they can be moved, which is the point: the preview is a subslice
+    /// of the file, so the offsets are the file's own.
+    #[test]
+    fn a_fuji_raws_dates_can_be_shifted_in_place() {
+        let mut data = raf_with_dates("2023:07:14 09:30:00", "2023:07:14 09:30:05");
+        let found = fields(&data, Some(Format::Raw));
+
+        let before = data.len();
+        assert_eq!(shift(&mut data, &found, 3600), 2);
+        assert_eq!(data.len(), before, "shifting must not resize the file");
+
+        let after = fields(&data, Some(Format::Raw));
+        let moved: Vec<String> = after.iter().map(|f| f.value.to_string()).collect();
+
+        assert!(
+            moved.iter().all(|value| value.contains("10:30:")),
+            "{moved:?}"
+        );
+    }
+
     fn names(fields: &[DateField]) -> Vec<&str> {
         fields.iter().map(|field| field.name).collect()
     }

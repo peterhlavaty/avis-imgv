@@ -21,11 +21,7 @@ const MIN_PREVIEW_BYTES: usize = 8 * 1024;
 /// file.
 pub fn extract(data: &[u8]) -> Extracted<'_> {
     if data.starts_with(RAF_MAGIC) {
-        return Extracted {
-            preview: raf_preview(data),
-            // Fuji stores a regular JPEG whose own APP1 holds the EXIF block.
-            ..Default::default()
-        };
+        return raf(data);
     }
 
     match Tiff::new(data) {
@@ -227,6 +223,37 @@ fn jpeg_candidates<'a>(tiff: &Tiff<'a>, ifd: &Ifd) -> Vec<&'a [u8]> {
         })
         .filter(|bytes| bytes.starts_with(&SOI))
         .collect()
+}
+
+/// A Fuji raw, whose EXIF lives inside the JPEG it embeds.
+///
+/// The header points at a perfectly ordinary JPEG, and that JPEG's own APP1
+/// carries the directories — so the file's metadata is read by reading its
+/// preview. This used to be unpacked by the one caller that noticed, which
+/// left every other caller with nothing: the capture-time shift, which asks
+/// the container directly, found no timestamps in a RAF at all and silently
+/// declined to move a Fujifilm shoot's clock.
+///
+/// The preview is a subslice of the file rather than a copy, so the offsets
+/// the shift needs are the file's own offsets and the timestamps can be
+/// rewritten where they lie.
+fn raf(data: &[u8]) -> Extracted<'_> {
+    let Some(preview) = raf_preview(data) else {
+        return Extracted::default();
+    };
+
+    let inner = super::jpeg::extract(preview);
+
+    Extracted {
+        preview: Some(preview),
+        exif: inner.exif,
+        icc: inner.icc,
+        xmp: inner.xmp,
+        // The embedded JPEG carries a thumbnail of its own, which is what
+        // puts a Fuji raw on the contact sheet as fast as a JPEG.
+        thumbnail: inner.thumbnail,
+        ..Default::default()
+    }
 }
 
 /// Fuji raws point at their preview from a fixed header offset.

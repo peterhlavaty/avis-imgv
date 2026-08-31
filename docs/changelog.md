@@ -2,6 +2,12 @@
 
 ## 2026-08-30
 
+- **A Fujifilm raw's clock can be shifted.** A RAF keeps its EXIF inside the
+  JPEG it embeds, and only one caller knew that — so the capture-time shift,
+  which asks the container directly, found no timestamps in a RAF at all and
+  silently declined to move a Fuji shoot's clock. The container unpacks it
+  now, so every caller gets it, and a RAF also picks up the thumbnail inside
+  that JPEG, which puts it on the contact sheet as fast as a JPEG.
 - **The previews are colour managed too.** The camera's thumbnail — what the
   contact sheet draws, and what stands in for a photograph while it decodes —
   was drawn without any conversion at all. A camera set to Adobe RGB writes

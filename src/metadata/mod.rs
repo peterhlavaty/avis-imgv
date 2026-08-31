@@ -66,14 +66,10 @@ impl Metadata {
     /// `format` is the extension based guess; the container walk falls back to
     /// sniffing when it does not match the bytes.
     pub fn parse(data: &[u8], format: Option<Format>) -> Parsed<'_> {
-        let mut found = containers::extract(data, format);
-
-        // Fuji raws keep their EXIF inside the embedded preview's own APP1.
-        if found.exif.is_empty() {
-            if let Some(preview) = found.preview {
-                found.exif = containers::jpeg::extract(preview).exif;
-            }
-        }
+        // A Fuji raw keeps its EXIF inside the embedded preview's own APP1,
+        // which the container layer unpacks: doing it here instead left every
+        // other caller of `extract` with nothing to read.
+        let found = containers::extract(data, format);
 
         let mut metadata = Metadata::default();
         let mut embedded_icc = found.icc;
