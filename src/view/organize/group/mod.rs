@@ -166,8 +166,13 @@ fn one_group(ui: &mut egui::Ui, view: &mut OrganizeView, index: usize) -> Option
                     let entry = view.groups[index].members[member].clone();
 
                     ui.vertical(|ui| {
-                        view.thumbnails
-                            .show(ui, &entry.path, entry.thumbnail.as_ref(), height);
+                        view.thumbnails.show(
+                            ui,
+                            &entry.path,
+                            entry.thumbnail.as_ref(),
+                            entry.orientation(),
+                            height,
+                        );
 
                         ui.horizontal(|ui| {
                             if ui.small_button("×").on_hover_text("Take out").clicked() {
@@ -211,8 +216,13 @@ fn loose(ui: &mut egui::Ui, view: &mut OrganizeView) -> Option<Change> {
                     let entry = view.loose[index].clone();
 
                     ui.vertical(|ui| {
-                        view.thumbnails
-                            .show(ui, &entry.path, entry.thumbnail.as_ref(), height);
+                        view.thumbnails.show(
+                            ui,
+                            &entry.path,
+                            entry.thumbnail.as_ref(),
+                            entry.orientation(),
+                            height,
+                        );
 
                         ui.horizontal(|ui| {
                             ui.label(entry.name()).on_hover_text(

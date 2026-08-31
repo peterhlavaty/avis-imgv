@@ -39,6 +39,11 @@ struct Queue {
 struct Shared {
     queue: Mutex<Queue>,
     ready: Condvar,
+    /// What the display's profile is called.
+    ///
+    /// Held here rather than passed per request because it is the same for
+    /// every photograph and changes only when the configuration does.
+    output_profile: Arc<str>,
 }
 
 /// Reads previews on a thread of its own.
@@ -52,16 +57,18 @@ pub struct PreviewLoader {
 const MAX_PENDING: usize = 256;
 
 impl Default for PreviewLoader {
+    /// sRGB, which is what a display is unless it is configured otherwise.
     fn default() -> Self {
-        Self::new()
+        Self::new(Arc::from("srgb"))
     }
 }
 
 impl PreviewLoader {
-    pub fn new() -> PreviewLoader {
+    pub fn new(output_profile: Arc<str>) -> PreviewLoader {
         let shared = Arc::new(Shared {
             queue: Mutex::new(Queue::default()),
             ready: Condvar::new(),
+            output_profile,
         });
 
         let worker = Arc::clone(&shared);
@@ -113,7 +120,7 @@ impl Drop for PreviewLoader {
 
 fn run(shared: &Shared) {
     while let Some(request) = next(shared) {
-        let Some(preview) = preview::load(&request.path) else {
+        let Some(preview) = preview::load(&request.path, &shared.output_profile) else {
             continue;
         };
 
@@ -174,7 +181,7 @@ mod tests {
         let path = dir.join("photo.jpg");
         std::fs::write(&path, encode(320, 240, [9, 9, 9, 255], ImageFormat::Jpeg)).unwrap();
 
-        let loader = PreviewLoader::new();
+        let loader = PreviewLoader::default();
         let (tx, rx) = channel_pair();
         loader.submit(key(0), path, tx);
 
@@ -190,7 +197,7 @@ mod tests {
 
     #[test]
     fn a_file_that_cannot_be_read_is_dropped_rather_than_reported() {
-        let loader = PreviewLoader::new();
+        let loader = PreviewLoader::default();
         let (tx, rx) = channel_pair();
         loader.submit(key(0), PathBuf::from("does-not-exist.jpg"), tx);
 
@@ -209,7 +216,7 @@ mod tests {
 
         // Queued while nothing is running, so all three are waiting when the
         // worker looks.
-        let loader = PreviewLoader::new();
+        let loader = PreviewLoader::default();
         loader.clear();
         for index in 0..3 {
             loader.submit(key(index), dir.join(format!("{index}.jpg")), tx.clone());
@@ -231,7 +238,7 @@ mod tests {
 
     #[test]
     fn the_queue_does_not_grow_without_bound() {
-        let loader = PreviewLoader::new();
+        let loader = PreviewLoader::default();
         let (tx, _rx) = channel_pair();
 
         for index in 0..MAX_PENDING * 2 {

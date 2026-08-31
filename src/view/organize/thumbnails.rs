@@ -15,6 +15,8 @@ use std::sync::Arc;
 use eframe::egui::{self, ColorImage, TextureHandle, TextureOptions};
 use image::RgbaImage;
 
+use crate::metadata::Orientation;
+
 /// The sizes the panel offers, as the height of a row in points.
 pub const SIZES: &[(&str, f32)] = &[
     ("Names only", 0.0),
@@ -46,13 +48,14 @@ impl Thumbnails {
         ui: &mut egui::Ui,
         path: &Path,
         image: Option<&Arc<RgbaImage>>,
+        orientation: Orientation,
         height: f32,
     ) {
         if height <= 0.0 {
             return;
         }
 
-        let Some(texture) = self.texture(ui.ctx(), path, image) else {
+        let Some(texture) = self.texture(ui.ctx(), path, image, orientation) else {
             // A gap the size of the missing picture, so the rows stay in line.
             ui.allocate_space(egui::vec2(height * 1.5, height));
             return;
@@ -69,14 +72,22 @@ impl Thumbnails {
         ctx: &egui::Context,
         path: &Path,
         image: Option<&Arc<RgbaImage>>,
+        orientation: Orientation,
     ) -> Option<TextureHandle> {
         if let Some(made) = self.made.get(path) {
             return made.clone();
         }
 
         let made = image.map(|image| {
-            let size = [image.width() as usize, image.height() as usize];
-            let colours = ColorImage::from_rgba_unmultiplied(size, image.as_raw());
+            // Turned here, in the pixels, rather than at draw time. The viewer
+            // turns its images with the texture coordinates, which egui's own
+            // `Image` widget cannot do — so the group panel showed every
+            // portrait frame on its side, which is no way to decide whether
+            // five of them are one bracket. It happens once per file and the
+            // result is what gets cached.
+            let upright = orientation.applied(image);
+            let size = [upright.width() as usize, upright.height() as usize];
+            let colours = ColorImage::from_rgba_unmultiplied(size, upright.as_raw());
 
             ctx.load_texture(path.to_string_lossy(), colours, TextureOptions::LINEAR)
         });

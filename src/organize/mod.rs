@@ -67,6 +67,17 @@ impl Entry {
         }
     }
 
+    /// Which way up the camera was holding it.
+    ///
+    /// Upright when the scan has not reached the file yet, which is the only
+    /// honest answer: guessing would turn a picture and then turn it back.
+    pub fn orientation(&self) -> crate::metadata::Orientation {
+        self.metadata
+            .as_ref()
+            .map(|metadata| metadata.orientation)
+            .unwrap_or_default()
+    }
+
     /// The file name, extension and all.
     pub fn name(&self) -> &str {
         self.path

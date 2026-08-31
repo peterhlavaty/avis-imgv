@@ -80,6 +80,11 @@ impl ImageStore {
         config: StoreConfig,
         output_profile: Arc<str>,
     ) -> ImageStore {
+        // Cloned before the options take ownership: the preview worker
+        // converts the camera's thumbnail into the same profile the decoders
+        // convert the photograph into.
+        let preview_profile = Arc::clone(&output_profile);
+
         let gpu = GpuCache::new(render_state.clone(), config.gpu_resident);
         let previews = GpuCache::new(render_state, config.previews_resident.max(1));
         let (responder, results) = channel();
@@ -119,7 +124,7 @@ impl ImageStore {
             full_responder,
             full_requested: HashSet::new(),
             previews,
-            preview_loader: PreviewLoader::new(),
+            preview_loader: PreviewLoader::new(Arc::clone(&preview_profile)),
             preview_results,
             preview_responder,
             preview_requested: HashSet::new(),

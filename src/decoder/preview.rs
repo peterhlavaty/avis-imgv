@@ -43,10 +43,17 @@ impl Preview {
 
 /// Reads the front of `path` and returns what it can make of it.
 ///
+/// `output_profile` is the display's, and the camera's thumbnail is converted
+/// into it exactly as the photograph itself is. Without that the thumbnail was
+/// a different colour from the photograph it stands in for: a camera set to
+/// Adobe RGB writes its preview in Adobe RGB, so the contact sheet was drawn
+/// flat and undersaturated, and every image visibly shifted the instant the
+/// real decode landed underneath it.
+///
 /// Returns `None` only when the file cannot be read at all; a file with no
 /// metadata and no thumbnail still yields an empty preview, which is worth
 /// having because it records that the file was looked at.
-pub fn load(path: &Path) -> Option<Preview> {
+pub fn load(path: &Path, output_profile: &str) -> Option<Preview> {
     let head = read_head(path)?;
     let format = Format::from_path(path);
 
@@ -59,7 +66,13 @@ pub fn load(path: &Path) -> Option<Preview> {
         metadata.orientation
     };
 
-    let image = parsed.thumbnail.and_then(decode_thumbnail);
+    let mut image = parsed.thumbnail.and_then(decode_thumbnail);
+
+    // The thumbnail carries no profile of its own; what describes it is the
+    // file's, which is what the photograph will be converted from too.
+    if let Some(thumbnail) = image.as_mut() {
+        super::color::convert(thumbnail, &metadata, output_profile);
+    }
     // What the container worked out beats what the tags say: a raw file's
     // first directory describes a reduced-resolution copy of the photograph
     // rather than the photograph.
@@ -165,7 +178,7 @@ mod tests {
         )
         .unwrap();
 
-        let preview = load(&path).expect("reads");
+        let preview = load(&path, "srgb").expect("reads");
 
         assert_eq!(preview.full_size, (640, 480));
         // No camera wrote it, so there is no thumbnail inside.
@@ -180,7 +193,7 @@ mod tests {
         let path = dir.join("photo.jpg");
         std::fs::write(&path, encode(32, 32, [0, 0, 0, 255], ImageFormat::Jpeg)).unwrap();
 
-        let preview = load(&path).unwrap();
+        let preview = load(&path, "srgb").unwrap();
 
         assert_eq!(
             preview.metadata.tags.get("File Name").map(String::as_str),
@@ -196,12 +209,66 @@ mod tests {
         let path = dir.join("notes.jpg");
         std::fs::write(&path, b"this is not an image").unwrap();
 
-        let preview = load(&path).expect("the file exists, so it is read");
+        let preview = load(&path, "srgb").expect("the file exists, so it is read");
 
         assert!(!preview.has_image());
         assert_eq!(preview.full_size, (0, 0));
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The thumbnail is converted into the display's profile, exactly as the
+    /// photograph it stands in for is.
+    ///
+    /// Asserted by loading the same file twice: once asking for the profile
+    /// the file is already in, which converts nothing, and once asking for
+    /// sRGB, which has to. Identical pixels would mean the preview tier had
+    /// been left unmanaged — which it was, so a camera set to Adobe RGB drew a
+    /// flat contact sheet and every image shifted colour the moment the real
+    /// decode landed under it.
+    #[test]
+    fn a_camera_thumbnail_is_converted_into_the_displays_profile() {
+        let dir = temp_dir("managed");
+        let path = dir.join("wide.jpg");
+        std::fs::write(&path, wide_gamut_jpeg()).unwrap();
+
+        let unconverted = load(&path, "ClayRGB").expect("reads");
+        let converted = load(&path, "srgb").expect("reads");
+
+        let (before, after) = (
+            unconverted.image.expect("a thumbnail"),
+            converted.image.expect("a thumbnail"),
+        );
+
+        assert_ne!(
+            before.as_raw(),
+            after.as_raw(),
+            "the thumbnail was not colour managed"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A JPEG with a wide gamut ICC profile and a thumbnail inside it.
+    fn wide_gamut_jpeg() -> Vec<u8> {
+        let profile = crate::metadata::icc::built_in("Adobe RGB (1998)")
+            .expect("the wide gamut profile is shipped");
+
+        // APP2, `ICC_PROFILE `, chunk one of one, then the profile itself.
+        let mut payload = b"ICC_PROFILE ".to_vec();
+        payload.push(1);
+        payload.push(1);
+        payload.extend_from_slice(profile);
+
+        let mut segment = vec![0xFF, 0xE2];
+        segment.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+        segment.extend_from_slice(&payload);
+
+        // After the start of image marker, before everything else.
+        let mut out = jpeg_with_thumbnail((400, 300), (60, 45));
+        out.splice(2..2, segment);
+
+        out
     }
 
     /// A JPEG carrying an EXIF thumbnail, the way a camera writes one.
@@ -255,7 +322,7 @@ mod tests {
         let path = dir.join("photo.jpg");
         std::fs::write(&path, jpeg_with_thumbnail((4000, 3000), (160, 120))).unwrap();
 
-        let preview = load(&path).expect("reads");
+        let preview = load(&path, "srgb").expect("reads");
         let image = preview.image.expect("the thumbnail was decoded");
 
         assert_eq!((image.width(), image.height()), (160, 120));
@@ -267,7 +334,7 @@ mod tests {
 
     #[test]
     fn a_missing_file_yields_nothing() {
-        assert!(load(Path::new("does-not-exist.jpg")).is_none());
+        assert!(load(Path::new("does-not-exist.jpg"), "srgb").is_none());
     }
 
     #[test]
@@ -280,7 +347,7 @@ mod tests {
         std::fs::write(&path, &bytes).unwrap();
 
         // The frame header is at the front, so the size is known regardless.
-        assert_eq!(load(&path).unwrap().full_size, (64, 64));
+        assert_eq!(load(&path, "srgb").unwrap().full_size, (64, 64));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

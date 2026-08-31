@@ -2,6 +2,17 @@
 
 ## 2026-08-30
 
+- **The previews are colour managed too.** The camera's thumbnail — what the
+  contact sheet draws, and what stands in for a photograph while it decodes —
+  was drawn without any conversion at all. A camera set to Adobe RGB writes
+  its preview in Adobe RGB, so a whole sheet was flat and undersaturated and
+  every image visibly shifted colour the moment the real decode landed under
+  it. It goes through the same conversion the photograph does, into the same
+  configured display profile, and the measured throughput does not move.
+- Fixed: the group panel drew every portrait frame on its side. The viewer
+  turns its images with texture coordinates, which costs nothing and which
+  egui's own image widget cannot do — so there the pixels are turned instead,
+  once per file, into what is cached.
 - Fixed: downscaling ignored the alpha channel, so the colour hiding under a
   transparent pixel — arbitrary, and in a lot of PNGs black — bled into its
   neighbours and left a dark halo around every soft edge. It resamples on
