@@ -46,6 +46,13 @@ pub struct Flags {
     pub advancing: bool,
     /// Whether a set of photographs is pinned side by side.
     pub comparing: bool,
+    /// Whether this photograph is a raw and a JPEG shot together.
+    ///
+    /// Said out loud because everything that follows — a rating, a move, a
+    /// deletion — is about to happen to two files, and somebody who has
+    /// forgotten the camera was set that way should not find that out
+    /// afterwards.
+    pub paired: bool,
 }
 
 /// Everything the bar draws, borrowed from the view.
@@ -104,6 +111,7 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     (status.flags.filling, "Filling"),
                     (status.flags.advancing, "Advancing"),
                     (status.flags.comparing, "Comparing"),
+                    (status.flags.paired, "RAW+JPEG"),
                 ] {
                     if active {
                         ui.label(label);

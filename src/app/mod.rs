@@ -24,6 +24,7 @@ use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
 use crate::organize::journal::Journal;
+use crate::organize::pairs::Pairs;
 use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
 use crate::ui::{filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
@@ -102,6 +103,12 @@ pub struct App {
     /// frame: the contact sheet needs all of it at once, and reading a
     /// folder's sidecars is a few milliseconds one time.
     marks: Vec<Marks>,
+    /// Which files follow which, when a raw and a JPEG are one photograph.
+    ///
+    /// The partner is not in `paths` and is never shown; every command that
+    /// touches a file expands through this so that none of them has to know
+    /// that pairing exists.
+    pairs: Pairs,
 }
 
 impl App {
@@ -192,6 +199,7 @@ impl App {
             narrowing: Narrowing::default(),
             filter_visible: false,
             marks: Vec::new(),
+            pairs: Pairs::default(),
         };
 
         for clash in keys::clashes(&app.settings) {
@@ -232,6 +240,11 @@ impl App {
     ) {
         let arriving = folder.unwrap_or_else(|| base_path_of(&paths));
 
+        // A raw and a JPEG of the same frame are one photograph: one of them
+        // is browsed and the other follows it through every command.
+        let (paths, pairs) = Pairs::gather(&paths, self.settings.raw.pair_with_jpeg);
+        self.pairs = pairs;
+
         // The watcher follows the folder that is open. It used to stay on the
         // one it was started on, so walking away from a watched folder left it
         // reporting arrivals somewhere nobody was looking — and reporting
@@ -246,7 +259,12 @@ impl App {
         self.paths = paths;
         self.marks.clear();
 
-        self.image_view.set_images(self.paths.clone(), selected);
+        // The partner of a paired photograph is not in the collection, so
+        // landing on one means landing on the half that is browsed.
+        let selected = selected.map(|path| self.browsed(path));
+
+        self.image_view
+            .set_images(self.paths.clone(), selected.as_deref());
         self.grid_view.set_images(self.paths.clone());
 
         // Only when there is something to apply: narrowing reads the sidecar
@@ -288,6 +306,33 @@ impl App {
 
         let marks = Marks::of(self.annotations.get(image, None));
         self.marks.insert(index, marks);
+    }
+
+    /// The half of a pair that is browsed, for a path that might be either.
+    ///
+    /// Opening a folder on a named file has to land on the photograph that is
+    /// actually in the collection: naming the raw of a pair whose JPEG is
+    /// browsed would otherwise land on nothing.
+    fn browsed(&self, path: &Path) -> PathBuf {
+        if self.paths.iter().any(|shown| shown == path) {
+            return path.to_path_buf();
+        }
+
+        self.paths
+            .iter()
+            .find(|shown| self.pairs.partners_of(shown).iter().any(|p| p == path))
+            .cloned()
+            .unwrap_or_else(|| path.to_path_buf())
+    }
+
+    /// Every file in the open collection, browsed or following.
+    pub(super) fn all_paths(&self) -> Vec<PathBuf> {
+        self.pairs.everything(&self.paths)
+    }
+
+    /// Every file a command about `path` should touch: it and its partner.
+    pub(super) fn with_partners(&self, path: &Path) -> Vec<PathBuf> {
+        self.pairs.with_partners(path)
     }
 
     /// Reads the marks for the whole collection, if that has not been done.

@@ -304,14 +304,31 @@ pub fn format_f64(value: f64) -> String {
 }
 
 /// Decodes a NUL terminated, possibly NUL padded ASCII field.
+///
+/// EXIF says ASCII and nobody writes only ASCII. Cameras write Latin-1, and
+/// Adobe's software writes UTF-8 — so UTF-8 is tried first and Latin-1 is what
+/// it falls back to. That order is the safe one: pure ASCII is valid UTF-8 and
+/// decodes the same either way, and Latin-1 text with an accent in it is
+/// almost never valid UTF-8, so it still lands in the fallback.
+///
+/// The other order is what this used to do, and it is why a lens name or an
+/// aperture written by Adobe came out as `Ć'11` and `â€` rather than `ƒ/11`
+/// and `•`: every byte of a multi-byte character became a character of its
+/// own.
 fn decode_ascii(bytes: &[u8]) -> String {
     let end = bytes.iter().position(|b| *b == 0).unwrap_or(bytes.len());
-    let mut out = String::with_capacity(end);
-    for byte in &bytes[..end] {
-        // EXIF says ASCII but cameras write Latin-1; decoding as such never
-        // fails and keeps accented lens names readable.
+    let field = &bytes[..end];
+
+    if let Ok(text) = std::str::from_utf8(field) {
+        return text.trim_end().to_string();
+    }
+
+    // Latin-1: every byte is its own character, which never fails.
+    let mut out = String::with_capacity(field.len());
+    for byte in field {
         let _ = out.write_char(*byte as char);
     }
+
     out.trim_end().to_string()
 }
 
@@ -331,6 +348,35 @@ mod tests {
         let cursor = Cursor::new(bytes, Endian::Little);
         let value = Value::decode(&cursor, FieldType::Ascii, 8, 0).unwrap();
         assert_eq!(value.as_str(), Some("Canon"));
+    }
+
+    /// What Adobe writes into an "ASCII" field. Reading it a byte at a time
+    /// turned every multi-byte character into mojibake.
+    #[test]
+    fn a_utf8_field_is_read_as_utf8() {
+        assert_eq!(decode_ascii("ƒ/11".as_bytes()), "ƒ/11");
+        assert_eq!(
+            decode_ascii("Zeiss Planar 50mm •".as_bytes()),
+            "Zeiss Planar 50mm •"
+        );
+    }
+
+    /// And what a camera writes is still readable, because Latin-1 with an
+    /// accent in it is not valid UTF-8.
+    #[test]
+    fn a_latin1_field_still_reads() {
+        // "Nikkor 35mm f/1.8" with a Latin-1 degree sign in it.
+        let bytes = [
+            b'N', b'i', b'k', b'k', b'o', b'r', b' ', 0xB0, b' ', b'3', b'5', 0,
+        ];
+
+        assert_eq!(decode_ascii(&bytes), "Nikkor ° 35");
+    }
+
+    #[test]
+    fn plain_ascii_is_unchanged_either_way() {
+        assert_eq!(decode_ascii(b"Canon EOS R5  "), "Canon EOS R5");
+        assert_eq!(decode_ascii(b"trailing   "), "trailing");
     }
 
     #[test]

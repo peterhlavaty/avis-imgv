@@ -586,9 +586,33 @@ set aside for the full resolution copies, which are 96 MB each.
 | `camera_white_balance` | Use the white balance the camera recorded. Without it colours come out noticeably wrong. | true |
 | `auto_brighten` | Stretch the histogram to use the whole range | true |
 | `highlight_mode` | 0 clips blown highlights, 1 leaves them unclipped, 2 blends, 3 and up rebuild | 0 |
+| `pair_with_jpeg` | Which half of a raw+JPEG pair is browsed: `"jpeg"`, `"raw"`, or `"off"` to browse both | `jpeg` |
 
 `source: "develop"` needs a build with `--features libraw`; without it the
 viewer logs that it is showing previews instead.
+
+#### Raw and JPEG shot together
+
+A camera set to raw+JPEG writes two files of the same frame. Browsing both
+means walking the shoot twice, rating everything twice, and — worse — letting
+the two copies disagree: reject the JPEG, keep the raw, and what survives the
+cull is the opposite of what was decided.
+
+So one of them is browsed and the other follows it. Everything else acts on
+both: a rating, a flag, a colour label, a keyword, a move, a copy, a deletion.
+Each keeps its own sidecar, so the marks are readable by whatever opens either
+file next. The status bar says `RAW+JPEG` when the photograph on screen is a
+pair, because what happens next is about to happen to two files.
+
+Files are paired by the name the camera gave them — same folder, same stem, one
+of them raw and one not — which is the convention every camera follows. Two
+files that are both pictures, `a.jpg` beside `a.png`, are two photographs: a
+group without a raw in it is not a pair, and hiding one of them would be a way
+to lose a picture.
+
+The folder jobs — bulk rename, capture-time shift, grouping — still see every
+file, because a rename that renamed the JPEG and left the raw behind would
+break the pairing it depends on.
 
 ### Cull
 

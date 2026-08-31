@@ -34,9 +34,10 @@ tests:
 | **Stage 0** | Done. The six ways a keystroke destroyed another program's keywords, both panics, the hang on a crafted raw, the seventeen-gigabyte allocation, the CMYK garbage, the worker a malformed file could kill, the moves that overwrote their destinations, and the configuration file one bad section discarded. |
 | **Stage 1** | Done. Reject and pick flags, colour labels, advance-after-marking, delete to the platform's bin, "send rejected to the bin", the contact sheet rebuilt as a triage surface, filtering and sorting in the browsing views, move and copy to destination slots, the undo journal, the compare view, and a selection every command reads. |
 | **Stage 2** | Exact modifiers, natural browsing order, the raw-preview postage stamp, the side panel's runaway width, a fullscreen key, and the generation bug removal exposed. |
-| **Still to do** | RAW+JPEG pairing and the rest of stage 2, and all of stages 3 and 4. |
+| **Stage 2** | Done. Exact modifiers, natural order, the raw-preview postage stamp, the side panel, zoom that holds its point, the watcher updating instead of reopening, the generation bug, a configuration version and migration, user actions taking an argument vector, RAW+JPEG pairing, and the rest of the correctness list. |
+| **Still to do** | All of stages 3 and 4. |
 
-The test suite went from 568 to 680. `--benchmark` on the same folder and the
+The test suite went from 568 to 744. `--benchmark` on the same folder and the
 same machine reports 57.9 images a second against the 54.6 it did before, so
 none of it cost anything.
 

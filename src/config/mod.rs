@@ -71,6 +71,13 @@ impl Default for Config {
 /// What to do with camera raw files.
 #[derive(Deserialize, Serialize, Clone)]
 pub struct RawConfig {
+    /// Which half of a raw+JPEG pair is browsed, or whether to pair at all.
+    ///
+    /// A camera set to raw+JPEG writes two files of the same frame; browsing
+    /// both means rating the shoot twice and letting the two copies disagree
+    /// about what was decided.
+    #[serde(default)]
+    pub pair_with_jpeg: crate::organize::pairs::Prefer,
     /// Whether to show the JPEG preview the camera embedded, or develop the
     /// sensor data. Developing gives the full resolution and dynamic range and
     /// costs about a second per image.
@@ -552,6 +559,7 @@ impl Default for GridViewConfig {
 impl Default for RawConfig {
     fn default() -> Self {
         RawConfig {
+            pair_with_jpeg: crate::organize::pairs::Prefer::default(),
             source: default_raw_source(),
             quality: default_raw_quality(),
             camera_white_balance: default_camera_white_balance(),

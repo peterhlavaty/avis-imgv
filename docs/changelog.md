@@ -2,6 +2,27 @@
 
 ## 2026-08-30
 
+- **A raw and a JPEG shot together are one photograph.** A camera set to
+  raw+JPEG writes two files of the same frame; browsing both means walking the
+  shoot twice, rating everything twice, and letting the two copies disagree —
+  reject the JPEG, keep the raw, and what survives the cull is the opposite of
+  what was decided.
+
+  One of them is browsed and the other follows it, through every rating, flag,
+  colour label, keyword, move, copy and deletion; each keeps its own sidecar.
+  `raw.pair_with_jpeg` decides which is browsed, or turns pairing off. The
+  status bar says `RAW+JPEG` when the photograph on screen is a pair, and the
+  delete question counts photographs rather than files. The folder jobs still
+  see every file, because a rename that renamed only half of each pair would
+  break the pairing it depends on.
+- Fixed: a configuration file with a byte order mark in front of it — which is
+  what Notepad's "UTF-8" writes — parsed as nothing at all and silently handed
+  back the defaults for everything.
+- EXIF text fields are read as UTF-8 first and fall back to Latin-1, rather
+  than always the latter. Cameras write Latin-1 and Adobe's software writes
+  UTF-8; pure ASCII reads the same either way, and Latin-1 with an accent in
+  it is almost never valid UTF-8, so nothing that used to be readable stops
+  being so.
 - **The configuration file has a version, and is brought forward.** A default
   that moves is the one change `serde` cannot absorb: it fills in the keys a
   file is missing, never the ones that have since moved, so an older file

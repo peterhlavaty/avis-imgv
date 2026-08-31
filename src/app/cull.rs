@@ -25,14 +25,18 @@ use super::App;
 /// about most in the tools that have one.
 #[derive(Debug, Clone)]
 pub struct Pending {
+    /// Every file that will go, both halves of a pair included.
     pub paths: Vec<PathBuf>,
     /// Whether they go to the bin or straight off the disk.
     pub permanent: bool,
+    /// How many *photographs* that is, which is what the question says: a
+    /// raw+JPEG pair is two files and one picture.
+    pub photographs: usize,
 }
 
 impl Pending {
     fn question(&self) -> String {
-        let count = self.paths.len();
+        let count = self.photographs;
         let what = if count == 1 {
             self.paths
                 .first()
@@ -59,14 +63,26 @@ impl App {
     /// asking. Deleting for good does, and so does taking a whole selection:
     /// the cost of a wrong keystroke there is a folder rather than a frame.
     pub(super) fn delete_open_image(&mut self, permanent: bool) {
-        let paths = self.marked_paths();
-        if paths.is_empty() {
+        let shown = self.marked_paths();
+        if shown.is_empty() {
             return;
         }
 
-        let pending = Pending { permanent, paths };
+        // Both halves of a raw+JPEG pair go, because they are one photograph:
+        // deleting the JPEG and leaving the raw is how a frame somebody threw
+        // out comes back on the next card read.
+        let paths: Vec<PathBuf> = shown
+            .iter()
+            .flat_map(|path| self.with_partners(path))
+            .collect();
 
-        if permanent || pending.paths.len() > 1 {
+        let pending = Pending {
+            permanent,
+            paths,
+            photographs: shown.len(),
+        };
+
+        if permanent || pending.photographs > 1 {
             self.pending_delete = Some(pending);
             return;
         }
@@ -93,9 +109,16 @@ impl App {
             return;
         }
 
+        let photographs = paths.len();
+        let paths = paths
+            .iter()
+            .flat_map(|path| self.with_partners(path))
+            .collect();
+
         self.pending_delete = Some(Pending {
             paths,
             permanent: false,
+            photographs,
         });
     }
 
@@ -239,7 +262,7 @@ impl App {
                 .say(format!("{failed} could not be, and are still there"));
         }
 
-        if pending.paths.len() > 1 {
+        if pending.photographs > 1 {
             self.grid_view.clear_selection();
         }
     }
@@ -250,6 +273,8 @@ impl App {
     /// gone, so what it lands on is the next one — which is the single most
     /// complained about detail of culling in Lightroom.
     pub(super) fn forget(&mut self, path: &Path) {
+        self.pairs.forget(path);
+
         if let Some(index) = self.paths.iter().position(|candidate| candidate == path) {
             self.drop_mark(index);
             self.paths.remove(index);
@@ -381,10 +406,17 @@ impl App {
     /// carried, so a selection sent to the wrong folder comes back with one
     /// press rather than two hundred.
     fn carry_errand(&mut self, errand: Errand, slot: &Slot) {
-        let paths = self.marked_paths();
-        if paths.is_empty() {
+        let shown = self.marked_paths();
+        if shown.is_empty() {
             return;
         }
+
+        // The raw goes with its JPEG: a folder of selects holding only half of
+        // each pair is a folder somebody has to fix by hand later.
+        let paths: Vec<PathBuf> = shown
+            .iter()
+            .flat_map(|path| self.with_partners(path))
+            .collect();
 
         if let Err(e) = std::fs::create_dir_all(&slot.path) {
             self.notices
@@ -439,9 +471,9 @@ impl App {
                 Errand::Copy => "Copied",
             };
 
-            self.notices.say(match paths.len() {
+            self.notices.say(match shown.len() {
                 1 => format!("{verb} to {}", slot.label),
-                _ => format!("{verb} {carried} photograph(s) to {}", slot.label),
+                _ => format!("{verb} {} photograph(s) to {}", shown.len(), slot.label),
             });
         }
 
@@ -452,7 +484,7 @@ impl App {
 
         // The photographs that were picked out have gone somewhere, so what
         // was picked out is no longer a useful thing to be holding.
-        if paths.len() > 1 {
+        if shown.len() > 1 {
             self.grid_view.clear_selection();
         }
 
@@ -503,7 +535,29 @@ mod tests {
         Pending {
             paths: names.iter().map(PathBuf::from).collect(),
             permanent,
+            photographs: names.len(),
         }
+    }
+
+    /// A raw and a JPEG shot together are two files and one picture, and the
+    /// question has to say so or it reads as though twice as much is going.
+    #[test]
+    fn a_pair_is_counted_as_one_photograph() {
+        let pending = Pending {
+            paths: vec![
+                PathBuf::from("/photos/IMG_1.JPG"),
+                PathBuf::from("/photos/IMG_1.CR2"),
+            ],
+            permanent: false,
+            photographs: 1,
+        };
+
+        assert!(
+            pending.question().contains("IMG_1.JPG"),
+            "{}",
+            pending.question()
+        );
+        assert!(!pending.question().contains('2'), "{}", pending.question());
     }
 
     #[test]

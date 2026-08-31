@@ -81,7 +81,8 @@ impl App {
             return;
         }
 
-        let changed = self.each(&paths, apply);
+        let files = self.each(&paths, apply);
+        let changed = self.as_photographs(files, &paths);
         self.refresh_marks(&paths);
 
         // Said out loud only when it was not one photograph, because a mark on
@@ -171,14 +172,22 @@ impl App {
 
     /// Applies something to every photograph in `targets`, recording it as one
     /// step, and reports how many it actually changed.
+    ///
+    /// A raw and a JPEG shot together are one photograph, so a mark goes on
+    /// both: each keeps its own sidecar, and a pair whose two halves disagreed
+    /// about a rating would be a pair that had to be culled twice.
     fn each(
         &mut self,
         targets: &[PathBuf],
         mut apply: impl FnMut(&mut AnnotationStore, &Path),
     ) -> usize {
         let mut steps = Vec::new();
+        let targets: Vec<PathBuf> = targets
+            .iter()
+            .flat_map(|path| self.with_partners(path))
+            .collect();
 
-        for path in targets {
+        for path in &targets {
             self.load_annotations(path);
 
             // Recorded before the change rather than after it: undoing a mark
@@ -204,6 +213,21 @@ impl App {
         }
 
         changed
+    }
+
+    /// How many photographs a count of changed *files* stands for.
+    ///
+    /// Marking a raw+JPEG pair writes two sidecars and is one photograph, and
+    /// saying "2 of 1 photographs changed" would be nonsense.
+    fn as_photographs(&self, files: usize, shown: &[PathBuf]) -> usize {
+        let per = shown
+            .iter()
+            .map(|path| self.with_partners(path).len())
+            .max()
+            .unwrap_or(1)
+            .max(1);
+
+        files.div_ceil(per)
     }
 
     /// The photograph a mark applies to.

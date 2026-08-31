@@ -396,7 +396,8 @@
     "quality": "balanced",
     "camera_white_balance": true,
     "auto_brighten": true,
-    "highlight_mode": 0
+    "highlight_mode": 0,
+    "pair_with_jpeg": "jpeg"
   },
   "cull": {
     "destinations": [

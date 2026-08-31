@@ -123,6 +123,13 @@ impl Config {
     /// written by an older build looks like, and the defaults are the right
     /// answer.
     pub fn from_json(document: &str) -> Config {
+        // Notepad, and every other Windows editor with a "UTF-8" option that
+        // means "UTF-8 with a byte order mark", writes three bytes in front of
+        // the opening brace. JSON has no place for them, so a file somebody had
+        // merely opened and saved parsed as nothing at all and silently handed
+        // back the defaults for everything.
+        let document = document.trim_start_matches('\u{feff}');
+
         let map: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(document) {
             Ok(map) => map,
             Err(e) => {
@@ -224,6 +231,16 @@ mod tests {
         };
 
         assert!(cfg.save().is_err());
+    }
+
+    /// A file saved by a Windows editor keeps its settings.
+    #[test]
+    fn a_byte_order_mark_does_not_cost_the_file() {
+        let json = serde_json::to_string(&Config::default()).unwrap();
+        let cfg = Config::from_json(&format!("\u{feff}{json}"));
+
+        assert!(!cfg.partial);
+        assert_eq!(cfg.version, migrate::CURRENT);
     }
 
     #[test]

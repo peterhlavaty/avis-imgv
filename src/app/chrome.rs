@@ -70,6 +70,14 @@ impl App {
             return;
         }
 
+        // The other half of a raw+JPEG pair joins the photograph it belongs
+        // to rather than the collection: a tethered shoot lands the two a
+        // moment apart, and the second must not appear as a second frame.
+        let prefer = self.settings.raw.pair_with_jpeg;
+        if self.pairs.take_in(&path, &self.paths, prefer) {
+            return;
+        }
+
         let at = crawler::position_for(&self.paths, &path);
 
         self.add_mark(at, &path);

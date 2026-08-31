@@ -28,8 +28,13 @@ impl App {
             self.grid_view.focus_on(self.image_view.selected_index());
         }
 
-        if mode.is_folder_job() && !self.organize_view.holds(&self.paths) {
-            self.organize_view.set_images(self.paths.clone());
+        // Every file, not only the browsed half of each pair: a bulk rename
+        // that renamed the JPEG and left the raw behind would break the very
+        // pairing it depends on, and a list that hides half the folder is a
+        // poor thing to check a rename against.
+        let everything = self.all_paths();
+        if mode.is_folder_job() && !self.organize_view.holds(&everything) {
+            self.organize_view.set_images(everything);
         }
     }
 
@@ -88,11 +93,15 @@ impl App {
             return;
         }
 
-        let marks = self
-            .image_view
-            .active_path()
-            .and_then(|path| self.annotations.peek(&path).map(Marks::of))
+        let showing = self.image_view.active_path();
+        let marks = showing
+            .as_ref()
+            .and_then(|path| self.annotations.peek(path).map(Marks::of))
             .unwrap_or_default();
+
+        let paired = showing
+            .as_ref()
+            .is_some_and(|path| !self.pairs.partners_of(path).is_empty());
 
         self.image_view.ui(
             ctx,
@@ -100,6 +109,7 @@ impl App {
                 flattened: self.flattened,
                 watching: self.watcher.is_active(),
                 advancing: self.advancing,
+                paired,
                 ..Default::default()
             },
             marks,
@@ -128,6 +138,6 @@ impl App {
 
         self.annotations.forget_all();
         self.open_directory(&base, selected.as_deref());
-        self.organize_view.set_images(self.paths.clone());
+        self.organize_view.set_images(self.all_paths());
     }
 }
