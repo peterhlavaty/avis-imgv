@@ -249,10 +249,10 @@ impl App {
     /// The cursor stays where it is rather than following the picture that has
     /// gone, so what it lands on is the next one — which is the single most
     /// complained about detail of culling in Lightroom.
-    fn forget(&mut self, path: &Path) {
+    pub(super) fn forget(&mut self, path: &Path) {
         if let Some(index) = self.paths.iter().position(|candidate| candidate == path) {
+            self.drop_mark(index);
             self.paths.remove(index);
-            self.marks.remove(index);
         }
 
         self.image_view.pop(path);

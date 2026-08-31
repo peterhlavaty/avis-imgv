@@ -168,19 +168,49 @@ impl ImageView {
         }
     }
 
-    /// Removes an image from the collection, staying on the same position.
+    /// Takes a photograph that has appeared into the collection, at `index`.
+    ///
+    /// The cursor follows the photograph it was on rather than the position it
+    /// was at: a frame landing earlier in the folder must not move the one
+    /// being looked at out from under the viewer. What is on show is left to
+    /// the caller, which knows the filter and the order.
+    pub fn insert(&mut self, index: usize, path: PathBuf) {
+        self.store.insert(index, path);
+
+        if index <= self.cursor {
+            self.cursor += 1;
+        }
+    }
+
+    /// Takes a photograph out of the collection.
+    ///
+    /// Which photograph is left on screen depends on which one went. Losing
+    /// the one being looked at keeps the *position*, so what appears is the
+    /// one that is now next — the single most complained about detail of
+    /// culling in Lightroom, and the reason this is written out rather than
+    /// left to a rule. Losing one from below it keeps the *photograph*, by
+    /// following it down: a file deleted elsewhere while this viewer has the
+    /// folder open must not step the viewer forward a frame.
     pub fn pop(&mut self, path: &Path) {
         let Some(index) = self.store.index_of(path) else {
             return;
         };
 
+        let looking_at = self.cursor;
+
         self.store.remove(index);
         self.visible.remove_shifting(index);
         self.viewports.forget(path);
 
+        let wanted = if index < looking_at {
+            looking_at - 1
+        } else {
+            looking_at
+        };
+
         let landing = self
             .visible
-            .nearest(self.cursor.min(self.store.len().saturating_sub(1)))
+            .nearest(wanted.min(self.store.len().saturating_sub(1)))
             .and_then(|position| self.visible.at(position))
             .unwrap_or(0);
 

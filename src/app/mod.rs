@@ -211,7 +211,18 @@ impl App {
 
     /// Opens a set of images, optionally landing on one of them.
     fn open(&mut self, paths: Vec<PathBuf>, selected: Option<&Path>) {
-        self.base_path = base_path_of(&paths);
+        let arriving = base_path_of(&paths);
+
+        // The watcher follows the folder that is open. It used to stay on the
+        // one it was started on, so walking away from a watched folder left it
+        // reporting arrivals somewhere nobody was looking — and reporting
+        // nothing about the folder actually on screen, while the status bar
+        // said "Watching".
+        if self.watcher.is_active() && arriving != self.base_path {
+            self.watcher.restart(&arriving, self.flattened);
+        }
+
+        self.base_path = arriving;
         self.navigator_path = self.base_path.to_string_lossy().to_string();
         self.paths = paths;
         self.marks.clear();
@@ -225,6 +236,39 @@ impl App {
         if !self.narrowing.is_idle() {
             self.apply_narrowing();
         }
+    }
+
+    /// Whether the mark cache currently mirrors the collection.
+    ///
+    /// It does not always: it is filled only when the contact sheet is about
+    /// to draw, so until then it is empty however many photographs are open.
+    /// Anything that keeps it in step with a change to the collection has to
+    /// ask first — inserting into or removing from a vector by a position it
+    /// does not have is a panic, and "the folder changed before the sheet was
+    /// ever opened" is the ordinary case rather than the exotic one.
+    fn marks_are_in_step(&self) -> bool {
+        self.marks.len() == self.paths.len()
+    }
+
+    /// Takes a photograph's marks out, if they are being kept.
+    ///
+    /// When they are not, the shorter list is left alone: [`App::ensure_marks`]
+    /// reads the whole collection again the next time the sheet needs it,
+    /// which is exactly what a length that does not match asks it to do.
+    pub(super) fn drop_mark(&mut self, index: usize) {
+        if self.marks_are_in_step() {
+            self.marks.remove(index);
+        }
+    }
+
+    /// Puts a photograph's marks in at `index`, if they are being kept.
+    pub(super) fn add_mark(&mut self, index: usize, image: &Path) {
+        if !self.marks_are_in_step() {
+            return;
+        }
+
+        let marks = Marks::of(self.annotations.get(image, None));
+        self.marks.insert(index, marks);
     }
 
     /// Reads the marks for the whole collection, if that has not been done.

@@ -629,7 +629,7 @@ viewer logs that it is showing previews instead.
 | Ctrl + L | Navigation bar |
 | T | Directory tree |
 | Ctrl + F | Flatten (read files from all sub directories) |
-| Ctrl + W | Watch the directory for new and changed files |
+| Ctrl + W | Watch the directory for files appearing, changing or going |
 | I | Toggle the side panel: metadata and cache occupancy |
 | K | Toggle the rating and tagging panel |
 | 0 – 5 | Set the star rating of the open image |

@@ -17,11 +17,18 @@ pub struct Changes {
     pub added: Vec<PathBuf>,
     /// Files already in the collection whose contents changed.
     pub modified: Vec<PathBuf>,
+    /// Files that are no longer there.
+    ///
+    /// Watched for as well as the arrivals, because a folder open in this
+    /// viewer and tidied up in a file manager used to keep drawing the
+    /// photographs that had gone until something else made it read the folder
+    /// again — and opening one of them failed with no explanation.
+    pub removed: Vec<PathBuf>,
 }
 
 impl Changes {
     pub fn is_empty(&self) -> bool {
-        self.added.is_empty() && self.modified.is_empty()
+        self.added.is_empty() && self.modified.is_empty() && self.removed.is_empty()
     }
 }
 
@@ -59,6 +66,14 @@ impl DirectoryWatcher {
     pub fn stop(&mut self) {
         if self.watcher.take().is_some() {
             tracing::info!("Stopped watching for changes");
+        }
+
+        // The queue belongs to the folder that was being watched. Left in
+        // place it would be handed to the next one, which would then be told
+        // about arrivals in a folder nobody has open — and, worse, about
+        // removals it would apply to whatever happened to share a name.
+        if let Ok(mut queue) = self.events.lock() {
+            queue.clear();
         }
     }
 
@@ -111,12 +126,17 @@ impl DirectoryWatcher {
     }
 }
 
-/// Sorts watcher events into additions and modifications.
+/// Sorts watcher events into arrivals, changes and departures.
+///
+/// A rename arrives as a remove and a create, which is exactly right: the old
+/// name leaves the collection and the new one joins it at its own sorted
+/// position.
 fn classify(events: Vec<Event>, known: impl Fn(&Path) -> bool) -> Changes {
     let mut changes = Changes::default();
 
     for event in events {
-        if !(event.kind.is_create() || event.kind.is_modify()) {
+        let removing = event.kind.is_remove();
+        if !(removing || event.kind.is_create() || event.kind.is_modify()) {
             continue;
         }
 
@@ -125,10 +145,12 @@ fn classify(events: Vec<Event>, known: impl Fn(&Path) -> bool) -> Changes {
                 continue;
             }
 
-            let target = if known(&path) {
-                &mut changes.modified
-            } else {
-                &mut changes.added
+            let target = match (removing, known(&path)) {
+                // Something that was never in the collection cannot leave it.
+                (true, false) => continue,
+                (true, true) => &mut changes.removed,
+                (false, true) => &mut changes.modified,
+                (false, false) => &mut changes.added,
             };
 
             if !target.contains(&path) {
@@ -136,6 +158,11 @@ fn classify(events: Vec<Event>, known: impl Fn(&Path) -> bool) -> Changes {
             }
         }
     }
+
+    // A file written and then deleted within one batch is not an arrival, and
+    // one deleted and written again is not a departure: the last word in the
+    // batch is the one the disk will agree with.
+    changes.added.retain(|path| !changes.removed.contains(path));
 
     changes
 }
@@ -184,13 +211,58 @@ mod tests {
     }
 
     #[test]
-    fn ignores_removals() {
+    fn a_photograph_that_has_gone_is_reported() {
         let events = vec![event(
             EventKind::Remove(RemoveKind::File),
             &["/photos/gone.jpg"],
         )];
 
+        let changes = classify(events, |_| true);
+        assert_eq!(changes.removed, vec![PathBuf::from("/photos/gone.jpg")]);
+        assert!(changes.added.is_empty());
+    }
+
+    /// A removal of something the collection never held says nothing about
+    /// the collection.
+    #[test]
+    fn a_removal_of_something_unknown_is_ignored() {
+        let events = vec![event(
+            EventKind::Remove(RemoveKind::File),
+            &["/photos/never-had-it.jpg"],
+        )];
+
         assert!(classify(events, |_| false).is_empty());
+    }
+
+    /// A rename arrives as a pair, and means exactly what it looks like.
+    #[test]
+    fn a_rename_is_a_departure_and_an_arrival() {
+        let events = vec![
+            event(EventKind::Remove(RemoveKind::File), &["/photos/old.jpg"]),
+            event(EventKind::Create(CreateKind::File), &["/photos/new.jpg"]),
+        ];
+
+        let changes = classify(events, |path| path.ends_with("old.jpg"));
+
+        assert_eq!(changes.removed, vec![PathBuf::from("/photos/old.jpg")]);
+        assert_eq!(changes.added, vec![PathBuf::from("/photos/new.jpg")]);
+    }
+
+    /// A temporary file an exporter writes and then tidies away should not
+    /// join the collection for a frame on its way past.
+    #[test]
+    fn something_written_and_deleted_in_one_batch_never_arrives() {
+        let events = vec![
+            event(EventKind::Create(CreateKind::File), &["/photos/tmp.jpg"]),
+            event(EventKind::Remove(RemoveKind::File), &["/photos/tmp.jpg"]),
+        ];
+
+        // Known by the time the removal is seen, which is how it would look
+        // had the arrival already been applied.
+        let changes = classify(events, |path| path.ends_with("tmp.jpg"));
+
+        assert!(changes.added.is_empty(), "{changes:?}");
+        assert_eq!(changes.removed, vec![PathBuf::from("/photos/tmp.jpg")]);
     }
 
     #[test]

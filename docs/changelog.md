@@ -2,6 +2,30 @@
 
 ## 2026-08-30
 
+- **The watcher updates the folder instead of reopening it.** A photograph
+  appearing in a watched folder is inserted at its sorted position and nothing
+  else moves: what is on screen stays on screen, at the zoom it was at, and
+  every decoded photograph and thumbnail in the folder stays decoded. It used
+  to read the folder again and hand both views a new collection — throwing all
+  of that away, jumping to the newcomer and clearing the selection, once per
+  frame during a tethered shoot.
+- The watcher now notices files that have *gone*, too. A folder open here and
+  tidied up in a file manager used to keep drawing photographs that were no
+  longer there, and opening one failed with no explanation.
+- Fixed: the watcher stayed on the folder it was started on. Walking away from
+  a watched folder left it reporting arrivals where nobody was looking and
+  nothing about the folder on screen, while the status bar said "Watching".
+  It follows the open folder now, and drops the events queued for the one that
+  was left.
+- Fixed: losing a photograph from *below* the one being looked at stepped the
+  viewer forward a frame. Losing the one being looked at still keeps the
+  position and shows what is now next, which is what culling wants; losing any
+  other keeps the photograph.
+- Fixed a crash: taking a photograph out of the collection from the image view
+  before the contact sheet had ever been opened panicked, because the marks
+  the sheet draws are only read when the sheet needs them and the list was
+  still empty. Both the arrival and the departure paths ask before they touch
+  it now.
 - **Zoom that holds its point.** Magnifying used to keep the middle of the
   *panel*, so zooming in on something near an edge pushed it further out of
   sight with every step — the one thing zoom is for. The point under the

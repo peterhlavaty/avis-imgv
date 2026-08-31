@@ -327,6 +327,44 @@ impl ImageStore {
         self.set_cursor(self.cursor);
     }
 
+    /// Adds an image at `index`, keeping the caches aligned with the new
+    /// positions.
+    ///
+    /// The counterpart of [`ImageStore::remove`], and it matters for the same
+    /// reason: a file appearing in a watched folder used to mean reading the
+    /// whole folder again, which threw away every decoded photograph and every
+    /// thumbnail in it. A tethered shoot did that once a frame.
+    ///
+    /// The generation is bumped for the same reason a removal bumps it — every
+    /// position at or past `index` has just moved, so a decode already on its
+    /// way back would land one place along and be drawn under its neighbour's
+    /// name, metadata and rating.
+    pub fn insert(&mut self, index: usize, path: PathBuf) {
+        let index = index.min(self.paths.len());
+
+        self.paths.insert(index, path);
+        self.ram.insert_shifting(index);
+        self.full.insert_shifting(index);
+        self.gpu.insert_shifting(index);
+        self.previews.insert_shifting(index);
+
+        self.generation += 1;
+        self.loader.clear();
+        self.preview_loader.clear();
+        self.requested.clear();
+        self.full_requested.clear();
+        self.preview_requested.clear();
+        self.failed = raise_indices(&self.failed, index);
+
+        // Answers to questions asked about the old positions.
+        while self.results.try_recv().is_ok() {}
+        while self.full_results.try_recv().is_ok() {}
+        while self.preview_results.try_recv().is_ok() {}
+
+        self.focus.set_collection(self.generation, self.paths.len());
+        self.set_cursor(self.cursor);
+    }
+
     pub fn stats(&self) -> StoreStats {
         StoreStats {
             total: self.paths.len(),
@@ -356,6 +394,14 @@ impl ImageStore {
 }
 
 /// Shifts a set of positions down past a removed index.
+/// The same, for a photograph that has appeared.
+fn raise_indices(indices: &HashSet<usize>, added: usize) -> HashSet<usize> {
+    indices
+        .iter()
+        .map(|index| if *index >= added { index + 1 } else { *index })
+        .collect()
+}
+
 fn shift_indices(indices: &HashSet<usize>, removed: usize) -> HashSet<usize> {
     indices
         .iter()

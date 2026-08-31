@@ -106,9 +106,90 @@ pub fn remove_and_shift<V>(entries: &mut HashMap<usize, V>, index: usize) -> Opt
     removed
 }
 
+/// Makes room at `index`, moving everything at or past it up by one.
+///
+/// The mirror of [`remove_and_shift`], for a photograph appearing in the
+/// middle of an open folder: a tethered shot lands at its sorted position, and
+/// every cache entry above it now belongs one place further along. Shifting
+/// them is what keeps the rest of the folder decoded — the alternative is
+/// reading the folder again and throwing away every texture in it.
+pub fn insert_and_shift<V>(entries: &mut HashMap<usize, V>, index: usize) {
+    // Downwards, so a key never lands on one that has not moved yet.
+    let mut shifted: Vec<usize> = entries
+        .keys()
+        .copied()
+        .filter(|key| *key >= index)
+        .collect();
+    shifted.sort_unstable_by(|a, b| b.cmp(a));
+
+    for key in shifted {
+        if let Some(value) = entries.remove(&key) {
+            entries.insert(key + 1, value);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The case that would draw a photograph under its neighbour's name: a
+    /// frame lands in the middle of a folder and every cached entry above it
+    /// now belongs one place further along.
+    #[test]
+    fn making_room_moves_everything_above_it_up() {
+        let mut entries: HashMap<usize, &str> =
+            [(0, "a"), (1, "b"), (2, "c")].into_iter().collect();
+
+        insert_and_shift(&mut entries, 1);
+
+        assert_eq!(entries.get(&0), Some(&"a"));
+        assert_eq!(entries.get(&1), None);
+        assert_eq!(entries.get(&2), Some(&"b"));
+        assert_eq!(entries.get(&3), Some(&"c"));
+    }
+
+    #[test]
+    fn making_room_at_the_end_moves_nothing() {
+        let mut entries: HashMap<usize, &str> = [(0, "a"), (1, "b")].into_iter().collect();
+
+        insert_and_shift(&mut entries, 5);
+
+        assert_eq!(entries.get(&0), Some(&"a"));
+        assert_eq!(entries.get(&1), Some(&"b"));
+        assert_eq!(entries.len(), 2);
+    }
+
+    /// Nothing is lost on the way: shifting upwards has to move the highest
+    /// key first or one lands on another that has not moved yet.
+    #[test]
+    fn making_room_loses_nothing() {
+        let mut entries: HashMap<usize, usize> = (0..20).map(|i| (i, i)).collect();
+
+        insert_and_shift(&mut entries, 3);
+
+        assert_eq!(entries.len(), 20);
+        for original in 0..20usize {
+            let expected = if original >= 3 {
+                original + 1
+            } else {
+                original
+            };
+            assert_eq!(entries.get(&expected), Some(&original), "{original}");
+        }
+    }
+
+    /// Making room and then taking it away again leaves what was there.
+    #[test]
+    fn making_room_and_removing_it_is_a_round_trip() {
+        let before: HashMap<usize, usize> = (0..8).map(|i| (i, i)).collect();
+        let mut entries = before.clone();
+
+        insert_and_shift(&mut entries, 4);
+        remove_and_shift(&mut entries, 4);
+
+        assert_eq!(entries, before);
+    }
 
     #[test]
     fn distance_wraps_around() {

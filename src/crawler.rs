@@ -107,27 +107,90 @@ pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
 /// not, so the two disagreed about what order a folder was in and the README
 /// described the wrong one.
 pub fn sort(images: &mut [PathBuf]) {
-    images.sort_by(|a, b| {
-        let (Some(left), Some(right)) = (a.parent(), b.parent()) else {
-            return a.cmp(b);
-        };
+    images.sort_by(order);
+}
 
-        // The folder first, so a flattened tree stays grouped by directory
-        // rather than interleaving two folders' frame numbers.
-        crate::organize::sort::natural(&left.to_string_lossy(), &right.to_string_lossy()).then_with(
-            || {
-                crate::organize::sort::natural(
-                    &a.file_name().unwrap_or_default().to_string_lossy(),
-                    &b.file_name().unwrap_or_default().to_string_lossy(),
-                )
-            },
-        )
-    });
+/// Where `image` belongs in an already sorted collection.
+///
+/// So a photograph appearing in a watched folder can be put in its place
+/// rather than being appended and the whole thing sorted again — which, for
+/// the collection, means the difference between one insertion and reading the
+/// folder afresh.
+pub fn position_for(images: &[PathBuf], image: &Path) -> usize {
+    images.partition_point(|existing| order(existing, &image.to_path_buf()).is_lt())
+}
+
+/// Folder first, then name, both naturally.
+fn order(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
+    let (Some(left), Some(right)) = (a.parent(), b.parent()) else {
+        return a.cmp(b);
+    };
+
+    // The folder first, so a flattened tree stays grouped by directory
+    // rather than interleaving two folders' frame numbers.
+    crate::organize::sort::natural(&left.to_string_lossy(), &right.to_string_lossy()).then_with(
+        || {
+            crate::organize::sort::natural(
+                &a.file_name().unwrap_or_default().to_string_lossy(),
+                &b.file_name().unwrap_or_default().to_string_lossy(),
+            )
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A photograph appearing in a watched folder goes where sorting it would
+    /// have put it, without the folder being sorted again.
+    #[test]
+    fn a_new_photograph_lands_where_it_belongs() {
+        let mut images: Vec<PathBuf> = ["/p/IMG_1.jpg", "/p/IMG_2.jpg", "/p/IMG_10.jpg"]
+            .iter()
+            .map(PathBuf::from)
+            .collect();
+
+        for (arriving, expected) in [
+            ("/p/IMG_0.jpg", 0),
+            ("/p/IMG_3.jpg", 2),
+            ("/p/IMG_11.jpg", 3),
+        ] {
+            assert_eq!(
+                position_for(&images, &PathBuf::from(arriving)),
+                expected,
+                "{arriving}"
+            );
+        }
+
+        // And inserting there is the same as appending and sorting.
+        let arriving = PathBuf::from("/p/IMG_3.jpg");
+        let at = position_for(&images, &arriving);
+        images.insert(at, arriving);
+
+        let mut sorted = images.clone();
+        sort(&mut sorted);
+        assert_eq!(images, sorted);
+    }
+
+    /// The folder comes first, so a frame arriving in one subfolder does not
+    /// land among another's.
+    #[test]
+    fn a_new_photograph_lands_in_its_own_folder() {
+        let images: Vec<PathBuf> = ["/p/a/1.jpg", "/p/a/2.jpg", "/p/b/1.jpg"]
+            .iter()
+            .map(PathBuf::from)
+            .collect();
+
+        assert_eq!(position_for(&images, &PathBuf::from("/p/a/3.jpg")), 2);
+        assert_eq!(position_for(&images, &PathBuf::from("/p/b/0.jpg")), 2);
+        assert_eq!(position_for(&images, &PathBuf::from("/p/c/1.jpg")), 3);
+    }
+
+    #[test]
+    fn the_first_photograph_of_an_empty_collection_goes_first() {
+        assert_eq!(position_for(&[], &PathBuf::from("/p/a.jpg")), 0);
+    }
 
     /// Builds a small directory tree in a unique temporary directory.
     fn fixture(name: &str) -> PathBuf {

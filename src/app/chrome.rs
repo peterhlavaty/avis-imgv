@@ -37,17 +37,46 @@ impl App {
             self.image_view.reload(path);
             self.grid_view.reload(path);
             self.annotations.forget(path);
+            self.refresh_mark(path);
         }
 
-        if !changes.added.is_empty() {
-            let newest = changes.added.last().cloned();
-            self.paths.extend(changes.added);
-            crawler::sort(&mut self.paths);
-
-            let paths = self.paths.clone();
-            self.image_view.set_images(paths.clone(), newest.as_deref());
-            self.grid_view.set_images(paths);
+        for path in &changes.removed {
+            self.forget(path);
         }
+
+        let moved = !changes.added.is_empty() || !changes.removed.is_empty();
+
+        for path in changes.added {
+            self.take_in(path);
+        }
+
+        // Once, after the batch, rather than once per file: what is on show is
+        // a pass over the collection, and a tethered shoot arriving in bursts
+        // would otherwise pay for it a frame at a time.
+        if moved {
+            self.apply_narrowing();
+        }
+    }
+
+    /// Takes a photograph that has appeared into the open collection.
+    ///
+    /// At its sorted position, and without disturbing anything else. This used
+    /// to read the folder again and hand both views a whole new collection,
+    /// which threw away every decoded photograph and every thumbnail in it,
+    /// put the cursor back on the newcomer, and cleared the selection — once
+    /// per frame during a tethered shoot.
+    fn take_in(&mut self, path: PathBuf) {
+        if self.paths.contains(&path) {
+            return;
+        }
+
+        let at = crawler::position_for(&self.paths, &path);
+
+        self.add_mark(at, &path);
+        self.paths.insert(at, path.clone());
+
+        self.image_view.insert(at, path.clone());
+        self.grid_view.insert(at, path);
     }
 
     pub(super) fn show_side_panel(&mut self, ctx: &egui::Context) {

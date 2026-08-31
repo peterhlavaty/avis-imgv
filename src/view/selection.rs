@@ -124,6 +124,19 @@ impl Selection {
             .map(|&chosen| if chosen > index { chosen - 1 } else { chosen })
             .collect();
     }
+
+    /// Makes room for a photograph that has appeared at `index`.
+    ///
+    /// The new one is not picked out — nobody asked for it — but everything
+    /// from `index` up has moved along one, and a set that did not move with
+    /// them would come to mean the photographs next door.
+    pub fn insert_shifting(&mut self, index: usize) {
+        self.chosen = self
+            .chosen
+            .iter()
+            .map(|&chosen| if chosen >= index { chosen + 1 } else { chosen })
+            .collect();
+    }
 }
 
 #[cfg(test)]
@@ -240,6 +253,28 @@ mod tests {
         selection.remove_shifting(4);
 
         assert_eq!(selection.iter().collect::<Vec<_>>(), vec![1, 6]);
+    }
+
+    #[test]
+    fn a_photograph_appearing_moves_the_set_along() {
+        let mut selection = Selection::default();
+        for index in [0, 3, 7] {
+            selection.toggle(index, index);
+        }
+
+        selection.insert_shifting(3);
+
+        // The one that was at 3 is now at 4; the new arrival is not picked.
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![0, 4, 8]);
+    }
+
+    #[test]
+    fn a_photograph_appearing_at_the_end_moves_nothing() {
+        let mut selection = Selection::default();
+        selection.toggle(1, 1);
+        selection.insert_shifting(9);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![1]);
     }
 
     #[test]

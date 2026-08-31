@@ -126,6 +126,14 @@ impl GridView {
             self.store.remove(index);
             self.visible.remove_shifting(index);
             self.selection.remove_shifting(index);
+
+            // Which photograph the image view is on, as a store position, so
+            // it follows that photograph down rather than pointing at its
+            // neighbour.
+            if index < self.current {
+                self.current -= 1;
+            }
+
             self.cursor = self.cursor.min(self.visible.len().saturating_sub(1));
         }
     }
@@ -150,6 +158,21 @@ impl GridView {
     /// Puts the selection down, for when a command has finished with it.
     pub fn clear_selection(&mut self) {
         self.selection.clear();
+    }
+
+    /// Takes a photograph that has appeared into the sheet, at `index`.
+    ///
+    /// The keyboard cursor is a position in what is on show rather than a
+    /// store position, so the caller fixes it when it hands over the new
+    /// order; what has to move here is the selection and the mark saying which
+    /// photograph the image view is on.
+    pub fn insert(&mut self, index: usize, path: PathBuf) {
+        self.store.insert(index, path);
+        self.selection.insert_shifting(index);
+
+        if index <= self.current {
+            self.current += 1;
+        }
     }
 
     pub fn reload(&mut self, path: &Path) {

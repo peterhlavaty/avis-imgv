@@ -80,6 +80,11 @@ impl RamCache {
         }
     }
 
+    /// Makes room for a photograph appearing at `index`.
+    pub fn insert_shifting(&mut self, index: usize) {
+        policy::insert_and_shift(&mut self.entries, index);
+    }
+
     pub fn clear(&mut self) {
         self.entries.clear();
         self.resident_bytes = 0;
