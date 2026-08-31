@@ -77,6 +77,16 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
         );
 
         touched = touched.merge(control(ui, row, config));
+
+        // Marked where it is drawn, and left exactly as written. `save` writes
+        // the whole document, so clamping on load would destroy somebody's
+        // deliberate 8,192 MB budget on the first unrelated save.
+        if out_of_range(row, config) {
+            ui.label(RichText::new("out of range").color(ui.visuals().warn_fg_color))
+                .on_hover_text(
+                    "Outside what this control can produce. It is left exactly as it                      was written: hand-editing wins.",
+                );
+        }
     });
 
     // Under the control, never in a tooltip: a sentence about what a value
@@ -105,6 +115,21 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
 
 /// How wide a row's name column is.
 const LABEL_WIDTH: f32 = 250.0;
+
+/// Whether a row holds a number its own control could not produce.
+fn out_of_range(row: &Row, config: &Config) -> bool {
+    match &row.access {
+        Access::Int { get, min, max, .. } => {
+            let value = get(config);
+            value < *min || value > *max
+        }
+        Access::Float { get, min, max, .. } => {
+            let value = get(config);
+            !value.is_finite() || value < *min || value > *max
+        }
+        _ => false,
+    }
+}
 
 /// The control itself.
 fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
@@ -161,7 +186,25 @@ fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
             }
             Touched::of(&response)
         }
-        Access::Path(get, set) => path(ui, get, set, config),
+        Access::Path(get, set) => {
+            let mut touched = path(ui, get, set, config);
+
+            // Reported where it was asked for. A keyword list that will not
+            // load used to be a log line and a panel showing fewer keywords.
+            if row.path == "tags.catalog_file" {
+                if ui
+                    .button("Read it now")
+                    .on_hover_text("Says how many keywords are in it, or why it could not be read")
+                    .clicked()
+                {
+                    touched.committed = true;
+                }
+
+                ui.weak(RichText::new(super::lists::read_the_catalogue(config)).small());
+            }
+
+            touched
+        }
         Access::Colour(get, set) => colour(ui, get, set, config),
         Access::Records(list, _) => super::lists::ui(ui, *list, config),
         Access::Key(..) | Access::RatingKey(_) | Access::LabelKey(_) | Access::ActionKey(_) => {
@@ -431,6 +474,27 @@ mod tests {
         // encodes, so a change to it has to change this too.
         assert!(Effect::Restart.badged());
         assert!(!Effect::Rebuild.badged());
+    }
+
+    /// A value the window cannot produce is marked and not touched.
+    #[test]
+    fn a_hand_edited_value_out_of_range_is_marked_and_kept() {
+        let mut config = Config::default();
+        config.cache.ram_budget_mb = 200_000;
+
+        let row = crate::config::registry::row("cache.ram_budget_mb").expect("it is there");
+
+        assert!(out_of_range(row, &config));
+        assert_eq!(config.cache.ram_budget_mb, 200_000);
+    }
+
+    #[test]
+    fn a_value_inside_its_range_is_not_marked() {
+        let config = Config::default();
+
+        for row in crate::config::registry::rows() {
+            assert!(!out_of_range(row, &config), "{} is out of range", row.path);
+        }
     }
 
     #[test]

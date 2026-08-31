@@ -152,6 +152,11 @@ pub struct App {
     /// Whether the question about a configuration file edited underneath the
     /// viewer is on screen.
     conflict_visible: bool,
+    /// What the viewer said at startup, kept for the settings window.
+    ///
+    /// A warning that two commands are on one key used to be gone 6.6 seconds
+    /// after launch and could not be recovered at all.
+    startup_notices: Vec<String>,
     /// Whether the first-run hint is still on screen.
     ///
     /// Dismissed by pressing either of the two keys it names, and not shown at
@@ -305,6 +310,7 @@ impl App {
             conflict_visible: false,
             first_session,
             hint_visible: first_session,
+            startup_notices: Vec::new(),
             about,
             about_visible: false,
             legend_visible: false,
@@ -317,6 +323,7 @@ impl App {
         };
 
         for clash in keys::clashes(&app.settings) {
+            app.startup_notices.push(clash.clone());
             app.notices.warn(clash);
         }
 
@@ -331,7 +338,9 @@ impl App {
         }
 
         for said in &app.settings.migrated {
-            app.notices.say(format!("Brought forward: {said}"));
+            let line = format!("Brought forward: {said}");
+            app.startup_notices.push(line.clone());
+            app.notices.say(line);
         }
 
         if app.settings.partial {

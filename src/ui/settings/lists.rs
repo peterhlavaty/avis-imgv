@@ -12,6 +12,36 @@ use crate::config::{Config, ContextMenuEntry, Destination, TagCategory, UserActi
 
 use super::widgets::Touched;
 
+/// Reads the configured keyword file and says what is in it.
+///
+/// A failure here used to be a `tracing::warn!` and a panel that simply showed
+/// fewer keywords, which is the shape of failure hardest to notice.
+pub fn read_the_catalogue(config: &Config) -> String {
+    let Some(named) = &config.tags.catalog_file else {
+        return "No keyword file is configured.".to_string();
+    };
+
+    let Some(path) = crate::annotations::catalog::resolve(named) else {
+        return format!("Cannot work out where \"{named}\" is.");
+    };
+
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            let categories = crate::annotations::catalog::from_text(&text);
+            let keywords: usize = categories.iter().map(|c| c.tags.len()).sum();
+
+            format!(
+                "{keywords} keyword{} in {} group{}, from {}.",
+                if keywords == 1 { "" } else { "s" },
+                categories.len(),
+                if categories.len() == 1 { "" } else { "s" },
+                path.display()
+            )
+        }
+        Err(e) => format!("Could not read {}: {e}", path.display()),
+    }
+}
+
 /// Draws whichever list a row names.
 pub fn ui(ui: &mut egui::Ui, list: List, config: &mut Config) -> Touched {
     match list {

@@ -37,6 +37,23 @@ pub fn ui(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> Outcome 
 
     ui.add_space(6.0);
 
+    if !state.at_startup.is_empty() {
+        egui::CollapsingHeader::new(format!(
+            "What the viewer said when it started ({})",
+            state.at_startup.len()
+        ))
+        .default_open(true)
+        .show(ui, |ui| {
+            for said in &state.at_startup {
+                ui.horizontal_wrapped(|ui| {
+                    ui.weak(said);
+                });
+            }
+        });
+
+        ui.add_space(8.0);
+    }
+
     file_row(
         ui,
         "Settings",

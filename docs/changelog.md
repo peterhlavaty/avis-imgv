@@ -2,13 +2,24 @@
 
 ## 2026-09-01
 
+- **The window says what is wrong, and what has been changed.** A file only
+  partly read draws a permanent red bar naming what it costs, with every control
+  below it disabled rather than hidden — greying the whole window out would
+  force somebody to look on every other page to find out why. A number outside
+  what its control can produce is marked where it is drawn and left exactly as
+  written. The migration report and the startup key clashes get a permanent home
+  in the footer, where they used to have six seconds and no way back. And the
+  keyword file has a **Read it now** beside it, reporting "2,114 keywords in 31
+  groups" or why it could not be read — which used to be a log line and a panel
+  that quietly showed fewer keywords.
+
 - **A settings window.** Forty-one settings could only be reached by editing a
   JSON file, six more were nudged by a key and thrown away on exit, and
   twenty-seven did not exist. All of them now have a control, on one of eleven
   pages named for what somebody is doing rather than for what the field is made
-  of: Opening a folder · The photograph · The contact sheet · Stars, flags and
-  labels · Keywords · Moving and deleting · Raw files · Slideshow · Speed and
-  memory · The window · Keys and mouse. `Ctrl + ,` opens it on the page it was
+  of: Opening a folder Â· The photograph Â· The contact sheet Â· Stars, flags and
+  labels Â· Keywords Â· Moving and deleting Â· Raw files Â· Slideshow Â· Speed and
+  memory Â· The window Â· Keys and mouse. `Ctrl + ,` opens it on the page it was
   last left on, and **Settings → All settings…** is the third entry on a menu
   that has had two since it was written.
 
@@ -198,9 +209,9 @@
   drew tofu wherever they appeared. They become `◑` and `▣`, which are in the
   proportional chain. Writing the legend is what made it visible.
 - **"Stack" stops being one word for three things.** The status bar built its
-  line from the function that names a *folder*, so a focus stack read "stack 3 ·
-  frame 4 of 17 · stack 3 of 41" — one word for two things, and the same number
-  twice. It reads `Focus stack 3 · frame 4 of 17 · stack 6 of 41` now. The filter
+  line from the function that names a *folder*, so a focus stack read "stack 3 Â·
+  frame 4 of 17 Â· stack 3 of 41" — one word for two things, and the same number
+  twice. It reads `Focus stack 3 Â· frame 4 of 17 Â· stack 6 of 41` now. The filter
   bar counts stacks rather than runs, and the two frame-standing keys are called
   "Which frame shows the stack" and "Show the next frame instead", because
   nobody searches for "standing".
@@ -268,7 +279,7 @@
   already say, every time, so turning them off leaves nothing behind. `E` opens
   the run under the cursor, `,` and `.` walk a folded one without opening it,
   `Ctrl` and the arrows step over a burst rather than through it, and the
-  status bar says `series 2 · frame 4 of 17 · stack 6 of 41` the whole time.
+  status bar says `series 2 Â· frame 4 of 17 Â· stack 6 of 41` the whole time.
 
   The frame standing for a folded run is the sharpest one that could be
   measured, which is the question a burst is usually asking. The filter bar
@@ -363,7 +374,7 @@
   not blurred. It falls back to the name while the scan has not reached a file,
   rather than showing an empty strip.
 - **One template grammar instead of two.** The status bar took
-  `$( • ƒ#Aperture#)` and the bulk rename took `{date}_{n}`, each with a
+  `$( • Æ#Aperture#)` and the bulk rename took `{date}_{n}`, each with a
   vocabulary the other could not reach — so a rename could not put a
   photograph's ISO in a name without a differently spelled placeholder, and
   the status bar could not say a capture date at all. There is one now, it
@@ -405,7 +416,7 @@
   asked for speculatively, for every photograph within reach, before the
   preload window had been queued — so a folder of large JPEGs was decoded
   twice over and the second, expensive decode competed with the one browsing
-  was waiting on. Throughput on a folder of 4624Ã2600 JPEGs went from 37
+  was waiting on. Throughput on a folder of 4624ÃÂ2600 JPEGs went from 37
   images a second to 51, and the slowest frame from 54ms to 14ms. A
   photograph smaller than the display cap now costs one decode rather than
   two, because its ordinary copy already is its own pixels.

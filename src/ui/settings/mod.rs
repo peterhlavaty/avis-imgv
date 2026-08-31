@@ -33,6 +33,10 @@ pub struct State {
     pub reveal: Option<&'static str>,
     /// What is wrong with the file, read once at load.
     pub problems: Vec<Complaint>,
+    /// What was said at startup and has since faded: the migration report and
+    /// the key clashes. Six seconds is not long enough to read a warning that
+    /// two commands are on one key, and it could not be recovered at all.
+    pub at_startup: Vec<String>,
     /// Which reset scope has been asked for and not confirmed.
     pub confirming: Option<Reset>,
 }
@@ -109,25 +113,31 @@ fn contents(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> Outcom
         // given, so one drawn straight into a horizontal row lays its contents
         // out left to right — and `indent` refuses that outright.
         ui.vertical(|ui| {
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    let touched = if state.query.trim().is_empty() {
-                        page(ui, state, config)
-                    } else {
-                        results(ui, state, config)
-                    };
+            // Disabled rather than hidden while the file is only partly read:
+            // nothing can be saved for the rest of the session, and greying the
+            // whole window out would force somebody to look on every other page
+            // to find out why. Microsoft's rule, and its reason.
+            ui.add_enabled_ui(!config.partial, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        let touched = if state.query.trim().is_empty() {
+                            page(ui, state, config)
+                        } else {
+                            results(ui, state, config)
+                        };
 
-                    outcome.changed |= touched.changed;
-                    outcome.committed |= touched.committed;
+                        outcome.changed |= touched.changed;
+                        outcome.committed |= touched.committed;
 
-                    ui.add_space(16.0);
-                    ui.separator();
-                    let footer = footer::ui(ui, state, config);
-                    outcome.run = footer.run;
-                    outcome.changed |= footer.changed;
-                    outcome.committed |= footer.committed;
-                });
+                        ui.add_space(16.0);
+                        ui.separator();
+                        let footer = footer::ui(ui, state, config);
+                        outcome.run = footer.run;
+                        outcome.changed |= footer.changed;
+                        outcome.committed |= footer.committed;
+                    });
+            });
         });
     });
 

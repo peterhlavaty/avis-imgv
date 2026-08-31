@@ -254,6 +254,10 @@ impl App {
         }
 
         self.settings_state.problems = self.settings.check();
+
+        // The migration report and the key clashes had six seconds and no way
+        // back; here they have a home that does not fade.
+        self.settings_state.at_startup = self.startup_notices.clone();
         self.settings_state.just_opened = true;
         self.settings_visible = true;
     }
