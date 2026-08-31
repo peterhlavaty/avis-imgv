@@ -285,6 +285,9 @@ pub struct GeneralConfig {
     pub sc_watch_directory: Shortcut,
     #[serde(default = "default_sc_toggle_side_panel")]
     pub sc_toggle_side_panel: Shortcut,
+    /// Shows or hides the strip of thumbnails under the photograph.
+    #[serde(default = "default_sc_filmstrip")]
+    pub sc_filmstrip: Shortcut,
     /// Sends the picture on screen to the platform's bin.
     #[serde(default = "default_sc_delete")]
     pub sc_delete: Shortcut,
@@ -435,6 +438,13 @@ pub struct GridViewConfig {
     /// marks and the file name.
     #[serde(default = "default_sc_cycle_badges")]
     pub sc_cycle_badges: Shortcut,
+    /// How tall the strip of thumbnails under the image view is, in points.
+    ///
+    /// Zero turns it off, which is the default: it is a second row of pixels
+    /// competing with the photograph for the window, and somebody who wants it
+    /// wants it deliberately.
+    #[serde(default = "default_filmstrip_height")]
+    pub filmstrip_height: f32,
     /// What the line under each thumbnail says, in the template grammar.
     ///
     /// The file name by default, which is what it always said; anything the
@@ -523,6 +533,7 @@ impl Default for GeneralConfig {
             sc_toggle_gallery: default_sc_toggle_gallery(),
             sc_next_mode: default_sc_next_mode(),
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
+            sc_filmstrip: default_sc_filmstrip(),
             sc_delete: default_sc_delete(),
             sc_delete_permanently: default_sc_delete_permanently(),
             sc_fullscreen: default_sc_fullscreen(),
@@ -597,6 +608,7 @@ impl Default for GridViewConfig {
             sc_less_per_row: default_sc_less_per_row(),
             sc_cycle_badges: default_sc_cycle_badges(),
             caption_format: default_caption_format(),
+            filmstrip_height: default_filmstrip_height(),
             sc_select: default_sc_select(),
             sc_select_all: default_sc_select_all(),
         }

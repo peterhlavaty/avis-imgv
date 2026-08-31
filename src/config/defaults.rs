@@ -171,6 +171,10 @@ pub fn default_sc_fit() -> Shortcut {
 pub fn default_sc_frame() -> Shortcut {
     Shortcut::new("g", &[])
 }
+/// `Ctrl + T` for the strip, `t` alone being the directory tree.
+pub fn default_sc_filmstrip() -> Shortcut {
+    Shortcut::new("t", &[MOD_CTRL])
+}
 pub fn default_sc_toggle_side_panel() -> Shortcut {
     Shortcut::new("i", &[])
 }
@@ -261,6 +265,11 @@ pub fn default_gpu_resident_thumbnails() -> usize {
 /// Space is what every program with a contact sheet uses to pick a photograph
 /// out, and picking photographs out is worth more than a key for scrolling
 /// half a row when the arrows, the wheel and the scrollbar all already do it.
+/// Off. The strip takes room from the photograph, so it is asked for.
+pub fn default_filmstrip_height() -> f32 {
+    0.0
+}
+
 /// The file name, which is what the sheet has always shown.
 pub fn default_caption_format() -> String {
     "{name}.{ext}".to_string()

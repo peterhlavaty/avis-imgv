@@ -2,6 +2,14 @@
 
 ## 2026-08-30
 
+- **A filmstrip under the photograph**, on `Ctrl + T` and
+  `grid_view.filmstrip_height`. The contact sheet answers "what is in this
+  folder" and the image view answers "what is this frame", and neither answers
+  "what is either side of this one" — which is the question culling is made
+  of. It draws from the contact sheet's own store, whose textures are resident
+  whichever view is on screen, so it costs nothing but the drawing. It follows
+  what is on show, so a filtered collection has a filtered strip, keeps the
+  current frame in view, and clicking one goes to it.
 - **Marks over the picture, on `C`.** First what has clipped — red where a
   highlight is past saving, blue where a shadow has gone, by the same rule the
   histogram counts by so the picture and the number beside it cannot disagree.

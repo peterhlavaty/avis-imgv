@@ -93,6 +93,11 @@ impl App {
             return;
         }
 
+        // Before the image view, so the strip claims its band of the window
+        // and the photograph is fitted to what is left rather than being drawn
+        // under it.
+        self.show_filmstrip(ctx);
+
         let showing = self.image_view.active_path();
         let marks = showing
             .as_ref()
@@ -117,6 +122,23 @@ impl App {
 
         if let Some(callback) = self.image_view.take_callback() {
             self.execute_callback(callback);
+        }
+    }
+
+    /// Draws the strip of thumbnails under the photograph, if it is up.
+    ///
+    /// From the contact sheet's own store, whose textures are resident
+    /// whichever view is on screen — a strip with a cache of its own would
+    /// decode the folder a second time.
+    fn show_filmstrip(&mut self, ctx: &egui::Context) {
+        let height = self.settings.grid_view.filmstrip_height;
+        if !self.filmstrip_visible || height <= 0.0 {
+            return;
+        }
+
+        let cursor = self.image_view.selected_index();
+        if let Some(path) = self.grid_view.filmstrip(ctx, cursor, height) {
+            self.image_view.select_path(&path);
         }
     }
 

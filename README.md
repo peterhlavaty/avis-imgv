@@ -598,6 +598,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
 | `sc_cycle_badges` | Cycles what is drawn under each thumbnail: nothing, the marks, or the marks and the name | `Ctrl + I` |
+| `filmstrip_height` | How tall the strip of thumbnails under the image view is, in points. `0` turns it off. | 0 |
 | `sc_select` | Picks the photograph under the cursor out, or puts it back | `Space` |
 | `sc_select_all` | Picks out everything on show, or puts it all back | `Ctrl + A` |
 
@@ -692,6 +693,7 @@ break the pairing it depends on.
 | Ctrl + F | Flatten (read files from all sub directories) |
 | Ctrl + W | Watch the directory for files appearing, changing or going |
 | ? | The keys, for whatever is on screen |
+| Ctrl + T | The strip of thumbnails under the photograph |
 | I | Toggle the side panel: metadata and cache occupancy |
 | K | Toggle the rating and tagging panel |
 | 0 – 5 | Set the star rating of the open image |

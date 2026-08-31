@@ -112,6 +112,11 @@ pub struct App {
     pairs: Pairs,
     /// Where the last run left off, kept up to date and written on the way out.
     session: Session,
+    /// Whether the strip of thumbnails is under the photograph.
+    ///
+    /// Starts on when the configured height says so, and the key toggles it
+    /// for the session.
+    filmstrip_visible: bool,
     /// Whether the sheet of keys is up.
     ///
     /// Not the editor, which is a settings window: this is the glance-at list
@@ -161,6 +166,9 @@ impl App {
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
         let settings = config.clone();
+        // Read before the configuration is handed round, and the only thing
+        // wanted from it here.
+        let filmstrip = settings.grid_view.filmstrip_height > 0.0;
         let advancing = config.tags.advance_after_marking;
 
         let mut app = App {
@@ -218,6 +226,7 @@ impl App {
             marks: Vec::new(),
             pairs: Pairs::default(),
             session: Session::load(),
+            filmstrip_visible: filmstrip,
             cheat_sheet_visible: false,
             cheat_sheet_opened: false,
             seen_tags: (None, Vec::new()),
@@ -564,6 +573,7 @@ impl App {
             Command::CopyTo => self.send_somewhere(Errand::Copy),
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
+            Command::ToggleFilmstrip => self.filmstrip_visible = !self.filmstrip_visible,
             Command::ShowKeys => {
                 self.cheat_sheet_visible = !self.cheat_sheet_visible;
                 // The key that opened it is still going down this frame, and

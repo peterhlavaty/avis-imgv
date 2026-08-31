@@ -99,6 +99,12 @@ pub fn all() -> Vec<Binding> {
         binding!("General", "Menu", "Show or hide the menu bar.", general.sc_menu),
         binding!(
             "General",
+            "Filmstrip",
+            "Show or hide the strip of thumbnails under the photograph.",
+            general.sc_filmstrip
+        ),
+        binding!(
+            "General",
             "Side panel",
             "Show or hide the metadata and cache readout down the side.",
             general.sc_toggle_side_panel
@@ -494,6 +500,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 47, "a shortcut was added without a description");
+        assert_eq!(fixed, 48, "a shortcut was added without a description");
     }
 }

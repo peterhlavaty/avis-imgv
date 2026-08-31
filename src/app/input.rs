@@ -49,6 +49,8 @@ pub enum Command {
     Undo,
     /// Show the keys, for the mode that is on screen.
     ShowKeys,
+    /// Show or hide the strip of thumbnails under the photograph.
+    ToggleFilmstrip,
 }
 
 impl Command {
@@ -118,6 +120,7 @@ pub fn collect(
         (&cull.sc_copy, Command::CopyTo),
         (&cull.sc_reject_folder, Command::ToRejectedFolder),
         (&cull.sc_undo, Command::Undo),
+        (&config.sc_filmstrip, Command::ToggleFilmstrip),
     ];
 
     ctx.input_mut(|input| {

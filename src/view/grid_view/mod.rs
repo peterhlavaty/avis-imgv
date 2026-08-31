@@ -4,6 +4,7 @@
 //! small textures without competing for the budget the full size view needs.
 
 pub mod cell;
+pub mod filmstrip;
 pub mod layout;
 
 use std::path::{Path, PathBuf};
@@ -212,6 +213,26 @@ impl GridView {
 
     pub fn cursor_path(&self) -> Option<PathBuf> {
         self.cursor()
+            .and_then(|index| self.store.path(index))
+            .map(Path::to_path_buf)
+    }
+
+    /// Draws the strip of thumbnails under the image view.
+    ///
+    /// From this store rather than a second one: the contact sheet's textures
+    /// are resident whichever view is on screen, which is why the grid is
+    /// warmed while the image view is up. A strip with a cache of its own
+    /// would decode the same folder twice.
+    pub fn filmstrip(
+        &mut self,
+        ctx: &egui::Context,
+        cursor: usize,
+        height: f32,
+    ) -> Option<PathBuf> {
+        let picked = filmstrip::show(ctx, &mut self.store, &self.visible, cursor, height);
+
+        picked
+            .selected
             .and_then(|index| self.store.path(index))
             .map(Path::to_path_buf)
     }

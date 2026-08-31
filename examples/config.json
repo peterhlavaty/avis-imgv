@@ -178,6 +178,7 @@
       ]
     },
     "caption_format": "{name}.{ext}",
+    "filmstrip_height": 0.0,
     "sc_select": {
       "key": "Space",
       "modifiers": []
@@ -250,6 +251,12 @@
     "sc_toggle_side_panel": {
       "key": "i",
       "modifiers": []
+    },
+    "sc_filmstrip": {
+      "key": "t",
+      "modifiers": [
+        "ctrl"
+      ]
     },
     "sc_delete": {
       "key": "delete",
