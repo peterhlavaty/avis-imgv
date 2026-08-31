@@ -152,6 +152,10 @@ pub fn default_overlay_text_size() -> f32 {
 pub fn default_sc_overlay() -> Shortcut {
     Shortcut::new("o", &[])
 }
+/// `c` for clipping, which is the first thing it shows.
+pub fn default_sc_marks() -> Shortcut {
+    Shortcut::new("c", &[])
+}
 pub fn default_name_format() -> String {
     "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)".to_string()
 }

@@ -8,6 +8,7 @@
 pub mod codec;
 pub mod color;
 pub mod histogram;
+pub mod overlays;
 pub mod preview;
 pub mod raw;
 pub mod resize;

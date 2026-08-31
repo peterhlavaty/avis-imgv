@@ -45,6 +45,8 @@ pub enum Command {
     ZoomBy(f32),
     /// Move what the photograph says about itself to the next corner, or off.
     CycleOverlay,
+    /// Mark what has clipped, then what is in focus, then nothing.
+    CycleMarks,
     /// Magnify to a percentage of the image's own pixels.
     ZoomToPercent(f32),
     /// Put this image where the last one was left.
@@ -91,6 +93,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_less_images_shown, Command::ShowFewerImages),
         (&config.sc_compare, Command::Compare),
         (&config.sc_overlay, Command::CycleOverlay),
+        (&config.sc_marks, Command::CycleMarks),
     ];
 
     let mut commands: Vec<Command> = ctx.input_mut(|input| {

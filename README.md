@@ -722,6 +722,7 @@ break the pairing it depends on.
 | Drag | Pan |
 | G | Toggle the white frame |
 | O | Move what it says about itself round the corners, and off |
+| C | Mark what has clipped, then what is in focus, then nothing |
 | Ctrl + / Ctrl - | More or fewer images side by side, or panes while comparing |
 | N | Compare this picture with the next |
 | Tab | Which pane the keys are about |

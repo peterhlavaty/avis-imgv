@@ -320,6 +320,9 @@ pub struct ImageViewConfig {
     /// Moves what the photograph says about itself round the corners, and off.
     #[serde(default = "default_sc_overlay")]
     pub sc_overlay: Shortcut,
+    /// Marks what has clipped, then what is in focus, then nothing.
+    #[serde(default = "default_sc_marks")]
+    pub sc_marks: Shortcut,
     /// Images decoded either side of the one on screen.
     #[serde(default = "default_nr_loaded_images")]
     pub nr_loaded_images: usize,
@@ -553,6 +556,7 @@ impl Default for ImageViewConfig {
             overlay_format: default_overlay_format(),
             overlay_text_size: default_overlay_text_size(),
             sc_overlay: default_sc_overlay(),
+            sc_marks: default_sc_marks(),
 
             sc_fit: default_sc_fit(),
             sc_frame: default_sc_frame(),

@@ -2,6 +2,16 @@
 
 ## 2026-08-30
 
+- **Marks over the picture, on `C`.** First what has clipped — red where a
+  highlight is past saving, blue where a shadow has gone, by the same rule the
+  histogram counts by so the picture and the number beside it cannot disagree.
+  Then focus peaking, which marks the edges that are actually sharp: at
+  anything under 100% a slightly missed focus looks exactly like a hit one,
+  which is why people zoom into every frame of a burst.
+
+  Drawn through the photograph's own texture coordinates, so a mask follows
+  the zoom and the pan for nothing and a quarter turn turns it too, and built
+  only while the overlay is on rather than on every decode.
 - **A histogram, and how much of the frame has gone.** Three channels and a
   brightness fill in the side panel, with the two numbers a screen cannot
   show: what proportion of the photograph has clipped at each end. A monitor

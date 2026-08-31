@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use eframe::egui_wgpu::RenderState;
 
-use crate::decoder::DecodeOptions;
+use crate::decoder::{DecodeOptions, DecodedImage};
 use crate::metadata::Metadata;
 
 use super::gpu::{GpuCache, GpuTexture};
@@ -354,6 +354,12 @@ impl ImageStore {
     ///
     /// Anything that is going to be written back has to wait for this: a
     /// sidecar seeded from a truncated read would drop what it could not see.
+    /// The decoded copy itself, for anything that needs the pixels rather
+    /// than the texture.
+    pub fn decoded(&self, index: usize) -> Option<&std::sync::Arc<DecodedImage>> {
+        self.ram.get(index)
+    }
+
     pub fn decoded_metadata(&self, index: usize) -> Option<&Metadata> {
         self.ram.get(index).map(|image| &image.metadata)
     }

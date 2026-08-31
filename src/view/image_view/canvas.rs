@@ -23,6 +23,8 @@ pub struct FrameStyle {
 pub struct Style {
     /// What to say over the photograph, and where. Empty text draws nothing.
     pub overlay: Overlay,
+    /// A clipping or focus mask to paint over the leading pane, if any.
+    pub mask: Option<egui::TextureId>,
     pub frame: FrameStyle,
     /// Whether a photograph smaller than the panel is enlarged to fill it.
     ///
@@ -108,6 +110,11 @@ pub struct Metrics {
     /// Needed to zoom about the pointer: the panel is not the picture, and a
     /// letterboxed photograph sits somewhere inside it.
     pub rect: Rect,
+    /// Which part of the texture that rectangle showed.
+    ///
+    /// What the clipping and focus masks are drawn through, so they follow the
+    /// zoom and the pan without knowing anything about either.
+    pub uv: Rect,
 }
 
 /// Nothing drawn yet, which every zoom command has to be safe against.
@@ -124,6 +131,7 @@ impl Default for Metrics {
             drawn_width: 0.0,
             pixels_per_point: 1.0,
             rect: Rect::ZERO,
+            uv: Rect::ZERO,
         }
     }
 }
@@ -203,6 +211,22 @@ pub fn draw(
     let (rect, _) = ui.allocate_exact_size(framed, Sense::hover());
     texture::draw(ui, rect, texture, uv);
 
+    // Through the photograph's own texture coordinates, so a mask follows the
+    // zoom and the pan for nothing — and a quarter turn turns it too, because
+    // `texture::draw` has already mapped the corners.
+    if leading {
+        if let Some(mask) = style.mask {
+            let mut mesh = eframe::epaint::Mesh::with_texture(mask);
+            let turned = Rect::from_min_max(
+                texture::to_texture(texture.orientation, uv.min),
+                texture::to_texture(texture.orientation, uv.max),
+            );
+
+            mesh.add_rect_with_uv(rect, turned, eframe::epaint::Color32::WHITE);
+            ui.painter().add(mesh);
+        }
+    }
+
     // Over the picture rather than over the panel, so a letterboxed
     // photograph gets its caption on the photograph.
     super::overlay::show(
@@ -229,6 +253,7 @@ pub fn draw(
         drawn_width,
         pixels_per_point,
         rect,
+        uv,
     }
 }
 

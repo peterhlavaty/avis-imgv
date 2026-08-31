@@ -5,6 +5,7 @@ pub mod canvas;
 pub mod input;
 pub mod interaction;
 pub mod layout;
+pub mod marks;
 pub mod navigate;
 pub mod overlay;
 pub mod slideshow;
@@ -66,6 +67,10 @@ pub struct ImageView {
     cursor: usize,
     /// Which of the store's photographs are being walked through.
     visible: Visible,
+    /// What is being marked over the photograph, if anything.
+    marking: crate::decoder::overlays::Overlay,
+    /// The mask itself, held for the photograph on screen.
+    marks: marks::Marks,
     /// A fixed set of photographs being compared against one another, rather
     /// than the run of neighbours the side-by-side view shows.
     ///
@@ -106,6 +111,8 @@ impl ImageView {
             store: ImageStore::new(render_state, loader, store_config, output_profile),
             cursor: 0,
             visible: Visible::default(),
+            marking: crate::decoder::overlays::Overlay::default(),
+            marks: marks::Marks::default(),
             comparing: None,
             viewport: Viewport {
                 // A slideshow always fills the screen.
@@ -271,6 +278,7 @@ impl ImageView {
             Command::CycleOverlay => {
                 self.config.overlay_corner = self.config.overlay_corner.next();
             }
+            Command::CycleMarks => self.marking = self.marking.next(),
             Command::ShowMoreImages => {
                 if !self.widen_comparison() {
                     self.images_shown = (self.images_shown + 1).min(MAX_IMAGES_SHOWN);
@@ -507,6 +515,8 @@ impl ImageView {
     }
 
     fn show_images(&mut self, ctx: &egui::Context) -> Response {
+        self.prepare_marks(ctx);
+
         let background = self.background_colour();
         let panes = self.panes();
 
@@ -514,6 +524,11 @@ impl ImageView {
         // very store the drawing borrows.
         let style = Style {
             overlay: self.overlay(),
+            // Over the picture, through its own texture coordinates, so the
+            // mask follows the zoom and the pan without knowing about either.
+            // Only the pane the keys are on: a comparison marks the frame
+            // being judged rather than all of them.
+            mask: self.marks.texture_id(),
             frame: self.frame,
             enlarge: self.config.enlarge_to_fit,
         };
@@ -579,6 +594,31 @@ impl ImageView {
         for command in outcome.commands {
             self.apply(command, ctx);
         }
+    }
+
+    /// Builds the clipping or focus mask for the photograph on screen.
+    ///
+    /// From the decoded copy that is already in RAM, which is the same pixels
+    /// the texture holds — so the mask lines up exactly and no file is read
+    /// again. Nothing is built while the overlay is off.
+    fn prepare_marks(&mut self, ctx: &egui::Context) {
+        if self.marking == crate::decoder::overlays::Overlay::Off {
+            self.marks.forget();
+            return;
+        }
+
+        let (Some(path), Some(decoded)) = (
+            self.store.path(self.cursor).map(Path::to_path_buf),
+            self.store.decoded(self.cursor),
+        ) else {
+            return;
+        };
+
+        let surface = &decoded.surface;
+        let (pixels, width, height) = (surface.pixels.clone(), surface.width, surface.height);
+
+        self.marks
+            .prepare(ctx, self.marking, &path, &pixels, width, height);
     }
 
     /// What to write over the photograph, already expanded.
