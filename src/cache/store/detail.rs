@@ -12,11 +12,18 @@ use std::sync::Arc;
 use super::super::loader::{ImageKey, Job};
 use super::ImageStore;
 
-/// Where a full resolution decode sits in the queue.
+/// Where the full resolution copy of the photograph on screen sits.
 ///
-/// Behind the screen sized copies of the images within reach, which are what
-/// browsing waits on, and ahead of the rest of the preload window.
+/// Near the front: it is the one that will be zoomed into, and it is only ever
+/// asked for once its ordinary decode has already arrived.
 const PRIORITY: usize = 4;
+
+/// Where the neighbours' copies sit: behind the whole preload window.
+///
+/// These are speculative — nobody has zoomed into them and nobody may — and
+/// browsing is what the preload window is for. A number larger than any window
+/// rather than a flag, because the queue is ordered by one.
+const BEHIND_THE_WINDOW: usize = 1 << 20;
 
 /// Which copy of an image should be on the GPU.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,9 +154,19 @@ impl ImageStore {
 
     /// Decodes the images within reach at their own resolution.
     ///
-    /// The radius on the job is what makes this affordable: browsing at speed
-    /// abandons these before a worker starts them, so the cost is only paid
-    /// once the user settles on something.
+    /// Only the ones that were actually reduced, and only once their ordinary
+    /// decode has arrived to say so. A photograph smaller than the display cap
+    /// is already held at its own resolution, and asking for it again was a
+    /// second decode of the same file and a second copy of the same pixels for
+    /// nothing — on a folder of screen sized JPEGs, every one of them.
+    ///
+    /// Waiting for the ordinary decode also puts this behind the preload
+    /// rather than in front of it, which is the right way round: the preload
+    /// window is what browsing waits on, and a copy kept for zooming is wanted
+    /// only once somebody has stopped to look.
+    ///
+    /// The radius on the job is what makes even that affordable: browsing at
+    /// speed abandons these before a worker starts them.
     pub(super) fn request_full(&mut self) {
         if self.config.full_resolution_neighbours == 0 {
             return;
@@ -169,8 +186,22 @@ impl ImageStore {
                 continue;
             }
 
+            // Nothing is asked for until the ordinary decode has landed, and
+            // then only if it turned out to be a reduction.
+            match self.ram.get(index) {
+                Some(decoded) if decoded.is_full() => continue,
+                Some(_) => {}
+                None => continue,
+            }
+
             let Some(path) = self.paths.get(index) else {
                 continue;
+            };
+
+            let priority = if index == self.cursor {
+                PRIORITY
+            } else {
+                BEHIND_THE_WINDOW
             };
 
             self.full_requested.insert(index);
@@ -179,7 +210,7 @@ impl ImageStore {
                     generation: self.generation,
                     index,
                 },
-                priority: self.config.priority_bias + PRIORITY,
+                priority: self.config.priority_bias + priority,
                 radius: Some(self.config.full_resolution_neighbours),
                 path: path.clone(),
                 // No cap: this copy exists precisely to be looked at closely.

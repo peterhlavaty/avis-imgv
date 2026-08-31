@@ -33,6 +33,11 @@ pub fn default_full_resolution_neighbours() -> usize {
 }
 
 /// Half a frame at sixty a second, which leaves the rest for drawing.
+/// A gigabyte, which every adapter this viewer runs on has and which holds a
+/// generous window of full size photographs.
+pub fn default_gpu_budget_mb() -> usize {
+    1024
+}
 pub fn default_upload_budget_ms() -> u64 {
     8
 }

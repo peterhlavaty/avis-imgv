@@ -6,7 +6,7 @@ mod previews;
 
 pub use detail::Detail;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
@@ -21,6 +21,7 @@ use super::loader::{Focus, LoadResult, Loaded, Loader};
 use super::policy;
 use super::preview::{self, PreviewLoader};
 use super::ram::RamCache;
+use super::scanned::Scanned;
 use super::{ImageState, StoreConfig, StoreStats};
 
 /// Granularity of the screen size reported to the decoders.
@@ -36,6 +37,19 @@ const DISPLAY_EDGE_STEP: u32 = 512;
 /// rather than a half. A quarter of four gigabytes still holds several 24
 /// megapixel images, which is more than the three that are always wanted.
 const FULL_RESOLUTION_SHARE: usize = 4;
+
+/// Share of the adapter budget the camera thumbnails may take.
+///
+/// A small one: there are many of them, each is a few hundred kilobytes, and
+/// they exist only to stand in for a photograph that is still decoding.
+const PREVIEW_GPU_SHARE: usize = 8;
+
+/// Share of the RAM budget the metadata read ahead may take.
+///
+/// Small: a folder's worth of tags is a few megabytes, and it is worth keeping
+/// because reading it again means going back to the disk — but it must not be
+/// able to crowd out the photographs it describes.
+const SCANNED_SHARE: usize = 64;
 
 /// One collection of images and everything cached about it.
 pub struct ImageStore {
@@ -68,8 +82,8 @@ pub struct ImageStore {
     preview_responder: Sender<preview::Read>,
     preview_requested: HashSet<usize>,
     /// Metadata read from the front of each file, available long before the
-    /// image itself is.
-    scanned: HashMap<PathBuf, Metadata>,
+    /// image itself is, and bounded like everything else here.
+    scanned: Scanned,
     /// The four preload windows, kept between frames.
     ///
     /// Each is wanted once a frame and is the same as last frame's for as long
@@ -111,11 +125,33 @@ impl ImageStore {
         // convert the photograph into.
         let preview_profile = Arc::clone(&output_profile);
 
-        let gpu = GpuCache::new(render_state.clone(), config.gpu_resident);
-        let previews = GpuCache::new(render_state, config.previews_resident.max(1));
+        // The thumbnails that stand in for images still decoding get a small
+        // slice: there are a lot of them and each is a few hundred kilobytes,
+        // and taking room from the photographs to hold more of them would be
+        // the wrong way round.
+        let preview_budget = (config.gpu_budget_bytes / PREVIEW_GPU_SHARE).max(1);
+        let gpu = GpuCache::new(
+            render_state.clone(),
+            config.gpu_resident,
+            config
+                .gpu_budget_bytes
+                .saturating_sub(preview_budget)
+                .max(1),
+        );
+        let previews = GpuCache::new(
+            render_state,
+            config.previews_resident.max(1),
+            preview_budget,
+        );
         let (responder, results) = channel();
         let (full_responder, full_results) = channel();
         let (preview_responder, preview_results) = preview::channel_pair();
+
+        // A share of the RAM budget rather than a number of entries: one
+        // photograph's tags may be a few hundred bytes and another's a
+        // two-kilobyte colour profile, and this used to be held outside the
+        // budget entirely and never released.
+        let scanned_budget = (config.ram_budget_bytes / SCANNED_SHARE).max(1);
 
         let full_budget = if config.full_resolution_neighbours > 0 {
             config.ram_budget_bytes / FULL_RESOLUTION_SHARE
@@ -155,7 +191,7 @@ impl ImageStore {
             preview_responder,
             preview_requested: HashSet::new(),
             windows: Windows::default(),
-            scanned: HashMap::new(),
+            scanned: Scanned::new(scanned_budget),
             config,
         }
     }
@@ -411,6 +447,11 @@ impl ImageStore {
             on_gpu: self.gpu.len(),
             resident_bytes: self.ram.resident_bytes() + self.full.resident_bytes(),
             budget_bytes: self.ram.budget_bytes() + self.full.budget_bytes(),
+            gpu_bytes: self.gpu.resident_bytes(),
+            gpu_budget_bytes: self.gpu.budget_bytes(),
+            preview_bytes: self.previews.resident_bytes(),
+            scanned_bytes: self.scanned.resident_bytes(),
+            scanned_budget_bytes: self.scanned.budget_bytes(),
             loading: self.requested.len(),
             failed: self.failed.len(),
         }

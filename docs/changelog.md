@@ -2,6 +2,31 @@
 
 ## 2026-08-30
 
+- **A full resolution copy is only decoded for a photograph that was
+  reduced, and only once its ordinary decode has said so.** It used to be
+  asked for speculatively, for every photograph within reach, before the
+  preload window had been queued — so a folder of large JPEGs was decoded
+  twice over and the second, expensive decode competed with the one browsing
+  was waiting on. Throughput on a folder of 4624×2600 JPEGs went from 37
+  images a second to 51, and the slowest frame from 54ms to 14ms. A
+  photograph smaller than the display cap now costs one decode rather than
+  two, because its ordinary copy already is its own pixels.
+- **The GPU cache is bounded by bytes, not only by texture count.** A count is
+  not a memory bound: two hundred thumbnails and two hundred sixty-megapixel
+  photographs are the same number. `cache.gpu_budget_mb` sets the ceiling, and
+  the upload loop stops when it is reached rather than evicting a neighbour to
+  make room and wanting it back next frame.
+- **The metadata read ahead of the decoders is bounded too.** Every file the
+  preview reader touched left its tags behind and nothing ever took one out,
+  entirely outside the budget the rest of the cache is held to — a folder of
+  ten thousand photographs built ten thousand of them and kept them all.
+- **The memory readout says what is actually held.** It counted the decoded
+  pixels in RAM and called that the total, while the textures on the adapter —
+  the same pixels again, plus a third for the mip chain — the thumbnails
+  standing in for them, and the metadata all went unmentioned. It now shows
+  each tier against its ceiling and what they add up to: on a folder where the
+  old figure was 2323 MiB, the honest one is 2494 MiB against a process
+  holding 2670 MB.
 - **Four kinds of work that every frame was doing again.** None of them shows
   up in the benchmark, which moves to a new photograph every frame and never
   opens a panel — they are what the viewer does while somebody is looking at

@@ -526,6 +526,7 @@ These are the knobs that decide how far ahead of you the viewer runs.
 | Key | Meaning | Default |
 |-----|---------|---------|
 | `ram_budget_mb` | Ceiling on decoded pixels held in RAM, shared by both views. An eighth goes to thumbnails. | 4096 |
+| `gpu_budget_mb` | Ceiling on what the two caches hold on the adapter, mip chains included. The counts beside it bound how *many* textures stay resident, which is not the same thing: two hundred thumbnails and two hundred sixty-megapixel photographs are the same number and a thousandfold difference. | 1024 |
 | `decode_threads` | Decode workers. `0` picks one per core, less one for the UI, capped at 8 — past which they saturate memory bandwidth rather than adding throughput. | 0 |
 | `previews_resident` | Camera thumbnails kept on the GPU to stand in for images still decoding, and how far either side of the cursor their files are read. `0` turns the preview tier off. | 16 |
 | `full_resolution_neighbours` | How far either side of the image on screen to also decode at full resolution, ready to be zoomed into. Each one is a whole decoded photograph in memory. `0` turns that off. | 1 |

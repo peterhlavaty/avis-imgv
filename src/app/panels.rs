@@ -187,15 +187,64 @@ pub fn cache_stats(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreSta
         ));
     }
 
-    ui.label(format!(
-        "{} of {} budget",
-        format_mib(images.resident_bytes + thumbnails.resident_bytes),
-        format_mib(images.budget_bytes + thumbnails.budget_bytes)
-    ));
+    ui.add_space(6.0);
+    memory(ui, images, thumbnails);
 
     if images.failed > 0 {
         ui.label(format!("{} image(s) could not be opened", images.failed));
     }
+}
+
+/// What the viewer is actually holding, tier by tier.
+///
+/// Tier by tier because one number was misleading: it counted the decoded
+/// pixels in RAM and nothing else, while the textures on the adapter — the
+/// same pixels again, plus a third for the mip chain — the camera thumbnails
+/// standing in for them, and a folder's worth of metadata all went
+/// unmentioned. On a large folder the figure shown was a fraction of what the
+/// process was using.
+fn memory(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreStats) {
+    let rows = [
+        (
+            "Decoded",
+            images.resident_bytes + thumbnails.resident_bytes,
+            Some(images.budget_bytes + thumbnails.budget_bytes),
+        ),
+        (
+            "On the GPU",
+            images.gpu_bytes + thumbnails.gpu_bytes,
+            Some(images.gpu_budget_bytes + thumbnails.gpu_budget_bytes),
+        ),
+        (
+            "Thumbnails standing in",
+            images.preview_bytes + thumbnails.preview_bytes,
+            None,
+        ),
+        (
+            "Metadata read ahead",
+            images.scanned_bytes + thumbnails.scanned_bytes,
+            Some(images.scanned_budget_bytes + thumbnails.scanned_budget_bytes),
+        ),
+    ];
+
+    for (label, held, budget) in rows {
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(format!("{label}:")).weak());
+            ui.label(match budget {
+                Some(budget) => format!("{} of {}", format_mib(held), format_mib(budget)),
+                None => format_mib(held),
+            });
+        });
+    }
+
+    ui.add_space(2.0);
+    ui.label(
+        RichText::new(format!(
+            "{} held in all",
+            format_mib(images.held_bytes() + thumbnails.held_bytes())
+        ))
+        .strong(),
+    );
 }
 
 fn format_mib(bytes: usize) -> String {

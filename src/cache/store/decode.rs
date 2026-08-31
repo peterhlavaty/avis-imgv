@@ -134,6 +134,15 @@ impl ImageStore {
                 continue;
             }
 
+            // Stop rather than churn. The window is walked nearest first and
+            // everything outside it has already been dropped, so a full budget
+            // means the near ones are resident and the far ones are what will
+            // not fit — uploading anyway would evict a neighbour to make room
+            // and then want it back on the next frame.
+            if index != self.cursor && self.gpu.resident_bytes() >= self.gpu.budget_bytes() {
+                break;
+            }
+
             let Some(image) = self.ram.get(index).cloned() else {
                 continue;
             };

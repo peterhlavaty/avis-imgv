@@ -234,6 +234,14 @@ pub struct CacheConfig {
     pub previews_resident: usize,
     #[serde(default = "default_full_resolution_neighbours")]
     pub full_resolution_neighbours: usize,
+    /// Ceiling on what the two caches may hold on the adapter, in megabytes.
+    ///
+    /// The counts beside it bound how *many* textures stay resident, which is
+    /// not a memory bound: two hundred thumbnails and two hundred sixty
+    /// megapixel photographs are the same number and a thousandfold difference
+    /// in what the card is holding.
+    #[serde(default = "default_gpu_budget_mb")]
+    pub gpu_budget_mb: usize,
     /// How long a frame may spend moving decoded images onto the GPU.
     ///
     /// A 24 megapixel texture takes about 12ms, so this is the difference
@@ -594,6 +602,7 @@ impl Default for CacheConfig {
             decode_threads: default_decode_threads(),
             previews_resident: default_previews_resident(),
             full_resolution_neighbours: default_full_resolution_neighbours(),
+            gpu_budget_mb: default_gpu_budget_mb(),
             upload_budget_ms: default_upload_budget_ms(),
         }
     }

@@ -25,10 +25,27 @@ pub fn levels(width: u32, height: u32) -> u32 {
 }
 
 /// Halves a dimension, never reaching zero, the way the GPU does between mip
-/// levels. Used by the tests to check the chain reaches the bottom.
-#[cfg_attr(not(test), allow(dead_code))]
+/// levels.
 fn halved(size: u32) -> u32 {
     (size / 2).max(1)
+}
+
+/// How much memory an RGBA texture of this size takes, mip chain included.
+///
+/// The chain is what makes a texture cost more than its pixels: every level is
+/// a quarter of the one above, so a full chain is about a third again. A cache
+/// bounded by texture *count* did not care; one bounded by bytes has to.
+pub fn byte_len(width: u32, height: u32) -> usize {
+    let (mut w, mut h) = (width.max(1), height.max(1));
+    let mut bytes = 0usize;
+
+    for _ in 0..levels(width, height) {
+        bytes += (w as usize) * (h as usize) * 4;
+        w = halved(w);
+        h = halved(h);
+    }
+
+    bytes
 }
 
 /// Builds the mip chain of a texture by repeatedly halving it on the GPU.
@@ -229,6 +246,42 @@ mod tests {
         assert_eq!(levels(2, 1), 2);
         assert_eq!(levels(4, 4), 3);
         assert_eq!(levels(1024, 1024), 11);
+    }
+
+    /// A texture costs its pixels plus the chain, which converges on a third
+    /// again — the thing a cache bounded by texture count could not see.
+    #[test]
+    fn a_texture_costs_more_than_its_pixels() {
+        let pixels = 1024 * 1024 * 4;
+        let held = byte_len(1024, 1024);
+
+        assert!(held > pixels, "{held} should exceed {pixels}");
+        assert!(
+            held < pixels * 3 / 2,
+            "{held} should be under half as much again"
+        );
+    }
+
+    #[test]
+    fn a_single_pixel_costs_one_texel() {
+        assert_eq!(byte_len(1, 1), 4);
+    }
+
+    /// Every level is counted, down to the last.
+    #[test]
+    fn the_whole_chain_is_counted() {
+        // 4x4, 2x2, 1x1 = 16 + 4 + 1 texels.
+        assert_eq!(byte_len(4, 4), (16 + 4 + 1) * 4);
+    }
+
+    /// A sixty megapixel photograph is two hundred and forty megabytes of
+    /// texels before the chain, which is why counting textures is not a
+    /// memory bound.
+    #[test]
+    fn a_large_photograph_is_a_large_texture() {
+        let held = byte_len(9504, 6336);
+
+        assert!(held > 240 * 1024 * 1024, "{held}");
     }
 
     #[test]

@@ -33,6 +33,7 @@ pub fn image_store(cache: &CacheConfig, view: &ImageViewConfig, raw: &RawConfig)
     StoreConfig {
         ram_budget_bytes: split(cache.ram_budget_mb).0,
         gpu_resident: view.gpu_resident_images,
+        gpu_budget_bytes: gpu_split(cache.gpu_budget_mb).0,
         preload_radius: view.nr_loaded_images,
         max_edge: non_zero(view.max_image_edge),
         previews_resident: cache.previews_resident,
@@ -48,6 +49,7 @@ pub fn thumbnail_store(cache: &CacheConfig, view: &GridViewConfig) -> StoreConfi
     StoreConfig {
         ram_budget_bytes: split(cache.ram_budget_mb).1,
         gpu_resident: view.gpu_resident_thumbnails,
+        gpu_budget_bytes: gpu_split(cache.gpu_budget_mb).1,
         // The grid scrolls in rows, so its window is measured in rows too.
         preload_radius: (view.preloaded_rows + VISIBLE_ROWS) * view.images_per_row.max(1),
         max_edge: non_zero(view.thumbnail_resolution),
@@ -76,6 +78,18 @@ fn raw_options(raw: &RawConfig) -> raw::Options {
         auto_brighten: raw.auto_brighten,
         highlight_mode: raw.highlight_mode,
     }
+}
+
+/// Splits the adapter budget into `(full size, thumbnails)` bytes.
+///
+/// The same shape as the RAM split and for the same reason: the contact sheet
+/// holds many small textures and the image view a few large ones, and letting
+/// either take the whole budget starves the other.
+fn gpu_split(gpu_budget_mb: usize) -> (usize, usize) {
+    let total = gpu_budget_mb.max(1) * 1024 * 1024;
+    let thumbnails = (total / THUMBNAIL_SHARE).min(total / 2).max(1);
+
+    (total - thumbnails, thumbnails)
 }
 
 /// Splits the configured budget into `(full size, thumbnails)` bytes.

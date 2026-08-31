@@ -23,6 +23,12 @@ pub struct GpuTexture {
     pub id: TextureId,
     /// Size the image is shown at, which a quarter turn swaps.
     pub size: Vec2,
+    /// What this texture costs the adapter, mip chain included.
+    ///
+    /// Counted because a texture count is not a memory bound: two hundred
+    /// thumbnails and two hundred sixty-megapixel photographs are the same
+    /// number and a thousandfold difference in what the card is holding.
+    pub bytes: usize,
     /// The turn the rasteriser still has to make.
     pub orientation: Orientation,
     /// How much of the image's own resolution these texels hold: one for the
@@ -79,22 +85,45 @@ pub struct GpuCache {
     entries: HashMap<usize, GpuTexture>,
     render_state: RenderState,
     capacity: usize,
+    /// What the entries add up to, kept as they come and go.
+    resident_bytes: usize,
+    /// The ceiling on that, alongside the count.
+    ///
+    /// Both, because they bound different failures: the count keeps the
+    /// number of live texture descriptors sane, and the bytes keep a folder of
+    /// very large photographs from filling the adapter's memory. Whichever is
+    /// reached first is the one that evicts.
+    budget_bytes: usize,
     /// Shared by every upload; building it costs a pipeline compile, which is
     /// not something to do per image.
     mipmaps: MipGenerator,
 }
 
 impl GpuCache {
-    /// `capacity` is the number of textures to keep resident.
-    pub fn new(render_state: RenderState, capacity: usize) -> GpuCache {
+    /// `capacity` is the number of textures to keep resident, and
+    /// `budget_bytes` what they may add up to.
+    pub fn new(render_state: RenderState, capacity: usize, budget_bytes: usize) -> GpuCache {
         let mipmaps = MipGenerator::new(&render_state.device);
 
         GpuCache {
             entries: HashMap::new(),
             render_state,
             capacity: capacity.max(1),
+            resident_bytes: 0,
+            // Never nought: a budget that holds nothing would evict every
+            // texture the moment it was uploaded and draw an empty window.
+            budget_bytes: budget_bytes.max(1),
             mipmaps,
         }
+    }
+
+    /// What the resident textures add up to.
+    pub fn resident_bytes(&self) -> usize {
+        self.resident_bytes
+    }
+
+    pub fn budget_bytes(&self) -> usize {
+        self.budget_bytes
     }
 
     /// Largest texture edge the adapter supports.
@@ -184,18 +213,26 @@ impl GpuCache {
             return;
         };
 
-        self.entries.insert(index, texture);
-        self.evict_until_within_capacity(index, cursor, total);
+        self.resident_bytes += texture.bytes;
+        if let Some(replaced) = self.entries.insert(index, texture) {
+            self.resident_bytes = self.resident_bytes.saturating_sub(replaced.bytes);
+        }
+
+        self.evict_until_within_budget(index, cursor, total);
     }
 
     pub fn remove(&mut self, index: usize) {
-        self.entries.remove(&index);
+        if let Some(gone) = self.entries.remove(&index) {
+            self.resident_bytes = self.resident_bytes.saturating_sub(gone.bytes);
+        }
     }
 
     /// Removes a texture whose image has left the collection, shifting the
     /// entries above it down.
     pub fn remove_shifting(&mut self, index: usize) {
-        policy::remove_and_shift(&mut self.entries, index);
+        if let Some(gone) = policy::remove_and_shift(&mut self.entries, index) {
+            self.resident_bytes = self.resident_bytes.saturating_sub(gone.bytes);
+        }
     }
 
     /// Makes room for a photograph appearing at `index`.
@@ -205,15 +242,31 @@ impl GpuCache {
 
     pub fn clear(&mut self) {
         self.entries.clear();
+        self.resident_bytes = 0;
     }
 
     /// Drops every texture whose index is not in `keep`.
     pub fn retain(&mut self, keep: impl Fn(usize) -> bool) {
-        self.entries.retain(|index, _| keep(*index));
+        let mut freed = 0;
+        self.entries.retain(|index, texture| {
+            let staying = keep(*index);
+            if !staying {
+                freed += texture.bytes;
+            }
+
+            staying
+        });
+
+        self.resident_bytes = self.resident_bytes.saturating_sub(freed);
     }
 
-    fn evict_until_within_capacity(&mut self, keep: usize, cursor: usize, total: usize) {
-        while self.entries.len() > self.capacity {
+    /// Evicts the furthest texture until both ceilings are satisfied.
+    ///
+    /// The one just uploaded is never the victim, or a single texture larger
+    /// than the whole budget would be thrown away the instant it arrived and
+    /// asked for again on the next frame.
+    fn evict_until_within_budget(&mut self, keep: usize, cursor: usize, total: usize) {
+        while self.entries.len() > self.capacity || self.resident_bytes > self.budget_bytes {
             match policy::furthest(self.entries.keys().copied(), cursor, total, keep) {
                 Some(victim) => self.remove(victim),
                 None => return,
@@ -310,6 +363,7 @@ impl GpuCache {
         Some(GpuTexture {
             id,
             size: shown,
+            bytes: mipmap::byte_len(width, height),
             orientation,
             resolution,
             render_state: self.render_state.clone(),

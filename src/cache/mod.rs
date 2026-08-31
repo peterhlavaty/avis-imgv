@@ -17,6 +17,7 @@ pub mod mipmap;
 pub mod policy;
 pub mod preview;
 pub mod ram;
+pub mod scanned;
 pub mod store;
 
 use std::time::Duration;
@@ -30,6 +31,8 @@ pub struct StoreConfig {
     pub ram_budget_bytes: usize,
     /// How many textures stay resident on the GPU.
     pub gpu_resident: usize,
+    /// What those textures may add up to, mip chains included.
+    pub gpu_budget_bytes: usize,
     /// How many images either side of the cursor are decoded ahead of time.
     pub preload_radius: usize,
     /// Cap on the longest edge of a decoded image, before the GPU's own limit
@@ -62,6 +65,7 @@ impl Default for StoreConfig {
         StoreConfig {
             ram_budget_bytes: 4 * 1024 * 1024 * 1024,
             gpu_resident: 8,
+            gpu_budget_bytes: 256 * 1024 * 1024,
             preload_radius: 32,
             max_edge: None,
             previews_resident: 16,
@@ -96,8 +100,28 @@ pub struct StoreStats {
     /// Of those, how many are also held at their own resolution for zooming.
     pub at_full_resolution: usize,
     pub on_gpu: usize,
+    /// Decoded pixels held in RAM, and the ceiling on them.
     pub resident_bytes: usize,
     pub budget_bytes: usize,
+    /// What the adapter is holding, mip chains included, and its ceiling.
+    ///
+    /// Reported because it was not: the readout counted decoded pixels in RAM
+    /// and called that the memory, while the textures — which are the same
+    /// pixels again, plus a third for the mip chain — went unmentioned.
+    pub gpu_bytes: usize,
+    pub gpu_budget_bytes: usize,
+    /// The camera thumbnails standing in for images still decoding.
+    pub preview_bytes: usize,
+    /// Metadata read ahead of the decoders, and its ceiling.
+    pub scanned_bytes: usize,
+    pub scanned_budget_bytes: usize,
     pub loading: usize,
     pub failed: usize,
+}
+
+impl StoreStats {
+    /// Everything this store is holding, wherever it is holding it.
+    pub fn held_bytes(&self) -> usize {
+        self.resident_bytes + self.gpu_bytes + self.preview_bytes + self.scanned_bytes
+    }
 }
