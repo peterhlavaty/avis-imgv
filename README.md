@@ -741,8 +741,11 @@ menu entry. Supported placeholders:
 - `{//}` parent directory
 - `{.//}` grandparent directory
 
-Keep the commands simple; for anything involved, call a script and pass it the
-path.
+No shell is involved: the command line is split into arguments first — single
+quotes group words, so `bash -c 'a && b'` is three arguments — and the
+placeholders are then filled *inside* each argument. A substituted path is
+therefore always exactly one argument, whatever the file is called. Keep the
+commands simple; for anything involved, call a script and pass it the path.
 
 Examples:
 

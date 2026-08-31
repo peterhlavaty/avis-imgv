@@ -131,8 +131,8 @@ impl App {
         let image_budget = stores::image_store(&config.cache, &config.image_view, &config.raw);
         let thumbnail_budget = stores::thumbnail_store(&config.cache, &config.grid_view);
 
-        let (mut paths, opened) = crawler::paths_from_args();
-        crawler::sort(&mut paths);
+        let mut opening = crawler::paths_from_args();
+        crawler::sort(&mut opening.images);
 
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
@@ -156,7 +156,7 @@ impl App {
                 output_profile,
                 config.grid_view,
             ),
-            base_path: base_path_of(&paths),
+            base_path: base_path_of(&opening.images),
             navigator_path: String::new(),
             paths: Vec::new(),
             flattened: false,
@@ -205,13 +205,28 @@ impl App {
             );
         }
 
-        app.open(paths, opened.as_deref());
+        app.open_within(
+            std::mem::take(&mut opening.images),
+            opening.selected.as_deref(),
+            opening.folder,
+        );
         app
     }
 
-    /// Opens a set of images, optionally landing on one of them.
-    fn open(&mut self, paths: Vec<PathBuf>, selected: Option<&Path>) {
-        let arriving = base_path_of(&paths);
+    /// Opens a collection, remembering which folder it came from.
+    ///
+    /// `folder` is the one that was actually asked for. Without it the folder
+    /// has to be guessed from the first photograph, and a folder holding no
+    /// photographs at all leaves nothing to guess from — so opening an empty
+    /// one used to quietly put the viewer in the *home* directory, and asking
+    /// to flatten it then crawled everything the user owns.
+    fn open_within(
+        &mut self,
+        paths: Vec<PathBuf>,
+        selected: Option<&Path>,
+        folder: Option<PathBuf>,
+    ) {
+        let arriving = folder.unwrap_or_else(|| base_path_of(&paths));
 
         // The watcher follows the folder that is open. It used to stay on the
         // one it was started on, so walking away from a watched folder left it
@@ -370,7 +385,7 @@ impl App {
     fn open_directory(&mut self, path: &Path, selected: Option<&Path>) {
         let mut paths = crawler::crawl(path, self.flattened);
         crawler::sort(&mut paths);
-        self.open(paths, selected);
+        self.open_within(paths, selected, Some(path.to_path_buf()));
     }
 
     fn apply(&mut self, command: Command, ctx: &egui::Context) {
@@ -569,6 +584,12 @@ fn base_path_of(paths: &[PathBuf]) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The case that sent the viewer home: nothing to take a parent from.
+    #[test]
+    fn an_empty_collection_has_no_folder_to_derive() {
+        assert_ne!(base_path_of(&[]), PathBuf::new());
+    }
 
     #[test]
     fn the_base_path_is_the_parent_of_the_first_image() {

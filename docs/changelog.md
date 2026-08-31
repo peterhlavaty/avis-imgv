@@ -2,6 +2,32 @@
 
 ## 2026-08-30
 
+- **A folder that links back to itself is crawled once.** Testing whether
+  something is a directory follows links, so a symbolic link or a Windows
+  junction pointing at one of its own ancestors sent a flattened crawl round
+  for ever, collecting the same photographs again at a longer path each time
+  until the memory ran out. Somebody's `Pictures/latest -> .` was all it took.
+- **Hidden entries are left alone.** `.thumbnails`, `.DS_Store`, and above all
+  the `._IMG_1234.JPG` resource forks macOS writes beside photographs on
+  non-native volumes — named like the photograph, not photographs, and opened
+  as a black frame between every pair of real ones on a card that had been
+  through a Mac.
+- Fixed: opening a folder with no photographs in it put the viewer in the
+  *home* directory, because the folder was worked out from the first
+  photograph and there wasn't one. Asking to flatten an empty folder then
+  crawled everything the user owns — six thousand files and a gigabyte of
+  memory, here. The folder that was opened is remembered rather than derived.
+- **A user action can no longer be steered by what a file is called.** The
+  placeholders were substituted into the command line as a whole and the
+  result split afterwards, so the file name decided how many arguments the
+  program received: `holiday 1.jpg` arrived as two, and a name containing an
+  apostrophe opened or closed a quoted run and could add arguments of its own
+  — `a' --delete 'b.jpg` passing `--delete` to whatever was being run. Names
+  come off cards, downloads and shared drives. The template is split into
+  arguments first now and the placeholders filled inside each one, so a
+  substituted path is exactly one argument whatever is in it.
+- Fixed: a run of spaces in a configured command produced empty arguments,
+  which some programs read as a file name of no characters.
 - **The watcher updates the folder instead of reopening it.** A photograph
   appearing in a watched folder is inserted at its sorted position and nothing
   else moves: what is on screen stays on screen, at the zoom it was at, and

@@ -1,14 +1,32 @@
 //! Finding the images to open, from the command line or from a directory.
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::formats;
 use crate::STARTER_STATE_ARGS;
 
+/// What the command line asked for.
+#[derive(Debug, Default)]
+pub struct Opening {
+    /// The collection to open.
+    pub images: Vec<PathBuf>,
+    /// The one to land on, when an image was named directly.
+    pub selected: Option<PathBuf>,
+    /// The directory that was read.
+    ///
+    /// Carried rather than derived from the first photograph, because a
+    /// directory with no photographs in it has no first photograph — and the
+    /// viewer then had nothing to say it was in, so it said the home
+    /// directory, and asking to flatten an empty folder crawled everything the
+    /// user owns.
+    pub folder: Option<PathBuf>,
+}
+
 /// Reads the command line and returns the collection to open, plus the image
 /// to land on when one was named directly.
-pub fn paths_from_args() -> (Vec<PathBuf>, Option<PathBuf>) {
+pub fn paths_from_args() -> Opening {
     let args: Vec<String> = env::args()
         .skip(1)
         .filter(|arg| !STARTER_STATE_ARGS.contains(&arg.as_str()))
@@ -17,40 +35,57 @@ pub fn paths_from_args() -> (Vec<PathBuf>, Option<PathBuf>) {
     tracing::info!("Opening {args:?}");
 
     match args.len() {
-        0 => (crawl_current_dir(), None),
+        0 => crawl_current_dir(),
         1 => from_single_arg(&args[0]),
-        // Several paths: treat them as the collection itself.
-        _ => (
-            args.iter()
+        // Several paths: treat them as the collection itself, and let the
+        // folder be worked out from them.
+        _ => Opening {
+            images: args
+                .iter()
                 .map(PathBuf::from)
                 .filter(|path| formats::is_supported(path))
                 .collect(),
-            None,
-        ),
+            ..Opening::default()
+        },
     }
 }
 
-fn crawl_current_dir() -> Vec<PathBuf> {
+fn crawl_current_dir() -> Opening {
     match env::current_dir() {
-        Ok(dir) => crawl(&dir, false),
+        Ok(dir) => Opening {
+            images: crawl(&dir, false),
+            selected: None,
+            folder: Some(dir),
+        },
         Err(e) => {
             tracing::error!("Failure reading the working directory -> {e}");
-            Vec::new()
+            Opening::default()
         }
     }
 }
 
 /// A single argument is either a directory to open or an image to land on.
-fn from_single_arg(arg: &str) -> (Vec<PathBuf>, Option<PathBuf>) {
+fn from_single_arg(arg: &str) -> Opening {
     let path = absolute(PathBuf::from(arg));
 
     if path.is_dir() {
-        return (crawl(&path, false), None);
+        return Opening {
+            images: crawl(&path, false),
+            selected: None,
+            folder: Some(path),
+        };
     }
 
     match path.parent() {
-        Some(parent) => (crawl(parent, false), Some(path.clone())),
-        None => (vec![path], None),
+        Some(parent) => Opening {
+            images: crawl(parent, false),
+            selected: Some(path.clone()),
+            folder: Some(parent.to_path_buf()),
+        },
+        None => Opening {
+            images: vec![path],
+            ..Opening::default()
+        },
     }
 }
 
@@ -72,7 +107,24 @@ pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
     let mut images = Vec::new();
     let mut directories = vec![path.to_path_buf()];
 
+    // Every directory actually opened, by the name the filesystem settles on.
+    //
+    // Testing whether something is a directory follows links, so a symbolic
+    // link or a Windows junction pointing at one of its own ancestors used to
+    // send a flattened crawl round for ever — collecting the same photographs
+    // again at a longer path each time until the memory ran out. Somebody's
+    // `Pictures/latest -> .` is all it takes.
+    let mut seen: HashSet<PathBuf> = HashSet::new();
+
     while let Some(directory) = directories.pop() {
+        if !seen.insert(fs::canonicalize(&directory).unwrap_or_else(|_| directory.clone())) {
+            tracing::debug!(
+                "Already crawled {}, not going round again",
+                directory.display()
+            );
+            continue;
+        }
+
         let entries = match fs::read_dir(&directory) {
             Ok(entries) => entries,
             Err(e) => {
@@ -83,6 +135,10 @@ pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
 
         for entry in entries.flatten() {
             let path = entry.path();
+
+            if is_hidden(&path) {
+                continue;
+            }
 
             if path.is_dir() {
                 if flatten {
@@ -97,6 +153,23 @@ pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
     tracing::info!("Found {} images in {}", images.len(), path.display());
     sort(&mut images);
     images
+}
+
+/// Whether an entry is one the filesystem means to keep out of the way.
+///
+/// The leading dot, which is the convention everywhere and is what the caches
+/// other programs leave behind are named: `.thumbnails`, `.DS_Store`, and the
+/// `._IMG_1234.JPG` resource forks macOS writes beside photographs on
+/// non-native volumes — those last are named like the photograph, are not
+/// photographs, and used to be opened as a black frame between every pair of
+/// real ones on a card that had been through a Mac.
+///
+/// A directory named on the command line is crawled whatever it is called;
+/// this is about what turns up inside one.
+fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with('.'))
 }
 
 /// Puts a collection in the order a person reads it.
@@ -190,6 +263,41 @@ mod tests {
     #[test]
     fn the_first_photograph_of_an_empty_collection_goes_first() {
         assert_eq!(position_for(&[], &PathBuf::from("/p/a.jpg")), 0);
+    }
+
+    /// The caches and resource forks other programs leave beside photographs
+    /// are not photographs.
+    #[test]
+    fn hidden_entries_are_left_alone() {
+        for name in [".DS_Store", "._IMG_1234.JPG", ".thumbnails"] {
+            assert!(is_hidden(&PathBuf::from("/photos").join(name)), "{name}");
+        }
+
+        for name in ["IMG_1234.JPG", "a.jpg", "holiday 1.jpg"] {
+            assert!(!is_hidden(&PathBuf::from("/photos").join(name)), "{name}");
+        }
+    }
+
+    /// A folder pointing at one of its own ancestors used to send a flattened
+    /// crawl round for ever. Only reachable where a link can be made without
+    /// privileges, so the test makes one and skips itself where it cannot.
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_pointing_at_itself_is_crawled_once() {
+        let root = env::temp_dir().join("avis-crawler-cycle");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("inner")).unwrap();
+        fs::write(root.join("inner/a.jpg"), b"x").unwrap();
+
+        if std::os::unix::fs::symlink(&root, root.join("inner/loop")).is_err() {
+            return;
+        }
+
+        // Would not return at all before the guard.
+        let found = crawl(&root, true);
+
+        assert_eq!(found.len(), 1, "{found:?}");
+        let _ = fs::remove_dir_all(&root);
     }
 
     /// Builds a small directory tree in a unique temporary directory.
@@ -286,20 +394,22 @@ mod tests {
         let root = fixture("single");
         let image = root.join("a.jpg");
 
-        let (paths, selected) = from_single_arg(&image.to_string_lossy());
+        let opening = from_single_arg(&image.to_string_lossy());
 
-        assert_eq!(paths.len(), 2);
-        assert_eq!(selected, Some(image));
+        assert_eq!(opening.images.len(), 2);
+        assert_eq!(opening.selected, Some(image));
+        assert_eq!(opening.folder, Some(root.clone()));
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
     fn naming_a_directory_opens_all_of_it() {
         let root = fixture("dir");
-        let (paths, selected) = from_single_arg(&root.to_string_lossy());
+        let opening = from_single_arg(&root.to_string_lossy());
 
-        assert_eq!(paths.len(), 2);
-        assert_eq!(selected, None);
+        assert_eq!(opening.images.len(), 2);
+        assert_eq!(opening.selected, None);
+        assert_eq!(opening.folder, Some(root.clone()));
         let _ = fs::remove_dir_all(&root);
     }
 
