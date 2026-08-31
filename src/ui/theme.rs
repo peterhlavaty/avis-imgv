@@ -3,6 +3,10 @@
 use eframe::egui;
 
 use egui::{style, Color32, Theme, ThemePreference, Visuals};
+
+// Only the bundled font needs these, and a build without it should not be
+// warned about imports it was never going to use.
+#[cfg(feature = "custom_font")]
 use epaint::{
     text::{FontData, FontDefinitions},
     FontFamily,

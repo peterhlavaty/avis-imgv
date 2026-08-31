@@ -2,6 +2,19 @@
 
 ## 2026-08-30
 
+- **CI on Windows and macOS as well as Linux, and on every branch.** A viewer
+  is not much use if it only builds where it was written, and the two things
+  that differ across platforms — path handling and the bin — are exactly what
+  the file operations are made of. Clippy also runs over
+  `--no-default-features` and `--features libraw`, which found a real warning
+  the moment it was added: without the bundled font, three imports in the
+  theme were unused.
+- **A golden-file test for the XMP writer.** A round trip cannot see the shape
+  of a document change — rename a namespace prefix and this viewer still reads
+  its own output perfectly while Lightroom stops seeing the rating. Five
+  recorded sidecars now hold the writer to what it agreed, and each is also
+  read back to check the record is of something correct rather than only
+  something stable.
 - **It opens where you left off.** The window's size and place, the folder
   that was open, and — the one that earns its keep — which photograph was
   being looked at in each of the last sixty-four folders. Culling a shoot is
