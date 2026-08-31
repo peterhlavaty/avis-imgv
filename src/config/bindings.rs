@@ -299,6 +299,12 @@ pub fn all() -> Vec<Binding> {
             image_view.sc_less_images_shown
         ),
         binding!(
+            "Image view",
+            "What it says about itself",
+            "Move the photograph's own details round its corners, and off again.",
+            image_view.sc_overlay
+        ),
+        binding!(
             "Gallery",
             "Scroll down",
             "Move half a row down the contact sheet.",
@@ -482,6 +488,6 @@ mod tests {
             .filter(|binding| binding.section != "Ratings and tags")
             .count();
 
-        assert_eq!(fixed, 45, "a shortcut was added without a description");
+        assert_eq!(fixed, 46, "a shortcut was added without a description");
     }
 }

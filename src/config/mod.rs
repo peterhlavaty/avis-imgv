@@ -305,6 +305,21 @@ pub struct GeneralConfig {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ImageViewConfig {
+    /// Where on the photograph its own details are drawn, if anywhere.
+    ///
+    /// The status bar says the same things and is in the wrong place for them
+    /// when the viewer is fullscreen for a slideshow or a review: there is no
+    /// chrome then, and the eye is on the picture.
+    #[serde(default)]
+    pub overlay_corner: crate::view::image_view::overlay::Corner,
+    /// What it says, in the template grammar, one line per line.
+    #[serde(default = "default_overlay_format")]
+    pub overlay_format: String,
+    #[serde(default = "default_overlay_text_size")]
+    pub overlay_text_size: f32,
+    /// Moves what the photograph says about itself round the corners, and off.
+    #[serde(default = "default_sc_overlay")]
+    pub sc_overlay: Shortcut,
     /// Images decoded either side of the one on screen.
     #[serde(default = "default_nr_loaded_images")]
     pub nr_loaded_images: usize,
@@ -417,6 +432,13 @@ pub struct GridViewConfig {
     /// marks and the file name.
     #[serde(default = "default_sc_cycle_badges")]
     pub sc_cycle_badges: Shortcut,
+    /// What the line under each thumbnail says, in the template grammar.
+    ///
+    /// The file name by default, which is what it always said; anything the
+    /// grammar reaches works, so a sheet can be labelled by shutter speed
+    /// while somebody is looking for the one that was not blurred.
+    #[serde(default = "default_caption_format")]
+    pub caption_format: String,
     #[serde(default = "default_sc_select")]
     pub sc_select: Shortcut,
     #[serde(default = "default_sc_select_all")]
@@ -527,6 +549,10 @@ impl Default for ImageViewConfig {
             user_actions: default_user_actions(),
             context_menu: default_ctx_menu(),
             name_format: default_name_format(),
+            overlay_corner: crate::view::image_view::overlay::Corner::default(),
+            overlay_format: default_overlay_format(),
+            overlay_text_size: default_overlay_text_size(),
+            sc_overlay: default_sc_overlay(),
 
             sc_fit: default_sc_fit(),
             sc_frame: default_sc_frame(),
@@ -566,6 +592,7 @@ impl Default for GridViewConfig {
             sc_more_per_row: default_sc_more_per_row(),
             sc_less_per_row: default_sc_less_per_row(),
             sc_cycle_badges: default_sc_cycle_badges(),
+            caption_format: default_caption_format(),
             sc_select: default_sc_select(),
             sc_select_all: default_sc_select_all(),
         }

@@ -53,7 +53,7 @@ impl Badges {
         self != Badges::None
     }
 
-    fn shows_name(self) -> bool {
+    pub fn shows_name(self) -> bool {
         self == Badges::Full
     }
 }

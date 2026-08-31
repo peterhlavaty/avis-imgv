@@ -9,6 +9,13 @@
     "scroll_navigation": true,
     "enlarge_to_fit": true,
     "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
+    "overlay_corner": "off",
+    "overlay_format": "{name}\n$({iso} ISO)$( • ƒ{aperture})$( • {shutter})$( • {focal})",
+    "overlay_text_size": 15.0,
+    "sc_overlay": {
+      "key": "o",
+      "modifiers": []
+    },
     "user_actions": [
       {
         "shortcut": {
@@ -166,6 +173,7 @@
         "ctrl"
       ]
     },
+    "caption_format": "{name}.{ext}",
     "sc_select": {
       "key": "Space",
       "modifiers": []

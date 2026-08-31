@@ -136,6 +136,22 @@ pub fn default_frame_size_relative_to_image() -> f32 {
 pub fn default_scroll_navigation() -> bool {
     true
 }
+/// What the overlay says when it is turned on.
+///
+/// Two lines: what it is, and how it was taken. Each part disappears with its
+/// separator when the photograph cannot answer it.
+pub fn default_overlay_format() -> String {
+    "{name}
+$({iso} ISO)$( • ƒ{aperture})$( • {shutter})$( • {focal})"
+        .to_string()
+}
+pub fn default_overlay_text_size() -> f32 {
+    15.0
+}
+/// `o` for overlay, which nothing else wanted.
+pub fn default_sc_overlay() -> Shortcut {
+    Shortcut::new("o", &[])
+}
 pub fn default_name_format() -> String {
     "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)".to_string()
 }
@@ -241,6 +257,10 @@ pub fn default_gpu_resident_thumbnails() -> usize {
 /// Space is what every program with a contact sheet uses to pick a photograph
 /// out, and picking photographs out is worth more than a key for scrolling
 /// half a row when the arrows, the wheel and the scrollbar all already do it.
+/// The file name, which is what the sheet has always shown.
+pub fn default_caption_format() -> String {
+    "{name}.{ext}".to_string()
+}
 pub fn default_sc_scroll() -> Shortcut {
     Shortcut::new("PageDown", &[])
 }

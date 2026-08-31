@@ -6,6 +6,7 @@ pub mod input;
 pub mod interaction;
 pub mod layout;
 pub mod navigate;
+pub mod overlay;
 pub mod slideshow;
 pub mod viewports;
 pub mod zoom;
@@ -267,6 +268,9 @@ impl ImageView {
             }
             Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,
+            Command::CycleOverlay => {
+                self.config.overlay_corner = self.config.overlay_corner.next();
+            }
             Command::ShowMoreImages => {
                 if !self.widen_comparison() {
                     self.images_shown = (self.images_shown + 1).min(MAX_IMAGES_SHOWN);
@@ -505,16 +509,22 @@ impl ImageView {
     fn show_images(&mut self, ctx: &egui::Context) -> Response {
         let background = self.background_colour();
         let panes = self.panes();
+
+        // Worked out before the store is handed over, because it reads the
+        // very store the drawing borrows.
+        let style = Style {
+            overlay: self.overlay(),
+            frame: self.frame,
+            enlarge: self.config.enlarge_to_fit,
+        };
+
         let shown = layout::show(
             ctx,
             &mut self.store,
             &panes,
             self.cursor,
             &mut self.viewport,
-            &Style {
-                frame: self.frame,
-                enlarge: self.config.enlarge_to_fit,
-            },
+            &style,
             background,
         );
 
@@ -568,6 +578,32 @@ impl ImageView {
 
         for command in outcome.commands {
             self.apply(command, ctx);
+        }
+    }
+
+    /// What to write over the photograph, already expanded.
+    ///
+    /// Once per frame rather than once per pane: every pane would render the
+    /// same template, and the answer is about the photograph the keys are on.
+    fn overlay(&self) -> canvas::Overlay {
+        let corner = self.config.overlay_corner;
+        if corner == overlay::Corner::Off || self.config.overlay_format.is_empty() {
+            return canvas::Overlay::default();
+        }
+
+        let Some(path) = self.store.path(self.cursor) else {
+            return canvas::Overlay::default();
+        };
+
+        let mut subject = crate::metadata::template::Subject::new(path);
+        if let Some(metadata) = self.store.metadata(self.cursor) {
+            subject = subject.with_metadata(metadata);
+        }
+
+        canvas::Overlay {
+            corner,
+            lines: crate::metadata::template::render(&self.config.overlay_format, &subject),
+            size: self.config.overlay_text_size,
         }
     }
 

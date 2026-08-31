@@ -19,14 +19,28 @@ pub struct FrameStyle {
 }
 
 /// How a photograph is presented, as opposed to which one.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Style {
+    /// What to say over the photograph, and where. Empty text draws nothing.
+    pub overlay: Overlay,
     pub frame: FrameStyle,
     /// Whether a photograph smaller than the panel is enlarged to fill it.
     ///
     /// The one that needs it is a raw file's embedded copy: some DNGs carry a
     /// 256 pixel preview and nothing else.
     pub enlarge: bool,
+}
+
+/// What is written over the photograph, already expanded.
+///
+/// Expanded by the caller rather than here: the canvas draws one pane and does
+/// not know which photograph it is, and rendering a template per pane per
+/// frame would be work to arrive at the same sentence.
+#[derive(Debug, Clone, Default)]
+pub struct Overlay {
+    pub corner: super::overlay::Corner,
+    pub lines: String,
+    pub size: f32,
 }
 
 /// Zoom and pan, owned by the view and mutated as the user navigates.
@@ -188,6 +202,16 @@ pub fn draw(
 
     let (rect, _) = ui.allocate_exact_size(framed, Sense::hover());
     texture::draw(ui, rect, texture, uv);
+
+    // Over the picture rather than over the panel, so a letterboxed
+    // photograph gets its caption on the photograph.
+    super::overlay::show(
+        ui,
+        rect,
+        style.overlay.corner,
+        &style.overlay.lines,
+        style.overlay.size,
+    );
 
     Metrics {
         image_size: texture.size,

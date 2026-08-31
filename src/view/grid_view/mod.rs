@@ -342,6 +342,7 @@ impl GridView {
         ui.painter().rect_filled(picture, 0, CELL_BACKGROUND);
 
         let name = self.file_name(index);
+        let caption = self.caption(index, &name);
         let drawn = self.store.texture(index).is_some();
 
         let response = ui
@@ -368,7 +369,7 @@ impl GridView {
 
         cell::picked(ui, picture, self.selection.contains(index));
         cell::dim_if_rejected(ui, picture, marks);
-        cell::caption(ui, strip, self.badges, marks, &name);
+        cell::caption(ui, strip, self.badges, marks, &caption);
 
         ui.painter().rect_stroke(
             rect,
@@ -425,6 +426,37 @@ impl GridView {
     /// Which photograph the sheet says is on show, and how many there are.
     pub fn position(&self) -> (usize, usize) {
         (self.cursor, self.visible.len())
+    }
+
+    /// The line under one thumbnail.
+    ///
+    /// Rendered per cell, and only for the cells actually drawn: a contact
+    /// sheet shows a screenful at a time however long the folder is, so this
+    /// is a few dozen expansions a frame rather than a few thousand.
+    ///
+    /// Falls back to the file name when the scan has not reached the file, so
+    /// a caption asking for a shutter speed says the name until there is one
+    /// rather than saying nothing at all.
+    fn caption(&self, index: usize, name: &str) -> String {
+        if !self.badges.shows_name() || self.config.caption_format.is_empty() {
+            return name.to_string();
+        }
+
+        let Some(path) = self.store.path(index) else {
+            return name.to_string();
+        };
+
+        let mut subject = crate::metadata::template::Subject::new(path);
+        if let Some(metadata) = self.store.metadata(index) {
+            subject = subject.with_metadata(metadata);
+        }
+
+        let rendered = crate::metadata::template::render(&self.config.caption_format, &subject);
+        if rendered.trim().is_empty() {
+            return name.to_string();
+        }
+
+        rendered
     }
 
     fn file_name(&self, index: usize) -> String {

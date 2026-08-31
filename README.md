@@ -721,6 +721,7 @@ break the pairing it depends on.
 | W A S D | Pan, while the key is held |
 | Drag | Pan |
 | G | Toggle the white frame |
+| O | Move what it says about itself round the corners, and off |
 | Ctrl + / Ctrl - | More or fewer images side by side, or panes while comparing |
 | N | Compare this picture with the next |
 | Tab | Which pane the keys are about |
@@ -756,7 +757,7 @@ than to whatever the other view was last left on.
 | Arrow keys | Move the cursor about the sheet |
 | Home / End | First and last picture |
 | Enter | Open the one under the cursor |
-| Ctrl + I | Cycle what the cells say: nothing, the marks, the marks and the name |
+| Ctrl + I | Cycle what the cells say: nothing, the marks, the marks and the caption |
 | Space | Pick the one under the cursor out, or put it back |
 | Shift + arrows | Pick out everything walked over |
 | Ctrl + A | Pick out everything on show, or put it all back |

@@ -2,6 +2,17 @@
 
 ## 2026-08-30
 
+- **What the photograph says about itself, on the photograph.** `O` moves it
+  round the corners and off again. The status bar has the same information and
+  is in the wrong place for it: a viewer running fullscreen for a slideshow or
+  a review has no chrome at all, and the eye is on the picture. Over the drawn
+  rectangle rather than the panel, so a letterboxed photograph gets its caption
+  on the photograph.
+- **The line under each thumbnail is a template too.** It was the file name and
+  nothing else; it is `grid_view.caption_format` now, so a sheet can be
+  labelled by shutter speed while somebody is looking for the frame that was
+  not blurred. It falls back to the name while the scan has not reached a file,
+  rather than showing an empty strip.
 - **One template grammar instead of two.** The status bar took
   `$( • ƒ#Aperture#)` and the bulk rename took `{date}_{n}`, each with a
   vocabulary the other could not reach — so a rename could not put a

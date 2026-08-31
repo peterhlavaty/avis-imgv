@@ -43,6 +43,8 @@ pub enum Command {
     ZoomStep,
     /// Multiply the magnification, for the zoom keys and the wheel.
     ZoomBy(f32),
+    /// Move what the photograph says about itself to the next corner, or off.
+    CycleOverlay,
     /// Magnify to a percentage of the image's own pixels.
     ZoomToPercent(f32),
     /// Put this image where the last one was left.
@@ -88,6 +90,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_more_images_shown, Command::ShowMoreImages),
         (&config.sc_less_images_shown, Command::ShowFewerImages),
         (&config.sc_compare, Command::Compare),
+        (&config.sc_overlay, Command::CycleOverlay),
     ];
 
     let mut commands: Vec<Command> = ctx.input_mut(|input| {
