@@ -1,5 +1,6 @@
 //! The main view: one (or a few) images filling the window.
 
+pub mod area;
 pub mod bottom_bar;
 pub mod canvas;
 pub mod input;
@@ -80,6 +81,11 @@ pub struct ImageView {
     /// with the focus.
     comparing: Option<Vec<usize>>,
     viewport: Viewport,
+    /// The part of the photograph the user has marked out, if any.
+    ///
+    /// Belongs to the photograph on screen and goes with it: see
+    /// [`area`] for why it is held in the picture's own coordinates.
+    area: area::Area,
     frame: FrameStyle,
     metrics: Metrics,
     /// Where the user got to in each image they zoomed, so coming back to one
@@ -156,6 +162,7 @@ impl ImageView {
                 maximize: start_slideshow,
                 ..Default::default()
             },
+            area: area::Area::default(),
             frame: FrameStyle {
                 enabled: start_slideshow && slideshow_config.start_with_frame_enabled,
                 relative_size: config.frame_size_relative_to_image,
@@ -222,6 +229,11 @@ impl ImageView {
         }
 
         let response = self.show_images(ctx, nothing);
+        // Before the pointer is read for the photograph, so that a drag which
+        // is marking an area is not also a drag that moves the picture under
+        // it, and before the photograph's own menu, so that the second button
+        // inside a marking opens the marking's menu instead.
+        self.handle_area(ctx, response.rect);
         self.handle_pointer(ctx, &response);
         self.handle_context_menu(ctx, &response);
         self.run_slideshow(ctx);
@@ -346,6 +358,12 @@ impl ImageView {
                     });
                 }
             }
+            Command::ZoomToArea => self.zoom_to_marked_area(),
+            // With nothing marked it copies the whole photograph, which had no
+            // key of its own before. Both are the same verb to whoever
+            // carries it out: it reads the marking back from here.
+            Command::CopyArea => self.copy_the_marked_area(),
+            Command::ClearArea => self.area.clear(),
             Command::GoTo => self.asking_to_go_to = ASKING_FRAMES,
             Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,

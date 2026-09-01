@@ -153,6 +153,15 @@ pub fn default_sc_overlay() -> Shortcut {
 pub fn default_sc_marks() -> Shortcut {
     Shortcut::new("c", &[])
 }
+/// Enter, which is what a crop is accepted with everywhere.
+pub fn default_sc_zoom_to_area() -> Shortcut {
+    Shortcut::new("Enter", &[])
+}
+/// Enough that the eye goes to what was marked, not so much that what is
+/// around it can no longer be judged against it.
+pub fn default_marked_area_dim() -> u8 {
+    45
+}
 pub fn default_name_format() -> String {
     "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)".to_string()
 }

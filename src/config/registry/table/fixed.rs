@@ -107,6 +107,14 @@ pub fn rows() -> Vec<Row> {
             Gallery
         ),
         fixed!(
+            "fixed.copy_area",
+            "Ctrl + C",
+            "Copy the marked area",
+            "Puts the marked part of the photograph on the clipboard, or the whole of              it when nothing is marked, decoded at full size and turned upright. Not a              binding, and cannot be one: the toolkit turns the copy chord into a copy              *event* and never reports the key, which is also why it is Command and C              on a Mac without anything here saying so.",
+            ["copy", "clipboard", "ctrl c", "crop", "marked area"],
+            ImageView
+        ),
+        fixed!(
             "fixed.grid_open",
             "Enter",
             "Open the cell under the cursor",

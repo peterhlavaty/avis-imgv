@@ -495,6 +495,48 @@ the order it was taken, not at the end. Three numbers at the top decide how the
 folder is read at all: the gap that ends a run, how alike two frames have to
 be, and the fewest frames worth calling a group.
 
+## Marking out part of a photograph
+
+Drag on a photograph that fits the window and a rectangle follows the pointer.
+Let go and it stays: the rest of the picture darkens behind it, its four sides
+and four corners can be taken hold of and dragged, and the pointer says which
+by turning into the arrows for that side.
+
+| Gesture | What it does |
+|---------|--------------|
+| Left drag on the photograph | Marks out a rectangle |
+| Drag a side or a corner | Moves that side, never past the one opposite |
+| Click inside it | Magnifies until the marked area fills the window |
+| Click outside it, or `Escape` | Forgets it |
+| `Enter` | The same as clicking inside it |
+| `Ctrl + C` | Its pixels on the clipboard, decoded at full size (⌘C on macOS) |
+| Right button inside it | *Zoom to it*, *Copy the marked area*, *Clear the marking* |
+
+The rectangle is held against the photograph rather than against the screen,
+so it stays on the same eyelash while you zoom, pan and turn the frame. It
+belongs to the photograph on screen and goes when that changes: a rectangle
+drawn over one frame means nothing over the next, and a marking left behind is
+a marking somebody copies by accident.
+
+**Copying it decodes the file again at full size** and turns it the right way
+up before cutting the marked part out, on a thread of its own, so what reaches
+the clipboard is the camera's pixels rather than the screen sized copy that was
+being drawn. With nothing marked, `Ctrl + C` copies the whole photograph — the
+first key that verb has had. Either way the viewer says how many pixels went.
+
+`Ctrl + C` is one of the handful of keys that cannot be rebound, and for a
+reason worth knowing: the toolkit turns the copy chord into a copy *event* and
+never reports the key, so a row in the editor for it would be a row that did
+nothing. Read as the event it is, it is right on every platform for nothing —
+⌘C on a Mac, and the dedicated Copy key where a keyboard has one.
+
+**It never takes the drag away from moving the photograph.** With the whole
+picture in the window there is no slack to pan into and a left drag already did
+nothing at all, which is the gesture the marking is given.  The moment there is
+somewhere to pan to, the left button goes back to panning; `mouse.mark_area` is
+`always` for whoever would rather mark a magnified photograph and pan with the
+wheel pressed, and `never` for whoever wants the dead gesture back.
+
 ## Comparing two frames
 
 `N` pins the photograph on screen and the next one side by side, sharing **one
@@ -508,7 +550,7 @@ same thing actually is.
 | `←` `→` | Try a different photograph against the ones that are staying |
 | `Ctrl` `+` / `Ctrl` `-` | More or fewer panes, up to eight |
 | `/` | Drop the focused pane; the survivors re-tile larger |
-| `Enter`, `Escape`, `N` | Leave it |
+| `Escape`, `N` | Leave it |
 
 Every marking key applies to the pane with the focus and to nothing else:
 marking "everything displayed" is the one thing a comparison must never do.
@@ -737,7 +779,7 @@ explaining itself:
 
 ## The right button
 
-About twenty surfaces answer the second button, and each of them says so: the
+About thirty surfaces answer the second button, and each of them says so: the
 same small chevron on hover, and the same four words at the end of its hover
 text. Every menu opens on the *press* rather than on the release, and the last
 row of every one of them is the settings page that holds the same decision —
@@ -761,7 +803,12 @@ Right-clicking a photograph or a cell offers what can be done to it: fit,
 actual pixels, fill, compare, turn, move to the bin, copy the
 path, copy the picture, and show it in the file manager. **Copy the picture** puts the file's own pixels
 on the clipboard, decoded at full size and turned the right way up, on a thread
-of its own so a sixty megapixel raw does not stop the window.
+of its own so a sixty megapixel raw does not stop the window. With part of the
+photograph marked out it copies that part, cut from the same full size decode.
+
+**A marked area answers the second button for itself**, because a menu is drawn
+over the thing it belongs to and inside a marking that thing is the marking:
+*Zoom to it*, *Copy the marked area*, *Clear the marking*.
 
 **Turn** is the one row that opens a second level, and the only one in the
 program: clockwise, anticlockwise, upside down, mirror left to right, mirror top
@@ -779,7 +826,7 @@ are the only place in the running program those two settings are visible at all.
 
 ## The mouse
 
-Eight settings, in the `mouse` section of the configuration and on the *Keys
+Nine settings, in the `mouse` section of the configuration and on the *Keys
 and mouse* page. The number of gestures is fixed and small; what opens up is
 what each one means.
 
@@ -789,9 +836,9 @@ what each one means.
 | Shift + wheel | Ten photographs | Ten rows |
 | Ctrl + wheel | `mouse.ctrl_wheel`, which ships as zoom | Thumbnails per row |
 | Alt + wheel | Moves the photograph sideways | — |
-| One click | Nothing; reserved | Picks the photograph out |
+| One click | Zooms to a marked area, or clears it; nothing otherwise | Picks the photograph out |
 | Two clicks | `mouse.double_click`, which ships as fit ↔ actual pixels | Opens the photograph |
-| Left drag | Moves the photograph, when there is somewhere to move it to | Picks out everything it crosses |
+| Left drag | Moves the photograph, or marks part of it out where there is nowhere to move it to — `mouse.mark_area` | Picks out everything it crosses |
 | Middle drag | Moves the photograph, always | Scrolls the sheet |
 | Right button | The menu, on the press | The menu, on the press |
 | Thumb buttons | Previous and next — `mouse.back`, `mouse.forward` | Previous and next |
@@ -812,6 +859,10 @@ moved the picture was decided by six points of travel and eight tenths of a
 second, neither of which is on screen anywhere. `any` puts the old behaviour
 back. Whatever it says, the wheel pressed and dragged always moves the
 photograph, so a photograph that fits the window is not a dead surface.
+
+**Where a left drag would move nothing, it marks part of the photograph out**
+instead — see [marking out part of a photograph](#marking-out-part-of-a-photograph).
+`mouse.mark_area` decides when: `when_it_fits`, `always` or `never`.
 
 **The double click, the middle button and the thumb buttons** hold the name of
 a command — `next`, `fullscreen`, `exit`, `delete` and about thirty others,
@@ -973,6 +1024,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `sc_compare` | Pin this picture and the next side by side, sharing one zoom and one pan | `N` |
 | `sc_drop_pane` | Take the focused photograph out of a comparison. A binding rather than a bare key, because `/` on the Slovak, German and French layouts is Shift and a digit | `/` |
 | `sc_go_to` | Put the cursor in the "go to" box, which could be reached by clicking and by nothing else | `Ctrl + J` |
+| `sc_zoom_to_area` | Magnify until the marked area fills the window | `Enter` |
+| `marked_area_dim` | How far the rest of the photograph is darkened while part of it is marked out, out of a hundred. `0` leaves it alone, which is what somebody judging an exposure against its surroundings wants. | 45 |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
@@ -1000,6 +1053,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `wheel_reversed` | Turns the wheel round in both views | false |
 | `ctrl_wheel` | The same four, with Ctrl held | `zoom` |
 | `drag` | Which button moves the photograph: `left`, `middle`, `right` or `any` | `left` |
+| `mark_area` | When a left drag marks part of the photograph out instead: `when_it_fits`, `always` or `never` | `when_it_fits` |
 | `double_click` | The command two clicks on the photograph run | `fit_or_actual` |
 | `middle` | The command the wheel pressed runs | `nothing` |
 | `back`, `forward` | The commands the thumb buttons run | `previous`, `next` |

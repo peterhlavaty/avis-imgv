@@ -127,6 +127,13 @@ impl ImageView {
     /// pointer stray up over the photograph used to move it under a drag that
     /// was never about it.
     fn dragging(&self, ctx: &egui::Context, response: &Response) -> bool {
+        // One press is one gesture. A drag that is marking out part of the
+        // photograph, or moving a side of what is already marked, is not also
+        // a drag that moves the picture underneath it.
+        if self.area.is_dragging() {
+            return false;
+        }
+
         ctx.input(|i| {
             if !i.pointer.is_decidedly_dragging() {
                 return false;
@@ -176,6 +183,13 @@ impl ImageView {
     pub(super) fn handle_context_menu(&mut self, ctx: &egui::Context, response: &Response) {
         // The photograph has no menu while a window is over it.
         if crate::utils::is_a_window_in_front(ctx) {
+            return;
+        }
+
+        // Nor where something is marked out on it: a menu is drawn over the
+        // very thing it belongs to, and inside a marking that thing is the
+        // marking. Its own menu ends with the same route to the settings.
+        if self.pointer_is_on_the_marking(ctx) {
             return;
         }
 

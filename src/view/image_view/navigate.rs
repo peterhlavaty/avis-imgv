@@ -188,6 +188,11 @@ impl ImageView {
             return;
         }
 
+        // A rectangle drawn over one photograph means nothing over the next
+        // one, and a marking left behind is a marking somebody copies by
+        // accident.
+        self.area.clear();
+
         // Cloned rather than borrowed: the viewports outlive the borrow of
         // the store that produced the path.
         if let Some(path) = self.store.path(previous).map(Path::to_path_buf) {

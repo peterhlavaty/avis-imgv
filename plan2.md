@@ -6262,9 +6262,7 @@ is to leave `InputOptions` alone and read the wheel event before egui folds the
 axis, which changes nothing for any other widget.
 
 **Drag-to-pan and drag-to-select never need to share a button, because they never
-share a surface.** The image view has nothing to rubber-band — crop and
-straighten are ruled out by the earlier plan (`plan.md:544`) — so a left drag is
-always a pan. The contact sheet has nothing to pan, so a left drag there is
+share a surface.** The contact sheet has nothing to pan, so a left drag there is
 always a selection. What must *not* be adopted is the size-dependent rule Picview
 documents — "when image exceeds window size, dragging moves within the image
 instead" — which is the invisible mode that produced the XnView confusion in
@@ -6277,6 +6275,22 @@ both a rubber-band drag and a right-click menu, and egui has a reported quarrel
 with that combination (§7.12), so it is to be tested before it is designed around;
 if it fails, the selection drag belongs on the background rather than on the
 cells.
+
+**Done, and the image view does rubber-band after all.** The paragraph above
+assumed there was nothing to mark out on a photograph. There is: the part of it
+a person wants magnified, and the part of it they want on the clipboard
+(`src/view/image_view/area/mod.rs:1`). Where the objection lands is on the
+*rule*, not on the gesture, and it is answered rather than ignored — a
+size-dependent meaning is an invisible mode only while nothing on screen says
+which of the two the button is about. The pointer says it, and says it before
+the first rectangle exists: a cross wherever a drag would mark
+(`area/pointer.rs:147`), the arrows for a side wherever it would move one, and
+the ordinary arrow wherever it would pan. Picview's fault was the silence, not
+the rule. The half of the rule the plan was right about survives untouched: the
+drag is only ever *given* to the marking where the canvas was already clamping
+every pan to nothing (`area/view.rs:140`), so nothing that used to move the
+photograph has stopped moving it, and `mouse.mark_area` is there for the two
+photographers who would answer differently (`src/config/mouse.rs:201`).
 
 **The middle button is contested, and that is why it must be bindable to
 nothing.** GNOME says outright that "it is not recommended to make use of this in

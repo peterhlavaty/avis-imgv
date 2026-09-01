@@ -280,6 +280,20 @@ Leaving the seam for later means the next session pays for it with interest.
   orientations compose (`Orientation::then`), so the camera's and the user's are
   one orientation by the time anything draws. The same rule as the ratings: this
   program does not open a photograph for writing.
+- **A marking on a photograph is held in the photograph's coordinates.**
+  `view/image_view/area/` keeps the rectangle normalised nought to one against
+  the picture *as displayed*, which is the space `Metrics::uv` is already in.
+  That is what makes it survive being zoomed to — it stays on the same eyelash
+  through a zoom, a pan and a quarter turn — and it is the same two corners
+  that crop the full size decode the clipboard is given, after the turn rather
+  than before it. It belongs to the photograph on screen and `select` clears
+  it: a rectangle over one frame means nothing over the next.
+- **A new gesture takes a drag that was already doing nothing.** The left
+  button marks an area only where the photograph fits the window, because there
+  the canvas clamps every pan to nothing and the drag was dead. One press is
+  one gesture — `Area::is_dragging` is why `interaction::dragging` returns
+  false — and where two readings are defensible it is a setting
+  (`mouse.mark_area`), not a decision taken in the code.
 - **Nothing long-running may block a frame.** The folder crawl is a `Walk`
   stepped a few milliseconds at a time; anything that takes longer than half a
   second says so at the foot of the window, with a percentage only where an

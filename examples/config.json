@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "image_view": {
     "overlay_corner": "off",
     "overlay_format": "{name}\n$({iso} ISO)$( • ƒ{aperture})$( • {shutter})$( • {focal})",
@@ -12,6 +12,11 @@
       "key": "c",
       "modifiers": []
     },
+    "sc_zoom_to_area": {
+      "key": "Enter",
+      "modifiers": []
+    },
+    "marked_area_dim": 45,
     "nr_loaded_images": 512,
     "gpu_resident_images": 8,
     "max_image_edge": 0,
@@ -194,7 +199,8 @@
       "menu": false,
       "side_panel": false,
       "tag_panel": false,
-      "filmstrip": false
+      "filmstrip": false,
+      "history": false
     },
     "side_panel_width": 340.0,
     "theme": "dark",
@@ -475,12 +481,6 @@
       "modifiers": [
         "shift"
       ]
-    },
-    "sc_undo": {
-      "key": "z",
-      "modifiers": [
-        "ctrl"
-      ]
     }
   },
   "browsing": {
@@ -506,9 +506,39 @@
     "wheel_reversed": false,
     "ctrl_wheel": "zoom",
     "drag": "left",
+    "mark_area": "when_it_fits",
     "double_click": "fit_or_actual",
     "middle": "nothing",
     "back": "previous",
     "forward": "next"
+  },
+  "history": {
+    "remember": 0,
+    "undoes": {
+      "view": true,
+      "settings": true,
+      "content": true
+    },
+    "merge_within_ms": 500,
+    "panel_visible": false,
+    "panel_width": 260.0,
+    "sc_undo": {
+      "key": "z",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_redo": {
+      "key": "y",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_panel": {
+      "key": "h",
+      "modifiers": [
+        "ctrl"
+      ]
+    }
   }
 }

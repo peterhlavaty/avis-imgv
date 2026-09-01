@@ -56,6 +56,13 @@ pub enum Command {
     /// because a gesture that is its own way back is worth more than a gesture
     /// that needs a different one.
     ToggleActualPixels,
+    /// Magnify until the marked area of the photograph fills the panel.
+    ZoomToArea,
+    /// Put the marked area on the clipboard, or the whole photograph when
+    /// nothing is marked.
+    CopyArea,
+    /// Forget the marking, which `Escape` and a click outside it also do.
+    ClearArea,
     /// Put this image where the last one was left.
     RepeatPlace,
     ToggleFrame,
@@ -104,6 +111,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_zoom_in, Command::ZoomBy(step)),
         (&config.sc_zoom_out, Command::ZoomBy(1.0 / step)),
         (&config.sc_one_to_one, Command::ZoomToPercent(100.0)),
+        (&config.sc_zoom_to_area, Command::ZoomToArea),
         (&config.sc_repeat_place, Command::RepeatPlace),
         (&config.sc_frame, Command::ToggleFrame),
         (&config.sc_more_images_shown, Command::ShowMoreImages),
@@ -140,6 +148,22 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
             if input.consume_key(egui::Modifiers::NONE, key) {
                 found.push(command);
             }
+        }
+
+        // Escape is the key for "not that", and a person pressing it means
+        // whichever of the two is up rather than one of them in particular.
+        if found.contains(&Command::StopComparing) {
+            found.push(Command::ClearArea);
+        }
+
+        // Not a binding, because it cannot be one: egui-winit turns the
+        // platform's copy chord into `Event::Copy` and returns before it ever
+        // emits a key, so `Ctrl + C` read as a shortcut is a row in the editor
+        // that does nothing. Read as the event it actually is, it is right on
+        // every platform for nothing — Command and C on a Mac, and the
+        // dedicated Copy key where a keyboard has one.
+        if input.events.iter().any(|e| matches!(e, egui::Event::Copy)) {
+            found.push(Command::CopyArea);
         }
 
         found
@@ -318,6 +342,44 @@ mod tests {
         }]);
 
         assert_eq!(collect(&ctx, &config), vec![Command::GoTo]);
+    }
+
+    /// The marking's two keys.
+    ///
+    /// Copying is read as the *event*, not as a chord. egui-winit turns
+    /// `Ctrl + C` into `Event::Copy` and returns before it emits a key
+    /// (`egui-winit/src/lib.rs:818`), so a build that read it as a shortcut
+    /// passed a test which sent a key event by hand and did nothing at all
+    /// when a person pressed the key. This sends what the platform sends.
+    #[test]
+    fn the_marking_has_its_two_keys() {
+        let config = ImageViewConfig::default();
+
+        assert_eq!(
+            collect(&context_with(vec![Event::Copy]), &config),
+            vec![Command::CopyArea]
+        );
+        assert_eq!(
+            collect(&context_with(vec![key_press(Key::Enter)]), &config),
+            vec![Command::ZoomToArea]
+        );
+        // And the chord that produces that event is not also a key, so plain
+        // `c` goes on cycling the marks.
+        assert_eq!(
+            collect(&context_with(vec![key_press(Key::C)]), &config),
+            vec![Command::CycleMarks]
+        );
+    }
+
+    /// Escape means "not that", and a person pressing it means whichever of
+    /// the two is up rather than one of them in particular.
+    #[test]
+    fn escape_both_leaves_a_comparison_and_clears_a_marking() {
+        let config = ImageViewConfig::default();
+        let found = collect(&context_with(vec![key_press(Key::Escape)]), &config);
+
+        assert!(found.contains(&Command::StopComparing), "{found:?}");
+        assert!(found.contains(&Command::ClearArea), "{found:?}");
     }
 
     #[test]

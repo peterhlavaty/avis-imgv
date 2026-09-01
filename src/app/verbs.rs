@@ -58,7 +58,10 @@ impl App {
         match verb {
             Verb::Bin => self.delete_open_image(false),
             Verb::CopyPath => self.copy_paths(),
-            Verb::CopyPicture => self.copy_picture(&path),
+            Verb::CopyPicture => {
+                let crop = self.marked_crop(&path);
+                self.copy_picture(&path, crop)
+            }
             Verb::ShowInFolder => {
                 if !reveal::in_file_manager(&path) {
                     self.notices
@@ -99,8 +102,32 @@ impl App {
         });
     }
 
+    /// The marking, when the verb is about the very photograph it was drawn
+    /// on.
+    ///
+    /// A cell in the contact sheet is a different photograph and a different
+    /// menu, and a rectangle somebody drew on the one they were viewing says
+    /// nothing at all about it.
+    fn marked_crop(&self, path: &Path) -> Option<egui::Rect> {
+        if self.mode == super::Mode::Grid {
+            return None;
+        }
+
+        if self.image_view.active_path().as_deref() != Some(path) {
+            return None;
+        }
+
+        self.image_view.marked_area()
+    }
+
     /// Starts a full size decode whose pixels go on the clipboard.
-    fn copy_picture(&mut self, path: &Path) {
+    ///
+    /// `crop` is the part of the photograph wanted, in its own coordinates,
+    /// nought to one — the whole of it when nothing is marked out. It is
+    /// applied after the turn rather than before, because the marking was
+    /// drawn on the photograph as it is shown and the pixels are stored
+    /// however the camera wrote them.
+    fn copy_picture(&mut self, path: &Path, crop: Option<egui::Rect>) {
         let sender = self.copying.sender.clone();
         let profile: std::sync::Arc<str> =
             std::sync::Arc::from(self.config.output_icc_profile.as_str());
@@ -113,7 +140,7 @@ impl App {
                 let options = DecodeOptions::new(profile).with_raw(raw);
                 let result = decoder::load(&path, &options)
                     .map_err(|e| format!("{e}"))
-                    .map(|image| upright(&image));
+                    .map(|image| upright(&image, crop));
 
                 let _ = sender.send(result);
             });
@@ -121,7 +148,10 @@ impl App {
         match spawned {
             Ok(_) => {
                 self.copying.outstanding += 1;
-                self.notices.say("Copying the picture…");
+                self.notices.say(match crop {
+                    Some(_) => "Copying the marked area…",
+                    None => "Copying the picture…",
+                });
             }
             Err(e) => {
                 tracing::error!("Could not start the copy: {e}");
@@ -144,8 +174,12 @@ impl App {
 
             match result {
                 Ok(image) => {
+                    let [across, down] = image.size;
                     ctx.copy_image(image);
-                    self.notices.say("Copied the picture.");
+                    // The size, because a crop is a thing whose size somebody
+                    // wants to know and the whole photograph has one too.
+                    self.notices
+                        .say(format!("Copied {across} × {down} pixels."));
                 }
                 Err(e) => {
                     tracing::error!("Could not decode for the clipboard: {e}");
@@ -210,13 +244,19 @@ impl App {
     }
 }
 
-/// Turns a decoded image the right way up and hands back what egui wants.
+/// Turns a decoded image the right way up, cuts `crop` out of it if there is
+/// one, and hands back what egui wants.
 ///
-/// The GPU does this by sampling the texture in a different order rather than
-/// by copying ninety megabytes, so the pixels held have never been turned. The
-/// clipboard has no such trick, and `Orientation::applied` is the one place
-/// that turn is written.
-fn upright(image: &decoder::DecodedImage) -> egui::ColorImage {
+/// The GPU does the turn by sampling the texture in a different order rather
+/// than by copying ninety megabytes, so the pixels held have never been
+/// turned. The clipboard has no such trick, and `Orientation::applied` is the
+/// one place that turn is written.
+///
+/// The crop is measured against the photograph as it was shown, which is what
+/// makes turning it first the only order that works: a marking drawn on the
+/// top left of a portrait frame is not the top left of the pixels a camera
+/// held sideways wrote.
+fn upright(image: &decoder::DecodedImage, crop: Option<egui::Rect>) -> egui::ColorImage {
     let surface = &image.surface;
 
     let Some(raw) =
@@ -226,6 +266,15 @@ fn upright(image: &decoder::DecodedImage) -> egui::ColorImage {
     };
 
     let turned = image.orientation.applied(&raw);
+    let (width, height) = (turned.width(), turned.height());
+
+    let turned =
+        match crop.and_then(|crop| crate::view::image_view::area::in_pixels(crop, width, height)) {
+            Some((left, top, across, down)) => {
+                image::imageops::crop_imm(turned.as_ref(), left, top, across, down).to_image()
+            }
+            None => turned.into_owned(),
+        };
 
     egui::ColorImage::from_rgba_unmultiplied(
         [turned.width() as usize, turned.height() as usize],
@@ -362,6 +411,10 @@ impl App {
         // rather than settings alone.
         crate::ui::surface::ask_for_menu(match self.mode {
             super::Mode::Grid => "cell",
+            // Whatever is drawn over the photograph owns the surface, and the
+            // keyboard has to be able to reach it or the marking's two verbs
+            // would be on the second button alone.
+            _ if self.image_view.has_marked_area() => "marked area",
             _ => "photograph",
         });
     }

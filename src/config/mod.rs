@@ -504,6 +504,13 @@ pub struct ImageViewConfig {
     /// Marks what has clipped, then what is in focus, then nothing.
     #[serde(default = "default_sc_marks")]
     pub sc_marks: Shortcut,
+    /// Magnifies until the marked area fills the panel.
+    #[serde(default = "default_sc_zoom_to_area")]
+    pub sc_zoom_to_area: Shortcut,
+    /// How far the rest of the photograph is darkened while an area is marked,
+    /// out of a hundred.
+    #[serde(default = "default_marked_area_dim")]
+    pub marked_area_dim: u8,
     /// Images decoded either side of the one on screen.
     #[serde(default = "default_nr_loaded_images")]
     pub nr_loaded_images: usize,
@@ -834,6 +841,8 @@ impl Default for ImageViewConfig {
             overlay_text_size: default_overlay_text_size(),
             sc_overlay: default_sc_overlay(),
             sc_marks: default_sc_marks(),
+            sc_zoom_to_area: default_sc_zoom_to_area(),
+            marked_area_dim: default_marked_area_dim(),
 
             sc_fit: default_sc_fit(),
             sc_frame: default_sc_frame(),

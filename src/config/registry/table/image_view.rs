@@ -129,6 +129,21 @@ pub fn rows() -> Vec<Row> {
         ),
         row!(
             ThePhotograph / Framing,
+            "image_view.marked_area_dim",
+            "Darkening around a marked area",
+            "How far the rest of the photograph is darkened while a part of it is \
+             marked out. Nought leaves it alone, which is what somebody judging an \
+             exposure against its surroundings wants.",
+            ["crop", "marquee", "selection", "marked", "dim", "darken"],
+            Live,
+            None,
+            whole!(u8, 0, 90, " %", true, image_view.marked_area_dim),
+            explained: "The marking itself is drawn as a white line with a dark one \
+                        outside it, so that it is visible against a bright sky and \
+                        against a shadow without being a colour anybody chose.",
+        ),
+        row!(
+            ThePhotograph / Framing,
             "image_view.should_wait",
             "Wait for the photograph before drawing it",
             "Holds the photograph that is on screen until the next one is decoded, \
@@ -347,5 +362,9 @@ fn keys() -> Vec<Row> {
         row!(KeysAndMouse / Keys, "image_view.sc_overlay", "What it says about itself",
             "Move the photograph's own details round its corners, and off again.",
             ["overlay", "exif on image", "info"], Live, ImageView, key!(image_view.sc_overlay)),
+        row!(KeysAndMouse / Keys, "image_view.sc_zoom_to_area", "Zoom to the marked area",
+            "Magnify until the part of the photograph that is marked out fills the panel.",
+            ["crop", "marquee", "selection", "marked", "zoom to selection"],
+            Live, ImageView, key!(image_view.sc_zoom_to_area)),
     ]
 }

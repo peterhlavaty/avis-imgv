@@ -206,7 +206,7 @@ mod tests {
             .count();
 
         assert_eq!(
-            editable, 76,
+            editable, 77,
             "a shortcut was added to the configuration without a registry row"
         );
     }

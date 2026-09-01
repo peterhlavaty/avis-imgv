@@ -2,6 +2,36 @@
 
 ## 2026-09-01
 
+- **Part of a photograph can be marked out.** Drag on one that fits the window
+  and a rectangle follows the pointer; let go and it stays, with the rest of
+  the picture darkened behind it and its four sides and four corners there to
+  be dragged. A click inside it magnifies until it fills the window, a click
+  outside forgets it, and the second button inside offers the same two verbs
+  and a third. `Enter` and `Ctrl + C` are the keys, so neither verb is on the
+  mouse alone. `Ctrl + C` joins the handful that cannot be rebound: the toolkit
+  turns the copy chord into a copy *event* and never reports the key, so a row
+  in the editor for it would be a row that did nothing — and read as the event
+  it is, it is ⌘C on a Mac for nothing.
+- **The rectangle is held against the photograph rather than against the
+  screen**, which is what makes it survive being zoomed to: it stays on the
+  same eyelash through a zoom, a pan and a quarter turn, and the same two
+  corners crop the full size decode the clipboard is given. It belongs to the
+  photograph on screen and goes when that changes.
+- **Copying it decodes the file again at full size**, on a thread of its own,
+  so the clipboard gets the camera's pixels rather than the screen sized copy
+  that was being drawn — the same path "Copy the picture" already took, cut
+  down after the turn rather than before it, because a marking drawn on the top
+  left of a portrait frame is not the top left of the pixels a camera held
+  sideways wrote. With nothing marked, `Ctrl + C` copies the whole photograph,
+  which is the first key that verb has had.
+- **It takes nothing away from moving the photograph.** With the whole picture
+  in the window there is no slack to pan into and a left drag already did
+  nothing at all — that is the gesture the marking is given, and the moment
+  there is somewhere to pan to the left button goes back to panning.
+  `mouse.mark_area` is `always` for whoever would rather mark a magnified
+  photograph and pan with the wheel pressed, and `never` for whoever wants the
+  dead gesture back.
+
 - **Every menu says what it was asked about.** A menu is drawn over the thing
   it belongs to, and its verbs are worded for somebody who already knows which
   thing that was: *Show only these* sits on the flag, the colour and the

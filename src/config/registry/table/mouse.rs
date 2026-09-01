@@ -8,7 +8,9 @@
 
 use super::*;
 
-use crate::config::mouse::{DragButton, WheelJob, DRAG_BUTTONS, VERBS, WHEEL_JOBS};
+use crate::config::mouse::{
+    DragButton, MarkArea, WheelJob, DRAG_BUTTONS, MARK_AREAS, VERBS, WHEEL_JOBS,
+};
 
 /// A row holding the name of a command.
 ///
@@ -110,6 +112,29 @@ pub fn rows() -> Vec<Row> {
             explained: "The wheel pressed and dragged always moves the photograph, whatever \
                         this says and whether or not there is slack, so a fitted photograph \
                         is not a dead surface.",
+        ),
+        row!(
+            KeysAndMouse / Mouse,
+            "mouse.mark_area",
+            "Mark out part of the photograph with",
+            "Dragging the left button draws a rectangle on the photograph, whose sides \
+             can then be taken hold of, which a click magnifies to and a second click \
+             clears.",
+            ["crop", "marquee", "selection", "rectangle", "marked area", "zoom to selection"],
+            Live,
+            None,
+            Access::Enum {
+                get: |c| c.mouse.mark_area.value(),
+                set: |c, v| {
+                    if let Some(when) = MarkArea::of(v) {
+                        c.mouse.mark_area = when;
+                    }
+                },
+                choices: MARK_AREAS,
+            },
+            explained: "It never takes the drag away from moving the photograph: with the \
+                        default, the left button marks only while the whole photograph is on \
+                        screen and there is no slack to pan into.",
         ),
         row!(
             KeysAndMouse / Mouse,

@@ -48,6 +48,9 @@ pub struct MouseConfig {
     /// Which button moves the photograph about.
     #[serde(default)]
     pub drag: DragButton,
+    /// When the left button marks out a part of the photograph instead.
+    #[serde(default)]
+    pub mark_area: MarkArea,
     /// What two quick clicks on the photograph do.
     #[serde(default = "fit_or_actual")]
     pub double_click: String,
@@ -88,6 +91,7 @@ impl Default for MouseConfig {
             wheel_reversed: false,
             ctrl_wheel: zooms(),
             drag: DragButton::default(),
+            mark_area: MarkArea::default(),
             double_click: fit_or_actual(),
             middle: nothing(),
             back: previous(),
@@ -183,6 +187,63 @@ impl DragButton {
         .find(|button| button.value() == name)
     }
 }
+
+/// When the left button marks out a part of the photograph.
+///
+/// The default is the one that takes nothing away. With the whole photograph
+/// on screen there is no slack to pan into and a left drag already moved
+/// nothing at all, so that is the drag the marking is given; the moment there
+/// is somewhere to pan to, the drag goes back to panning. Somebody who would
+/// rather mark a magnified photograph and pan with the wheel pressed says
+/// *Always*, and somebody who wants the old dead gesture back says *Never*.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MarkArea {
+    /// While the whole photograph is on screen, where a drag moved nothing.
+    #[default]
+    WhenItFits,
+    /// Whatever the magnification. The photograph is then moved with the wheel
+    /// pressed, or with the pan keys.
+    Always,
+    Never,
+}
+
+impl MarkArea {
+    pub fn value(self) -> &'static str {
+        match self {
+            MarkArea::WhenItFits => "when_it_fits",
+            MarkArea::Always => "always",
+            MarkArea::Never => "never",
+        }
+    }
+
+    pub fn of(name: &str) -> Option<MarkArea> {
+        [MarkArea::WhenItFits, MarkArea::Always, MarkArea::Never]
+            .into_iter()
+            .find(|when| when.value() == name)
+    }
+}
+
+/// The three answers, as the control draws them.
+pub const MARK_AREAS: &[Choice] = &[
+    Choice {
+        value: "when_it_fits",
+        label: "When the photograph fits the panel",
+        sentence: "Where a drag would move nothing anyway. Magnified, the left button \
+                   goes back to moving the photograph.",
+    },
+    Choice {
+        value: "always",
+        label: "Always",
+        sentence: "The photograph is then moved with the wheel pressed, or with the pan keys.",
+    },
+    Choice {
+        value: "never",
+        label: "Never",
+        sentence: "The left button then only ever moves the photograph, and nothing can be \
+                   marked out at all.",
+    },
+];
 
 /// The four jobs a wheel can be given, as the control draws them.
 pub const WHEEL_JOBS: &[Choice] = &[
