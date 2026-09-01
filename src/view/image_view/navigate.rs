@@ -5,11 +5,12 @@
 //! is put back where it was.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use eframe::epaint::Vec2;
 
 use crate::actions::Callback;
-use crate::cache::StoreStats;
+use crate::cache::{StoreConfig, StoreStats};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
@@ -94,6 +95,14 @@ impl ImageView {
     /// Takes a changed configuration, for when the keyboard map is edited.
     pub fn set_config(&mut self, config: ImageViewConfig) {
         self.frame.relative_size = config.frame_size_relative_to_image;
+
+        // The same clamp the constructor applies, for the same reason: the
+        // keys widen and narrow the comparison for the session, and a change
+        // made in the settings window is a change made now.
+        self.images_shown = config
+            .nr_images_shown
+            .clamp(1, crate::view::image_view::MAX_IMAGES_SHOWN);
+
         self.config = config;
     }
 
@@ -274,6 +283,31 @@ impl ImageView {
         if let Some(index) = self.store.index_of(path) {
             self.store.turn_by(index, extra);
         }
+    }
+
+    /// Builds this view's store again on new settings, keeping the folder.
+    ///
+    /// Returns whether it had to: the settings window commits on every gesture
+    /// and the store is only rebuilt when something it was built from has
+    /// actually moved.
+    pub fn rebuild_store(&mut self, config: StoreConfig, output_profile: Arc<str>) -> bool {
+        if self.store.config() == config {
+            return false;
+        }
+
+        self.store.rebuild(config, output_profile);
+        true
+    }
+
+    /// Which corner the photograph's own details are drawn in, as the key
+    /// cycling it has left them.
+    pub fn overlay_corner(&self) -> crate::view::image_view::overlay::Corner {
+        self.config.overlay_corner
+    }
+
+    /// How many photographs are drawn side by side, as the keys have left it.
+    pub fn images_shown(&self) -> usize {
+        self.images_shown
     }
 
     pub fn next_image(&mut self) {

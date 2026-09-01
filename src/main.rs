@@ -18,6 +18,9 @@ Options:
   --fullscreen  Start fullscreen.
   --benchmark   Walk the folder as fast as it will go, report how many images
                 a second that was, and quit.
+  --reset-text-size
+                Put the interface text back to its normal size and write that
+                to the settings, for when it has been made unreadable.
   --help        Show this message.";
 
 fn main() {
@@ -38,6 +41,17 @@ fn main() {
     match avis_imgv::decoder::raw::version() {
         Some(version) => tracing::info!("Raw development available, LibRaw {version}"),
         None => tracing::info!("Built without LibRaw; raw files show their embedded preview"),
+    }
+
+    // Before the configuration reaches the window, because the case this is
+    // for is an interface nobody can read well enough to find the control.
+    // Written back rather than applied for one launch: a viewer that is
+    // legible until it is closed has not been mended.
+    if args.iter().any(|arg| arg == "--reset-text-size") {
+        match avis_imgv::config::Config::reset_text_size() {
+            Ok(()) => println!("The interface text is back to its normal size."),
+            Err(e) => eprintln!("Could not write the settings: {e}"),
+        }
     }
 
     let slideshow = args.iter().any(|arg| arg == "--slideshow");

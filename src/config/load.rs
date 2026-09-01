@@ -145,6 +145,19 @@ impl Config {
         serde_json::Value::Object(base)
     }
 
+    /// Puts the interface text back to its normal size, on disk.
+    ///
+    /// For `--reset-text-size`, whose whole point is that the interface cannot
+    /// be read well enough to find the control — so it goes through the same
+    /// merge-and-atomic-write every other save does, and takes effect on the
+    /// launch that follows.
+    pub fn reset_text_size() -> std::io::Result<()> {
+        let mut config = Config::new();
+        config.general.text_scaling = crate::config::default_text_scaling();
+
+        config.save_over()
+    }
+
     pub fn fetch_cfg() -> Config {
         let config_dir = match directories::ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
         {

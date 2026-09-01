@@ -76,7 +76,7 @@ pub fn rows() -> Vec<Row> {
              visited lately. A cull is rarely one sitting. A path on the command line \
              always wins over this.",
             ["session", "remember", "resume", "last folder", "reopen"],
-            Restart,
+            NextLaunch,
             None,
             boolean!(general.restore_session),
         ),

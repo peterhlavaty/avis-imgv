@@ -49,6 +49,16 @@ impl RecentTags {
     }
 
     /// Most recent first.
+    /// Changes how many are kept, dropping any past the new limit.
+    ///
+    /// So that the setting takes effect while the window is open rather than
+    /// at the next launch: the list is in memory and the number is the only
+    /// thing that changed.
+    pub fn set_limit(&mut self, limit: usize) {
+        self.limit = limit.max(1);
+        self.tags.truncate(self.limit);
+    }
+
     pub fn tags(&self) -> impl Iterator<Item = &str> {
         self.tags.iter().map(String::as_str)
     }

@@ -41,6 +41,12 @@ pub struct State {
     pub confirming: Option<Reset>,
     /// A key the window was asked to change, from a row's own menu.
     pub arm_key: Option<&'static str>,
+    /// What has been changed that is waiting for a restart, if anything.
+    ///
+    /// Named rather than counted: "one change needs a restart" without saying
+    /// which is a sentence that cannot be acted on. The application fills this
+    /// in, because only it knows what the running program was started with.
+    pub waiting_on_a_restart: Option<&'static str>,
 }
 
 /// How much a reset covers. Always stated, never implied.
@@ -91,8 +97,49 @@ pub fn show(
     outcome
 }
 
+/// The band that says something is waiting for a restart, and offers one.
+///
+/// Persistent while it is true rather than a message that fades: the change has
+/// *not* taken effect, and a toast that has gone leaves somebody looking at a
+/// number that is not the number in force. darktable's own fix for this
+/// complaint was a toast on closing the dialogue; a button that does the thing
+/// is strictly better.
+fn restart_band(ui: &mut egui::Ui, state: &State) -> Option<Run> {
+    let waiting = state.waiting_on_a_restart?;
+    let mut asked = None;
+
+    egui::Frame::group(ui.style())
+        .fill(ui.visuals().warn_fg_color.gamma_multiply(0.12))
+        .show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    egui::RichText::new(format!(
+                        "{} One change needs a restart: {waiting}.",
+                        crate::config::registry::Effect::BADGE
+                    ))
+                    .color(ui.visuals().warn_fg_color),
+                );
+
+                if ui
+                    .button("Restart now")
+                    .on_hover_text("Saves where you are and starts the viewer again")
+                    .clicked()
+                {
+                    asked = Some(Run::Restart);
+                }
+            });
+        });
+
+    ui.add_space(6.0);
+    asked
+}
+
 fn contents(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> Outcome {
     let mut outcome = Outcome::default();
+
+    if let Some(run) = restart_band(ui, state) {
+        outcome.run = Some(run);
+    }
 
     if let Some(run) = problems::band(ui, state, config) {
         match run {

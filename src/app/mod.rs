@@ -178,6 +178,21 @@ pub struct App {
     /// frame: `set_theme` inside a frame that has already begun is a frame
     /// drawn half in each.
     pending_theme: Option<bool>,
+    /// How many decode threads the running pool was started with.
+    ///
+    /// The one setting that genuinely cannot take effect while the window is
+    /// open, so the window has to know what is actually in force to say that
+    /// a change is waiting.
+    threads_at_start: usize,
+    /// Whether the keyword panel's width has to be stated rather than
+    /// suggested on the next frame it draws.
+    forced_panel_width: bool,
+    /// Whether the text size has to be applied again on the next frame.
+    ///
+    /// From the base the styles were at when the viewer started rather than
+    /// from what they are now, which is what makes applying it again safe:
+    /// scaling an already scaled style compounds.
+    pending_text_size: bool,
     /// Full size decodes on their way to the clipboard.
     copying: verbs::Copying,
     /// Text waiting to go on the clipboard, which needs a context to do.
@@ -318,6 +333,9 @@ impl App {
             placeholders_visible: false,
             messages_visible: false,
             pending_theme: None,
+            pending_text_size: false,
+            forced_panel_width: false,
+            threads_at_start: config.cache.decode_threads,
             copying: verbs::Copying::default(),
             pending_clipboard: None,
             pending_commands: Vec::new(),
@@ -1054,9 +1072,14 @@ impl eframe::App for App {
 
         if let Some(light) = self.pending_theme.take() {
             theme::apply_theme(ctx, light);
+            self.pending_text_size = true;
+        }
+
+        if std::mem::take(&mut self.pending_text_size) {
             apply_text_scaling(ctx, self.config.text_scaling);
         }
 
+        self.remember_runtime();
         self.handle_pending_commands(ctx);
         self.handle_copying(ctx);
         self.report_problems();

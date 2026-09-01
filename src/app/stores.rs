@@ -111,6 +111,87 @@ fn non_zero(value: u32) -> Option<u32> {
 mod tests {
     use super::*;
 
+    /// The sixteen fields a store is built from, and the reason none of them
+    /// needs a restart.
+    ///
+    /// Every one of these is read once, when the store is built, so the way to
+    /// apply a change to it is to build the store again — and the way the
+    /// application knows to is that the settings it derives are no longer the
+    /// settings the store is running on. A field that stopped reaching the
+    /// derived settings would be a field that silently stopped taking effect,
+    /// which is the whole fault this stage is about, so it is asserted here
+    /// rather than left to be noticed.
+    #[test]
+    fn every_field_a_store_is_built_from_reaches_it() {
+        use crate::config::{Config, RawQuality, RawSource};
+
+        /// One field, and the hand that moves it.
+        type Moves = (&'static str, fn(&mut Config));
+
+        let moved: Vec<Moves> = vec![
+            ("cache.ram_budget_mb", |c| c.cache.ram_budget_mb += 512),
+            ("cache.gpu_budget_mb", |c| c.cache.gpu_budget_mb += 256),
+            ("cache.previews_resident", |c| {
+                c.cache.previews_resident += 8
+            }),
+            ("cache.full_resolution_neighbours", |c| {
+                c.cache.full_resolution_neighbours += 1
+            }),
+            ("cache.upload_budget_ms", |c| c.cache.upload_budget_ms += 1),
+            ("image_view.nr_loaded_images", |c| {
+                c.image_view.nr_loaded_images += 1
+            }),
+            ("image_view.gpu_resident_images", |c| {
+                c.image_view.gpu_resident_images += 1
+            }),
+            ("image_view.max_image_edge", |c| {
+                c.image_view.max_image_edge = 4096
+            }),
+            ("grid_view.thumbnail_resolution", |c| {
+                c.grid_view.thumbnail_resolution += 64
+            }),
+            ("grid_view.gpu_resident_thumbnails", |c| {
+                c.grid_view.gpu_resident_thumbnails += 16
+            }),
+            ("grid_view.preloaded_rows", |c| {
+                c.grid_view.preloaded_rows += 1
+            }),
+            ("grid_view.images_per_row", |c| {
+                c.grid_view.images_per_row += 1
+            }),
+            ("raw.source", |c| c.raw.source = RawSource::Develop),
+            ("raw.quality", |c| c.raw.quality = RawQuality::Best),
+            ("raw.camera_white_balance", |c| {
+                c.raw.camera_white_balance = !c.raw.camera_white_balance
+            }),
+            ("raw.auto_brighten", |c| {
+                c.raw.auto_brighten = !c.raw.auto_brighten
+            }),
+            ("raw.highlight_mode", |c| c.raw.highlight_mode += 1),
+        ];
+
+        let was = Config::default();
+        let before = (
+            image_store(&was.cache, &was.image_view, &was.raw),
+            thumbnail_store(&was.cache, &was.grid_view),
+        );
+
+        for (name, move_it) in moved {
+            let mut now = Config::default();
+            move_it(&mut now);
+
+            let after = (
+                image_store(&now.cache, &now.image_view, &now.raw),
+                thumbnail_store(&now.cache, &now.grid_view),
+            );
+
+            assert!(
+                after != before,
+                "{name} changed and no store noticed, so it would wait for a restart"
+            );
+        }
+    }
+
     #[test]
     fn most_of_the_budget_goes_to_full_size_images() {
         let (images, thumbnails) = split(4096);

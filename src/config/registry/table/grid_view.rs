@@ -54,7 +54,7 @@ pub fn rows() -> Vec<Row> {
             ],
             Rebuild,
             None,
-            whole!(u32, 64, 4096, " px", false, grid_view.thumbnail_resolution),
+            whole!(u32, 64, 4096, " px", true, grid_view.thumbnail_resolution),
         ),
         row!(
             SpeedAndMemory / Graphics,

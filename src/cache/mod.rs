@@ -25,7 +25,11 @@ use std::time::Duration;
 pub use store::ImageStore;
 
 /// Budgets for one store.
-#[derive(Debug, Clone, Copy)]
+///
+/// Compared as a whole, so that the application can tell whether a change to
+/// the configuration is one the stores have to be rebuilt for. Every field
+/// here is read once, when the store is built.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StoreConfig {
     /// Ceiling on decoded pixels held in RAM.
     pub ram_budget_bytes: usize,

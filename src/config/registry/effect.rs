@@ -26,8 +26,16 @@ pub enum Effect {
     ///
     /// A badge means *your change has not taken effect*. Using it for a change
     /// that has is what teaches people to ignore it, so a setting about the
-    /// *next launch* is not a restart: it gets a sentence and no badge.
+    /// *next launch* is not a restart: it gets a sentence and no badge. After
+    /// this stage exactly one field in the whole window is a `Restart`.
     Restart,
+    /// A setting about what the *next* launch does.
+    ///
+    /// Which mode it opens in, which folder, which panels are up. The change
+    /// has taken effect — the field now says what it says — and there is
+    /// nothing on screen for it to change. A badge here would be a lie, and
+    /// the lie is what teaches people to ignore the badge that is not one.
+    NextLaunch,
     /// Nothing to take effect: a button, or a value nobody sets.
     None,
 }
@@ -44,6 +52,7 @@ impl Effect {
                 Some("Takes effect when the folder is read again, which happens by itself.")
             }
             Effect::Restart => Some("Takes effect the next time the viewer starts."),
+            Effect::NextLaunch => Some("This is about the next launch; nothing on screen changes."),
             Effect::None => None,
         }
     }
@@ -52,6 +61,12 @@ impl Effect {
     pub fn badged(self) -> bool {
         self == Effect::Restart
     }
+
+    /// The badge itself, drawn beside the label.
+    ///
+    /// A badge is a bug report rather than a feature: it says *your change has
+    /// not taken effect*. Exactly one field in the whole window carries it.
+    pub const BADGE: &'static str = "↻";
 }
 
 /// Where a binding is read, which is where it can clash.
@@ -149,12 +164,18 @@ mod tests {
         assert!(!Effect::Live.badged());
         assert!(!Effect::Rebuild.badged());
         assert!(!Effect::Reopen.badged());
+        assert!(!Effect::NextLaunch.badged());
         assert!(!Effect::None.badged());
     }
 
     #[test]
     fn everything_that_waits_says_what_it_is_waiting_for() {
-        for effect in [Effect::Rebuild, Effect::Reopen, Effect::Restart] {
+        for effect in [
+            Effect::Rebuild,
+            Effect::Reopen,
+            Effect::Restart,
+            Effect::NextLaunch,
+        ] {
             assert!(effect.sentence().is_some(), "{effect:?} says nothing");
         }
         assert!(Effect::Live.sentence().is_none());

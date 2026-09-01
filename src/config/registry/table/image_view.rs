@@ -114,7 +114,7 @@ pub fn rows() -> Vec<Row> {
             ["resolution", "downscale", "size", "edge", "quality"],
             Rebuild,
             None,
-            whole!(u32, 0, 32768, " px", false, image_view.max_image_edge),
+            whole!(u32, 0, 32768, " px", true, image_view.max_image_edge),
         ),
         row!(
             ThePhotograph / Framing,

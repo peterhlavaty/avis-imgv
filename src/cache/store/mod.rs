@@ -58,6 +58,8 @@ pub struct ImageStore {
     generation: u64,
     cursor: usize,
     config: StoreConfig,
+    /// Kept so the store can be built again without the window closing.
+    render_state: RenderState,
     options: DecodeOptions,
     ram: RamCache,
     gpu: GpuCache,
@@ -120,6 +122,12 @@ impl ImageStore {
         config: StoreConfig,
         output_profile: Arc<str>,
     ) -> ImageStore {
+        // Kept so the store can be built again from a changed configuration
+        // without the window closing. Everything `StoreConfig` holds is read
+        // once, here, so the only way a new budget takes effect is a new
+        // store — and a setting that waits for the next launch is a setting
+        // that has not been applied.
+        let keep_state = render_state.clone();
         // Cloned before the options take ownership: the preview worker
         // converts the camera's thumbnail into the same profile the decoders
         // convert the photograph into.
@@ -193,7 +201,32 @@ impl ImageStore {
             windows: Windows::default(),
             scanned: Scanned::new(scanned_budget),
             config,
+            render_state: keep_state,
         }
+    }
+
+    /// Builds the store again on new settings, keeping the collection.
+    ///
+    /// The caches go with it — which is the point: a smaller budget has to
+    /// drop what no longer fits, and a changed raw setting has to throw away
+    /// every photograph decoded under the old one. The paths and the cursor
+    /// are put back, so the decoding starts again where the user is looking
+    /// rather than at the beginning of the folder.
+    pub fn rebuild(&mut self, config: StoreConfig, output_profile: Arc<str>) {
+        let paths = std::mem::take(&mut self.paths);
+        let cursor = self.cursor;
+        let loader = Arc::clone(&self.loader);
+        let render_state = self.render_state.clone();
+
+        *self = ImageStore::new(render_state, loader, config, output_profile);
+
+        self.set_paths(paths);
+        self.set_cursor(cursor);
+    }
+
+    /// What this store was built with.
+    pub fn config(&self) -> StoreConfig {
+        self.config
     }
 
     pub fn len(&self) -> usize {

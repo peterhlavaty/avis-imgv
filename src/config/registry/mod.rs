@@ -121,6 +121,44 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    /// Exactly one row in the whole window carries the restart badge.
+    ///
+    /// A badge means *your change has not taken effect*, so every one of them
+    /// is a bug report. Twenty-six settings used to wait for the next launch
+    /// with nothing anywhere saying so; the stores are built again, the
+    /// keyword catalogue with them, and what is left is the decode pool, which
+    /// is spawned once and shared. If a second row ever appears here,
+    /// something has been made to wait that did not have to.
+    #[test]
+    fn exactly_one_setting_waits_for_a_restart() {
+        let badged: Vec<&str> = rows()
+            .iter()
+            .filter(|row| row.effect.badged())
+            .map(|row| row.path)
+            .collect();
+
+        assert_eq!(badged, vec!["cache.decode_threads"], "{badged:?}");
+    }
+
+    /// And a setting about the *next* launch is not one of them: the change
+    /// has taken effect, and there is nothing on screen for it to change.
+    #[test]
+    fn a_setting_about_the_next_launch_is_not_a_restart() {
+        for path in [
+            "general.start_in",
+            "general.start_fullscreen",
+            "general.start_folder",
+            "general.panels_at_start",
+            "general.restore_session",
+        ] {
+            let found = row(path).unwrap_or_else(|| panic!("{path} is a row"));
+
+            assert_eq!(found.effect, Effect::NextLaunch, "{path}");
+            assert!(!found.effect.badged(), "{path}");
+            assert!(found.effect.sentence().is_some(), "{path} says nothing");
+        }
+    }
+
     /// The test the whole plan rests on: adding a field to `Config` without
     /// adding a row fails the build, and so does a row naming a key the file
     /// does not carry. It is the generalisation of the count assertion the

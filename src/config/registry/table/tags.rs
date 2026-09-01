@@ -14,7 +14,7 @@ pub fn rows() -> Vec<Row> {
              keyword written Places|Slovakia|Tatras is filed under its levels, so \
              narrowing by Slovakia finds everything underneath it.",
             ["keywords", "tags", "vocabulary", "hierarchy", "categories"],
-            Restart,
+            Live,
             None,
             Access::Records(List::Categories, |c| c.tags.categories.len()),
         ),
@@ -26,7 +26,7 @@ pub fn rows() -> Vec<Row> {
              list above. A relative path is taken against the configuration directory, \
              not the working one.",
             ["catalog", "catalogue", "keywords", "lightroom", "import"],
-            Restart,
+            Live,
             None,
             optional_text!(tags.catalog_file),
         ),
@@ -37,7 +37,7 @@ pub fn rows() -> Vec<Row> {
             "How many of the keywords you have typed lately are offered again at the \
              top of the panel. Zero turns that off.",
             ["recent", "history", "keywords"],
-            Restart,
+            Live,
             None,
             whole!(usize, 0, 64, "", true, tags.recent_tags),
         ),

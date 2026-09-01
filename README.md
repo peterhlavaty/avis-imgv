@@ -288,6 +288,9 @@ avis-imgv [OPTIONS] [PATH]
   --fullscreen  Start fullscreen.
   --benchmark   Walk the folder as fast as it will go, report how many images
                 a second that was, and quit.
+  --reset-text-size
+                Put the interface text back to its normal size and write that
+                to the settings, for when it has been made unreadable.
   --help        Show this message.
 ```
 
@@ -578,6 +581,33 @@ that matches nothing, a keyword file that is not there, a rejects folder with no
 name — the window says so across the top, with a button that goes to the
 control. A value outside what a control can produce is shown, marked, and left
 exactly as it was written: hand-editing always wins.
+
+### When a change takes effect
+
+Everything in the settings window applies while the window is open, with one
+exception. Most of it is the next frame; the seventeen fields the caches are
+built from — the two budgets, the preload radii, the decode ceiling, the
+thumbnail resolution, the camera-thumbnail count, the five raw settings and the
+screen profile — apply when you let go of the control, because the way to apply
+them is to build the caches again and a slider on true per-frame apply would do
+that sixty times a second.
+
+**`cache.decode_threads` is the exception**, and the only row in the whole
+window that carries the `↻` badge. The decode pool is spawned once and shared
+by both views; draining a running pool mid-session is a larger job than it is
+worth. While a change to it is waiting, the window says so in a band across its
+top and offers to restart.
+
+A setting about the *next* launch — which mode it opens in, which folder, which
+panels are up, whether the session is restored — is not a restart and carries no
+badge: the change has taken effect and there is nothing on screen for it to
+change. A badge means *your change has not taken effect*, and using it for
+changes that have is what teaches people to ignore it.
+
+Six values a key nudges are written back to the file: the overlay's corner, how
+many photographs are side by side, how many thumbnails are across, what is drawn
+under them, whether marking advances, and whether the strip of thumbnails is up.
+Where the window is left is where the next launch starts.
 
 ## Changing the keys
 

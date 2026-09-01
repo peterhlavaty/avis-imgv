@@ -87,45 +87,55 @@ pub fn ui(
     ctx: &egui::Context,
     visible: bool,
     width: f32,
+    forced: bool,
     state: &mut State,
     source: &Source<'_>,
 ) -> Vec<Action> {
     let mut actions = Vec::new();
 
-    let panel = egui::SidePanel::left("tag_panel")
+    let mut panel = egui::SidePanel::left("tag_panel")
         .resizable(true)
         .show_separator_line(false)
         .default_width(width)
-        .min_width(180.)
-        .show_animated(ctx, visible, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.add_space(20.);
-                ui.label(RichText::new("Rating & Tags").heading());
+        .min_width(180.);
 
-                if source.applies_to > 1 {
-                    ui.label(
-                        RichText::new(format!("Applies to {} photographs", source.applies_to))
-                            .color(SELECTED),
-                    );
-                }
+    // `default_width` is honoured only while egui has no width of its own for
+    // this panel, which it does from the first frame on — so a width typed
+    // into the settings window did nothing until the next launch. For the one
+    // frame after it changes, the width is stated rather than suggested.
+    if forced {
+        panel = panel.exact_width(width);
+    }
 
-                ui.add_space(10.);
+    let panel = panel.show_animated(ctx, visible, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.add_space(20.);
+            ui.label(RichText::new("Rating & Tags").heading());
 
-                actions.extend(stars(ui, source.annotations.stars()));
-                actions.extend(flags(ui, source.annotations.flag()));
-                actions.extend(labels(ui, source.annotations.known_label()));
-                ui.add_space(10.);
+            if source.applies_to > 1 {
+                ui.label(
+                    RichText::new(format!("Applies to {} photographs", source.applies_to))
+                        .color(SELECTED),
+                );
+            }
 
-                let sections = sections(source, &state.search);
-                actions.extend(on_image(ui, &sections));
+            ui.add_space(10.);
 
-                ui.add_space(10.);
-                ui.separator();
-                search_box(ui, state);
+            actions.extend(stars(ui, source.annotations.stars()));
+            actions.extend(flags(ui, source.annotations.flag()));
+            actions.extend(labels(ui, source.annotations.known_label()));
+            ui.add_space(10.);
 
-                actions.extend(offered(ui, &sections));
-            });
+            let sections = sections(source, &state.search);
+            actions.extend(on_image(ui, &sections));
+
+            ui.add_space(10.);
+            ui.separator();
+            search_box(ui, state);
+
+            actions.extend(offered(ui, &sections));
         });
+    });
 
     // The dragged width, reported back so it can be written to the field the
     // settings window reads. It was a gesture the viewer forgot on the way out.

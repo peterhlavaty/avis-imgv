@@ -72,9 +72,19 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> (Touched, Optio
             };
         }
 
+        // The badge goes on the label, where it is seen before the control is
+        // touched. Exactly one row in the whole window carries it, which is
+        // what keeps it worth reading.
+        let label = if row.effect.badged() {
+            RichText::new(format!("{} {}", Effect::BADGE, row.label))
+                .color(ui.visuals().warn_fg_color)
+        } else {
+            RichText::new(row.label)
+        };
+
         ui.add_sized(
             egui::Vec2::new(LABEL_WIDTH, ui.spacing().interact_size.y),
-            egui::Label::new(row.label).wrap(),
+            egui::Label::new(label).wrap(),
         );
 
         let label_response = ui.interact(

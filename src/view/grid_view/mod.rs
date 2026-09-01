@@ -246,6 +246,30 @@ impl GridView {
         }
     }
 
+    /// Builds this view's store again on new settings, keeping the folder.
+    ///
+    /// Returns whether it had to: the settings window commits on every gesture
+    /// and the store is only rebuilt when something it was built from has
+    /// actually moved.
+    pub fn rebuild_store(&mut self, config: StoreConfig, output_profile: Arc<str>) -> bool {
+        if self.store.config() == config {
+            return false;
+        }
+
+        self.store.rebuild(config, output_profile);
+        true
+    }
+
+    /// How many thumbnails are across, as the keys have left it.
+    pub fn columns(&self) -> usize {
+        self.columns
+    }
+
+    /// What is drawn under each thumbnail, as the key cycling it has left it.
+    pub fn badges(&self) -> &'static str {
+        self.badges.value()
+    }
+
     /// Services the caches without drawing, so opening the grid does not start
     /// from nothing.
     pub fn warm(&mut self, cursor: usize) -> bool {
@@ -257,6 +281,12 @@ impl GridView {
     /// Takes a changed configuration, for when the keyboard map is edited.
     pub fn set_config(&mut self, config: GridViewConfig) {
         self.badges = Badges::of(&config.badges);
+
+        // The keys change the column count for the session and the
+        // configuration is what a launch starts with — but a change made in
+        // the settings window is a change made now, and the clamp is the one
+        // the keys already respect.
+        self.set_columns(config.images_per_row.clamp(1, MAX_COLUMNS));
         self.config = config;
     }
 

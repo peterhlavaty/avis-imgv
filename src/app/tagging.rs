@@ -125,11 +125,16 @@ impl App {
             // that opens it changed no pixel on an empty folder and looked
             // broken.
             tag_panel::nothing_open(ctx, self.tag_panel_visible, self.tag_config.panel_width);
+            self.forced_panel_width = false;
             return;
         };
 
         self.load_annotations(&path);
         let applies_to = self.marked_paths().len();
+
+        // One frame, and only when the window is what changed it: forcing it
+        // every frame would take the edge away from the pointer.
+        let forced = std::mem::take(&mut self.forced_panel_width);
 
         self.refresh_seen_tags();
 
@@ -150,6 +155,7 @@ impl App {
                 ctx,
                 self.tag_panel_visible,
                 self.tag_config.panel_width,
+                forced,
                 &mut self.tag_panel,
                 &source,
             )

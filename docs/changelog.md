@@ -2,6 +2,29 @@
 
 ## 2026-09-01
 
+- **Twenty-five of the twenty-six settings that waited for a restart now take
+  effect while the window is open.** The seventeen the caches are built from —
+  the two budgets, the preload radii, the decode ceiling, the thumbnail
+  resolution, the camera-thumbnail count, the five raw settings and the screen
+  profile — apply when you let go of the control, by building the caches again
+  and filling them from where you are looking. Moving the RAM budget says so
+  and does it.
+- **The text size, the panes side by side, the thumbnails across, the keyword
+  list, the keyword file and the panel's width** follow the settings window
+  rather than waiting for the next launch.
+- **Six values a key nudges are written back to the file**: the overlay's
+  corner, the panes, the columns, the badges, whether marking advances, and
+  whether the strip of thumbnails is up. They used to be forgotten at exit, and
+  the next save from the settings window undid them besides.
+- **Exactly one row carries the restart badge**, and there is a test that says
+  so. `cache.decode_threads` is the pool, spawned once and shared; while a
+  change to it is waiting the window says "One change needs a restart: decode
+  threads" and offers to do it. A setting about the *next* launch is no longer
+  badged: the change has taken effect, and a badge that means nothing is what
+  teaches people to ignore the one that does.
+- **`--reset-text-size`** puts the interface text back and writes it, for when
+  the interface cannot be read well enough to find the control.
+
 - **A drag begun on the zoom slider no longer moves the photograph.** egui
   reports that a widget contains the pointer "even if some other widget is
   being dragged", so letting the pointer stray up over the picture panned it

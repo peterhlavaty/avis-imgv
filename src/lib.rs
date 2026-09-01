@@ -38,4 +38,9 @@ pub const ORGANIZATION: &str = "avis-imgv";
 pub const APPLICATION: &str = "avis-imgv";
 
 /// Command line flags that change the starting state rather than naming a path.
-pub const STARTER_STATE_ARGS: &[&str] = &["--slideshow", "--fullscreen", "--benchmark"];
+pub const STARTER_STATE_ARGS: &[&str] = &[
+    "--slideshow",
+    "--fullscreen",
+    "--benchmark",
+    "--reset-text-size",
+];

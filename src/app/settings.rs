@@ -16,6 +16,7 @@ use crate::ui::{keys, legend, notice, placeholders, settings};
 use super::about;
 use super::conflict;
 use super::panels::MenuAction;
+use super::stores;
 use super::App;
 
 /// Where the manual lives. The README, which is what the program has.
@@ -182,7 +183,7 @@ impl App {
             conflict::Answer::Waiting => {}
             conflict::Answer::Reread => {
                 self.settings = Config::new();
-                self.apply_settings();
+                self.commit_settings();
                 self.notices.say("Read the configuration file again.");
             }
             conflict::Answer::Overwrite => {
@@ -199,15 +200,136 @@ impl App {
         self.conflict_visible = open;
     }
 
+    /// Writes back what the keys have nudged.
+    ///
+    /// Six values a key changes for the session and the configuration also
+    /// holds: the overlay's corner, how many photographs are side by side,
+    /// how many thumbnails are across, what is drawn under them, whether
+    /// marking advances, and whether the strip of thumbnails is up. Once the
+    /// configuration is authoritative these have to be written, or the next
+    /// save from the settings window snaps the view back to whatever the file
+    /// still says — and the key's effect is lost at the next launch besides.
+    ///
+    /// Preferences go to the configuration file; only *position* stays in the
+    /// session file, because that is what a session is for.
+    pub(super) fn remember_runtime(&mut self) {
+        let mut moved = false;
+
+        let corner = self.image_view.overlay_corner();
+        if self.settings.image_view.overlay_corner != corner {
+            self.settings.image_view.overlay_corner = corner;
+            moved = true;
+        }
+
+        let shown = self.image_view.images_shown();
+        if self.settings.image_view.nr_images_shown != shown {
+            self.settings.image_view.nr_images_shown = shown;
+            moved = true;
+        }
+
+        let columns = self.grid_view.columns();
+        if self.settings.grid_view.images_per_row != columns {
+            self.settings.grid_view.images_per_row = columns;
+            moved = true;
+        }
+
+        let badges = self.grid_view.badges();
+        if self.settings.grid_view.badges != badges {
+            self.settings.grid_view.badges = badges.to_string();
+            moved = true;
+        }
+
+        if self.settings.tags.advance_after_marking != self.advancing {
+            self.settings.tags.advance_after_marking = self.advancing;
+            self.tag_config.advance_after_marking = self.advancing;
+            moved = true;
+        }
+
+        if self.settings.grid_view.filmstrip_visible != self.filmstrip_visible {
+            self.settings.grid_view.filmstrip_visible = self.filmstrip_visible;
+            moved = true;
+        }
+
+        if moved {
+            self.save_settings();
+        }
+    }
+
+    /// Hands the configuration to everything holding a copy of part of it,
+    /// and builds the caches again where it has to.
+    ///
+    /// For the one-shot changes — a file re-read, an import, a reset — where
+    /// there is no gesture to wait for the end of.
+    pub(super) fn commit_settings(&mut self) {
+        self.apply_settings();
+        self.rebuild_stores();
+    }
+
+    /// Builds both stores again if anything they were built from has moved.
+    ///
+    /// Seventeen fields at once, and the reason none of them needs a restart:
+    /// the two budgets and their two GPU halves, the preload radii, the decode
+    /// ceiling, the thumbnail resolution, the camera-thumbnail count, all five
+    /// raw settings and the screen profile are read exactly once, when a store
+    /// is built. So the way to apply them is to build the store again.
+    ///
+    /// Called when a gesture *ends* rather than while it moves: a rail on true
+    /// per-frame apply would empty and refill the cache sixty times a second.
+    /// Both stores compare what they are running on against what the
+    /// configuration now says, so a commit that changed something else costs
+    /// two comparisons.
+    pub(super) fn rebuild_stores(&mut self) {
+        let profile: std::sync::Arc<str> =
+            std::sync::Arc::from(self.settings.general.output_icc_profile.as_str());
+
+        let images = stores::image_store(
+            &self.settings.cache,
+            &self.settings.image_view,
+            &self.settings.raw,
+        );
+        let thumbnails = stores::thumbnail_store(&self.settings.cache, &self.settings.grid_view);
+
+        let rebuilt = self
+            .image_view
+            .rebuild_store(images, std::sync::Arc::clone(&profile));
+        let sheet = self.grid_view.rebuild_store(thumbnails, profile);
+
+        if rebuilt || sheet {
+            // Said out loud because it is work: everything decoded under the
+            // old settings has just been thrown away, and a folder of raws
+            // will take a moment to come back.
+            self.notices
+                .say("Filling the cache again on the new settings.");
+        }
+    }
+
     /// Hands the configuration to everything holding a copy of part of it.
     pub(super) fn apply_settings(&mut self) {
         self.pending_theme = Some(self.settings.general.theme == "light");
+
+        // Applied on the next frame because it wants the context, and from
+        // the base the styles were at when the viewer started, which is what
+        // makes calling it again safe.
+        self.pending_text_size = true;
         crate::annotations::sidecar::name_like_adobe(
             self.settings.tags.sidecar_naming == "replacing",
         );
         crate::ui::surface::show_settings_rows(self.settings.menus.settings_rows);
+        // Before the copy is replaced, because the question is whether the
+        // window moved it rather than what it now says.
+        self.forced_panel_width |=
+            (self.tag_config.panel_width - self.settings.tags.panel_width).abs() > 0.5;
+
         self.config = self.settings.general.clone();
         self.tag_config = self.settings.tags.clone();
+
+        // The keyword list, the file it is merged with and how many recent
+        // keywords are offered were all read once at startup, so editing a
+        // keyword list meant restarting the viewer to see it. The catalogue is
+        // a pure function of the configuration; the recent list is in memory
+        // and only its length changed, so it is trimmed rather than re-read.
+        self.catalog = crate::annotations::Catalog::configured(&self.settings.tags);
+        self.recent_tags.set_limit(self.settings.tags.recent_tags);
         self.image_view.set_config(self.settings.image_view.clone());
         self.image_view.set_mouse(self.settings.mouse.clone());
         self.image_view
@@ -227,6 +349,15 @@ impl App {
     /// would rebuild the cache sixty times a second. A row whose effect is a
     /// rebuild waits for the gesture to end.
     pub(super) fn show_settings(&mut self, ctx: &egui::Context) {
+        // The one field in the whole window that cannot take effect while the
+        // window is open. The pool is spawned once, each thread is expected to
+        // exist, and one loader is shared by both views; draining a running
+        // pool mid-session is a larger job than this deserves, and pretending
+        // otherwise would be worse than saying so.
+        self.settings_state.waiting_on_a_restart = (self.settings.cache.decode_threads
+            != self.threads_at_start)
+            .then_some("decode threads");
+
         let mut open = self.settings_visible;
         let outcome = settings::show(ctx, &mut open, &mut self.settings_state, &mut self.settings);
         self.settings_visible = open;
@@ -247,6 +378,10 @@ impl App {
 
         if let Some(run) = outcome.run {
             self.run_settings_button(run, ctx);
+        }
+
+        if outcome.committed {
+            self.rebuild_stores();
         }
 
         if !outcome.changed {
@@ -329,7 +464,7 @@ impl App {
 
         let named = merged.1;
         self.settings = merged.0;
-        self.apply_settings();
+        self.commit_settings();
         self.save_settings();
         self.notices
             .say(format!("Read {named} setting(s) from {}.", path.display()));

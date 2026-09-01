@@ -137,7 +137,7 @@ pub fn rows() -> Vec<Row> {
              restored session, then the startup folder, then the working directory — \
              this decides only what is drawn, not what is opened.",
             ["startup", "start", "mode", "launch", "open in"],
-            Restart,
+            NextLaunch,
             None,
             Access::Enum {
                 get: |c| {
@@ -157,7 +157,7 @@ pub fn rows() -> Vec<Row> {
             "Start fullscreen",
             "`--fullscreen` says this for one launch; this says it for every launch.",
             ["fullscreen", "startup", "maximise", "screen"],
-            Restart,
+            NextLaunch,
             None,
             boolean!(general.start_fullscreen),
         ),
@@ -169,7 +169,7 @@ pub fn rows() -> Vec<Row> {
              Without it the viewer reads the working directory of whatever launched \
              it, which is nobody's choice.",
             ["startup", "folder", "home", "default folder"],
-            Restart,
+            NextLaunch,
             None,
             optional_text!(general.start_folder),
         ),
@@ -180,7 +180,7 @@ pub fn rows() -> Vec<Row> {
             "Which panels are up when the window opens. Each of them has a key as \
              well, and what the key leaves them at is remembered from here on.",
             ["panels", "startup", "sidebar", "menu bar", "layout"],
-            Restart,
+            NextLaunch,
             None,
             Access::Flags {
                 get: |c, name| c.general.panels_at_start.get(name),

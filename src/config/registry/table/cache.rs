@@ -15,7 +15,7 @@ pub fn rows() -> Vec<Row> {
             ["memory", "ram", "resources", "cache size", "budget"],
             Rebuild,
             None,
-            whole!(usize, 256, 65536, " MB", false, cache.ram_budget_mb),
+            whole!(usize, 256, 65536, " MB", true, cache.ram_budget_mb),
         ),
         row!(
             SpeedAndMemory / Work,
@@ -41,7 +41,7 @@ pub fn rows() -> Vec<Row> {
             ["preview", "spinner", "placeholder", "embedded"],
             Rebuild,
             None,
-            whole!(usize, 0, 2048, "", false, cache.previews_resident),
+            whole!(usize, 0, 2048, "", true, cache.previews_resident),
         ),
         row!(
             SpeedAndMemory / Memory,
@@ -68,7 +68,7 @@ pub fn rows() -> Vec<Row> {
             ["gpu", "graphics", "vram", "card", "adapter", "video memory"],
             Rebuild,
             None,
-            whole!(usize, 128, 32768, " MB", false, cache.gpu_budget_mb),
+            whole!(usize, 128, 32768, " MB", true, cache.gpu_budget_mb),
         ),
         row!(
             SpeedAndMemory / Work,
