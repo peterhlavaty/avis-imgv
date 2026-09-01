@@ -24,7 +24,7 @@ use super::{defaults, Config, Shortcut};
 /// What this build writes.
 ///
 /// Bumped whenever a step is added below, and never otherwise.
-pub const CURRENT: u32 = 2;
+pub const CURRENT: u32 = 3;
 
 /// One thing that has to be put right in an older file.
 struct Step {
@@ -66,11 +66,18 @@ struct DocumentStep {
     apply: fn(&mut Map<String, Value>) -> bool,
 }
 
-const DOCUMENT_STEPS: &[DocumentStep] = &[DocumentStep {
-    until: 2,
-    said: "The wheel moved from image_view.scroll_navigation to mouse.wheel, which can say what it should do rather than only whether it does anything",
-    apply: wheel_into_the_mouse_section,
-}];
+const DOCUMENT_STEPS: &[DocumentStep] = &[
+    DocumentStep {
+        until: 2,
+        said: "The wheel moved from image_view.scroll_navigation to mouse.wheel, which can say what it should do rather than only whether it does anything",
+        apply: wheel_into_the_mouse_section,
+    },
+    DocumentStep {
+        until: 3,
+        said: "Undo moved from cull.sc_undo to history.sc_undo, because it now takes back settings and where you were looking as well as what was done to a file",
+        apply: undo_into_the_history_section,
+    },
+];
 
 /// Brings a document up to [`CURRENT`], returning what was changed.
 ///
@@ -133,6 +140,44 @@ fn wheel_into_the_mouse_section(map: &mut Map<String, Value>) -> bool {
 
     let job = if navigated { "next_or_previous" } else { "pan" };
     mouse.insert("wheel".to_string(), Value::String(job.to_string()));
+    true
+}
+
+/// `cull.sc_undo` becomes `history.sc_undo`.
+///
+/// Undo was filed under culling because the journal it walked covered nothing
+/// but moving, copying and binning. It walks everything now, so the key moves
+/// with it — and whatever the user had bound goes across, because a rebind
+/// silently reverted to `Ctrl + Z` is the migration doing the one thing it
+/// exists to prevent.
+///
+/// A file that already says something about `history.sc_undo` is left alone:
+/// the newer key is the deliberate one.
+fn undo_into_the_history_section(map: &mut Map<String, Value>) -> bool {
+    let was = map
+        .get_mut("cull")
+        .and_then(Value::as_object_mut)
+        .and_then(|section| section.remove("sc_undo"));
+
+    let Some(bound) = was else {
+        return false;
+    };
+
+    let history = map
+        .entry("history")
+        .or_insert_with(|| Value::Object(Map::new()));
+
+    let Some(history) = history.as_object_mut() else {
+        return false;
+    };
+
+    if history.contains_key("sc_undo") {
+        // The old key is still gone: it means nothing to this build, and
+        // leaving it would put it back on the next save.
+        return true;
+    }
+
+    history.insert("sc_undo".to_string(), bound);
     true
 }
 
@@ -238,6 +283,49 @@ mod tests {
         super::document(&mut map);
 
         assert_eq!(map["mouse"]["wheel"], serde_json::json!("pan"));
+    }
+
+    /// The one thing this migration must not do: a rebind silently reverted
+    /// to the default would be the migration causing what it exists to prevent.
+    #[test]
+    fn a_rebound_undo_key_survives_moving_section() {
+        let mut map = document(r#"{"cull": {"sc_undo": {"key": "u", "modifiers": ["alt"]}}}"#);
+        let said = super::document(&mut map);
+
+        assert_eq!(said.len(), 1);
+        assert_eq!(map["history"]["sc_undo"]["key"], serde_json::json!("u"));
+        assert_eq!(
+            map["history"]["sc_undo"]["modifiers"],
+            serde_json::json!(["alt"])
+        );
+        assert!(
+            map["cull"].get("sc_undo").is_none(),
+            "and the old key is gone, or the next save would put it back"
+        );
+    }
+
+    /// A file that never said anything about the key is not given one: the
+    /// default arrives through `serde` like every other absent field.
+    #[test]
+    fn a_file_that_never_bound_undo_gains_nothing() {
+        let mut map = document(r#"{"cull": {"rejected_folder": "_Rejected"}}"#);
+        let said = super::document(&mut map);
+
+        assert!(said.is_empty());
+        assert!(map.get("history").is_none());
+    }
+
+    /// The same rule as the wheel: a newer key written deliberately wins.
+    #[test]
+    fn an_undo_key_already_in_the_history_section_is_left_alone() {
+        let mut map = document(
+            r#"{"cull": {"sc_undo": {"key": "u", "modifiers": []}},
+                "history": {"sc_undo": {"key": "z", "modifiers": ["ctrl"]}}}"#,
+        );
+        super::document(&mut map);
+
+        assert_eq!(map["history"]["sc_undo"]["key"], serde_json::json!("z"));
+        assert!(map["cull"].get("sc_undo").is_none());
     }
 
     /// The rule that makes every migration safe: a newer key that has been

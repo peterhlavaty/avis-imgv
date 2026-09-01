@@ -330,6 +330,10 @@ impl App {
             .set_backdrop(&self.settings.general.backdrop);
         self.grid_view.set_config(self.settings.grid_view.clone());
         self.grid_view.set_backdrop(&self.settings.general.backdrop);
+        // Shortening it takes effect on the frame it is shortened, rather than
+        // at the next deed: a limit that has not bitten yet is a limit nobody
+        // can tell is working.
+        self.history.set_remember(self.settings.history.remember);
     }
 }
 

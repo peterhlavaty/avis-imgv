@@ -12,6 +12,7 @@
 //! - [`view`] draws it, [`app`] wires it together,
 //! - [`organize`] works on the folder rather than the image: bulk renaming
 //!   and correcting a camera clock,
+//! - [`history`] remembers what was done and how to get back to any of it,
 //! - [`annotations`] holds what the user puts on an image: stars and tags,
 //!   kept in XMP sidecars.
 
@@ -24,6 +25,7 @@ pub mod config;
 pub mod crawler;
 pub mod decoder;
 pub mod formats;
+pub mod history;
 pub mod logging;
 pub mod metadata;
 pub mod organize;

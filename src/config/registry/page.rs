@@ -12,7 +12,7 @@
 //! honestly anyway: `raw.source` is the most consequential setting a raw
 //! shooter has and would land in Advanced under any technical rule.
 
-/// The eleven pages, in the order the navigation list shows them.
+/// The twelve pages, in the order the navigation list shows them.
 ///
 /// Ordered by how often a thing is wanted, not by the shape of the struct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -23,6 +23,7 @@ pub enum Page {
     Marks,
     Keywords,
     MovingAndDeleting,
+    History,
     RawFiles,
     Slideshow,
     SpeedAndMemory,
@@ -38,6 +39,7 @@ impl Page {
         Page::Marks,
         Page::Keywords,
         Page::MovingAndDeleting,
+        Page::History,
         Page::RawFiles,
         Page::Slideshow,
         Page::SpeedAndMemory,
@@ -53,6 +55,7 @@ impl Page {
             Page::Marks => "Stars, flags and labels",
             Page::Keywords => "Keywords",
             Page::MovingAndDeleting => "Moving and deleting",
+            Page::History => "Taking it back",
             Page::RawFiles => "Raw files",
             Page::Slideshow => "Slideshow",
             Page::SpeedAndMemory => "Speed and memory",
@@ -74,6 +77,7 @@ impl Page {
             Page::MovingAndDeleting => {
                 "Where photographs are sent, what the bin means, and what is asked first."
             }
+            Page::History => "What is remembered of what you did, and how far back one press goes.",
             Page::RawFiles => "How a raw file is turned into a picture, and what pairs with what.",
             Page::Slideshow => "How long each picture is held, and whether it moves.",
             Page::SpeedAndMemory => {
@@ -222,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn there_are_eleven_pages() {
-        assert_eq!(Page::ALL.len(), 11);
+    fn there_are_twelve_pages() {
+        assert_eq!(Page::ALL.len(), 12);
     }
 }

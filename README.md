@@ -167,10 +167,20 @@ memory card or a network share has instead of a bin.
 
 ### Taking it back
 
-`Ctrl + Z` puts back whatever the last thing that touched a file did, and says
-what it is about to do first. It covers moving, copying, sending to the bin and
-every mark — a rating pressed by mistake is one keystroke to undo — and it keeps
-the last two hundred.
+`Ctrl + Z` takes back the last thing done and `Ctrl + Y` does it again. It
+covers moving, copying, sending to the bin and every mark — a rating pressed by
+mistake is one keystroke to undo — and it keeps all of them, unless
+`history.remember` is set to a number.
+
+Going back never throws anything away. Having undone four things, all four are
+still there and `Ctrl + Y` walks forward through them one at a time; and going
+back and then doing something *different* keeps both, so the four that were
+undone are still reachable rather than overwritten. What that makes is a tree
+rather than a list.
+
+Anything that would touch more than one file says what it is about to do and
+waits — `history.remember` aside, that is `cull.confirm.undo_several`, and until
+now it was a setting nothing read.
 
 A copy is undone by sending the copies to the bin rather than deleting them,
 because an undo should not itself be the thing nobody can take back. Coming back
@@ -988,7 +998,14 @@ break the pairing it depends on.
 | `rejected_folder` | What the folder for the frames that are not staying is called | `_Rejected` |
 | `sc_move` `sc_copy` | Open the panel that asks where | `Alt + M` `Alt + C` |
 | `sc_reject_folder` | Move into the rejected folder | `Shift + X` |
-| `sc_undo` | Put back whatever the last thing did | `Ctrl + Z` |
+
+### History
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `remember` | How many of the things you have done are kept, or nought for all of them | `0` |
+| `sc_undo` | Take back the last thing done | `Ctrl + Z` |
+| `sc_redo` | Do it again | `Ctrl + Y` |
 
 ### Tags
 
@@ -1024,7 +1041,8 @@ break the pairing it depends on.
 | F2 | Next mode: image, gallery, bulk rename, shift capture time, group shots, slideshow |
 | Alt + M / Alt + C | Move or copy the picture to a folder |
 | Shift + X | Move it into the rejected folder |
-| Ctrl + Z | Put back whatever the last thing did |
+| Ctrl + Z | Take back the last thing done |
+| Ctrl + Y | Do it again |
 | F3 | Show or hide the filter bar |
 | \ | Show everything, without forgetting the rules |
 | F11 | Fullscreen |

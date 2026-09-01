@@ -3,7 +3,7 @@
 use eframe::egui;
 
 use crate::app::mode::Mode;
-use crate::config::{shortcut, CullConfig, GeneralConfig, TagConfig};
+use crate::config::{shortcut, CullConfig, GeneralConfig, HistoryConfig, TagConfig};
 use crate::metadata::xmp::{Flag, Label};
 use crate::utils;
 
@@ -53,7 +53,10 @@ pub enum Command {
     /// Move it into the folder for the frames that are not staying.
     ToRejectedFolder,
     /// Put back whatever the last thing did.
+    /// Take back the last thing done.
     Undo,
+    /// Do again the thing that was last taken back.
+    Redo,
     /// Show the keys, for the mode that is on screen.
     ShowKeys,
     /// Open the whole settings window.
@@ -102,6 +105,7 @@ pub fn collect(
     config: &GeneralConfig,
     tags: &TagConfig,
     cull: &CullConfig,
+    history: &HistoryConfig,
 ) -> Vec<Command> {
     let mut commands = Vec::new();
 
@@ -157,7 +161,8 @@ pub fn collect(
         (&cull.sc_move, Command::MoveTo),
         (&cull.sc_copy, Command::CopyTo),
         (&cull.sc_reject_folder, Command::ToRejectedFolder),
-        (&cull.sc_undo, Command::Undo),
+        (&history.sc_undo, Command::Undo),
+        (&history.sc_redo, Command::Redo),
         (&config.sc_filmstrip, Command::ToggleFilmstrip),
         (&config.sc_stacks, Command::ToggleStacking),
         (&config.sc_toggle_stack, Command::ToggleStack),
@@ -328,6 +333,7 @@ mod tests {
             &GeneralConfig::default(),
             &TagConfig::default(),
             &CullConfig::default(),
+            &HistoryConfig::default(),
         )
     }
 

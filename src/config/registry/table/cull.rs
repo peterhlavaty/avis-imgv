@@ -52,8 +52,5 @@ fn keys() -> Vec<Row> {
         row!(KeysAndMouse / Keys, "cull.sc_reject_folder", "To the rejected folder",
             "Move it into the folder for the frames that are not staying, which is what a card or a network share has instead of a bin.",
             ["reject", "rejects", "cull"], Live, Everywhere, key!(cull.sc_reject_folder)),
-        row!(KeysAndMouse / Keys, "cull.sc_undo", "Undo",
-            "Put back whatever the last thing that touched a file did.",
-            ["undo", "back", "mistake"], Live, Everywhere, key!(cull.sc_undo)),
     ]
 }

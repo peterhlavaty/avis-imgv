@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 use eframe::egui;
 
 use crate::annotations::AnnotationStore;
+use crate::history::{Deed, Step};
 use crate::metadata::xmp::{Flag, Label, Xmp};
 use crate::metadata::Orientation;
-use crate::organize::journal::Step;
 use crate::ui::tag_panel::{self, Action};
 
 use super::{App, Mode};
@@ -65,7 +65,7 @@ impl App {
     ///
     /// Through the same path as a star or a flag, so it takes the selection
     /// with it, writes to both halves of a raw-and-JPEG pair, and is one step
-    /// of the undo journal however many photographs it touched.
+    /// of the history however many photographs it touched.
     pub(super) fn turn_by(&mut self, extra: Orientation) {
         let paths = self.marked_paths();
 
@@ -279,19 +279,27 @@ impl App {
 
             apply(&mut self.annotations, path);
 
-            if self.annotations.peek(path) != Some(&before) {
-                steps.push(Step::Marked {
+            // Both halves, so the mark can be put back *and* put on again:
+            // a rating undone is a rating that redo has to be able to restore.
+            match self.annotations.peek(path) {
+                Some(after) if after != &before => steps.push(Step::Marked {
                     image: path.clone(),
                     before: Box::new(before),
-                });
+                    after: Box::new(after.clone()),
+                }),
+                _ => {}
             }
         }
 
         let changed = steps.len();
         match changed {
             0 => {}
-            1 => self.journal.record(steps.remove(0)),
-            _ => self.journal.record(Step::Many(steps)),
+            1 => {
+                self.history.record(Deed::Files(steps.remove(0)));
+            }
+            _ => {
+                self.history.record(Deed::Files(Step::Many(steps)));
+            }
         }
 
         changed

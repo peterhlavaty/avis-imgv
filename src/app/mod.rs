@@ -7,6 +7,7 @@ mod chrome;
 mod conflict;
 mod cull;
 mod gestures;
+mod history;
 pub mod input;
 pub mod mode;
 pub mod panels;
@@ -29,7 +30,7 @@ use crate::app::stacking::Stacking;
 use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
-use crate::organize::journal::Journal;
+use crate::history::History;
 use crate::organize::pairs::Pairs;
 use crate::session::{Geometry, Session};
 use crate::ui::destinations::{Asking, Errand, Slot};
@@ -129,16 +130,15 @@ pub struct App {
     advancing: bool,
     /// A deletion the user has been asked about but has not answered.
     pending_delete: Option<cull::Pending>,
-    /// A bulk undo that has been asked about but not answered, as the sentence
-    /// saying what it would do.
-    pending_undo: Option<String>,
+    /// A run of the history that has been asked about but not answered.
+    pending_history: Option<history::Pending>,
     /// Where photographs were last sent, so the same key twice repeats it.
     last_destination: Option<Slot>,
     last_errand: Option<Errand>,
     /// The panel asking where they should go, while it is up.
     asking: Option<Asking>,
-    /// How to put back whatever the last thing did.
-    journal: Journal,
+    /// What has been done this run, and how to get back to any of it.
+    history: History,
     /// How the folder is narrowed and ordered, and whether its bar is up.
     narrowing: Narrowing,
     /// The runs of frames the folder holds, when it is being shown stacked.
@@ -348,11 +348,11 @@ impl App {
             notices: Notices::default(),
             advancing,
             pending_delete: None,
-            pending_undo: None,
+            pending_history: None,
             last_destination: None,
             last_errand: None,
             asking: None,
-            journal: Journal::default(),
+            history: History::with_limit(config.history.remember),
             narrowing: Narrowing::of(&config.browsing),
             stacking: Stacking::of(&config.group, config.browsing.stack_by_default),
             filter_visible: false,
@@ -938,7 +938,7 @@ impl App {
             || self.messages_visible
             || self.conflict_visible
             || self.pending_delete.is_some()
-            || self.pending_undo.is_some()
+            || self.pending_history.is_some()
             || self.asking.is_some()
             || self.overlay.is_some()
     }
@@ -1052,6 +1052,7 @@ impl App {
             Command::CopyTo => self.send_somewhere(Errand::Copy),
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
+            Command::Redo => self.redo(),
             Command::ToggleFilmstrip => self.toggle_filmstrip(),
             Command::ToggleStacking => self.toggle_stacking(),
             Command::ToggleStack => self.toggle_stack(),
@@ -1189,7 +1190,13 @@ impl eframe::App for App {
 
         self.handle_gestures(ctx);
         self.handle_dropped_files(ctx);
-        for command in input::collect(ctx, &self.config, &self.tag_config, &self.settings.cull) {
+        for command in input::collect(
+            ctx,
+            &self.config,
+            &self.tag_config,
+            &self.settings.cull,
+            &self.settings.history,
+        ) {
             // Marking a selection never advances: the mark went to two
             // hundred photographs rather than to the one on screen, so there
             // is nothing for "the next one" to mean.
@@ -1253,7 +1260,7 @@ impl eframe::App for App {
         self.show_filter_bar(ctx);
         self.show_destinations(ctx);
         self.show_pending_delete(ctx);
-        self.show_pending_undo(ctx);
+        self.show_pending_history(ctx);
         self.show_keyboard(ctx);
         self.show_settings(ctx);
         self.show_conflict(ctx);

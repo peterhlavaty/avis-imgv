@@ -445,8 +445,16 @@ pub fn default_sc_copy() -> Shortcut {
 pub fn default_sc_reject_folder() -> Shortcut {
     Shortcut::new("x", &[MOD_SHIFT])
 }
+/// The two everybody already has in their fingers.
+///
+/// `Ctrl + Y` for redo rather than `Ctrl + Shift + Z` because this is a
+/// Windows-first program by its user base, and Y is one key rather than two.
 pub fn default_sc_undo() -> Shortcut {
     Shortcut::new("z", &[MOD_CTRL])
+}
+
+pub fn default_sc_redo() -> Shortcut {
+    Shortcut::new("y", &[MOD_CTRL])
 }
 
 /// `F3` is what a Windows program uses for "find", and the backslash is what

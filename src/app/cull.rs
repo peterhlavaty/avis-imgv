@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 
 use eframe::egui;
 
+use crate::history::{Deed, Step};
 use crate::metadata::xmp::Flag;
 use crate::organize::files;
-use crate::organize::journal::Step;
 use crate::ui::destinations::{self, Answer, Asking, Errand, Slot};
 
 use super::App;
@@ -238,9 +238,9 @@ impl App {
         }
 
         // Only the bin can be undone: what was deleted for good is gone, and
-        // the journal must not suggest otherwise.
+        // the history must not suggest otherwise.
         if !pending.permanent {
-            self.journal.record(Step::Binned(binned));
+            self.history.record(Deed::Files(Step::Binned(binned)));
         }
 
         if gone > 0 {
@@ -425,7 +425,7 @@ impl App {
     /// Sends whatever is being looked at — or picked out — to `slot`, and
     /// records how to take it back.
     ///
-    /// The whole errand is one step in the journal however many photographs it
+    /// The whole errand is one step in the history however many photographs it
     /// carried, so a selection sent to the wrong folder comes back with one
     /// press rather than two hundred.
     fn carry_errand(&mut self, errand: Errand, slot: &Slot) {
@@ -448,6 +448,9 @@ impl App {
         }
 
         let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
+        // Both halves of a copy: the photographs asked for, so it can be made
+        // again, and everything that actually appeared, so it can be taken away.
+        let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
         let mut made: Vec<PathBuf> = Vec::new();
         let mut failed = 0usize;
 
@@ -466,7 +469,10 @@ impl App {
                     }
                 },
                 Errand::Copy => match files::copy_file(from, &to) {
-                    Ok(copies) => made.extend(copies),
+                    Ok(copies) => {
+                        pairs.push((from.clone(), to));
+                        made.extend(copies);
+                    }
                     Err(e) => {
                         failed += 1;
                         self.notices.say(format!("{e}"));
@@ -478,12 +484,13 @@ impl App {
         let carried = match errand {
             Errand::Move => {
                 let carried = moved.len();
-                self.journal.record(Step::Moved(moved));
+                self.history.record(Deed::Files(Step::Moved(moved)));
                 carried
             }
             Errand::Copy => {
                 let carried = made.len();
-                self.journal.record(Step::Copied(made));
+                self.history
+                    .record(Deed::Files(Step::Copied { pairs, made }));
                 carried
             }
         };
@@ -513,138 +520,6 @@ impl App {
 
         self.last_destination = Some(slot.clone());
         self.last_errand = Some(errand);
-    }
-
-    /// Puts back whatever the last thing that touched a file did.
-    ///
-    /// `Step::describe` has always built the sentence at the right moment and
-    /// shown it at the wrong one: it was read *before* the undo ran and
-    /// reported afterwards, so a bulk undo happened silently and then said what
-    /// it had done. One file goes back without asking, because the sentence
-    /// afterwards is enough for one file; anything more says what it is about
-    /// to do and waits.
-    pub(super) fn undo(&mut self) {
-        let Some(step) = self.journal.peek() else {
-            self.notices.say("Nothing to undo");
-            return;
-        };
-
-        if step.files() > 1 {
-            self.pending_undo = Some(step.describe());
-            return;
-        }
-
-        self.carry_out_undo();
-    }
-
-    /// Draws the question a bulk undo asks, and does what it is told.
-    pub(super) fn show_pending_undo(&mut self, ctx: &egui::Context) {
-        let Some(said) = self.pending_undo.clone() else {
-            return;
-        };
-
-        let mut answered = None;
-
-        let shown = egui::Window::new("Undo")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(format!("This will {said}."));
-                ui.add_space(10.0);
-
-                ui.horizontal(|ui| {
-                    if ui.button("Do it").clicked() {
-                        answered = Some(true);
-                    }
-                    if ui.button("Leave it").clicked() {
-                        answered = Some(false);
-                    }
-                });
-
-                ui.add_space(6.0);
-                ui.label(egui::RichText::new("Enter or Y to undo · Escape to leave it").weak());
-            });
-
-        crate::utils::in_front(ctx, shown.as_ref());
-
-        let said_no = ctx.input_mut(|i| {
-            let escaped = i.consume_key(egui::Modifiers::NONE, egui::Key::Escape);
-            escaped | i.consume_key(egui::Modifiers::NONE, egui::Key::N)
-        });
-
-        let said_yes = ctx.input_mut(|i| {
-            let yes = i.consume_key(egui::Modifiers::NONE, egui::Key::Y);
-            yes | i.consume_key(egui::Modifiers::NONE, egui::Key::Enter)
-        });
-
-        if said_no {
-            answered = Some(false);
-        } else if said_yes {
-            answered = Some(true);
-        }
-
-        match answered {
-            Some(true) => {
-                self.pending_undo = None;
-                self.carry_out_undo();
-            }
-            Some(false) => {
-                self.pending_undo = None;
-            }
-            None => {}
-        }
-    }
-
-    /// Does the undo itself, having been agreed to or not needing to be.
-    fn carry_out_undo(&mut self) {
-        let Some(step) = self.journal.peek() else {
-            return;
-        };
-
-        let said = step.describe();
-        let Some(undone) = self.journal.undo() else {
-            return;
-        };
-
-        for problem in &undone.failed {
-            self.notices.say(format!("Could not undo: {problem}"));
-        }
-
-        for path in &undone.remarked {
-            // What is on the card has already been turned, and the sidecar
-            // has just been put back; the difference between the two is what
-            // the card owes. The camera's own orientation is in both and
-            // cancels, so this is the user's turn and nothing else.
-            let was = self
-                .annotations
-                .peek(path)
-                .map(|xmp| xmp.orientation)
-                .unwrap_or_default();
-
-            self.annotations.forget(path);
-            self.refresh_mark(path);
-
-            let now = self.annotations.get(path, None).orientation;
-            let difference = was.inverse().then(now);
-
-            if difference != crate::metadata::Orientation::Normal {
-                self.image_view.turn_by(path, difference);
-                self.grid_view.turn_by(path, difference);
-            }
-        }
-
-        // Anything that came back or went away changes what the folder holds,
-        // and the caches are keyed by position in it.
-        if !undone.moved.is_empty() || !undone.removed.is_empty() {
-            let base = self.base_path.clone();
-            let showing = self.marked_path();
-            self.open_directory(&base, showing.as_deref());
-        }
-
-        if undone.failed.is_empty() {
-            self.notices.say(format!("Undone: {said}"));
-        }
     }
 }
 

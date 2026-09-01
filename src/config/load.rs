@@ -277,6 +277,7 @@ impl Config {
             group: section(&map, "group", &mut partial),
             menus: section(&map, "menus", &mut partial),
             mouse: section(&map, "mouse", &mut partial),
+            history: section(&map, "history", &mut partial),
             partial,
             migrated,
             document: Some(map),

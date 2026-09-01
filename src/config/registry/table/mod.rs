@@ -130,6 +130,7 @@ mod cull;
 mod fixed;
 mod general;
 mod grid_view;
+mod history;
 mod image_view;
 mod mouse;
 mod raw;
@@ -166,6 +167,7 @@ pub fn rows() -> &'static [Row] {
         rows.extend(grid_view::rows());
         rows.extend(tags::rows());
         rows.extend(cull::rows());
+        rows.extend(history::rows());
         rows.extend(raw::rows());
         rows.extend(slideshow::rows());
         rows.extend(cache::rows());

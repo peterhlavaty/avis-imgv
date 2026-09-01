@@ -2,6 +2,33 @@
 
 ## 2026-09-01
 
+- **`Ctrl + Y` does again what `Ctrl + Z` took back.** The undo journal recorded
+  the inverse of an operation and nothing else, which is why there had never
+  been a redo: the forward half was thrown away as it went, so having gone back
+  there was nothing left to say what going forward again would mean. A step
+  records both halves now — a move already held them and only wanted a word
+  saying which way round to read it, a copy gained the sources it was made from,
+  a mark gained the document it was changed *to*.
+- **Going back never throws anything away.** Having undone four things, all four
+  are still there; and going back and then doing something *different* keeps
+  both, so what was undone is still reachable rather than overwritten. The list
+  of what was done is a tree, and `Ctrl + Y` walks back down the branch it came
+  up rather than guessing at the newest one.
+- **Undo moved out of the culling settings.** It was `cull.sc_undo` because the
+  journal it walked covered nothing but moving, copying and binning; it is
+  `history.sc_undo` now, beside `history.sc_redo` and `history.remember`. A key
+  somebody had rebound is carried across by the migration rather than quietly
+  reverting to `Ctrl + Z`, and the settings window has a page of its own for it.
+- **`history.remember` says how many are kept, and is nought — all of them.**
+  The journal stopped at two hundred. A deed is a handful of paths and a small
+  document rather than a photograph, so a whole day of culling is a few
+  kilobytes, and the limit is now there for somebody who wants the list short
+  enough to read rather than because the memory needed it.
+- **"Ask before undoing something that touches more than one file" now does
+  something.** `cull.confirm.undo_several` had a row in the settings, a sentence
+  explaining it and a tick that saved — and nothing anywhere read it. The count
+  was compared against one in the code and the answer ignored.
+
 - **The second button turns a photograph five ways.** *Turn* is now one row that
   opens the five: clockwise, anticlockwise, upside down, mirror left to right,
   mirror top to bottom. The two quarters used to be two rows of their own and

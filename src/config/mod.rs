@@ -3,6 +3,7 @@
 pub mod bindings;
 pub mod browsing;
 pub mod defaults;
+pub mod history;
 pub mod load;
 pub mod migrate;
 pub mod mouse;
@@ -15,6 +16,7 @@ use crate::actions::Callback;
 
 pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, MenuConfig, PanelsAtStart};
 pub use defaults::*;
+pub use history::HistoryConfig;
 pub use mouse::{DragButton, MouseConfig, WheelJob};
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
@@ -48,6 +50,9 @@ pub struct Config {
     /// What the pointer does.
     #[serde(default)]
     pub mouse: MouseConfig,
+    /// What was done this run, and the keys that walk back through it.
+    #[serde(default)]
+    pub history: HistoryConfig,
     /// Whether something in the file on disk could not be read.
     ///
     /// A configuration that was only partly understood must never be written
@@ -91,6 +96,7 @@ impl Default for Config {
             group: GroupConfig::default(),
             menus: MenuConfig::default(),
             mouse: MouseConfig::default(),
+            history: HistoryConfig::default(),
             partial: false,
             migrated: Vec::new(),
             document: None,
@@ -276,8 +282,6 @@ pub struct CullConfig {
     pub sc_copy: Shortcut,
     #[serde(default = "default_sc_reject_folder")]
     pub sc_reject_folder: Shortcut,
-    #[serde(default = "default_sc_undo")]
-    pub sc_undo: Shortcut,
 }
 
 impl Default for CullConfig {
@@ -289,7 +293,6 @@ impl Default for CullConfig {
             sc_move: default_sc_move(),
             sc_copy: default_sc_copy(),
             sc_reject_folder: default_sc_reject_folder(),
-            sc_undo: default_sc_undo(),
         }
     }
 }

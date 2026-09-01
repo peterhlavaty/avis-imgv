@@ -135,7 +135,7 @@ const HOMES: &[(&str, &[&str])] = &[
     ("copy_to", &["cull.sc_copy"]),
     ("to_rejected_folder", &["cull.sc_reject_folder"]),
     ("delete", &["general.sc_delete"]),
-    ("undo", &["cull.sc_undo"]),
+    ("undo", &["history.sc_undo"]),
     ("keys", &["fixed.cheat_sheet"]),
     ("settings", &["general.sc_settings"]),
     ("exit", &["general.sc_exit"]),
