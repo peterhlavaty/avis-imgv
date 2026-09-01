@@ -57,6 +57,8 @@ pub enum Command {
     Undo,
     /// Do again the thing that was last taken back.
     Redo,
+    /// Show or hide the list of what has been done.
+    ToggleHistoryPanel,
     /// Show the keys, for the mode that is on screen.
     ShowKeys,
     /// Open the whole settings window.
@@ -163,6 +165,7 @@ pub fn collect(
         (&cull.sc_reject_folder, Command::ToRejectedFolder),
         (&history.sc_undo, Command::Undo),
         (&history.sc_redo, Command::Redo),
+        (&history.sc_panel, Command::ToggleHistoryPanel),
         (&config.sc_filmstrip, Command::ToggleFilmstrip),
         (&config.sc_stacks, Command::ToggleStacking),
         (&config.sc_toggle_stack, Command::ToggleStack),

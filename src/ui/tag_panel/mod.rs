@@ -59,6 +59,9 @@ pub enum Action {
 pub struct State {
     /// Contents of the search box.
     pub search: String,
+    /// How wide the panel was on the frame before, so a drag is read back once
+    /// it has finished rather than while it is happening.
+    pub width: crate::ui::width::Dragged,
 }
 
 /// Draws the panel and reports what was clicked.
@@ -143,13 +146,23 @@ pub fn ui(
         });
     });
 
-    // The dragged width, reported back so it can be written to the field the
-    // settings window reads. It was a gesture the viewer forgot on the way out.
-    if let Some(panel) = panel {
-        let dragged = panel.response.rect.width();
-        if (dragged - width).abs() > 1.0 {
-            actions.push(Action::PanelWidth(dragged));
+    // The width it came to rest at, reported back so it can be written to the
+    // field the settings window reads. It was a gesture the viewer forgot on
+    // the way out. Read once the drag has finished rather than while it is
+    // happening, because `show_animated` opens a panel by growing it and the
+    // widths on the way are nobody's decision.
+    match panel {
+        Some(panel) => {
+            let held = ctx.input(|i| i.pointer.any_down());
+
+            if let Some(settled) = state
+                .width
+                .settled(panel.response.rect.width(), width, held)
+            {
+                actions.push(Action::PanelWidth(settled));
+            }
         }
+        None => state.width.forget(),
     }
 
     actions

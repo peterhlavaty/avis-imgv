@@ -40,6 +40,7 @@ pub struct Panels {
     pub tags: bool,
     pub filter: bool,
     pub filmstrip: bool,
+    pub history: bool,
 }
 
 /// One panel: what to call it, and how to read it off the set.
@@ -54,6 +55,7 @@ impl Panels {
         ("the keyword panel", |p| p.tags),
         ("the filter bar", |p| p.filter),
         ("the filmstrip", |p| p.filmstrip),
+        ("the history", |p| p.history),
     ];
 
     /// The first panel that differs, and whether it is now up.

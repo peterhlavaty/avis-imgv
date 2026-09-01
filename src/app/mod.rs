@@ -146,6 +146,10 @@ pub struct App {
     watching: Watcher,
     /// Whether the configuration has been written since the history last looked.
     settings_touched: bool,
+    /// Whether the list of what has been done is up.
+    history_panel_visible: bool,
+    /// What that list remembers between frames.
+    history_panel: crate::history::panel::State,
     /// How the folder is narrowed and ordered, and whether its bar is up.
     narrowing: Narrowing,
     /// The runs of frames the folder holds, when it is being shown stacked.
@@ -366,6 +370,8 @@ impl App {
             history: History::with_limit(config.history.remember),
             watching,
             settings_touched: false,
+            history_panel_visible: panels.history,
+            history_panel: crate::history::panel::State::default(),
             narrowing: Narrowing::of(&config.browsing),
             stacking: Stacking::of(&config.group, config.browsing.stack_by_default),
             filter_visible: false,
@@ -1066,6 +1072,9 @@ impl App {
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
             Command::Redo => self.redo(),
+            Command::ToggleHistoryPanel => {
+                self.history_panel_visible = !self.history_panel_visible;
+            }
             Command::ToggleFilmstrip => self.toggle_filmstrip(),
             Command::ToggleStacking => self.toggle_stacking(),
             Command::ToggleStack => self.toggle_stack(),
@@ -1293,6 +1302,9 @@ impl eframe::App for App {
         self.show_help_windows(ctx);
         self.apply_fullscreen(ctx);
         self.show_side_panel(ctx);
+        // After the metadata panel, so the one that was already against the
+        // right edge stays there and the new one opens inside it.
+        self.show_history_panel(ctx);
         self.show_tag_panel(ctx);
         self.show_overlays(ctx);
         self.show_views(ctx);

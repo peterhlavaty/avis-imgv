@@ -34,12 +34,14 @@ use std::time::{Duration, SystemTime};
 
 pub mod deed;
 pub mod files;
+pub mod panel;
 pub mod snapshot;
 pub mod tree;
 pub mod watch;
 
 pub use deed::{Class, Deed};
 pub use files::{Done, Step, Way};
+pub use panel::Action;
 pub use snapshot::{Change, Panels, Slot, Snapshot, Watched};
 pub use tree::{Node, NodeId, Tree};
 pub use watch::Watcher;

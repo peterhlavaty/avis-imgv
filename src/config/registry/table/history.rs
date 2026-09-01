@@ -71,6 +71,18 @@ pub fn rows() -> Vec<Row> {
             whole!(u64, 0, 5000, " ms", true, history.merge_within_ms),
         ),
         row!(
+            History / Plain,
+            "history.panel_width",
+            "How wide the history panel is",
+            "The list of what you have done, down the right-hand side. Dragging its \
+             edge writes this, so it is here to be read rather than because dragging \
+             is the hard way to do it.",
+            ["history", "panel", "width", "list"],
+            Live,
+            None,
+            decimal!(180.0, 640.0, " pt", true, history.panel_width),
+        ),
+        row!(
             KeysAndMouse / Keys,
             "history.sc_undo",
             "Undo",
@@ -91,6 +103,18 @@ pub fn rows() -> Vec<Row> {
             Live,
             Everywhere,
             key!(history.sc_redo),
+        ),
+        row!(
+            KeysAndMouse / Keys,
+            "history.sc_panel",
+            "The history panel",
+            "Show or hide the list of everything done this run. A row can be clicked \
+             to go back to it, and the second button on a row offers to carry that one \
+             out again where you are now.",
+            ["history", "panel", "undo", "list", "what I did"],
+            Live,
+            Everywhere,
+            key!(history.sc_panel),
         ),
     ]
 }

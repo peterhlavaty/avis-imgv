@@ -119,7 +119,7 @@ impl Default for GroupConfig {
 
 /// Which panels a launch starts with.
 ///
-/// One key rather than four, drawn as four ticks: they are one decision about
+/// One key rather than five, drawn as five ticks: they are one decision about
 /// what the window looks like when it opens.
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
@@ -131,11 +131,15 @@ pub struct PanelsAtStart {
     pub tag_panel: bool,
     /// The strip of thumbnails under the photograph.
     pub filmstrip: bool,
+    /// The list of what has been done.
+    #[serde(default)]
+    pub history: bool,
 }
 
 impl PanelsAtStart {
     /// Every panel, by the name the file uses.
-    pub const NAMES: &'static [&'static str] = &["menu", "side_panel", "tag_panel", "filmstrip"];
+    pub const NAMES: &'static [&'static str] =
+        &["menu", "side_panel", "tag_panel", "filmstrip", "history"];
 
     pub fn get(&self, name: &str) -> bool {
         match name {
@@ -143,6 +147,7 @@ impl PanelsAtStart {
             "side_panel" => self.side_panel,
             "tag_panel" => self.tag_panel,
             "filmstrip" => self.filmstrip,
+            "history" => self.history,
             _ => false,
         }
     }
@@ -153,6 +158,7 @@ impl PanelsAtStart {
             "side_panel" => self.side_panel = on,
             "tag_panel" => self.tag_panel = on,
             "filmstrip" => self.filmstrip = on,
+            "history" => self.history = on,
             _ => {}
         }
     }

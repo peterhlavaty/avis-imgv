@@ -18,6 +18,7 @@ use crate::history::{Class, Deed, Done, NodeId, Way};
 
 use super::App;
 
+mod panel;
 mod restore;
 mod watch;
 

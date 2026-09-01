@@ -107,6 +107,11 @@ const PANELS: &[Choice] = &[
         label: "The strip of thumbnails",
         sentence: "",
     },
+    Choice {
+        value: "history",
+        label: "The list of what you have done",
+        sentence: "",
+    },
 ];
 
 const CONFIRMATIONS: &[Choice] = &[

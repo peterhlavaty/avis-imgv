@@ -18,3 +18,4 @@ pub mod surface;
 pub mod tag_panel;
 pub mod theme;
 pub mod tree;
+pub mod width;

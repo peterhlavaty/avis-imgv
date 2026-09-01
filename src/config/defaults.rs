@@ -457,6 +457,17 @@ pub fn default_sc_redo() -> Shortcut {
     Shortcut::new("y", &[MOD_CTRL])
 }
 
+/// `Ctrl + H` for the list of what was done. H for history, and the only
+/// letter of the word not already spoken for.
+pub fn default_sc_history() -> Shortcut {
+    Shortcut::new("h", &[MOD_CTRL])
+}
+
+/// Wide enough for a sentence about what was done without wrapping every row.
+pub fn default_history_panel_width() -> f32 {
+    260.0
+}
+
 /// Half a second, which is longer than a key repeats and shorter than a pause
 /// for thought. Two notches of a wheel are one row; a walk taken up again
 /// after looking at something is a new one.

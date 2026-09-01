@@ -369,7 +369,7 @@ impl App {
     /// that very photograph, because that is the only one whose decoded
     /// metadata is to hand. Marking from the contact sheet reads the sidecar
     /// and nothing else, which is what the store does on a miss anyway.
-    fn load_annotations(&mut self, image: &Path) {
+    pub(super) fn load_annotations(&mut self, image: &Path) {
         if self.annotations.peek(image).is_some() {
             return;
         }

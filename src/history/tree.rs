@@ -188,6 +188,47 @@ impl<T> Tree<T> {
         depth
     }
 
+    /// How many forks lie between the beginning and this node.
+    ///
+    /// Not [`Tree::depth`], which counts every step and so would indent a
+    /// straight run of two hundred deeds two hundred times over. What a reader
+    /// wants to see is where the history *branched*: a node is one level in
+    /// for every ancestor it reaches by a way that was not the first way tried
+    /// from there.
+    pub fn branch_depth(&self, id: NodeId) -> usize {
+        let mut forks = 0;
+        let mut at = id;
+
+        while let Some(node) = self.get(at) {
+            let Some(parent) = node.parent else { break };
+
+            if self
+                .get(parent)
+                .is_some_and(|parent| parent.children.first() != Some(&at))
+            {
+                forks += 1;
+            }
+
+            at = parent;
+        }
+
+        forks
+    }
+
+    /// Whether `elder` is on the way from the beginning to `id`.
+    pub fn is_ancestor(&self, elder: NodeId, id: NodeId) -> bool {
+        let mut at = Some(id);
+
+        while let Some(node) = at {
+            if node == elder {
+                return true;
+            }
+            at = self.get(node).and_then(|node| node.parent);
+        }
+
+        false
+    }
+
     /// Every node from the one given back to the beginning, nearest first.
     fn ancestry(&self, from: NodeId) -> Vec<NodeId> {
         let mut line = Vec::new();
@@ -452,6 +493,54 @@ mod tests {
         assert_eq!(tree.depth(tree.root()), 0);
         assert_eq!(tree.depth(a), 1);
         assert_eq!(tree.depth(b), 2);
+    }
+
+    /// A straight run is not indented at all: it is the depth that grows, and
+    /// indenting by that would push a day's work off the side of the panel.
+    #[test]
+    fn a_straight_run_is_never_indented() {
+        let mut tree = tree();
+        let mut last = tree.root();
+
+        for _ in 0..50 {
+            last = tree.push("x");
+        }
+
+        assert_eq!(tree.depth(last), 50);
+        assert_eq!(tree.branch_depth(last), 0);
+    }
+
+    /// A branch is one level in, and what hangs off it stays at that level.
+    #[test]
+    fn a_branch_is_one_level_in() {
+        let mut tree = tree();
+        let a = tree.push("a");
+        let b = tree.push("b");
+        tree.set_cursor(a);
+        let c = tree.push("c");
+        let d = tree.push("d");
+
+        assert_eq!(tree.branch_depth(b), 0, "the first way tried is the line");
+        assert_eq!(tree.branch_depth(c), 1);
+        assert_eq!(tree.branch_depth(d), 1, "and what follows it stays there");
+    }
+
+    #[test]
+    fn a_node_is_its_own_ancestor_and_the_root_is_everyones() {
+        let mut tree = tree();
+        let a = tree.push("a");
+        let b = tree.push("b");
+        tree.set_cursor(a);
+        let c = tree.push("c");
+
+        assert!(tree.is_ancestor(a, b));
+        assert!(tree.is_ancestor(b, b));
+        assert!(tree.is_ancestor(tree.root(), c));
+        assert!(
+            !tree.is_ancestor(b, c),
+            "a branch is not on the other's line"
+        );
+        assert!(!tree.is_ancestor(c, a));
     }
 
     #[test]

@@ -47,6 +47,7 @@ impl App {
                 tags: self.tag_panel_visible,
                 filter: self.filter_visible,
                 filmstrip: self.filmstrip_visible,
+                history: self.history_panel_visible,
             },
             // The store position rather than the position in what is shown, so
             // that coming back to it survives the filter having moved.

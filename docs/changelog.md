@@ -2,6 +2,23 @@
 
 ## 2026-09-01
 
+- **A panel listing everything done this run.** `Ctrl + H`, down the right-hand
+  side, in the order things happened. The row you are on is picked out; what
+  was taken back, or left on a branch, is still in the list in italics rather
+  than removed — which is the whole promise. Clicking a row takes the viewer
+  back or forward to just after it, and the second button on a row offers *Do
+  only this again*: that one thing carried out where you are now and filed as
+  the latest thing done, rather than a jump to it. A branch is drawn one level
+  in, and everything after it stays at that level; indenting by depth would
+  push a day's work off the side of the panel, every deed being a child of the
+  one before it.
+- **A panel dragged wider no longer drifts.** Both resizable panels read their
+  width back by comparing what they were laid out at against what the
+  configuration says, and wrote back whenever the two differed — which is a
+  feedback loop, because a panel opens by *growing* and the widths on the way
+  are not anybody's decision. A panel set to 260 points came back at 298.66
+  after one run. What tells a drag from an animation is the pointer, and both
+  panels now share one rule that knows it.
 - **Undo covers everything now, not only the files.** The mode, the panels, the
   photograph you were on, the zoom and the pan, the columns, what the folder is
   narrowed to, what is picked out, and every setting — all of it goes back and

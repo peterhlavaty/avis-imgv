@@ -8,7 +8,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::defaults::{default_merge_within_ms, default_sc_redo, default_sc_undo};
+use super::defaults::{
+    default_history_panel_width, default_merge_within_ms, default_sc_history, default_sc_redo,
+    default_sc_undo,
+};
 use super::shortcut::Shortcut;
 
 /// How much of what was done is kept, and how to walk it.
@@ -34,10 +37,16 @@ pub struct HistoryConfig {
     #[serde(default = "default_merge_within_ms")]
     pub merge_within_ms: u64,
 
+    /// How wide the panel is, in points.
+    #[serde(default = "default_history_panel_width")]
+    pub panel_width: f32,
+
     #[serde(default = "default_sc_undo")]
     pub sc_undo: Shortcut,
     #[serde(default = "default_sc_redo")]
     pub sc_redo: Shortcut,
+    #[serde(default = "default_sc_history")]
+    pub sc_panel: Shortcut,
 }
 
 impl Default for HistoryConfig {
@@ -46,8 +55,10 @@ impl Default for HistoryConfig {
             remember: 0,
             undoes: Undoes::default(),
             merge_within_ms: default_merge_within_ms(),
+            panel_width: default_history_panel_width(),
             sc_undo: default_sc_undo(),
             sc_redo: default_sc_redo(),
+            sc_panel: default_sc_history(),
         }
     }
 }
@@ -156,9 +167,11 @@ mod tests {
     }
 
     #[test]
-    fn undo_and_redo_are_not_on_the_same_key() {
+    fn the_three_keys_are_all_different() {
         let config = HistoryConfig::default();
 
         assert_ne!(config.sc_undo, config.sc_redo);
+        assert_ne!(config.sc_undo, config.sc_panel);
+        assert_ne!(config.sc_redo, config.sc_panel);
     }
 }

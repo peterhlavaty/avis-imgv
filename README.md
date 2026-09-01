@@ -191,6 +191,14 @@ back and then doing something *different* keeps both, so the four that were
 undone are still reachable rather than overwritten. What that makes is a tree
 rather than a list.
 
+`Ctrl + H` opens the panel down the right-hand side listing everything done
+this run, in the order it happened. The row you are on is picked out; anything
+taken back, or on a branch you left, is still in the list and drawn in italics
+rather than removed. Clicking a row takes the viewer back — or forward — to
+just after it. The second button on a row offers *Do only this again*, which
+carries that one thing out where you are now and files it as the latest thing
+done, rather than jumping to it.
+
 One press of undo walks back until it has taken back something worth stopping
 on, and `history.undoes` says what counts. All three kinds are ticked to start
 with. Unticking *Where you were* does not stop the viewer remembering where you
@@ -1027,8 +1035,10 @@ break the pairing it depends on.
 | `remember` | How many of the things you have done are kept, or nought for all of them | `0` |
 | `undoes` | Which kinds one press of undo comes to rest on: `view`, `settings`, `content` | all on |
 | `merge_within_ms` | How close two nudges have to be to count as one line. Nought lists every notch | `500` |
+| `panel_width` | How wide the history panel is | `260` |
 | `sc_undo` | Take back the last thing done | `Ctrl + Z` |
 | `sc_redo` | Do it again | `Ctrl + Y` |
+| `sc_panel` | Show or hide the history panel | `Ctrl + H` |
 
 ### Tags
 
@@ -1066,6 +1076,7 @@ break the pairing it depends on.
 | Shift + X | Move it into the rejected folder |
 | Ctrl + Z | Take back the last thing done |
 | Ctrl + Y | Do it again |
+| Ctrl + H | The list of everything done this run |
 | F3 | Show or hide the filter bar |
 | \ | Show everything, without forgetting the rules |
 | F11 | Fullscreen |
