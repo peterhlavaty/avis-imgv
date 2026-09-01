@@ -270,13 +270,6 @@ impl ImageView {
         }
     }
 
-    /// Turns a photograph a quarter on the card, without decoding it again.
-    pub fn turn(&mut self, path: &Path, clockwise: bool) {
-        if let Some(index) = self.store.index_of(path) {
-            self.store.turn(index, clockwise);
-        }
-    }
-
     /// Turns a photograph on the card by any orientation, without decoding it
     /// again. Undo takes the difference between the two orientations.
     pub fn turn_by(&mut self, path: &Path, extra: crate::metadata::Orientation) {

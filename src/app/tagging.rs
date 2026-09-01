@@ -9,6 +9,7 @@ use eframe::egui;
 
 use crate::annotations::AnnotationStore;
 use crate::metadata::xmp::{Flag, Label, Xmp};
+use crate::metadata::Orientation;
 use crate::organize::journal::Step;
 use crate::ui::tag_panel::{self, Action};
 
@@ -56,15 +57,20 @@ impl App {
     }
 
     /// Turns whatever is being marked a quarter.
+    pub(super) fn turn(&mut self, clockwise: bool) {
+        self.turn_by(Orientation::quarter(clockwise));
+    }
+
+    /// Turns whatever is being marked, by any of the eight.
     ///
     /// Through the same path as a star or a flag, so it takes the selection
     /// with it, writes to both halves of a raw-and-JPEG pair, and is one step
     /// of the undo journal however many photographs it touched.
-    pub(super) fn turn(&mut self, clockwise: bool) {
+    pub(super) fn turn_by(&mut self, extra: Orientation) {
         let paths = self.marked_paths();
 
         self.mark(move |store, path| {
-            store.turn(path, clockwise);
+            store.turn_by(path, extra);
         });
 
         // What is on the card is turned as well, so the picture moves now
@@ -73,8 +79,8 @@ impl App {
         // without waiting three hundred milliseconds for a raw file.
         for path in &paths {
             for path in self.with_partners(path) {
-                self.image_view.turn(&path, clockwise);
-                self.grid_view.turn(&path, clockwise);
+                self.image_view.turn_by(&path, extra);
+                self.grid_view.turn_by(&path, extra);
             }
         }
     }

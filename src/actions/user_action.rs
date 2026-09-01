@@ -9,7 +9,7 @@ use std::{path::Path, process::Command};
 use eframe::egui::{self, Response};
 
 use crate::config::ContextMenuEntry;
-use crate::ui::menus::{self, Chosen, Verb};
+use crate::ui::menus::{self, Chosen, Row};
 
 /// Fills the placeholders in one argument.
 ///
@@ -150,7 +150,7 @@ pub fn get_command_args(cmd: &str) -> Vec<String> {
 pub fn show_context_menu(
     ui: &egui::Ui,
     surface: &'static str,
-    verbs: &[Verb],
+    rows: &[Row],
     entries: &[ContextMenuEntry],
     response: &Response,
     path: &Path,
@@ -162,7 +162,7 @@ pub fn show_context_menu(
     // same chevron and the same four words on every surface, and reachable from
     // the keyboard by name.
     crate::ui::surface::named_menu(ui, response, surface, |ui| {
-        let Some(chosen) = menus::rows(ui, verbs, entries, count) else {
+        let Some(chosen) = menus::rows(ui, rows, entries, count) else {
             return;
         };
 

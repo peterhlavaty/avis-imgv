@@ -169,6 +169,33 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// A mirror is written and read like any other of the eight.
+    ///
+    /// It reaches a file only through the second button — there is no key for
+    /// it — so the round trip is worth saying out loud: `tiff:Orientation` is
+    /// `2`, not a flag of our own that another program would drop.
+    #[test]
+    fn a_mirror_round_trips_through_the_sidecar() {
+        let dir = temp_dir("mirroring-round-trips");
+        let image = dir.join("DSCF0002.JPG");
+        std::fs::write(&image, b"bytes").unwrap();
+
+        let mirrored = Xmp {
+            orientation: crate::metadata::Orientation::MirrorHorizontal,
+            ..Xmp::default()
+        };
+
+        write(&image, &mirrored).unwrap();
+
+        assert_eq!(
+            read(&image).map(|xmp| xmp.orientation),
+            Some(mirrored.orientation)
+        );
+        assert_eq!(mirrored.orientation.to_exif(), 2);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// A path built with the separator of the host platform.
     fn photos(name: &str) -> PathBuf {
         PathBuf::from("photos").join(name)

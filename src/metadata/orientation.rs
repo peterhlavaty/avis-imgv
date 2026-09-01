@@ -117,13 +117,18 @@ impl Orientation {
         }
     }
 
-    /// A quarter turn on top of this one.
-    pub fn turned(self, clockwise: bool) -> Orientation {
-        self.then(if clockwise {
+    /// A quarter turn on its own, to be composed with what is already there.
+    pub fn quarter(clockwise: bool) -> Orientation {
+        if clockwise {
             Orientation::Rotate90Cw
         } else {
             Orientation::Rotate270Cw
-        })
+        }
+    }
+
+    /// A quarter turn on top of this one.
+    pub fn turned(self, clockwise: bool) -> Orientation {
+        self.then(Orientation::quarter(clockwise))
     }
 
     /// Whether applying this orientation swaps width and height.

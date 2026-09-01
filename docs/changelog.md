@@ -2,6 +2,19 @@
 
 ## 2026-09-01
 
+- **The second button turns a photograph five ways.** *Turn* is now one row that
+  opens the five: clockwise, anticlockwise, upside down, mirror left to right,
+  mirror top to bottom. The two quarters used to be two rows of their own and
+  there was no way to reach the other three at all. Like the quarters, a mirror
+  is written to the sidecar as one of the eight values EXIF defines and composed
+  with what the camera said, so the photograph itself is still never opened for
+  writing and `Ctrl + Z` still puts both the sidecar and the picture back. It is
+  the only second level in the program, and against the right edge of the screen
+  it opens on the other side of the menu rather than over it.
+- **A selection no longer reads "Turn 24 them clockwise".** The count moved to
+  the word that opens the turns — *Turn 24 photographs* — where it says the same
+  thing and says it in English.
+
 - **A window in front owns the mouse and the keyboard.** A wheel notch spent on
   a page of settings also walked the folder behind it, and a key pressed there
   did whatever it does the rest of the time: the settings window was drawn over

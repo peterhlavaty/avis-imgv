@@ -48,9 +48,14 @@ impl Default for Copying {
 impl App {
     /// Does whatever a menu asked for that the view could not.
     pub(super) fn run_verb(&mut self, verb: Verb, path: PathBuf) {
+        // The five turns differ only in what they compose with what is already
+        // there, so they are one line rather than five.
+        if let Some(extra) = verb.turn() {
+            self.turn_by(extra);
+            return;
+        }
+
         match verb {
-            Verb::TurnLeft => self.turn(false),
-            Verb::TurnRight => self.turn(true),
             Verb::Bin => self.delete_open_image(false),
             Verb::CopyPath => self.copy_paths(),
             Verb::CopyPicture => self.copy_picture(&path),
@@ -62,6 +67,12 @@ impl App {
             }
             // The view answers for these; they never reach here.
             Verb::Open | Verb::Fit | Verb::ActualPixels | Verb::Fill | Verb::Compare => {}
+            // Answered above, before the match.
+            Verb::TurnRight
+            | Verb::TurnLeft
+            | Verb::TurnHalf
+            | Verb::MirrorHorizontally
+            | Verb::MirrorVertically => {}
         }
     }
 

@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::metadata::xmp::{self, Flag, Label, Xmp};
+use crate::metadata::Orientation;
 
 pub use catalog::Catalog;
 pub use recent::RecentTags;
@@ -128,7 +129,7 @@ impl AnnotationStore {
         })
     }
 
-    /// Turns the photograph a quarter, and writes that to the sidecar.
+    /// Turns the photograph, and writes that to the sidecar.
     ///
     /// Never to the photograph. It is the most-expected verb after delete and
     /// the one most often implemented by rewriting the file — which loses a
@@ -136,9 +137,13 @@ impl AnnotationStore {
     /// the user did not ask for and is not told about. What is written here is
     /// an orientation beside the rating, and the camera's own is left where it
     /// is.
-    pub fn turn(&mut self, image: &Path, clockwise: bool) -> bool {
+    ///
+    /// `extra` is composed with whatever is there rather than replacing it, so
+    /// a quarter, a half and a mirror are the same call and the result is one
+    /// of the eight values a sidecar can hold.
+    pub fn turn_by(&mut self, image: &Path, extra: Orientation) -> bool {
         self.edit(image, |annotations| {
-            annotations.orientation = annotations.orientation.turned(clockwise);
+            annotations.orientation = annotations.orientation.then(extra);
             true
         })
     }
@@ -603,5 +608,53 @@ mod tests {
         store.add_tag(&other, "Winter");
 
         assert_eq!(store.known_tags(), vec!["Places|Slovakia|Tatras", "Winter"]);
+    }
+
+    /// A turn is added to whatever is already there rather than replacing it,
+    /// which is what makes four quarters come back to where they started
+    /// instead of leaving the photograph on its side.
+    #[test]
+    fn turning_composes_with_what_is_already_there() {
+        let mut store = store();
+        let path = image();
+        seed(&mut store, &path, Xmp::default());
+
+        let quarter = Orientation::quarter(true);
+        for _ in 0..4 {
+            store.turn_by(&path, quarter);
+        }
+
+        assert_eq!(store.peek(&path).unwrap().orientation, Orientation::Normal);
+    }
+
+    /// The mirrors compose the same way, on top of the camera's own turn.
+    ///
+    /// A portrait frame mirrored left to right is one of the same eight
+    /// values, so nothing below the sidecar learns that the menu grew three
+    /// rows — and mirroring it again puts it back.
+    #[test]
+    fn a_mirror_is_one_of_the_eight_and_is_its_own_undoing() {
+        let mut store = store();
+        let path = image();
+        seed(
+            &mut store,
+            &path,
+            Xmp {
+                orientation: Orientation::Rotate90Cw,
+                ..Xmp::default()
+            },
+        );
+
+        store.turn_by(&path, Orientation::MirrorHorizontal);
+        assert_eq!(
+            store.peek(&path).unwrap().orientation,
+            Orientation::MirrorHorizontalRotate90Cw
+        );
+
+        store.turn_by(&path, Orientation::MirrorHorizontal);
+        assert_eq!(
+            store.peek(&path).unwrap().orientation,
+            Orientation::Rotate90Cw
+        );
     }
 }

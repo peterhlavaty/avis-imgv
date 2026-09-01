@@ -201,13 +201,15 @@ same field — which is the convention rather than a limitation.
 
 ### Turning a photograph
 
-`[` and `]` turn it a quarter, as does the second button on the photograph or
-on a cell. The turn is written to the sidecar and **the photograph itself is
-never touched**: a raw file cannot be rewritten without losing something, and a
-JPEG re-encoded is a JPEG made worse. It is composed with the camera's own
-orientation, so what is drawn is one turn however many went into it, and it
-survives a restart because the decoder reads the sidecar. `Ctrl + Z` puts both
-the sidecar and the picture back.
+`[` and `]` turn it a quarter. **Turn** on the second button, on the photograph
+or on a cell, offers the same two and three more: upside down, mirror left to
+right, mirror top to bottom. The turn is written to the sidecar and **the
+photograph itself is never touched**: a raw file cannot be rewritten without
+losing something, and a JPEG re-encoded is a JPEG made worse. It is composed
+with the camera's own orientation, so what is drawn is one turn however many
+went into it — a mirror on a frame the camera had already turned is still one of
+the eight values EXIF defines — and it survives a restart because the decoder
+reads the sidecar. `Ctrl + Z` puts both the sidecar and the picture back.
 
 Marks **inside** the image are read as well (JPEG `APP1`, PNG `iTXt`, WebP,
 TIFF, and Windows Explorer's EXIF rating), so a photograph rated elsewhere shows
@@ -690,10 +692,16 @@ own entries and the copy group. It is the whole of the configurability offered
 for the built-in rows, and the reason there is no menu editor.
 
 Right-clicking a photograph or a cell offers what can be done to it: fit,
-actual pixels, fill, compare, turn it either way, move to the bin, copy the
+actual pixels, fill, compare, turn, move to the bin, copy the
 path, copy the picture, and show it in the file manager. **Copy the picture** puts the file's own pixels
 on the clipboard, decoded at full size and turned the right way up, on a thread
 of its own so a sixty megapixel raw does not stop the window.
+
+**Turn** is the one row that opens a second level, and the only one in the
+program: clockwise, anticlockwise, upside down, mirror left to right, mirror top
+to bottom. Five ways of saying one verb, which as five rows would have taken
+nearly half the menu. Against the right edge of the screen the second level
+opens on the other side of the first rather than over it.
 
 Whatever `image_view.context_menu` and `grid_view.context_menu` hold is appended
 under a separator, in the order it is written, unchanged.

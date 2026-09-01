@@ -11,7 +11,7 @@ use eframe::epaint::Vec2;
 
 use crate::actions::{self, Callback};
 use crate::config::{DragButton, WheelJob};
-use crate::ui::menus::{Chosen, Verb};
+use crate::ui::menus::{Chosen, Row, Verb};
 use crate::view::wheel::{self, Job, Notch};
 
 use super::{input, ImageView};
@@ -190,7 +190,7 @@ impl ImageView {
                 egui::UiBuilder::new().max_rect(response.rect),
             ),
             "photograph",
-            Verb::ON_A_PHOTOGRAPH,
+            Row::ON_A_PHOTOGRAPH,
             &self.config.context_menu,
             response,
             &path,

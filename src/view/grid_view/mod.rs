@@ -21,7 +21,7 @@ use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
 use crate::config::{shortcut, GridViewConfig};
 use crate::ui::empty::{self, Asked, Nothing};
-use crate::ui::menus::{Chosen, Verb};
+use crate::ui::menus::{Chosen, Row, Verb};
 use crate::utils;
 use crate::view::texture;
 
@@ -228,13 +228,6 @@ impl GridView {
     pub fn reload(&mut self, path: &Path) {
         if let Some(index) = self.store.index_of(path) {
             self.store.reload(index);
-        }
-    }
-
-    /// Turns a photograph a quarter on the card, without decoding it again.
-    pub fn turn(&mut self, path: &Path, clockwise: bool) {
-        if let Some(index) = self.store.index_of(path) {
-            self.store.turn(index, clockwise);
         }
     }
 
@@ -709,7 +702,7 @@ impl GridView {
         let chosen = actions::show_context_menu(
             ui,
             "cell",
-            Verb::ON_A_CELL,
+            Row::ON_A_CELL,
             &self.config.context_menu,
             response,
             &path,

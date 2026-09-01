@@ -148,6 +148,13 @@ message.
 - **Every menu opens on the press**, through `ui::surface`, and ends with the
   settings page that owns it. `Response::context_menu` opens on the release and
   loses the menu to a six-point drag, so it is not used.
+- **One menu has a second level, and it is the turns.** A menu is a list of
+  `ui::menus::Row`; `Row::Group` is the only one, holding the five ways of
+  saying one verb that would otherwise take five of the twelve rows a menu may
+  carry. A second level for five *different* decisions is still wrong and is
+  drawn as an inline row. egui 0.33 folds a submenu that will not fit to the far
+  side of its parent rather than over it, which is what makes even the one
+  affordable against a panel on the screen edge.
 - **A gesture is a second route, never the only one.** The mouse is eight fields
   in `mouse`; the ones with a single meaning hold the name of a command from
   `config::mouse::VERBS`, and a test asserts every one of them also has a key.

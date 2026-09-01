@@ -1403,7 +1403,7 @@ visible:
   `More settings… (<page name>)`. That row is what makes the gesture worth
   making even when it misses: somebody hunting for something the menu does not
   carry still ends one click from the right page, having learned that page's
-  name. §7 owns the shape, the ordering and the reason there are no submenus.
+  name. §7 owns the shape, the ordering and the reason there is one submenu.
 - **Shift+F10** opens the menu for whichever surface last held the keyboard
   cursor. Without it there is no keyboard route to any context menu and a
   trackpad without a secondary click has none at all. §7 explains why the
@@ -4262,7 +4262,7 @@ Where the rule comes from, and where it deliberately departs:
 |---|---|---|
 | Twelve rows, and a hard ceiling of fifteen | GNOME: "Menus should contain between three and twelve items" (<https://developer.gnome.org/hig/patterns/controls/menus.html>); NN/g: "fewer than 10–12 items" (<https://www.nngroup.com/articles/contextual-menus/>); Microsoft: "Don't put more than 15 items within a context menu" | No menu below exceeds twelve rows including the last one |
 | Groups of seven or fewer, separated | Microsoft, same page: "Organize the menu items into groups of seven or fewer strongly related items… Put separators between the groups" | Four slots, separators only between slots |
-| Flat — one level, no submenus | Microsoft: "**Avoid using submenus** to keep context menus simple"; GNOME: "**Don't nest submenus**"; Apple: use submenus "with caution and be sure to keep them to one level" (<https://leopard-adc.pepas.com/documentation/UserExperience/Conceptual/AppleHIGuidelines/XHIGMenus/XHIGMenus.html>) | No submenu anywhere, on any surface, in any chapter of this plan. A setting with more than two values is drawn as an inline control on one row — swatches, a corner grid, a star row — which counts as one item, because the ceiling is about decisions and not about pixels. The egui defect that seals the argument is in §7.12 |
+| One level, and one exception | Microsoft: "**Avoid using submenus** to keep context menus simple"; GNOME: "**Don't nest submenus**"; Apple: use submenus "with caution and be sure to keep them to one level" (<https://leopard-adc.pepas.com/documentation/UserExperience/Conceptual/AppleHIGuidelines/XHIGMenus/XHIGMenus.html>) | One submenu in the program, which is Apple's caution taken at its word: the five turns behind *Turn* (`src/ui/menus.rs:167-217`), one verb said five ways that would otherwise take five of the twelve rows. Nothing else nests. A setting with more than two values is drawn as an inline control on one row — swatches, a corner grid, a star row — which counts as one item, because the ceiling is about decisions and not about pixels. What the egui defect actually does in 0.33 is in §7.12 |
 | Most-used at the top | NN/g: "Place the ones used most often at the top"; GNOME: "Items at the top and bottom of the menu are more noticeable" | Slot 1 is ordered by frequency in a cull, not by the order the source happens to define the commands in |
 | Remove rather than disable | Microsoft: "Remove rather than disable context menu items that don't apply to the current context" | A verb that cannot act is absent. The exception Microsoft names — "Always have the commands that complete related sets" — keeps Fit beside Actual pixels even when one of them is already in force |
 | The count goes in the label | digiKam labels its own row "Move 2 Files to Trash" (<https://docs.digikam.org/en/menu_descriptions/context_menus.html>) | "Move 24 photographs to the bin", not "Move to the bin" |
@@ -5437,7 +5437,7 @@ for either, which is why the side panel forgets its width (§7.6).
 |---|---|
 | A menu on a right-click | `Response::context_menu` (`egui-0.33.0/src/response.rs:940`) — **but** the thing it hangs off must sense clicks, which the docs state at `:925`. That is why seven label call sites in the bottom bar and five whole panels need a line changed before any of this draws (§7.8) |
 | Touch long-press | Free: `secondary_clicked()` "also returns true if the widget was pressed-and-held on a touch screen" (`response.rs:174-180`) |
-| Submenus | `SubMenuButton` exists (`containers/menu.rs:341-396`), popups try alternative alignments before giving up (`Popup::get_best_align`, `containers/popup.rs:465-486`) and the fallbacks can be named outright (`align_alternatives`, `:289`). Not used: egui #5251 reports a submenu near the right screen edge covering its parent (<https://github.com/emilk/egui/issues/5251>), and the metadata panel sits against that edge (`src/app/chrome.rs:106`). The issue was not re-tested against 0.33; the plan simply does not depend on submenus |
+| Submenus | `SubMenuButton` exists (`containers/menu.rs:341-396`), popups try alternative alignments before giving up (`Popup::get_best_align`, `containers/popup.rs:465-486`) and the fallbacks can be named outright (`align_alternatives`, `:289`). Used once, for the turns. egui #5251 reports a submenu near the right screen edge covering its parent (<https://github.com/emilk/egui/issues/5251>), and the metadata panel sits against that edge (`src/app/chrome.rs:106`) — but 0.33 tries `RectAlign::symmetries` before `MENU_ALIGNS` (`emath-0.33.0/src/rect_align.rs:118-132`, `:234-236`), so a `RIGHT_START` submenu with nowhere to go folds to `LEFT_START` and opens on the far side of its parent instead. Checked against the right edge of a 1920-wide window: the five turns opened to the left of the menu, whole and covering nothing |
 | A menu that stays open while ticks are clicked | Yes, but not through `Response::context_menu`, which takes a closure and nothing else (`response.rs:940`). The route is `Popup::context_menu(&response).close_behavior(PopupCloseBehavior::CloseOnClickOutside).show(…)` (`containers/popup.rs:248`, `:326`), because the `MenuConfig` a menu reads is the one `Popup::show` builds from the popup's own close behaviour (`popup.rs:576-585`). One flag for the whole popup, so slot-1 rows call `ui.close()` themselves (`ui.rs:1272`) |
 | Arbitrary widgets inside a menu | Free: the closure is a `Ui`, so swatches, a star row and a 3 × 3 corner grid all work without a new widget |
 | A menu opened at a widget rather than the pointer | `Popup::menu(&response)` (`containers/popup.rs:237-243`); `Popup::context_menu` is the same thing forced `.at_pointer_fixed()` (`:248-260`). This is what the keyboard route uses |
@@ -5468,8 +5468,8 @@ three sources behind it. It is also the practical answer: a trackpad without a
 secondary click, a keyboard-only session and a screen reader all arrive at the
 same requirement.
 
-**Submenus.** Argued in §7.2 and §7.12. Where a menu wants five choices it draws
-them inline.
+**Submenus.** Argued in §7.2 and §7.12. One of them, for the turns; everywhere
+else a menu that wants five choices draws them inline.
 
 **A menu editor** (§13). One boolean (§7.11), and nothing else. digiKam's
 thumbnail menu runs past fifty entries with submenus
@@ -5941,8 +5941,8 @@ because "the present method for identifying stacks is not noticeable enough".
 the program's own commands, and `default_ctx_menu()` stops returning an empty
 vector (`config/defaults.rs:165-167`); the user's configured external commands are
 appended to the built-in menu rather than replacing it. Which surface carries which
-menu, what is on it and in what order is §7's map, and there are no submenus
-anywhere (§7.2). The part that belongs here is the last group of every menu: the
+menu, what is on it and in what order is §7's map, and the turns are the one
+submenu anywhere (§7.2). The part that belongs here is the last group of every menu: the
 route out — *Show only these*, *Reveal in…*, and `More settings… (<page name>)`,
 which is always last and never varies (§7.2). Shift+F10 opens the same menu from
 the keyboard, and §7 explains why that key and no other.
@@ -8119,8 +8119,8 @@ three files.
    senses clicks (`src/view/image_view/layout.rs:88`). The default is verbs, not configuration:
    fit, actual pixels, fill, compare, move to the bin, copy the path, copy the picture, show it in
    the file manager. The user's own entries are appended in their own order under a separator and
-   are never reordered, renamed or removed (§7.3, §7.5, §7.11, §11.4). Flat, one level, no
-   submenus (§7.2). "Copy the picture" copies the file's own pixels decoded at full size and
+   are never reordered, renamed or removed (§7.3, §7.5, §7.11, §11.4). One level, the turns behind
+   *Turn* being the single exception (§7.2). "Copy the picture" copies the file's own pixels decoded at full size and
    turned upright, not `store.decoded()`, whose `surface` may be a reduction lying on its side
    (`src/decoder/mod.rs:30-35`, `:69-75`) — or it does not ship (§7.3).
 2. **The six dead words become doors.** `Flattened`, `Watching`, `Filling`, `Advancing`,
@@ -8673,10 +8673,12 @@ contextual menu items are also available as menu commands."
 2. **One shape for every menu**, obeyed by all of them: the verbs on this object, most used first
    and at most seven; copy and show, where the object is a file on disk; the two or three settings
    that are about this object; and **More settings… (<page name>)**, always last, never varying,
-   never removed. Twelve rows including the last, which is GNOME's and NN/g's ceiling. Flat, one
-   level, no submenus anywhere: egui #5251 places a submenu with its right edge against the screen
+   never removed. Twelve rows including the last, which is GNOME's and NN/g's ceiling. One level,
+   with one exception: egui #5251 places a submenu with its right edge against the screen
    edge where long text covers its parent (<https://github.com/emilk/egui/issues/5251>), and every
-   panel in this program is against an edge. A choice of five is an inline radio row, which counts
+   panel in this program is against an edge — but 0.33 folds a submenu that will not fit to the far
+   side of its parent (§7.12), which is what the five turns behind one word are worth. A choice of
+   five that is five different decisions is still an inline radio row, which counts
    as one item because the ceiling is about decisions and not about pixels. The count goes in the
    label — "Move 24 photographs to the bin" — and slot 1 closes the menu while slots 3 and 4 do not
    (§7.2).
@@ -9149,10 +9151,12 @@ again why they were refused.
   the boxes.
 - **No six booleans for what the status bar shows.** Architecture B proposed them and named them as
   the row it would cut first. The status-bar flags become doors; they do not become configuration.
-- **No submenus, anywhere.** egui #5251 places a submenu with its right edge against the screen edge
-  where long text can cover its parent (<https://github.com/emilk/egui/issues/5251>), and every
-  panel in this program sits against an edge. Where a menu needs five choices it draws them as an
-  inline radio row (§7.2, §7.12).
+- **No submenus, with one exception.** egui #5251 places a submenu with its right edge against the
+  screen edge where long text can cover its parent (<https://github.com/emilk/egui/issues/5251>),
+  and every panel in this program sits against an edge. Re-tested against 0.33: a submenu that will
+  not fit folds to the far side of its parent instead, which is what the five turns behind *Turn*
+  are worth (§7.12). Where a menu needs five choices that are five different decisions it still
+  draws them as an inline radio row (§7.2).
 - **No "Show more options" overflow row.** Windows 11's is the most-complained-about context menu in
   current use, and Microsoft's own account is that the menu "appear[s] cluttered with a long list of
   actions, something that has been bothering users for a long time". An overflow hit on almost every

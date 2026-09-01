@@ -145,9 +145,10 @@ fn actions(config: &Config, found: &mut Vec<Complaint>) {
     ] {
         for entry in entries.iter() {
             let words = entry.description.to_lowercase();
-            let shadows = crate::ui::menus::Verb::ON_A_PHOTOGRAPH
+            let shadows = crate::ui::menus::Row::ON_A_PHOTOGRAPH
                 .iter()
-                .chain(crate::ui::menus::Verb::ON_A_CELL)
+                .chain(crate::ui::menus::Row::ON_A_CELL)
+                .flat_map(|row| row.verbs())
                 .any(|verb| verb.label(1).to_lowercase().contains(&words) && words.len() > 3);
 
             if !shadows {
