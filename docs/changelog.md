@@ -2,6 +2,34 @@
 
 ## 2026-09-01
 
+- **The wheel does one job, and you can say which.** A notch used to move to
+  the next photograph *and* shove the one that had just arrived, in that order,
+  with nothing guarding the second against the first. It now does one of four
+  things — one photograph, zoom, move the photograph, or nothing — set in
+  `mouse.wheel`, with `mouse.ctrl_wheel` for the same four with Ctrl held.
+- **Wheel down is forward in both views.** It was wheel up in the image view
+  and wheel down in the contact sheet, so the same movement of the wrist meant
+  "later" in one and "earlier" in the other, and one key switched between them.
+  `mouse.wheel_reversed` turns both round for anybody whose muscle memory says
+  otherwise.
+- **Shift and Alt with the wheel do something.** Shift moves ten photographs at
+  a time in the image view and ten rows in the contact sheet; Alt moves the
+  photograph sideways. Both were silently spent by the toolkit before this
+  crate saw them — Shift is egui's horizontal scroll modifier, so
+  `raw_scroll_delta.y` was zero and the photograph panned sideways instead.
+- **One named button moves the photograph.** `mouse.drag` ships as the left
+  one. Every button used to pan, so whether a right drag opened the menu or
+  moved the picture was decided by six points of travel and eight tenths of a
+  second, neither of which is on screen anywhere. `any` puts the old behaviour
+  back, and the wheel pressed and dragged always pans whatever it says.
+- **The double click, the middle button and the two thumb buttons are
+  bindable**, to any of about thirty commands or to nothing. Nothing is what
+  the middle button ships as.
+- **`image_view.scroll_navigation` moved to `mouse.wheel`** and the viewer says
+  so on the first launch after the change. `true` becomes "one photograph";
+  `false` becomes "move the photograph", which is what the wheel was actually
+  doing, rather than "nothing", which would be a dead wheel nobody asked for.
+
 - **Getting from one thing to the thing next to it.** The viewer was full of
   true statements nobody could act on. Clicking a star, a flag or a colour label
   — in the status bar or in the keyword panel — now narrows the folder to the

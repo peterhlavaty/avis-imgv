@@ -9,6 +9,7 @@ pub mod selection;
 pub mod stacks;
 pub mod texture;
 pub mod visible;
+pub mod wheel;
 
 pub use grid_view::GridView;
 pub use image_view::ImageView;

@@ -17,12 +17,14 @@
 //! user has actually changed is theirs, and a migration that flattens it is
 //! worse than the clash it was avoiding.
 
+use serde_json::{Map, Value};
+
 use super::{defaults, Config, Shortcut};
 
 /// What this build writes.
 ///
 /// Bumped whenever a step is added below, and never otherwise.
-pub const CURRENT: u32 = 1;
+pub const CURRENT: u32 = 2;
 
 /// One thing that has to be put right in an older file.
 struct Step {
@@ -47,6 +49,92 @@ const STEPS: &[Step] = &[
         apply: side_by_side_onto_ctrl,
     },
 ];
+
+/// One thing that has to be put right in the *document*, before the typed
+/// sections are built from it.
+///
+/// A step above works on `Config` and can only move a value from one field to
+/// another field of the same name and type. A key that changes section, or
+/// name, or type — `image_view.scroll_navigation`, a boolean, becoming
+/// `mouse.wheel`, a job — is gone by the time `serde` has finished, and the
+/// old value with it. So those are done on the `serde_json::Map` on the way
+/// in, which is also where the old key can be taken out so that the merge on
+/// the way back out does not put it back.
+struct DocumentStep {
+    until: u32,
+    said: &'static str,
+    apply: fn(&mut Map<String, Value>) -> bool,
+}
+
+const DOCUMENT_STEPS: &[DocumentStep] = &[DocumentStep {
+    until: 2,
+    said: "The wheel moved from image_view.scroll_navigation to mouse.wheel, which can say what it should do rather than only whether it does anything",
+    apply: wheel_into_the_mouse_section,
+}];
+
+/// Brings a document up to [`CURRENT`], returning what was changed.
+///
+/// Called before the sections are read, so what it writes is what `serde`
+/// sees. The version is read out of the document itself, because the `Config`
+/// that would carry it does not exist yet.
+pub fn document(map: &mut Map<String, Value>) -> Vec<&'static str> {
+    let from = map.get("version").and_then(Value::as_u64).unwrap_or(0) as u32;
+
+    let mut changed = Vec::new();
+
+    if from >= CURRENT {
+        return changed;
+    }
+
+    for step in DOCUMENT_STEPS {
+        if from < step.until && (step.apply)(map) {
+            changed.push(step.said);
+        }
+    }
+
+    changed
+}
+
+/// `image_view.scroll_navigation` becomes `mouse.wheel`.
+///
+/// `true` was "one notch is one photograph" and becomes *next or previous*.
+/// `false` becomes *pan* rather than *nothing*, because *nothing* is not what
+/// the program did: the scroll delta reached the viewport whatever the flag
+/// said, so with the flag off the wheel moved the photograph about. Carrying
+/// it across as *nothing* would hand somebody a dead wheel and call it their
+/// own setting — which is nomacs #1281, where a checkbox unticked left the
+/// wheel doing nothing at all.
+///
+/// A file that already says something about `mouse.wheel` is left alone: the
+/// newer key is the deliberate one.
+fn wheel_into_the_mouse_section(map: &mut Map<String, Value>) -> bool {
+    let was = map
+        .get_mut("image_view")
+        .and_then(Value::as_object_mut)
+        .and_then(|section| section.remove("scroll_navigation"));
+
+    let Some(Value::Bool(navigated)) = was else {
+        return false;
+    };
+
+    let mouse = map
+        .entry("mouse")
+        .or_insert_with(|| Value::Object(Map::new()));
+
+    let Some(mouse) = mouse.as_object_mut() else {
+        return false;
+    };
+
+    if mouse.contains_key("wheel") {
+        // The old key is still gone: it means nothing to this build, and
+        // leaving it would put it back on the next save.
+        return true;
+    }
+
+    let job = if navigated { "next_or_previous" } else { "pan" };
+    mouse.insert("wheel".to_string(), Value::String(job.to_string()));
+    true
+}
 
 /// Brings `config` up to [`CURRENT`], returning what was changed.
 ///
@@ -124,6 +212,73 @@ fn side_by_side_onto_ctrl(config: &mut Config) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The one key this plan moves, and the shape of move a typed `Config`
+    /// cannot make: a boolean in one section becomes a named job in another.
+    #[test]
+    fn the_wheel_moves_out_of_the_image_view() {
+        let mut map = document(r#"{"image_view": {"scroll_navigation": true}}"#);
+        let said = super::document(&mut map);
+
+        assert_eq!(said.len(), 1);
+        assert_eq!(map["mouse"]["wheel"], serde_json::json!("next_or_previous"));
+        assert!(
+            map["image_view"].get("scroll_navigation").is_none(),
+            "and the old key is gone, or the next save would put it back"
+        );
+    }
+
+    /// Off did not mean a dead wheel: the delta reached the viewport whatever
+    /// the flag said, so the wheel moved the photograph about. That is what is
+    /// carried across, because carrying `nothing` across would hand somebody a
+    /// wheel that does nothing and call it their own setting.
+    #[test]
+    fn the_wheel_turned_off_becomes_what_it_actually_did() {
+        let mut map = document(r#"{"image_view": {"scroll_navigation": false}}"#);
+        super::document(&mut map);
+
+        assert_eq!(map["mouse"]["wheel"], serde_json::json!("pan"));
+    }
+
+    /// The rule that makes every migration safe: a newer key that has been
+    /// written deliberately wins over an older one being brought forward.
+    #[test]
+    fn a_wheel_already_set_is_left_alone() {
+        let mut map =
+            document(r#"{"image_view": {"scroll_navigation": true}, "mouse": {"wheel": "zoom"}}"#);
+        super::document(&mut map);
+
+        assert_eq!(map["mouse"]["wheel"], serde_json::json!("zoom"));
+        assert!(map["image_view"].get("scroll_navigation").is_none());
+    }
+
+    /// A current file is not touched at all, which is the ordinary case.
+    #[test]
+    fn a_current_file_is_left_alone() {
+        let mut map = document(&format!(
+            r#"{{"version": {CURRENT}, "image_view": {{"scroll_navigation": true}}}}"#
+        ));
+
+        assert!(super::document(&mut map).is_empty());
+        assert!(map.get("mouse").is_none());
+    }
+
+    /// And the move is reported, so somebody whose wheel changes hands is
+    /// told why rather than left to find out.
+    #[test]
+    fn the_move_reaches_the_reader_of_the_file() {
+        let config = Config::from_json(r#"{"image_view": {"scroll_navigation": false}}"#);
+
+        assert_eq!(config.mouse.wheel, crate::config::WheelJob::Pan);
+        assert!(config
+            .migrated
+            .iter()
+            .any(|said| said.contains("mouse.wheel")));
+    }
+
+    fn document(json: &str) -> Map<String, Value> {
+        serde_json::from_str(json).expect("the test document parses")
+    }
 
     /// A file from before versions existed gets every step.
     fn ancient() -> Config {

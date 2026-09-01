@@ -209,6 +209,7 @@ impl App {
         self.config = self.settings.general.clone();
         self.tag_config = self.settings.tags.clone();
         self.image_view.set_config(self.settings.image_view.clone());
+        self.image_view.set_mouse(self.settings.mouse.clone());
         self.image_view
             .set_backdrop(&self.settings.general.backdrop);
         self.grid_view.set_config(self.settings.grid_view.clone());

@@ -194,20 +194,6 @@ pub fn panning(ctx: &egui::Context, config: &ImageViewConfig, panel: Vec2, secon
     direction.normalized() * Vec2::new(panel.x * step, panel.y * step)
 }
 
-/// Navigation driven by the scroll wheel, which only applies while the pointer
-/// is over the image and is not being used to zoom.
-pub fn scroll_navigation(ctx: &egui::Context, hovered: bool) -> Option<Command> {
-    if !hovered || ctx.input(|i| i.zoom_delta()) != 1.0 {
-        return None;
-    }
-
-    match ctx.input(|i| i.raw_scroll_delta.y) {
-        delta if delta > 0.0 => Some(Command::Next),
-        delta if delta < 0.0 => Some(Command::Previous),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,13 +245,6 @@ mod tests {
 
         let ctx = context_with(vec![key_press(Key::Z)]);
         assert_eq!(collect(&ctx, &config), vec![Command::UserAction(0)]);
-    }
-
-    #[test]
-    fn scroll_navigation_needs_the_pointer_over_the_image() {
-        let ctx = context_with(vec![]);
-        assert_eq!(scroll_navigation(&ctx, false), None);
-        assert_eq!(scroll_navigation(&ctx, true), None);
     }
 
     #[test]

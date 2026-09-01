@@ -10,24 +10,29 @@ use eframe::egui::{self, PointerButton, Response};
 use eframe::epaint::Vec2;
 
 use crate::actions::{self, Callback};
+use crate::config::{DragButton, WheelJob};
 use crate::ui::menus::{Chosen, Verb};
+use crate::view::wheel::{self, Job, Notch};
 
 use super::{input, ImageView};
 
 impl ImageView {
     pub(super) fn handle_pointer(&mut self, ctx: &egui::Context, response: &Response) {
         let hovered = response.contains_pointer();
-
-        if self.config.scroll_navigation {
-            if let Some(command) = input::scroll_navigation(ctx, hovered) {
-                self.apply(command, ctx);
-            }
-        }
+        let notch = if hovered { wheel::read(ctx) } else { None };
 
         // Through the same command as the keys, so a pinch holds the point
         // under the fingers rather than the middle of the panel.
+        //
+        // Ctrl and the wheel arrive here as well, because egui's
+        // `zoom_modifier` is Ctrl and it has already turned them into a zoom
+        // by this point. Where the user has given Ctrl and the wheel another
+        // job, that zoom is not wanted and is dropped: it is the same notch,
+        // counted twice.
+        let ctrl_wheel = notch.is_some_and(|notch| notch.modifiers.command);
         let zoom_delta = ctx.input(|i| i.zoom_delta());
-        if zoom_delta != 1.0 {
+        if hovered && zoom_delta != 1.0 && (!ctrl_wheel || self.mouse.ctrl_wheel == WheelJob::Zoom)
+        {
             self.apply(input::Command::ZoomBy(zoom_delta), ctx);
         }
 
@@ -40,17 +45,81 @@ impl ImageView {
             return;
         }
 
-        let mut delta = ctx.input(|i| i.smooth_scroll_delta);
-        // Named, because `is_decidedly_dragging` answers for every button: a
-        // right-button drag used to pan the photograph and then release into
-        // whatever menu was registered on the panel.
-        if ctx.input(|i| {
-            i.pointer.is_decidedly_dragging() && i.pointer.button_down(PointerButton::Primary)
-        }) {
+        // One job at a time. This used to be `smooth_scroll_delta` whatever
+        // else the wheel had already done, so a notch that had just called
+        // `Next` also shoved the photograph that had arrived because of it.
+        let mut delta = notch.map_or(Vec2::ZERO, |notch| self.wheel(ctx, notch));
+
+        if self.dragging(ctx) {
             delta += ctx.input(|i| i.pointer.delta()) * ctx.pixels_per_point();
         }
 
         self.viewport.scroll_delta = delta + keyboard;
+    }
+
+    /// Carries out what the wheel asked for, and reports how far it moved the
+    /// photograph.
+    ///
+    /// The decision itself is [`wheel::decide`], which is pure and tested;
+    /// this is only the half that needs a view to apply it to.
+    fn wheel(&mut self, ctx: &egui::Context, notch: Notch) -> Vec2 {
+        // How far a pan travels, as egui has already smoothed and scaled it.
+        // Only the pans use it; nothing else here has a distance.
+        let smooth = ctx.input(|i| i.smooth_scroll_delta);
+
+        let command = match wheel::decide(notch, &self.mouse) {
+            Job::Forward => input::Command::Next,
+            Job::Back => input::Command::Previous,
+            Job::PageForward => input::Command::PageForward,
+            Job::PageBack => input::Command::PageBack,
+            Job::ZoomIn => input::Command::ZoomBy(self.zoom_step()),
+            Job::ZoomOut => input::Command::ZoomBy(1.0 / self.zoom_step()),
+            Job::Pan => return smooth,
+            // Alt folds the wheel onto the vertical axis before this crate
+            // sees a delta, so the movement is read off y and spent on x.
+            Job::PanSideways => return Vec2::new(smooth.y, 0.0),
+            Job::AlreadyZoomed | Job::Nothing => return Vec2::ZERO,
+        };
+
+        self.apply(command, ctx);
+        Vec2::ZERO
+    }
+
+    /// How much one notch magnifies by, which is what one press of the zoom
+    /// keys does.
+    fn zoom_step(&self) -> f32 {
+        if self.config.zoom_step > 1.0 {
+            self.config.zoom_step
+        } else {
+            1.25
+        }
+    }
+
+    /// Whether the photograph is being dragged about this frame.
+    ///
+    /// Named buttons, because `is_decidedly_dragging` answers for every one of
+    /// them: a right-button drag used to pan the photograph and then release
+    /// into whatever menu was registered on the panel, with the boundary
+    /// between the two drawn by a distance of six points and eight tenths of a
+    /// second that nothing on screen mentions.
+    ///
+    /// The wheel pressed and dragged always pans, whatever `mouse.drag` says,
+    /// so a fitted photograph is not a dead surface.
+    fn dragging(&self, ctx: &egui::Context) -> bool {
+        ctx.input(|i| {
+            if !i.pointer.is_decidedly_dragging() {
+                return false;
+            }
+
+            let named = match self.mouse.drag {
+                DragButton::Left => i.pointer.button_down(PointerButton::Primary),
+                DragButton::Middle => i.pointer.button_down(PointerButton::Middle),
+                DragButton::Right => i.pointer.button_down(PointerButton::Secondary),
+                DragButton::Any => true,
+            };
+
+            named || i.pointer.button_down(PointerButton::Middle)
+        })
     }
 
     /// The pan asked for by the keys held this frame.

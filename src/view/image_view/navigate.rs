@@ -97,6 +97,12 @@ impl ImageView {
         self.config = config;
     }
 
+    /// What the pointer does, which every one of these takes effect on the
+    /// next frame drawn: they are read where they are used and held nowhere.
+    pub fn set_mouse(&mut self, mouse: crate::config::MouseConfig) {
+        self.mouse = mouse;
+    }
+
     /// The grey behind the photograph, as the configuration spells it.
     pub fn set_backdrop(&mut self, hex: &str) {
         self.backdrop = hex.to_string();

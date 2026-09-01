@@ -250,8 +250,7 @@ impl App {
                 Arc::clone(&loader),
                 image_budget,
                 Arc::clone(&output_profile),
-                config.image_view,
-                config.slideshow,
+                &config,
                 slideshow,
             ),
             grid_view: GridView::new(

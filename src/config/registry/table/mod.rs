@@ -131,6 +131,7 @@ mod fixed;
 mod general;
 mod grid_view;
 mod image_view;
+mod mouse;
 mod raw;
 mod slideshow;
 mod tags;
@@ -169,6 +170,7 @@ pub fn rows() -> &'static [Row] {
         rows.extend(slideshow::rows());
         rows.extend(cache::rows());
         rows.extend(browsing::rows());
+        rows.extend(mouse::rows());
         rows.extend(added::rows());
         rows.extend(fixed::rows());
 

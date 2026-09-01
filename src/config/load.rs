@@ -190,7 +190,8 @@ impl Config {
         // done once. A file that was only partly understood is not written
         // over — the same rule as everywhere else — so it is migrated in
         // memory and left alone on disk.
-        cfg.migrated = migrate::apply(&mut cfg);
+        let brought_forward = migrate::apply(&mut cfg);
+        cfg.migrated.extend(brought_forward);
         if !cfg.migrated.is_empty() && !cfg.partial {
             // `save_over` rather than `save`: this is the program's own write
             // and there is nobody to ask about it yet, so it must not be
@@ -228,17 +229,21 @@ impl Config {
         let document = document.trim_start_matches('\u{feff}');
         let document = strip_comments(document);
 
-        let map: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&document)
-        {
-            Ok(map) => map,
-            Err(e) => {
-                tracing::error!("The configuration file could not be read at all: {e}");
-                return Config {
-                    partial: true,
-                    ..Config::default()
-                };
-            }
-        };
+        let mut map: serde_json::Map<String, serde_json::Value> =
+            match serde_json::from_str(&document) {
+                Ok(map) => map,
+                Err(e) => {
+                    tracing::error!("The configuration file could not be read at all: {e}");
+                    return Config {
+                        partial: true,
+                        ..Config::default()
+                    };
+                }
+            };
+
+        // Before the sections are built, because a key that changes section
+        // or type is gone once `serde` has finished with it.
+        let migrated = migrate::document(&mut map);
 
         let mut partial = false;
 
@@ -258,8 +263,9 @@ impl Config {
             browsing: section(&map, "browsing", &mut partial),
             group: section(&map, "group", &mut partial),
             menus: section(&map, "menus", &mut partial),
+            mouse: section(&map, "mouse", &mut partial),
             partial,
-            migrated: Vec::new(),
+            migrated,
             document: Some(map),
         }
     }

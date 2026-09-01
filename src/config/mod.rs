@@ -5,6 +5,7 @@ pub mod browsing;
 pub mod defaults;
 pub mod load;
 pub mod migrate;
+pub mod mouse;
 pub mod registry;
 pub mod shortcut;
 
@@ -14,6 +15,7 @@ use crate::actions::Callback;
 
 pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, MenuConfig, PanelsAtStart};
 pub use defaults::*;
+pub use mouse::{DragButton, MouseConfig, WheelJob};
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -43,6 +45,9 @@ pub struct Config {
     /// What the second button offers.
     #[serde(default)]
     pub menus: MenuConfig,
+    /// What the pointer does.
+    #[serde(default)]
+    pub mouse: MouseConfig,
     /// Whether something in the file on disk could not be read.
     ///
     /// A configuration that was only partly understood must never be written
@@ -85,6 +90,7 @@ impl Default for Config {
             browsing: BrowsingConfig::default(),
             group: GroupConfig::default(),
             menus: MenuConfig::default(),
+            mouse: MouseConfig::default(),
             partial: false,
             migrated: Vec::new(),
             document: None,
@@ -503,8 +509,6 @@ pub struct ImageViewConfig {
     pub should_wait: bool,
     #[serde(default = "default_frame_size_relative_to_image")]
     pub frame_size_relative_to_image: f32,
-    #[serde(default = "default_scroll_navigation")]
-    pub scroll_navigation: bool,
     /// Whether a photograph smaller than the window is enlarged to fill it.
     ///
     /// The one that needs it is a raw file's embedded copy: a DNG written by
@@ -788,7 +792,6 @@ impl Default for ImageViewConfig {
             nr_images_shown: default_nr_images_shown(),
             should_wait: default_should_wait(),
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
-            scroll_navigation: default_scroll_navigation(),
             enlarge_to_fit: default_enlarge_to_fit(),
             zoom_step: default_zoom_step(),
             zoom_step_factor: default_zoom_step_factor(),

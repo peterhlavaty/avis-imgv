@@ -45,6 +45,12 @@ const WHOLE_IMAGE: Rect = Rect {
 /// Widest the grid will go before more images stop fitting usefully.
 const MAX_COLUMNS: usize = 16;
 
+/// How many rows Shift and the wheel move at once.
+///
+/// The same ten the image view moves photographs by, so one gesture means the
+/// same amount of folder in both views.
+const PAGE: f32 = 10.0;
+
 pub struct GridView {
     store: ImageStore,
     config: GridViewConfig,
@@ -58,6 +64,12 @@ pub struct GridView {
     asked: Option<Asked>,
     /// Image to scroll to on the next frame.
     scroll_to: Option<usize>,
+    /// Rows to scroll by on the next frame, from Shift and the wheel.
+    ///
+    /// Kept rather than acted on, because the scroll has to happen inside the
+    /// `ScrollArea` and the wheel is read outside it — and reading it inside
+    /// would put a per-frame walk of the event list into the row loop.
+    scroll_rows: f32,
     /// Where the keyboard is, as a position in what is on show. Not where the
     /// image view is: moving about a contact sheet should not decode a full
     /// sized photograph at every step.
@@ -88,6 +100,7 @@ impl GridView {
             badges: Badges::of(&config.badges),
             config,
             selected: None,
+            scroll_rows: 0.0,
             callback: None,
             verb: None,
             asked: None,
@@ -313,6 +326,11 @@ impl GridView {
                     && ui.input_mut(|i| shortcut::consume(i, &self.config.sc_scroll))
                 {
                     ui.scroll_with_delta(Vec2::new(0., -(layout.row * 0.5)));
+                }
+
+                if self.scroll_rows != 0.0 {
+                    ui.scroll_with_delta(Vec2::new(0., -(layout.row * self.scroll_rows)));
+                    self.scroll_rows = 0.0;
                 }
             });
         });
@@ -590,6 +608,18 @@ impl GridView {
 
         let zooming = ctx.input(|i| i.zoom_delta() != 1.0);
         let scroll = ctx.input(|i| i.raw_scroll_delta.y);
+
+        // Ten rows, which is the same step the image view takes with Shift
+        // and the same one PageUp and PageDown take. Read off the event
+        // because Shift is egui's horizontal scroll modifier, so by the time
+        // there is a delta the movement has been spent going sideways across
+        // a sheet that has nowhere sideways to go.
+        if let Some(notch) = crate::view::wheel::read(ctx) {
+            let modifiers = notch.modifiers;
+            if modifiers.shift && !modifiers.command && !modifiers.alt {
+                self.scroll_rows = if notch.amount < 0.0 { PAGE } else { -PAGE };
+            }
+        }
 
         let wider = ctx.input_mut(|i| shortcut::consume(i, &self.config.sc_more_per_row))
             || (zooming && scroll < 0.);

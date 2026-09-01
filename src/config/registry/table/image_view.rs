@@ -163,18 +163,6 @@ pub fn rows() -> Vec<Row> {
             },
         ),
         row!(
-            KeysAndMouse / Mouse,
-            "image_view.scroll_navigation",
-            "The wheel moves through the folder",
-            "A boolean that cannot answer \"what should the wheel do instead\", which \
-             is the question people actually have. It becomes one row of the mouse \
-             settings.",
-            ["wheel", "scroll", "mouse", "zoom with wheel"],
-            Live,
-            None,
-            boolean!(image_view.scroll_navigation),
-        ),
-        row!(
             ThePhotograph / Framing,
             "image_view.enlarge_to_fit",
             "Enlarge a small photograph to fit",

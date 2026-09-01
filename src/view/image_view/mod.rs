@@ -22,7 +22,7 @@ use eframe::epaint::{Color32, Vec2};
 use crate::actions::Callback;
 use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig};
-use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
+use crate::config::{Config, ImageViewConfig, Motion, MouseConfig, SlideshowConfig};
 
 use bottom_bar::{BarAction, Flags, Marks, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
@@ -98,6 +98,9 @@ pub struct ImageView {
     /// What the screen with nothing on it was clicked to do.
     asked: Option<Asked>,
     config: ImageViewConfig,
+    /// What the pointer does. Its own section of the file, because a gesture
+    /// belongs to the person holding the mouse rather than to a view.
+    mouse: MouseConfig,
     slideshow_config: SlideshowConfig,
     slideshow: Option<Slideshow>,
 }
@@ -108,10 +111,17 @@ impl ImageView {
         loader: Arc<Loader>,
         store_config: StoreConfig,
         output_profile: Arc<str>,
-        config: ImageViewConfig,
-        slideshow_config: SlideshowConfig,
+        settings: &Config,
         start_slideshow: bool,
     ) -> ImageView {
+        // The three sections this view reads, taken together rather than one
+        // argument each: they arrive together, they are replaced together
+        // whenever the settings window commits, and a constructor with eight
+        // parameters is one nobody can call correctly from memory.
+        let config = settings.image_view.clone();
+        let mouse = settings.mouse.clone();
+        let slideshow_config = settings.slideshow.clone();
+
         let slideshow = start_slideshow.then(|| Slideshow::new(&slideshow_config));
 
         ImageView {
@@ -143,6 +153,7 @@ impl ImageView {
             slideshow,
             slideshow_config,
             config,
+            mouse,
         }
     }
 

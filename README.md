@@ -622,6 +622,45 @@ The words in the status bar are doors as well. **Flattened**, **Watching**,
 mean and carry the verb that turns them off — and **Advancing** and **RAW+JPEG**
 are the only place in the running program those two settings are visible at all.
 
+## The mouse
+
+Eight settings, in the `mouse` section of the configuration and on the *Keys
+and mouse* page. The number of gestures is fixed and small; what opens up is
+what each one means.
+
+| Gesture | The photograph | The contact sheet |
+|---------|----------------|-------------------|
+| Wheel | One photograph, or zoom, or move it, or nothing — `mouse.wheel` | Scrolls the sheet |
+| Shift + wheel | Ten photographs | Ten rows |
+| Ctrl + wheel | `mouse.ctrl_wheel`, which ships as zoom | Thumbnails per row |
+| Alt + wheel | Moves the photograph sideways | — |
+| Left drag | Moves the photograph, when there is somewhere to move it to | — |
+| Middle drag | Moves the photograph, always | — |
+| Right button | The menu, on the press | The menu, on the press |
+| Thumb buttons | Previous and next — `mouse.back`, `mouse.forward` | Previous and next |
+| Two clicks | `mouse.double_click`, which ships as fit ↔ actual pixels | Opens the photograph |
+
+**Wheel down is forward**, in both views. It used to be wheel up in the image
+view and wheel down in the contact sheet, so the same movement of the wrist
+meant "later" in one and "earlier" in the other. `mouse.wheel_reversed` turns
+both round.
+
+**One notch does one job.** A notch used to move to the next photograph *and*
+shove the one that had just arrived, which showed whenever the arriving
+photograph had any slack.
+
+**Which button moves the photograph** is `mouse.drag`, and it ships as the left
+one. It used to be every button, so whether a right drag opened the menu or
+moved the picture was decided by six points of travel and eight tenths of a
+second, neither of which is on screen anywhere. `any` puts the old behaviour
+back. Whatever it says, the wheel pressed and dragged always moves the
+photograph, so a photograph that fits the window is not a dead surface.
+
+**The double click, the middle button and the thumb buttons** hold the name of
+a command — `next`, `fullscreen`, `exit`, `delete` and about thirty others,
+listed in the control. `nothing` is a legal value and is what the middle button
+ships as.
+
 ## Supported image formats
 
 JPEG, PNG, WebP, GIF, BMP and TIFF, through the
@@ -767,7 +806,6 @@ set aside for the full resolution copies, which are 96 MB each.
 | `sc_compare` | Pin this picture and the next side by side, sharing one zoom and one pan | `N` |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
-| `scroll_navigation` | Use the scroll wheel to change image | true |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
 
@@ -784,6 +822,23 @@ set aside for the full resolution copies, which are 96 MB each.
 | `filmstrip_height` | How tall the strip of thumbnails under the image view is, in points. `0` turns it off. | 0 |
 | `sc_select` | Picks the photograph under the cursor out, or puts it back | `Space` |
 | `sc_select_all` | Picks out everything on show, or puts it all back | `Ctrl + A` |
+
+### Mouse
+
+| Key | Meaning | Default |
+|-----|---------|---------|
+| `wheel` | What one notch over the photograph does: `next_or_previous`, `zoom`, `pan` or `nothing` | `next_or_previous` |
+| `wheel_reversed` | Turns the wheel round in both views | false |
+| `ctrl_wheel` | The same four, with Ctrl held | `zoom` |
+| `drag` | Which button moves the photograph: `left`, `middle`, `right` or `any` | `left` |
+| `double_click` | The command two clicks on the photograph run | `fit_or_actual` |
+| `middle` | The command the wheel pressed runs | `nothing` |
+| `back`, `forward` | The commands the thumb buttons run | `previous`, `next` |
+
+An older file with `image_view.scroll_navigation` in it has that key moved into
+`mouse.wheel` on the first launch — `true` becomes `next_or_previous` and
+`false` becomes `pan`, which is what the wheel was actually doing — and the
+viewer says so when it does.
 
 ### Raw
 

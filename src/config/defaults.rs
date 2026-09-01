@@ -133,9 +133,6 @@ pub fn default_metadata_tags() -> Vec<String> {
 pub fn default_frame_size_relative_to_image() -> f32 {
     0.2
 }
-pub fn default_scroll_navigation() -> bool {
-    true
-}
 /// What the overlay says when it is turned on.
 ///
 /// Two lines: what it is, and how it was taken. Each part disappears with its
