@@ -2,6 +2,39 @@
 
 ## 2026-09-01
 
+- **Getting from one thing to the thing next to it.** The viewer was full of
+  true statements nobody could act on. Clicking a star, a flag or a colour label
+  — in the status bar or in the keyword panel — now narrows the folder to the
+  photographs carrying it, with the filter bar raised so the change is visible
+  and reversible. So does a keyword chip. `Blown 3.4%` and `Crushed 0.2%` paint
+  the clipping mask over the photograph, which is what they are describing and
+  which used to be a key in a different subsystem.
+- **The cheat sheet leads into the keys.** Every row opens the keyboard editor
+  with its own binding armed, and the footer opens it with nothing armed. It was
+  the best documentation in the program and it led nowhere.
+- **A message can be gone back to.** Every failure in the history offers the log;
+  a startup key clash offers the keys. A count at the right-hand end of the
+  status bar says how many have not been read, so the history is reachable
+  without the menu bar being up.
+- **One selection, one photograph, one keyword, one burst.** The selection was
+  read only in the contact sheet, so opening one of two hundred picked-out
+  photographs silently reduced it to one. The metadata panel followed the image
+  view while the keyword panel followed the sheet's cursor, so with both open
+  they described different photographs. The browsing bar matched a substring of
+  the whole hierarchical keyword and the folder jobs matched the stored one, so
+  the same word typed in the two places gave two different answers. All four are
+  one answer now.
+- **A key that cannot act says so.** `Ctrl + T` showed the strip of thumbnails
+  and the strip had no height, so on a fresh install the key was advertised in
+  two places and changed no pixel. It gives the strip a height and says it did.
+- **The shift-capture-time preview shows every field it will change.** It
+  computed its "would become" column from the capture time alone, so unticking
+  that field while leaving another ticked made every row read an em dash while
+  the button still offered to change four hundred files. The button counts what
+  the preview shows now.
+- **A folder job says what it is about to act on** before it acts, rather than
+  leaving it to be inferred from a button label.
+
 - **Right-click the thing itself.** About twenty surfaces answer the second
   button now: the photograph, a cell, the mode indicator, every word of the
   status bar, the position counter, the run a frame belongs to, the marks, the

@@ -104,6 +104,7 @@ impl App {
         let most = (ctx.content_rect().width() * MOST_OF_THE_WINDOW).max(220.);
 
         let mut asked: Option<&'static str> = None;
+        let mut clip = false;
 
         let panel = egui::SidePanel::right("image_metadata")
             .resizable(true)
@@ -113,16 +114,29 @@ impl App {
             .max_width(most)
             .show_animated(ctx, self.side_panel_visible, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
+                    // The same photograph the keyword panel is about. The two
+                    // used to read different things, so with both open they
+                    // described different photographs and neither said which.
+                    let showing = self.current_photograph();
+                    let metadata = showing
+                        .as_deref()
+                        .filter(|path| self.image_view.active_path().as_deref() == Some(path))
+                        .and(self.image_view.active_metadata());
+
                     asked = panels::metadata_panel(
                         ui,
-                        self.image_view.active_metadata(),
+                        metadata,
                         &self.config.metadata_tags,
                         !self.paths.is_empty(),
                     )
                     .or(asked);
 
                     if let Some(found) = self.image_view.active_histogram() {
-                        asked = crate::ui::histogram::show(ui, found).or(asked);
+                        match crate::ui::histogram::show(ui, found) {
+                            Some(crate::ui::histogram::Asked::Clipping) => clip = true,
+                            Some(crate::ui::histogram::Asked::Settings(path)) => asked = Some(path),
+                            None => {}
+                        }
                     }
                     ui.add_space(20.);
                     ui.separator();
@@ -142,6 +156,12 @@ impl App {
                 self.settings.general.side_panel_width = width;
                 self.save_settings();
             }
+        }
+
+        if clip {
+            // The figure and the mask are the same question asked twice; the
+            // mask lived in a different subsystem behind a key of its own.
+            self.image_view.mark_clipping();
         }
 
         if let Some(path) = asked {

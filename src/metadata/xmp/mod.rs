@@ -182,6 +182,24 @@ impl Label {
     }
 }
 
+/// Whether one keyword answers to what somebody typed.
+///
+/// One predicate, so "rename everything I tagged Slovakia" means the same thing
+/// in the browsing bar and in the folder jobs. The bar took a case-insensitive
+/// substring of the whole hierarchical keyword and the organiser took equality
+/// on the stored one, so typing the word twice gave two different answers.
+///
+/// A substring, and over the whole path: `Places|Slovakia|Tatras` answers to
+/// `slovakia`, because a keyword filed under levels is still that keyword.
+pub fn keyword_matches(keyword: &str, wanted: &str) -> bool {
+    let wanted = wanted.trim();
+    if wanted.is_empty() {
+        return true;
+    }
+
+    keyword.to_lowercase().contains(&wanted.to_lowercase())
+}
+
 /// What the viewer reads out of, and writes back into, an XMP document.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Xmp {
@@ -476,6 +494,25 @@ mod tests {
 
     /// The alias table had "To Do" against two colours and `of` returns the
     /// first match, so purple was unreachable.
+    /// The two surfaces that filter by keyword agree now. They did not: the
+    /// bar took a substring of the whole path and the organiser took equality
+    /// on the leaf, so the same word typed twice gave two different answers.
+    #[test]
+    fn a_keyword_answers_to_a_word_inside_it() {
+        assert!(keyword_matches("Places|Slovakia|Tatras", "slovakia"));
+        assert!(keyword_matches("Slovakia", "SLOVAKIA"));
+        assert!(keyword_matches("Tatras", "tat"));
+        assert!(!keyword_matches("Austria", "slovakia"));
+    }
+
+    /// An empty query narrows nothing, which is what makes it safe to call
+    /// unconditionally.
+    #[test]
+    fn an_empty_word_matches_everything() {
+        assert!(keyword_matches("anything", ""));
+        assert!(keyword_matches("anything", "   "));
+    }
+
     #[test]
     fn no_label_name_stands_against_two_colours() {
         let mut seen: Vec<String> = Vec::new();

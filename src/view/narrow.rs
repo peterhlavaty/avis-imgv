@@ -384,7 +384,7 @@ impl Rules {
         marks
             .keywords
             .iter()
-            .any(|keyword| keyword.to_lowercase().contains(&wanted.to_lowercase()))
+            .any(|keyword| crate::metadata::xmp::keyword_matches(keyword, wanted))
     }
 }
 

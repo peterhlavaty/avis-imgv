@@ -107,7 +107,14 @@ impl App {
         }
 
         if self.messages_visible {
-            notice::history_window(ctx, &mut self.messages_visible, &mut self.notices);
+            match notice::history_window(ctx, &mut self.messages_visible, &mut self.notices) {
+                Some(notice::Asked::OpenLog) => self.open_named_file(crate::logging::path(), "log"),
+                Some(notice::Asked::Keys) => {
+                    self.messages_visible = false;
+                    self.keys_visible = true;
+                }
+                None => {}
+            }
         }
     }
 

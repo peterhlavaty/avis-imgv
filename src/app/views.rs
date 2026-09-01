@@ -13,6 +13,12 @@ use crate::view::organize::Done;
 
 use super::{App, Mode};
 
+/// What the strip is given when somebody asks for it and it has no height.
+///
+/// Tall enough to read a thumbnail at, short enough not to take the
+/// photograph's room.
+const DEFAULT_FILMSTRIP_HEIGHT: f32 = 96.0;
+
 impl App {
     pub(super) fn set_mode(&mut self, mode: Mode) {
         let arriving = mode != self.mode;
@@ -148,6 +154,7 @@ impl App {
             marks,
             &nothing,
             self.mode,
+            self.notices.unseen(),
         );
 
         if let Some(asked) = self.image_view.take_asked() {
@@ -192,6 +199,31 @@ impl App {
             self.grid_view.set_config(self.settings.grid_view.clone());
             self.save_settings();
         }
+    }
+
+    /// Shows or hides the strip, saying so when it cannot.
+    ///
+    /// A command advertised in the editor and on the cheat sheet that silently
+    /// does nothing is the worst kind of dead end: the key is documented, the
+    /// person presses it, and the program's answer is no pixel changing. The
+    /// strip's height and its visibility used to be one number, so on a fresh
+    /// install — where the default height is zero — the key did exactly that.
+    /// The two are separate fields now; this is the sentence for whatever the
+    /// next one is.
+    pub(super) fn toggle_filmstrip(&mut self) {
+        self.filmstrip_visible = !self.filmstrip_visible;
+        self.settings.grid_view.filmstrip_visible = self.filmstrip_visible;
+
+        if self.filmstrip_visible && self.settings.grid_view.filmstrip_height <= 0.0 {
+            // Given a height rather than only complained about: the person
+            // asked for the strip, and a strip of no height is not an answer.
+            self.settings.grid_view.filmstrip_height = DEFAULT_FILMSTRIP_HEIGHT;
+            self.notices.say(format!(
+                "The strip had no height; it is {DEFAULT_FILMSTRIP_HEIGHT:.0} points now.                  Drag its top edge to change it."
+            ));
+        }
+
+        self.save_settings();
     }
 
     /// Picks the folder up again after a job has changed it.

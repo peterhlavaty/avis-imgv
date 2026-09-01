@@ -170,6 +170,7 @@ impl App {
             BarAction::Settings(path) => self.open_settings_at(path),
             BarAction::ToggleStack => self.apply_command(Command::ToggleStack),
             BarAction::ShowEverything => self.apply_command(Command::SuspendFilter),
+            BarAction::ShowMessages => self.messages_visible = true,
             // One verb, offered wherever a mark is drawn. It closes every dead
             // end of its kind at once: a true statement on screen that cannot
             // be acted on.
@@ -350,5 +351,19 @@ impl App {
             super::Mode::Grid => "cell",
             _ => "photograph",
         });
+    }
+}
+
+impl App {
+    /// Narrows the folder to the photographs carrying one keyword.
+    ///
+    /// A `String` and so not a `Copy` payload, which is why it is a method
+    /// rather than another arm of `Narrow`: `Command` derives `Copy` and is
+    /// taken by value everywhere it is read.
+    pub(super) fn show_only_keyword(&mut self, keyword: &str) {
+        self.narrowing.rules.keyword = keyword.to_string();
+        self.narrowing.suspended = false;
+        self.filter_visible = true;
+        self.apply_narrowing();
     }
 }

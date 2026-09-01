@@ -102,6 +102,19 @@ impl ImageView {
         self.backdrop = hex.to_string();
     }
 
+    /// Paints the clipping mask, or takes it off if it is already on.
+    ///
+    /// What "Blown 3.4 %" means, done where it is read.
+    pub fn mark_clipping(&mut self) {
+        use crate::decoder::overlays::Overlay;
+
+        self.marking = if self.marking == Overlay::Clipping {
+            Overlay::Off
+        } else {
+            Overlay::Clipping
+        };
+    }
+
     pub fn selected_index(&self) -> usize {
         self.cursor
     }

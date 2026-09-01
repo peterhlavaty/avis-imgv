@@ -74,8 +74,19 @@ fn sorting(ui: &mut egui::Ui, view: &mut OrganizeView) {
         }
 
         let (selected, total) = view.counts();
-        ui.label(egui::RichText::new(format!("· {selected} of {total} files")).weak())
-            .on_hover_text("How many the filter is letting through, out of the whole folder");
+
+        // Said in the header rather than left to be inferred from a button
+        // label: a job that acts on a hundred and eighty-seven of two thousand
+        // files should say so before it acts, not afterwards.
+        let scope = if selected == total {
+            format!("· every one of the {total} files in this folder")
+        } else {
+            format!("· {selected} of {total} files · the filter below")
+        };
+
+        ui.label(egui::RichText::new(scope).weak()).on_hover_text(
+            "What the job below will act on. A folder job reads every file, not only              the browsed half of a raw+JPEG pair: renaming the JPEG and leaving the raw              would break the pairing it depends on.",
+        );
     });
 }
 

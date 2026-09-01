@@ -97,6 +97,15 @@ pub struct Planned {
     /// What the capture time becomes, for the preview column.
     pub before: Option<Timestamp>,
     pub after: Option<Timestamp>,
+    /// Every ticked field this file has, and what it becomes.
+    ///
+    /// The preview used to compute its "would become" column from the capture
+    /// time alone, so unticking that field while leaving another ticked made
+    /// every row read an em dash — while the button still said how many files
+    /// it would change, and was still enabled. A preview that says nothing
+    /// will happen beside a button that says four hundred files will is the
+    /// worst thing this panel could do.
+    pub moving: Vec<(String, Timestamp, Timestamp)>,
 }
 
 impl Planned {
@@ -201,11 +210,23 @@ fn planned_for(entry: &Entry, chosen: &BTreeSet<String>, seconds: i64) -> Planne
         .find(|field| field.name == super::CAPTURE_TAG)
         .map(|field| field.value);
 
+    let moving = fields
+        .iter()
+        .map(|field| {
+            (
+                field.name.to_string(),
+                field.value,
+                field.value.shifted(seconds),
+            )
+        })
+        .collect();
+
     Planned {
         path: entry.path.clone(),
         fields,
         before,
         after: shown.map(|value| value.shifted(seconds)),
+        moving,
     }
 }
 

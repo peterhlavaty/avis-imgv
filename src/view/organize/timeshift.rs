@@ -56,7 +56,7 @@ fn offset(ui: &mut egui::Ui, view: &mut OrganizeView) {
             offset.forward = !offset.forward;
         }
 
-        ui.label(egui::RichText::new(format!("· {}", offset.describe())).weak());
+        ui.label(egui::RichText::new(format!("Â· {}", offset.describe())).weak());
     })
     .response
     .on_hover_text(
@@ -113,7 +113,12 @@ fn toggle(
 }
 
 fn actions(ui: &mut egui::Ui, view: &mut OrganizeView, planned: &[Planned]) -> Option<Done> {
-    let changing = planned.iter().filter(|plan| plan.changes()).count();
+    // What the preview shows, so the button and the rows above it cannot
+    // disagree about how many files are about to move.
+    let changing = planned
+        .iter()
+        .filter(|plan| !plan.moving.is_empty())
+        .count();
     let ready = changing > 0 && !view.offset.is_zero();
 
     let mut done = None;
@@ -162,17 +167,37 @@ fn rows(planned: &[Planned]) -> Vec<Row> {
                 .to_string_lossy()
                 .into_owned();
 
-            let before = match plan.before {
-                Some(at) => format!("{name}  ·  {at}"),
-                None => format!("{name}  ·  no capture time"),
+            // One line per ticked field the file has, rather than the
+            // capture time alone: unticking that field while leaving another
+            // ticked used to make every row read an em dash beside a button
+            // that said it would change four hundred files.
+            let before = if plan.moving.is_empty() {
+                match plan.before {
+                    Some(at) => format!("{name}  Â·  {at}  Â·  nothing ticked is in this file"),
+                    None => format!("{name}  Â·  no capture time"),
+                }
+            } else {
+                let fields: Vec<String> = plan
+                    .moving
+                    .iter()
+                    .map(|(field, was, _)| format!("{field} {was}"))
+                    .collect();
+                format!("{name}  Â·  {}", fields.join("  Â·  "))
+            };
+
+            let after = if plan.moving.is_empty() {
+                "—".to_string()
+            } else {
+                plan.moving
+                    .iter()
+                    .map(|(_, _, becomes)| becomes.to_exif())
+                    .collect::<Vec<_>>()
+                    .join("  Â·  ")
             };
 
             Row {
                 before,
-                after: plan
-                    .after
-                    .map(|at| at.to_exif())
-                    .unwrap_or_else(|| "—".to_string()),
+                after,
                 problem: None,
                 changes: plan.changes(),
             }
@@ -189,6 +214,40 @@ mod tests {
 
     fn available() -> Vec<String> {
         vec!["Date/Time Original".to_string(), "Modify Date".to_string()]
+    }
+
+    /// The preview and the button used to disagree: unticking the capture time
+    /// while leaving another field ticked made every row read an em dash while
+    /// the button still offered to change four hundred files.
+    #[test]
+    fn the_preview_shows_every_ticked_field() {
+        use crate::organize::timeshift;
+
+        let mut entry = Entry::new(PathBuf::from("/photos/a.jpg"));
+        entry.dates = vec![crate::metadata::dates::DateField {
+            name: "Date/Time Original",
+            offset: 0,
+            value: crate::metadata::datetime::Timestamp::parse("2024:01:01 10:00:00").unwrap(),
+        }];
+
+        let mut chosen = BTreeSet::new();
+        chosen.insert("Date/Time Original".to_string());
+
+        let offset = timeshift::Offset {
+            hours: 1,
+            forward: true,
+            ..timeshift::Offset::default()
+        };
+        let planned = timeshift::plan(std::slice::from_ref(&entry), &chosen, offset);
+
+        assert_eq!(planned.len(), 1);
+        assert_eq!(planned[0].moving.len(), 1);
+
+        let rows = rows(&planned);
+        assert!(
+            rows[0].after != "—",
+            "the preview said nothing would change"
+        );
     }
 
     #[test]

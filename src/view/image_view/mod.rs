@@ -170,6 +170,7 @@ impl ImageView {
         marks: Marks,
         nothing: &Nothing,
         mode: crate::app::mode::Mode,
+        unread: usize,
     ) {
         if self.warm() {
             ctx.request_repaint();
@@ -180,7 +181,7 @@ impl ImageView {
         }
 
         if self.slideshow.is_none() {
-            self.show_bottom_bar(ctx, flags, marks, mode);
+            self.show_bottom_bar(ctx, flags, marks, mode, unread);
         }
 
         let response = self.show_images(ctx, nothing);
@@ -604,6 +605,7 @@ impl ImageView {
         flags: Flags,
         marks: Marks,
         mode: crate::app::mode::Mode,
+        unread: usize,
     ) {
         let name = self.display_name();
         let (at, total) = self.position();
@@ -619,6 +621,7 @@ impl ImageView {
             percentage_zoom: self.metrics.percentage_zoom,
             marks,
             mode,
+            unread,
             flags: Flags {
                 filling: self.viewport.maximize,
                 comparing,

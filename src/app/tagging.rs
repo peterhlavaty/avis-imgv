@@ -171,6 +171,17 @@ impl App {
                 }
                 // Through the same field the settings window writes, so a
                 // dragged edge survives the session.
+                Action::ShowOnlyStars(stars) => {
+                    self.show_only(crate::app::verbs::Narrow::Stars(stars))
+                }
+                Action::ShowOnlyFlag(flag) => self.show_only(crate::app::verbs::Narrow::Flag(flag)),
+                Action::ShowOnlyLabel(index) => {
+                    if let Some(label) = Label::CHOICES.get(index).copied() {
+                        self.show_only(crate::app::verbs::Narrow::Label(label));
+                    }
+                }
+                Action::ShowOnlyKeyword(keyword) => self.show_only_keyword(&keyword),
+                Action::Settings(path) => self.open_settings_at(path),
                 Action::PanelWidth(width) => {
                     self.tag_config.panel_width = width;
                     self.settings.tags.panel_width = width;
@@ -278,6 +289,16 @@ impl App {
         }
     }
 
+    /// The photograph every panel is about.
+    ///
+    /// One answer, so a link one panel draws leads where another panel is
+    /// looking. The metadata panel read the image view and the keyword panel
+    /// read the sheet's cursor, so with both open the two described different
+    /// photographs and neither said which.
+    pub(super) fn current_photograph(&self) -> Option<PathBuf> {
+        self.marked_path()
+    }
+
     /// Every photograph a command applies to.
     ///
     /// The selection when the contact sheet has one, and the photograph being
@@ -286,7 +307,11 @@ impl App {
     /// command means without any of those commands having to know that a
     /// selection exists.
     pub(super) fn marked_paths(&self) -> Vec<PathBuf> {
-        if self.mode == Mode::Grid && self.grid_view.selected_count() > 0 {
+        // No mode gate. It used to read the selection only in the contact
+        // sheet, so opening one of two hundred picked-out photographs silently
+        // reduced the selection to one — and putting the sheet back did not
+        // bring it back, because the next command had already acted.
+        if self.grid_view.selected_count() > 0 {
             return self.grid_view.selected_paths();
         }
 

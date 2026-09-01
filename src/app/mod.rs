@@ -13,7 +13,7 @@ mod settings;
 pub mod stacking;
 mod stores;
 pub mod tagging;
-mod verbs;
+pub mod verbs;
 mod views;
 pub mod watcher;
 
@@ -832,7 +832,7 @@ impl App {
             Command::CopyTo => self.send_somewhere(Errand::Copy),
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
-            Command::ToggleFilmstrip => self.filmstrip_visible = !self.filmstrip_visible,
+            Command::ToggleFilmstrip => self.toggle_filmstrip(),
             Command::ToggleStacking => self.toggle_stacking(),
             Command::ToggleStack => self.toggle_stack(),
             Command::StandingBack => self.step_standing(false),
@@ -977,13 +977,26 @@ impl eframe::App for App {
 
         if self.cheat_sheet_visible {
             let just_opened = std::mem::take(&mut self.cheat_sheet_opened);
+            let mut change = None;
             self.cheat_sheet_visible = cheat_sheet::ui(
                 ctx,
                 &self.settings,
                 self.mode,
                 just_opened,
                 &mut self.cheat_sheet_query,
+                &mut change,
             );
+
+            // The route out. A row opens the keyboard editor with its own
+            // binding armed; the footer opens it with nothing armed.
+            if let Some(path) = change {
+                self.cheat_sheet_visible = false;
+                if path.is_empty() {
+                    self.keys_visible = true;
+                } else {
+                    self.arm_key(path);
+                }
+            }
         }
 
         self.show_first_run_hint(ctx);

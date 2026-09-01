@@ -30,7 +30,20 @@ const WARNING: Color32 = Color32::from_rgb(219, 160, 96);
 const WORTH_SAYING: f32 = 0.1;
 
 /// Draws `histogram`, and the clipping figures under it.
-pub fn show(ui: &mut egui::Ui, histogram: &Histogram) -> Option<&'static str> {
+/// What a figure was clicked to do.
+///
+/// `Blown 3.4%` and `Crushed 0.2%` were true statements nobody could act on,
+/// while the mask that marks exactly those pixels was a key in a different
+/// subsystem. They are the same question asked twice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Asked {
+    /// Paint the clipping mask over the photograph.
+    Clipping,
+    /// Go to a settings row.
+    Settings(&'static str),
+}
+
+pub fn show(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
     if histogram.is_empty() {
         return None;
     }
@@ -119,7 +132,7 @@ fn plot(
 /// Each figure is a toggle for its half of the clipping mask, which is what a
 /// person means when they read "Blown 3.4 %" and look for somewhere to click.
 /// Today that mask is a separate key in a different subsystem.
-fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<&'static str> {
+fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
     let mut asked = None;
     ui.add_space(4.0);
 
@@ -149,7 +162,20 @@ fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<&'static str> {
 
             crate::ui::surface::with_menu(ui, &figure, hover, |ui| {
                 if ui.button("Mark it on the photograph").clicked() {
-                    asked = Some("image_view.sc_marks");
+                    asked = Some(Asked::Clipping);
+                    ui.close();
+                }
+
+                if ui.button("Show only these on the photograph").clicked() {
+                    asked = Some(Asked::Clipping);
+                    ui.close();
+                }
+
+                if crate::ui::surface::more_settings(
+                    ui,
+                    crate::config::registry::Page::ThePhotograph,
+                ) {
+                    asked = Some(Asked::Settings("image_view.sc_marks"));
                     ui.close();
                 }
             });

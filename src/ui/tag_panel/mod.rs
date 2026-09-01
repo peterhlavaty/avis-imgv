@@ -41,6 +41,17 @@ pub enum Action {
     /// Reported so it reaches the configuration field the settings window
     /// reads, rather than being a gesture the viewer forgets on the way out.
     PanelWidth(f32),
+    /// Narrow the folder to the photographs carrying this mark.
+    ///
+    /// The panel draws every mark the program has, and none of them could be
+    /// acted on beyond putting it on or taking it off. "Show me the ones I
+    /// gave three stars" was a thing you could see and not ask for.
+    ShowOnlyStars(u8),
+    ShowOnlyFlag(Flag),
+    ShowOnlyLabel(usize),
+    ShowOnlyKeyword(String),
+    /// Go to the settings row behind a mark.
+    Settings(&'static str),
 }
 
 /// The panel's own state, which the application owns between frames.
@@ -139,11 +150,19 @@ fn stars(ui: &mut egui::Ui, rating: u8) -> Vec<Action> {
             let filled = star <= rating;
             let label = RichText::new(if filled { FILLED } else { EMPTY }).size(22.);
 
-            if ui
-                .add(egui::Button::new(label).frame(false))
-                .on_hover_text(format!("{star} star(s)"))
-                .clicked()
-            {
+            let button = ui.add(egui::Button::new(label).frame(false));
+
+            crate::ui::surface::with_menu(ui, &button, &format!("{star} star(s)."), |ui| {
+                if ui
+                    .button(format!("Show only {star} stars and better"))
+                    .clicked()
+                {
+                    actions.push(Action::ShowOnlyStars(star.max(0) as u8));
+                    ui.close();
+                }
+            });
+
+            if button.clicked() {
                 let wanted = if star == rating { 0 } else { star };
                 actions.push(Action::SetRating(wanted.max(0) as u8));
             }
@@ -168,12 +187,16 @@ fn flags(ui: &mut egui::Ui, current: Flag) -> Vec<Action> {
             (Flag::Rejected, "✖ Reject", "Mark this one to be thrown out"),
         ] {
             let chosen = current == flag;
+            let button = ui.selectable_label(chosen, label);
 
-            if ui
-                .selectable_label(chosen, label)
-                .on_hover_text(hint)
-                .clicked()
-            {
+            crate::ui::surface::with_menu(ui, &button, hint, |ui| {
+                if ui.button("Show only these").clicked() {
+                    actions.push(Action::ShowOnlyFlag(flag));
+                    ui.close();
+                }
+            });
+
+            if button.clicked() {
                 actions.push(Action::SetFlag(if chosen { Flag::Unflagged } else { flag }));
             }
         }
@@ -197,11 +220,16 @@ fn labels(ui: &mut egui::Ui, current: Option<Label>) -> Vec<Action> {
                 .size(20.)
                 .color(egui::Color32::from_rgb(r, g, b));
 
-            if ui
-                .add(egui::Button::new(swatch).frame(false))
-                .on_hover_text(label.name())
-                .clicked()
-            {
+            let button = ui.add(egui::Button::new(swatch).frame(false));
+
+            crate::ui::surface::with_menu(ui, &button, label.name(), |ui| {
+                if ui.button("Show only these").clicked() {
+                    actions.push(Action::ShowOnlyLabel(index));
+                    ui.close();
+                }
+            });
+
+            if button.clicked() {
                 actions.push(Action::SetLabel((!chosen).then_some(index)));
             }
         }
@@ -223,9 +251,24 @@ fn on_image(ui: &mut egui::Ui, sections: &Sections) -> Vec<Action> {
         for tag in &sections.on_image {
             // The leaf is the keyword; the path above it is context, so it is
             // there to be read on hover rather than taking up the whole panel.
-            let response = ui
-                .selectable_label(true, format!("{} {REMOVE}", leaf_of(tag)))
-                .on_hover_text(hover(tag, "Remove"));
+            let response = ui.selectable_label(true, format!("{} {REMOVE}", leaf_of(tag)));
+
+            crate::ui::surface::with_menu(ui, &response, &hover(tag, "Remove"), |ui| {
+                if ui
+                    .button(format!("Show only \"{}\"", leaf_of(tag)))
+                    .clicked()
+                {
+                    actions.push(Action::ShowOnlyKeyword(leaf_of(tag).to_string()));
+                    ui.close();
+                }
+
+                if crate::ui::surface::more_settings(ui, crate::config::registry::Page::Keywords) {
+                    // Keywords have their own page; the chip is the shortest
+                    // route to it.
+                    actions.push(Action::Settings("tags.categories"));
+                    ui.close();
+                }
+            });
 
             if response.clicked() {
                 actions.push(Action::RemoveTag(tag.clone()));

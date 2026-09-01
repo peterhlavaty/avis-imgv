@@ -223,8 +223,28 @@ fn opacity(line: &Line, now: Instant) -> f32 {
 /// The band holds four lines for 6.6 seconds and drops the rest without a word,
 /// so a failure that arrived during a burst of moves was gone before anybody
 /// read it and could not be recovered.
-pub fn history_window(ctx: &egui::Context, open: &mut bool, notices: &mut Notices) {
+/// What a row of the history was clicked to do.
+///
+/// The routes live here rather than on the band, which stays untouchable: a
+/// strip across the top of the photograph that takes the pointer for 6.6
+/// seconds at a time is a worse defect than one that cannot be clicked.
+/// Nothing a person has six seconds to click; everything a person can go back
+/// to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Asked {
+    /// Anything that ends in the log offers the log.
+    OpenLog,
+    /// A startup clash offers the row that clashed.
+    Keys,
+}
+
+pub fn history_window(
+    ctx: &egui::Context,
+    open: &mut bool,
+    notices: &mut Notices,
+) -> Option<Asked> {
     let mut showing = *open;
+    let mut asked = None;
 
     egui::Window::new("Recent messages")
         .open(&mut showing)
@@ -269,6 +289,21 @@ pub fn history_window(ctx: &egui::Context, open: &mut bool, notices: &mut Notice
                         };
 
                         ui.label(text);
+
+                        // A failure that ends in the log offers the log; a
+                        // clash offers the keys. A message about something that
+                        // went wrong and no way to reach what went wrong is
+                        // the shape of dead end this whole stage is about.
+                        if line.severity != Severity::Said
+                            && ui.small_button("Open the log").clicked()
+                        {
+                            asked = Some(Asked::OpenLog);
+                        }
+
+                        if line.text.contains("are both on") && ui.small_button("Fix it").clicked()
+                        {
+                            asked = Some(Asked::Keys);
+                        }
                     });
                 }
             });
@@ -279,6 +314,7 @@ pub fn history_window(ctx: &egui::Context, open: &mut bool, notices: &mut Notice
     }
 
     *open = showing;
+    asked
 }
 
 #[cfg(test)]

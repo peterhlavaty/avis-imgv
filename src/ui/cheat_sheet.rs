@@ -29,6 +29,10 @@ struct Row {
     /// The sentence, which exists on every binding and was read only by the
     /// keyboard editor.
     description: &'static str,
+    /// Its registry path, so a row can lead to the page that owns it.
+    path: &'static str,
+    /// Whether it can be changed at all.
+    editable: bool,
 }
 
 /// Which scopes are live in each mode.
@@ -62,6 +66,7 @@ pub fn ui(
     mode: Mode,
     just_opened: bool,
     query: &mut String,
+    change: &mut Option<&'static str>,
 ) -> bool {
     let mut open = true;
     let bindings = bindings::all();
@@ -104,6 +109,8 @@ pub fn ui(
                         key,
                         name: binding.name(),
                         description: binding.description(),
+                        path: binding.path(),
+                        editable: binding.is_editable(),
                     })
                 })
                 .collect();
@@ -148,7 +155,21 @@ pub fn ui(
                         .spacing([18.0, 4.0])
                         .show(ui, |ui| {
                             for row in rows {
-                                ui.label(RichText::new(&row.key).monospace().strong());
+                                // A route out, not only a statement. Every row
+                                // opens the page that owns it, with its own
+                                // binding armed.
+                                let key = ui.add(
+                                    egui::Label::new(RichText::new(&row.key).monospace().strong())
+                                        .sense(egui::Sense::click()),
+                                );
+
+                                if row.editable {
+                                    if key.on_hover_text("Click to change this key").clicked() {
+                                        *change = Some(row.path);
+                                    }
+                                } else {
+                                    key.on_hover_text("The viewer reads this key itself");
+                                }
 
                                 // The sentence goes on the row rather than in a
                                 // tooltip: this is the reference. It has been on
@@ -165,9 +186,19 @@ pub fn ui(
 
                 ui.add_space(10.0);
                 ui.separator();
-                ui.label(
-                    RichText::new("These are the keys as configured. Escape closes this.").weak(),
-                );
+
+                // The footer was a statement; it is the route out. This sheet
+                // is the best documentation in the program and it led nowhere.
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("These are the keys as configured. Escape closes this.")
+                            .weak(),
+                    );
+
+                    if ui.button("Change them…").clicked() {
+                        *change = Some("");
+                    }
+                });
             });
         });
 
@@ -277,8 +308,16 @@ mod tests {
         });
 
         let mut query = String::new();
+        let mut change = None;
         assert!(
-            ui(&ctx, &Config::default(), Mode::Image, true, &mut query),
+            ui(
+                &ctx,
+                &Config::default(),
+                Mode::Image,
+                true,
+                &mut query,
+                &mut change
+            ),
             "it closed on the frame it opened"
         );
     }
@@ -299,12 +338,14 @@ mod tests {
         });
 
         let mut query = String::new();
+        let mut change = None;
         assert!(!ui(
             &ctx,
             &Config::default(),
             Mode::Image,
             false,
-            &mut query
+            &mut query,
+            &mut change
         ));
     }
 
@@ -315,7 +356,15 @@ mod tests {
         ctx.begin_pass(egui::RawInput::default());
 
         let mut query = String::new();
-        assert!(ui(&ctx, &Config::default(), Mode::Image, false, &mut query));
+        let mut change = None;
+        assert!(ui(
+            &ctx,
+            &Config::default(),
+            Mode::Image,
+            false,
+            &mut query,
+            &mut change
+        ));
     }
 
     /// The sheet reads the configuration rather than a fixed list, so a
@@ -343,6 +392,14 @@ mod tests {
         ctx.begin_pass(egui::RawInput::default());
 
         let mut query = "zzzznothing".to_string();
-        assert!(ui(&ctx, &Config::default(), Mode::Image, false, &mut query));
+        let mut change = None;
+        assert!(ui(
+            &ctx,
+            &Config::default(),
+            Mode::Image,
+            false,
+            &mut query,
+            &mut change
+        ));
     }
 }

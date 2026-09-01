@@ -105,6 +105,11 @@ pub struct Status<'a> {
     /// spend their time, while one key cycles all six and three of the six draw
     /// no photographs at all.
     pub mode: crate::app::mode::Mode,
+    /// How many messages have arrived and not been read.
+    ///
+    /// One of the two ways into the history, so it is reachable without the
+    /// menu bar being up.
+    pub unread: usize,
 }
 
 /// What the user asked for by clicking in the bar.
@@ -153,6 +158,8 @@ pub enum BarAction {
     ShowOnlyStars(u8),
     /// Set the narrowing rules aside without forgetting them.
     ShowEverything,
+    /// Open the history of what the viewer has said.
+    ShowMessages,
 }
 
 /// One word at the left end saying which mode is on screen.
@@ -500,6 +507,24 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                 ui.with_layout(
                     egui::Layout::right_to_left(eframe::emath::Align::Max),
                     |ui| {
+                        if status.unread > 0 {
+                            let count = ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(format!("✉ {}", status.unread)).small(),
+                                )
+                                .sense(Sense::click()),
+                            );
+
+                            if count
+                                .on_hover_text(
+                                    "Messages you have not read. The band holds four for six                                      seconds; this does not.",
+                                )
+                                .clicked()
+                            {
+                                outcome.bar.push(BarAction::ShowMessages);
+                            }
+                        }
+
                         outcome
                             .commands
                             .extend(zoom_slider(ui, status.percentage_zoom));

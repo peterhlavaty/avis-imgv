@@ -118,11 +118,17 @@ impl Entry {
         self.annotations.rating
     }
 
+    /// Whether this file answers to a keyword somebody typed.
+    ///
+    /// The same predicate the browsing bar uses, over the hierarchy as well as
+    /// the leaves: the two used to disagree, so the same word typed in the two
+    /// places gave two different sets of files.
     pub fn has_tag(&self, tag: &str) -> bool {
         self.annotations
             .keywords
             .iter()
-            .any(|keyword| keyword.eq_ignore_ascii_case(tag))
+            .chain(self.annotations.hierarchy.iter())
+            .any(|keyword| crate::metadata::xmp::keyword_matches(keyword, tag))
     }
 
     /// Whether the scan has reached this file.
