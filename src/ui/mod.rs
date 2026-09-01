@@ -12,6 +12,7 @@ pub mod navigator;
 pub mod notice;
 pub mod perf_metrics;
 pub mod placeholders;
+pub mod progress;
 pub mod settings;
 pub mod surface;
 pub mod tag_panel;

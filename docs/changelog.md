@@ -2,6 +2,17 @@
 
 ## 2026-09-01
 
+- **A folder is read between frames.** The crawl was three synchronous lines and
+  on a deep tree or a share over the network the window stopped repainting
+  entirely — the one state that draws nothing because the program is not
+  drawing at all. It is walked a few milliseconds at a time now, and a strip at
+  the foot of the window says what is happening and how many photographs have
+  been found so far.
+- **Something slow says so.** The strip appears for a folder being read, for
+  the times a stack is grouped by, and for decoding that has been going for
+  more than half a second. A percentage only where there is an honest total: a
+  bar for the stack read, a spinner and a count for the walk.
+
 - **Twenty-five of the twenty-six settings that waited for a restart now take
   effect while the window is open.** The seventeen the caches are built from —
   the two budgets, the preload radii, the decode ceiling, the thumbnail

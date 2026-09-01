@@ -582,6 +582,27 @@ name — the window says so across the top, with a button that goes to the
 control. A value outside what a control can produce is shown, marked, and left
 exactly as it was written: hand-editing always wins.
 
+### While it is working
+
+A folder is read a few milliseconds at a time, between frames, so the window
+keeps drawing while a deep tree or a share over the network is walked — and a
+strip at the foot of the window says what is happening and how many photographs
+have been found so far. It used to be three synchronous lines: on a slow tree
+the window stopped repainting entirely, with nothing on screen to say why,
+which is the one state that draws nothing because the program is not drawing.
+
+The strip appears for three things and says which: reading a folder, reading
+the times a stack is grouped by, and decoding — the last only once it has been
+going for half a second, because something is nearly always decoding and a mark
+that is always on says nothing.
+
+A percentage only where there is an honest total. The stack read counts what it
+is working through, so it gets a bar; a folder walk does not know how many
+photographs it will find until it has found them, so it gets a spinner and a
+count. The cache readout cannot give one at all: what is in RAM is the length
+of a list trimmed to a budget, so it is permanently less than the folder and a
+bar driven by it would never fill.
+
 ### When a change takes effect
 
 Everything in the settings window applies while the window is open, with one

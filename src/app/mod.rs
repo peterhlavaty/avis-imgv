@@ -34,7 +34,9 @@ use crate::organize::pairs::Pairs;
 use crate::session::{Geometry, Session};
 use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
-use crate::ui::{cheat_sheet, filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, theme};
+use crate::ui::{
+    cheat_sheet, filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, progress, theme,
+};
 use crate::view::image_view::bottom_bar::Marks;
 use crate::view::narrow::Narrowing;
 use crate::view::organize::OrganizeView;
@@ -46,6 +48,37 @@ use mode::Mode;
 
 /// Images a benchmark run walks through before reporting.
 const BENCHMARK_IMAGES: usize = 500;
+
+/// A folder being walked, and what to do when the walk finishes.
+///
+/// The follow-on is carried here because the callers hand it in: eight of the
+/// nine ways into a folder pass the photograph to land on and ignore what they
+/// get back, so the only one with anything else to do afterwards is the folder
+/// job, which has to tell its own view about the new collection.
+struct Opening {
+    walk: crawler::Walk,
+    folder: PathBuf,
+    selected: Option<PathBuf>,
+    /// Whether the folder-job view is waiting for the collection.
+    tell_organize: bool,
+}
+
+/// How long something has to have been decoding before it is worth saying.
+///
+/// Something is nearly always decoding while a folder is walked through, and a
+/// mark that is always on says nothing. Half a second is past the point where
+/// a person starts to wonder.
+const WORTH_SAYING: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// How long one frame may spend walking a folder.
+///
+/// Half of a sixteen-millisecond frame, so the window keeps its sixty a second
+/// while a deep tree is read and a flat folder — one directory — still opens
+/// on the frame it was asked for. A budget rather than a count of directories,
+/// for the same reason the uploads have one: a hundred entries on a local disk
+/// and one on a share over a network are the same number and a thousandfold
+/// difference in what they cost.
+const CRAWL_BUDGET: std::time::Duration = std::time::Duration::from_millis(8);
 
 pub struct App {
     image_view: ImageView,
@@ -178,6 +211,10 @@ pub struct App {
     /// frame: `set_theme` inside a frame that has already begun is a frame
     /// drawn half in each.
     pending_theme: Option<bool>,
+    /// The folder being walked, if one is.
+    opening: Option<Opening>,
+    /// When the decoders last went from idle to busy.
+    busy_since: Option<std::time::Instant>,
     /// How many decode threads the running pool was started with.
     ///
     /// The one setting that genuinely cannot take effect while the window is
@@ -332,6 +369,8 @@ impl App {
             legend_visible: false,
             placeholders_visible: false,
             messages_visible: false,
+            opening: None,
+            busy_since: None,
             pending_theme: None,
             pending_text_size: false,
             forced_panel_width: false,
@@ -836,11 +875,87 @@ impl App {
         self.open_directory(&folder, land_on.as_deref());
     }
 
-    /// Crawls `path` and opens what it finds.
+    /// Starts crawling `path`, and opens what it finds when the walk ends.
+    ///
+    /// A walk already going is replaced: a second folder asked for while the
+    /// first is still being read is the answer to the first, which is the same
+    /// rule the watcher's re-crawl needs anyway.
     fn open_directory(&mut self, path: &Path, selected: Option<&Path>) {
-        let mut paths = crawler::crawl(path, self.flattened);
-        crawler::sort(&mut paths);
-        self.open_within(paths, selected, Some(path.to_path_buf()));
+        self.opening = Some(Opening {
+            walk: crawler::Walk::new(path, self.flattened),
+            folder: path.to_path_buf(),
+            selected: selected.map(Path::to_path_buf),
+            tell_organize: false,
+        });
+    }
+
+    /// Walks a little more of whatever folder is being read.
+    ///
+    /// Called once a frame, before anything is drawn, so the window keeps
+    /// repainting while a deep tree or a share over the network is walked.
+    fn continue_opening(&mut self, ctx: &egui::Context) {
+        let Some(opening) = &mut self.opening else {
+            return;
+        };
+
+        if opening.walk.step(CRAWL_BUDGET) {
+            // More to do: ask for the frame that will do it.
+            ctx.request_repaint();
+            return;
+        }
+
+        let Some(opening) = self.opening.take() else {
+            return;
+        };
+
+        let paths = opening.walk.finish();
+        self.open_within(paths, opening.selected.as_deref(), Some(opening.folder));
+
+        if opening.tell_organize {
+            self.organize_view.set_images(self.all_paths());
+        }
+    }
+
+    /// What the viewer is busy with, if anything worth saying.
+    ///
+    /// In the order it matters: a folder being read is the one that used to
+    /// stop the window repainting, a stack read is the one that announced
+    /// itself with a six-second notice and then reported nothing, and decoding
+    /// is mentioned only once it has been going long enough to be a question.
+    fn doing(&mut self) -> Option<progress::Doing> {
+        if self.is_opening() {
+            self.busy_since = None;
+            return Some(progress::Doing::Reading(self.opening_found()));
+        }
+
+        if let Some((done, total)) = self.stacking.progress() {
+            self.busy_since = None;
+            return Some(progress::Doing::Stacking(done, total));
+        }
+
+        let loading = self.image_view.stats().loading + self.grid_view.stats().loading;
+        if loading == 0 {
+            self.busy_since = None;
+            return None;
+        }
+
+        // Only once it has been going for a moment. Something is nearly always
+        // decoding while a folder is being walked through, and a mark that is
+        // always on says nothing; the question this answers is "is it stuck".
+        let since = *self.busy_since.get_or_insert_with(std::time::Instant::now);
+        (since.elapsed() >= WORTH_SAYING).then_some(progress::Doing::Decoding(loading))
+    }
+
+    /// Whether a folder is still being read.
+    pub(super) fn is_opening(&self) -> bool {
+        self.opening.is_some()
+    }
+
+    /// How many photographs the walk in progress has found so far.
+    pub(super) fn opening_found(&self) -> usize {
+        self.opening
+            .as_ref()
+            .map_or(0, |opening| opening.walk.found())
     }
 
     pub(super) fn apply(&mut self, command: Command, ctx: &egui::Context) {
@@ -986,6 +1101,7 @@ impl eframe::App for App {
             crate::utils::surrender_focus(ctx);
         }
 
+        self.continue_opening(ctx);
         input::update_overlay(ctx, &mut self.overlay, &self.config);
         self.handle_gestures(ctx);
         self.handle_dropped_files(ctx);
@@ -1082,6 +1198,12 @@ impl eframe::App for App {
         self.remember_runtime();
         self.handle_pending_commands(ctx);
         self.handle_copying(ctx);
+        let doing = self.doing();
+        progress::ui(ctx, doing.as_ref());
+        if doing.is_some() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(120));
+        }
+
         self.report_problems();
         if self.notices.ui(ctx) {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));

@@ -244,6 +244,12 @@ impl App {
 
         self.annotations.forget_all();
         self.open_directory(&base, selected.as_deref());
-        self.organize_view.set_images(self.all_paths());
+
+        // The one follow-on that is not handed in as an argument: this view
+        // wants the collection, and the collection does not exist until the
+        // walk finishes.
+        if let Some(opening) = &mut self.opening {
+            opening.tell_organize = true;
+        }
     }
 }

@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 use std::{env, fs};
 
 use crate::formats;
@@ -116,35 +117,115 @@ fn absolute(path: PathBuf) -> PathBuf {
     }
 }
 
-/// Collects every image in `path`, descending into sub-directories when
-/// `flatten` is set.
-pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
-    let mut images = Vec::new();
-    let mut directories = vec![path.to_path_buf()];
+/// A crawl in progress, walked a directory at a time.
+///
+/// The crawl used to be three synchronous lines, and on a deep tree or a share
+/// over the network every one of the nine ways into it stopped the window
+/// repainting with nothing on screen to say why — the one state that draws
+/// nothing because the program is not drawing at all. A `ViewportCommand` is
+/// applied after `update` returns, so even setting the title first reaches the
+/// screen only once the crawl has finished: there is no interim measure short
+/// of this.
+///
+/// Chunked rather than moved to a worker. Every caller has a follow-on that
+/// assumes the collection is in hand when the walk ends — landing on a path,
+/// restoring a position, re-focusing after a folder job — and eight of the
+/// nine hand that follow-on *in* rather than reading what is returned, so
+/// carrying it across frames is a field on this and not nine rewrites.
+pub struct Walk {
+    root: PathBuf,
+    flatten: bool,
+    /// What is left to look in.
+    directories: Vec<PathBuf>,
+    /// Every directory actually opened, by the name the filesystem settles on.
+    seen: HashSet<PathBuf>,
+    images: Vec<PathBuf>,
+}
 
-    // Every directory actually opened, by the name the filesystem settles on.
-    //
-    // Testing whether something is a directory follows links, so a symbolic
-    // link or a Windows junction pointing at one of its own ancestors used to
-    // send a flattened crawl round for ever — collecting the same photographs
-    // again at a longer path each time until the memory ran out. Somebody's
-    // `Pictures/latest -> .` is all it takes.
-    let mut seen: HashSet<PathBuf> = HashSet::new();
+impl Walk {
+    pub fn new(path: &Path, flatten: bool) -> Walk {
+        Walk {
+            root: path.to_path_buf(),
+            flatten,
+            directories: vec![path.to_path_buf()],
+            seen: HashSet::new(),
+            images: Vec::new(),
+        }
+    }
 
-    while let Some(directory) = directories.pop() {
-        if !seen.insert(fs::canonicalize(&directory).unwrap_or_else(|_| directory.clone())) {
+    /// Looks in as many more as `budget` pays for.
+    ///
+    /// Returns whether there is anything left to look in. A budget rather than
+    /// a count, and for the same reason the uploads have one: the cost is the
+    /// directory, not the number of them. A hundred entries on a local disk
+    /// and one on a share over a network are the same number and a
+    /// thousandfold difference in what it costs to read them, so a count would
+    /// either crawl slowly on the fast case or stutter on the slow one.
+    ///
+    /// Always at least one, so a single directory that takes longer than the
+    /// whole budget still makes progress rather than being looked at for ever.
+    pub fn step(&mut self, budget: Duration) -> bool {
+        let started = Instant::now();
+
+        loop {
+            let Some(directory) = self.directories.pop() else {
+                return false;
+            };
+
+            self.look_in(&directory);
+
+            if started.elapsed() >= budget {
+                return !self.directories.is_empty();
+            }
+        }
+    }
+
+    /// Walks the rest of it, however long that takes.
+    pub fn run(mut self) -> Vec<PathBuf> {
+        while self.step(Duration::from_secs(3600)) {}
+        self.finish()
+    }
+
+    /// How many photographs have been found so far.
+    pub fn found(&self) -> usize {
+        self.images.len()
+    }
+
+    /// The collection, in order.
+    pub fn finish(mut self) -> Vec<PathBuf> {
+        tracing::info!(
+            "Found {} images in {}",
+            self.images.len(),
+            self.root.display()
+        );
+
+        sort(&mut self.images);
+        self.images
+    }
+
+    fn look_in(&mut self, directory: &Path) {
+        // Testing whether something is a directory follows links, so a
+        // symbolic link or a Windows junction pointing at one of its own
+        // ancestors used to send a flattened crawl round for ever —
+        // collecting the same photographs again at a longer path each time
+        // until the memory ran out. Somebody's `Pictures/latest -> .` is all
+        // it takes.
+        if !self
+            .seen
+            .insert(fs::canonicalize(directory).unwrap_or_else(|_| directory.to_path_buf()))
+        {
             tracing::debug!(
                 "Already crawled {}, not going round again",
                 directory.display()
             );
-            continue;
+            return;
         }
 
-        let entries = match fs::read_dir(&directory) {
+        let entries = match fs::read_dir(directory) {
             Ok(entries) => entries,
             Err(e) => {
                 tracing::error!("Failure reading {} -> {e}", directory.display());
-                continue;
+                return;
             }
         };
 
@@ -156,18 +237,24 @@ pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
             }
 
             if path.is_dir() {
-                if flatten {
-                    directories.push(path);
+                if self.flatten {
+                    self.directories.push(path);
                 }
             } else if formats::is_supported(&path) {
-                images.push(path);
+                self.images.push(path);
             }
         }
     }
+}
 
-    tracing::info!("Found {} images in {}", images.len(), path.display());
-    sort(&mut images);
-    images
+/// Collects every image in `path`, descending into sub-directories when
+/// `flatten` is set.
+///
+/// The whole walk at once, for the callers that have nothing else to do while
+/// it happens: a test, and the folder scan. What the window does is
+/// [`Walk::step`].
+pub fn crawl(path: &Path, flatten: bool) -> Vec<PathBuf> {
+    Walk::new(path, flatten).run()
 }
 
 /// Whether an entry is one the filesystem means to keep out of the way.
