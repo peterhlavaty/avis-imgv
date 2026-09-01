@@ -37,6 +37,13 @@ pub struct HistoryConfig {
     #[serde(default = "default_merge_within_ms")]
     pub merge_within_ms: u64,
 
+    /// Whether the panel is up.
+    ///
+    /// Written whenever the key toggles it, so the next launch opens with it
+    /// as it was left, and readable from the settings window so there is a
+    /// route to it that is not a key.
+    #[serde(default)]
+    pub panel_visible: bool,
     /// How wide the panel is, in points.
     #[serde(default = "default_history_panel_width")]
     pub panel_width: f32,
@@ -55,6 +62,7 @@ impl Default for HistoryConfig {
             remember: 0,
             undoes: Undoes::default(),
             merge_within_ms: default_merge_within_ms(),
+            panel_visible: false,
             panel_width: default_history_panel_width(),
             sc_undo: default_sc_undo(),
             sc_redo: default_sc_redo(),

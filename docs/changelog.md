@@ -2,6 +2,24 @@
 
 ## 2026-09-01
 
+- **Three ways to put the history panel away, and they agree.** `Ctrl + H` —
+  rebindable, like every key here — the second button anywhere in the panel,
+  and *Show the history panel* in the settings. Whichever is used it is written
+  down, so the next launch opens with it as it was left. The second button
+  answers on the panel's background and on the frame where nothing has been
+  done yet, not only on a row: a panel whose only route to its own settings is
+  a row has no route at all until something has happened.
+- **One press, one line of history.** A key that shows a panel also writes the
+  configuration, so both halves of the watcher saw it and the list read
+  *Opened the history* followed by *Changed show the history panel* — two rows
+  undoing the same thing. Four fields are both a piece of the view and a line
+  in the file; the snapshot owns them now and the settings look steps over
+  them. The number of thumbnails across and advance-after-marking had been
+  doing this since the watcher landed.
+- **"Show the strip" had never worked.** The filmstrip's own visibility was
+  copied from the program into the configuration every frame and never the
+  other way, so ticking it in the settings window was overwritten on the frame
+  it was ticked. Both panels read the file now as well as write it.
 - **The history survives closing the viewer, when it is still true.** It is
   written beside the session file and read back at the next launch, but only
   when it still describes what is on disk: a signature covers every photograph

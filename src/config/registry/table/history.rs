@@ -72,6 +72,19 @@ pub fn rows() -> Vec<Row> {
         ),
         row!(
             History / Plain,
+            "history.panel_visible",
+            "Show the history panel",
+            "The list of what you have done, down the right-hand side. The same thing \
+             the key does, and the same thing the second button on the panel itself \
+             offers; however it is changed it is written here, so the next launch opens \
+             with it as it was left.",
+            ["history", "panel", "show", "hide", "list", "undo"],
+            Live,
+            None,
+            boolean!(history.panel_visible),
+        ),
+        row!(
+            History / Plain,
             "history.panel_width",
             "How wide the history panel is",
             "The list of what you have done, down the right-hand side. Dragging its \

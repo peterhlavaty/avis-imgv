@@ -203,10 +203,11 @@ impl App {
 
     /// Writes back what the keys have nudged.
     ///
-    /// Six values a key changes for the session and the configuration also
+    /// Seven values a key changes for the session and the configuration also
     /// holds: the overlay's corner, how many photographs are side by side,
     /// how many thumbnails are across, what is drawn under them, whether
-    /// marking advances, and whether the strip of thumbnails is up. Once the
+    /// marking advances, whether the strip of thumbnails is up, and whether
+    /// the history panel is. Once the
     /// configuration is authoritative these have to be written, or the next
     /// save from the settings window snaps the view back to whatever the file
     /// still says — and the key's effect is lost at the next launch besides.
@@ -248,6 +249,11 @@ impl App {
 
         if self.settings.grid_view.filmstrip_visible != self.filmstrip_visible {
             self.settings.grid_view.filmstrip_visible = self.filmstrip_visible;
+            moved = true;
+        }
+
+        if self.settings.history.panel_visible != self.history_panel_visible {
+            self.settings.history.panel_visible = self.history_panel_visible;
             moved = true;
         }
 
@@ -341,6 +347,14 @@ impl App {
         // at the next deed: a limit that has not bitten yet is a limit nobody
         // can tell is working.
         self.history.set_remember(self.settings.history.remember);
+
+        // The other half of the two the panels need. `remember_runtime` writes
+        // the live flag into the file so a key press survives the next launch;
+        // without this, that was the only direction, and the tick in the
+        // settings window was overwritten on the same frame by the flag it had
+        // just been asked to change. "Show the strip" had never worked.
+        self.filmstrip_visible = self.settings.grid_view.filmstrip_visible;
+        self.history_panel_visible = self.settings.history.panel_visible;
     }
 }
 

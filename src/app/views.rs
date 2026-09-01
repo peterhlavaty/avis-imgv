@@ -219,7 +219,8 @@ impl App {
             // asked for the strip, and a strip of no height is not an answer.
             self.settings.grid_view.filmstrip_height = DEFAULT_FILMSTRIP_HEIGHT;
             self.notices.say(format!(
-                "The strip had no height; it is {DEFAULT_FILMSTRIP_HEIGHT:.0} points now.                  Drag its top edge to change it."
+                "The strip had no height; it is {DEFAULT_FILMSTRIP_HEIGHT:.0} points \
+                 now. Drag its top edge to change it."
             ));
         }
 

@@ -124,6 +124,7 @@ impl Watcher {
 
         if !crate::config::registry::rows()
             .iter()
+            .filter(|row| !ALSO_IN_THE_SNAPSHOT.contains(&row.path))
             .any(|row| row.access.differs(was, now))
         {
             return None;
@@ -146,6 +147,25 @@ impl Watcher {
         self.was.as_ref()
     }
 }
+
+/// Settings the snapshot already watches, which must not be counted twice.
+///
+/// A handful of fields are both a piece of the view and a line in the
+/// configuration file: the key that changes them writes them back, which is
+/// what makes them survive the next launch. That leaves them visible to *both*
+/// looks, and one act — a press of the key that shows the history panel —
+/// arrives as two rows, "Opened the history" and "Changed show the history
+/// panel", each of which undoes the same thing.
+///
+/// The snapshot wins, because it is the half that describes what the user did
+/// rather than where it happened to be stored, and because it is the half that
+/// puts the panel back rather than only the file.
+pub const ALSO_IN_THE_SNAPSHOT: &[&str] = &[
+    "grid_view.images_per_row",
+    "grid_view.filmstrip_visible",
+    "tags.advance_after_marking",
+    "history.panel_visible",
+];
 
 /// Whether a new set of changes is the one before it, continuing.
 ///
@@ -284,6 +304,43 @@ mod tests {
 
         assert!(matches!(older[0], Change::Cursor(3, 12)));
         assert!(matches!(older[1], Change::Columns(4, 5)));
+    }
+
+    /// The names have to be paths the registry knows, or the list would stop
+    /// excluding anything the day one of them was renamed — silently, and back
+    /// to two rows for one press.
+    #[test]
+    fn everything_excluded_is_a_real_setting() {
+        for path in ALSO_IN_THE_SNAPSHOT {
+            assert!(
+                crate::config::registry::row(path).is_some(),
+                "{path} is not a setting"
+            );
+        }
+    }
+
+    /// A key that shows a panel writes the file as well, so both looks see it.
+    /// Only one of them may make a row.
+    #[test]
+    fn a_setting_the_snapshot_watches_makes_no_settings_row() {
+        let mut watcher = Watcher::watching(&Config::default());
+
+        let mut now = Config::default();
+        now.history.panel_visible = !now.history.panel_visible;
+        now.grid_view.filmstrip_visible = !now.grid_view.filmstrip_visible;
+
+        assert!(watcher.look_at_settings(&now).is_none());
+    }
+
+    /// And anything else still does.
+    #[test]
+    fn an_ordinary_setting_still_makes_a_row() {
+        let mut watcher = Watcher::watching(&Config::default());
+
+        let mut now = Config::default();
+        now.history.remember = 25;
+
+        assert!(watcher.look_at_settings(&now).is_some());
     }
 
     #[test]

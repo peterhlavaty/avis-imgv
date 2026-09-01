@@ -13,23 +13,22 @@ impl App {
 
         // The toggle has to change a pixel whatever the state, or the key
         // looks broken on a fresh start.
-        if self.history.is_empty() {
-            panel::nothing_yet(ctx, self.history_panel_visible, width);
-            return;
-        }
-
-        let actions = panel::ui(
-            ctx,
-            self.history_panel_visible,
-            width,
-            &mut self.history_panel,
-            &self.history,
-        );
+        let actions = match self.history.is_empty() {
+            true => panel::nothing_yet(ctx, self.history_panel_visible, width),
+            false => panel::ui(
+                ctx,
+                self.history_panel_visible,
+                width,
+                &mut self.history_panel,
+                &self.history,
+            ),
+        };
 
         for action in actions {
             match action {
                 Action::GoTo(id) => self.go_to_in_history(id),
                 Action::Repeat(id) => self.repeat_in_history(id),
+                Action::Hide => self.toggle_history_panel(),
                 Action::Settings(path) => self.open_settings_at(path),
                 Action::Width(width) => {
                     self.settings.history.panel_width = width;
@@ -37,6 +36,17 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Shows or hides the panel, and remembers which.
+    ///
+    /// One place, so that the key, the tick in the settings window and the
+    /// second button on the panel itself cannot come to disagree — and so that
+    /// however it was asked for, the next launch opens with it as it was left.
+    pub(in crate::app) fn toggle_history_panel(&mut self) {
+        self.history_panel_visible = !self.history_panel_visible;
+        self.settings.history.panel_visible = self.history_panel_visible;
+        self.save_settings();
     }
 
     /// Goes back — or forward — to a row chosen in the panel.

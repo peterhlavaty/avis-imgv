@@ -21,6 +21,8 @@ pub enum Action {
     GoTo(NodeId),
     /// Do this one thing again, as a new row at the end.
     Repeat(NodeId),
+    /// Put the panel away.
+    Hide,
     /// Open the settings at a page.
     Settings(&'static str),
     /// The panel was dragged to this width.
@@ -77,6 +79,7 @@ pub fn ui(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     rows(ui, state, history, &mut actions);
+                    background(ui, &mut actions);
                 });
         });
 
@@ -142,6 +145,49 @@ fn rows(ui: &mut egui::Ui, state: &mut State, history: &super::History, actions:
     state.showing = Some(cursor);
 }
 
+/// The rows every menu in this panel ends with.
+///
+/// One rule rather than two, because a menu opened on a row and a menu opened
+/// on the space beside it are the same menu as far as the panel is concerned,
+/// and two copies would be two things to keep in step.
+fn always(ui: &mut egui::Ui, actions: &mut Vec<Action>) {
+    if ui
+        .button("Hide this panel")
+        .on_hover_text("It is still being kept; this only puts the list away.")
+        .clicked()
+    {
+        actions.push(Action::Hide);
+        ui.close();
+    }
+
+    // Every menu in this program ends with the settings page that owns it.
+    if crate::ui::surface::more_settings(ui, crate::config::registry::Page::History) {
+        actions.push(Action::Settings("history.panel_visible"));
+        ui.close();
+    }
+}
+
+/// The menu the panel itself carries, away from any row.
+///
+/// Attached to whatever is left below the list so that a right-click anywhere
+/// in the panel answers, including on the frame where there is nothing in it
+/// yet. A panel whose only route to its own settings is a row is a panel with
+/// no route at all until something has been done.
+fn background(ui: &mut egui::Ui, actions: &mut Vec<Action>) {
+    let rest = ui.available_size_before_wrap();
+
+    if rest.y <= 0.0 || rest.x <= 0.0 {
+        return;
+    }
+
+    let (_, empty) = ui.allocate_exact_size(rest, egui::Sense::click());
+
+    crate::ui::surface::menu(ui, &empty, |ui| {
+        ui.set_max_width(320.0);
+        always(ui, actions);
+    });
+}
+
 /// One row: what it was, whether it still stands, and its menu.
 fn row(
     ui: &mut egui::Ui,
@@ -193,11 +239,8 @@ fn row(
             ui.close();
         }
 
-        // Every menu in this program ends with the settings page that owns it.
-        if crate::ui::surface::more_settings(ui, crate::config::registry::Page::History) {
-            actions.push(Action::Settings("history.remember"));
-            ui.close();
-        }
+        ui.separator();
+        always(ui, actions);
     });
 }
 
@@ -219,17 +262,26 @@ fn when(node: &super::Node<Entry>) -> String {
 ///
 /// The toggle has to change a pixel whatever the state, or the key looks
 /// broken on a fresh start.
-pub fn nothing_yet(ctx: &egui::Context, visible: bool, width: f32) {
+pub fn nothing_yet(ctx: &egui::Context, visible: bool, width: f32) -> Vec<Action> {
+    let mut actions = Vec::new();
+
     egui::SidePanel::right("history_panel")
         .resizable(false)
         .show_separator_line(false)
         .default_width(width)
         .show_animated(ctx, visible, |ui| {
+            if crate::utils::is_a_window_in_front(ui.ctx()) {
+                ui.disable();
+            }
+
             ui.add_space(8.0);
             ui.heading("History");
             ui.add_space(6.0);
             ui.label(RichText::new("Nothing has been done yet.").weak());
+            background(ui, &mut actions);
         });
+
+    actions
 }
 
 #[cfg(test)]

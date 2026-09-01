@@ -191,6 +191,15 @@ Leaving the seam for later means the next session pays for it with interest.
   dragged width back (`ui::width::Dragged`): a width that moved without the
   button down is an animation or a layout pass, and writing it back is a
   feedback loop that corrupts the setting.
+- **A value that is both view state and a setting is watched once.** A key
+  that nudges a panel writes it back, which leaves it visible to the snapshot
+  *and* to the settings look, and one press then makes two rows that undo the
+  same thing. `history::watch::ALSO_IN_THE_SNAPSHOT` names them and the
+  settings look steps over them; the snapshot wins, because it is the half that
+  puts the panel back rather than only the file. Mirroring is two-way or it is
+  broken: `remember_runtime` writes the file from the program and
+  `apply_settings` writes the program from the file. "Show the strip" had only
+  the first, and so did nothing at all.
 - **Anything kept between runs carries a signature of what it assumed.**
   `history::persist` stores one over every file its rows mention — sidecars
   included, because undoing a mark writes a sidecar and never touches the

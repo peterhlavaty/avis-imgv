@@ -293,6 +293,9 @@ impl App {
         // the first settings change of the session has something to be
         // compared against.
         let watching = Watcher::watching(&settings);
+        // What the panel was left showing last time, or what a launch is told
+        // to start with.
+        let history_up = settings.history.panel_visible || config.general.panels_at_start.history;
         // A first run is one with no session file. `Session::load` hands back
         // a default for a missing file and an unreadable one alike, so the
         // file itself has to be looked for.
@@ -370,7 +373,7 @@ impl App {
             history: History::with_limit(config.history.remember),
             watching,
             settings_touched: false,
-            history_panel_visible: panels.history,
+            history_panel_visible: history_up,
             history_panel: crate::history::panel::State::default(),
             narrowing: Narrowing::of(&config.browsing),
             stacking: Stacking::of(&config.group, config.browsing.stack_by_default),
@@ -420,7 +423,8 @@ impl App {
                 ));
             }
             crate::history::persist::Read::Stale => {
-                let line = "The folder has changed since the last run, so what was done then                             can no longer be taken back";
+                let line = "The folder has changed since the last run, so what was done \
+                            then can no longer be taken back";
                 app.startup_notices.push(line.to_string());
                 app.notices.say(line);
             }
@@ -1095,9 +1099,7 @@ impl App {
             Command::ToRejectedFolder => self.send_to_rejected(),
             Command::Undo => self.undo(),
             Command::Redo => self.redo(),
-            Command::ToggleHistoryPanel => {
-                self.history_panel_visible = !self.history_panel_visible;
-            }
+            Command::ToggleHistoryPanel => self.toggle_history_panel(),
             Command::ToggleFilmstrip => self.toggle_filmstrip(),
             Command::ToggleStacking => self.toggle_stacking(),
             Command::ToggleStack => self.toggle_stack(),

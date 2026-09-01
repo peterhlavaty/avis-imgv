@@ -191,8 +191,12 @@ back and then doing something *different* keeps both, so the four that were
 undone are still reachable rather than overwritten. What that makes is a tree
 rather than a list.
 
-`Ctrl + H` opens the panel down the right-hand side listing everything done
-this run, in the order it happened. The row you are on is picked out; anything
+`Ctrl + H` shows and hides the panel down the right-hand side listing
+everything done this run, in the order it happened. The key is
+`history.sc_panel` and can be rebound like any other; the second button
+anywhere in the panel offers *Hide this panel* and a route to its settings, and
+*Show the history panel* in the settings does the same. However it is changed
+it is written down, so the next launch opens with it as it was left. The row you are on is picked out; anything
 taken back, or on a branch you left, is still in the list and drawn in italics
 rather than removed. Clicking a row takes the viewer back — or forward — to
 just after it. The second button on a row offers *Do only this again*, which
@@ -1046,6 +1050,7 @@ break the pairing it depends on.
 | `remember` | How many of the things you have done are kept, or nought for all of them | `0` |
 | `undoes` | Which kinds one press of undo comes to rest on: `view`, `settings`, `content` | all on |
 | `merge_within_ms` | How close two nudges have to be to count as one line. Nought lists every notch | `500` |
+| `panel_visible` | Whether the panel is up. Written whichever way it is changed | `false` |
 | `panel_width` | How wide the history panel is | `260` |
 | `sc_undo` | Take back the last thing done | `Ctrl + Z` |
 | `sc_redo` | Do it again | `Ctrl + Y` |
