@@ -30,10 +30,12 @@ const WARNING: Color32 = Color32::from_rgb(219, 160, 96);
 const WORTH_SAYING: f32 = 0.1;
 
 /// Draws `histogram`, and the clipping figures under it.
-pub fn show(ui: &mut egui::Ui, histogram: &Histogram) {
+pub fn show(ui: &mut egui::Ui, histogram: &Histogram) -> Option<&'static str> {
     if histogram.is_empty() {
-        return;
+        return None;
     }
+
+    let mut asked = None;
 
     ui.add_space(20.0);
     ui.label(RichText::new("Tones").heading())
@@ -72,7 +74,9 @@ pub fn show(ui: &mut egui::Ui, histogram: &Histogram) {
         egui::StrokeKind::Inside,
     );
 
-    clipping(ui, histogram);
+    asked = clipping(ui, histogram).or(asked);
+
+    asked
 }
 
 /// One channel, as a filled area.
@@ -111,7 +115,12 @@ fn plot(
 }
 
 /// What the picture cannot show: how much of it has gone at each end.
-fn clipping(ui: &mut egui::Ui, histogram: &Histogram) {
+///
+/// Each figure is a toggle for its half of the clipping mask, which is what a
+/// person means when they read "Blown 3.4 %" and look for somewhere to click.
+/// Today that mask is a separate key in a different subsystem.
+fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<&'static str> {
+    let mut asked = None;
     ui.add_space(4.0);
 
     ui.horizontal(|ui| {
@@ -129,14 +138,25 @@ fn clipping(ui: &mut egui::Ui, histogram: &Histogram) {
         ] {
             let text = RichText::new(format!("{label} {percent:.1}%"));
 
-            ui.label(if percent >= WORTH_SAYING {
-                text.color(WARNING)
-            } else {
-                text.weak()
-            })
-            .on_hover_text(hover);
+            let figure = ui.add(
+                egui::Label::new(if percent >= WORTH_SAYING {
+                    text.color(WARNING)
+                } else {
+                    text.weak()
+                })
+                .sense(Sense::click()),
+            );
+
+            crate::ui::surface::with_menu(ui, &figure, hover, |ui| {
+                if ui.button("Mark it on the photograph").clicked() {
+                    asked = Some("image_view.sc_marks");
+                    ui.close();
+                }
+            });
         }
     });
+
+    asked
 }
 
 #[cfg(test)]

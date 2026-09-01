@@ -196,6 +196,7 @@ impl App {
     ) -> App {
         theme::apply_theme(&cc.egui_ctx, config.general.theme == "light");
         crate::annotations::sidecar::name_like_adobe(config.tags.sidecar_naming == "replacing");
+        crate::ui::surface::show_settings_rows(config.menus.settings_rows);
         apply_text_scaling(&cc.egui_ctx, config.general.text_scaling);
 
         if fullscreen {
@@ -652,13 +653,28 @@ impl App {
             settings: &mut settings,
         };
 
+        let mut columns = self.settings.grid_view.images_per_row;
         let (changed, stacked) = filter_bar::ui(
             ctx,
             self.filter_visible,
             &mut self.narrowing,
             (shown, self.paths.len()),
             &mut state,
+            &mut columns,
         );
+
+        if let Some(across) = stacked.columns {
+            // Through the same field the settings window writes, so the value
+            // survives the session rather than being a gesture the viewer
+            // forgets on the way out.
+            self.settings.grid_view.images_per_row = across;
+            self.grid_view.set_config(self.settings.grid_view.clone());
+            self.save_settings();
+        }
+
+        if let Some(path) = stacked.settings {
+            self.open_settings_at(path);
+        }
 
         if stacked.toggled {
             self.toggle_stacking();
@@ -824,6 +840,9 @@ impl App {
             Command::PreviousStack => self.step_stack(false),
             Command::NextStack => self.step_stack(true),
             Command::ShowSettings => self.open_settings(),
+            // The surface that last had the keyboard opens its own menu, at
+            // its own rect rather than at the pointer.
+            Command::ContextMenu => self.open_context_for_focus(ctx),
             Command::ShowKeys => {
                 self.cheat_sheet_visible = !self.cheat_sheet_visible;
                 // The key that opened it is still going down this frame, and

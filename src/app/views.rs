@@ -147,6 +147,7 @@ impl App {
             },
             marks,
             &nothing,
+            self.mode,
         );
 
         if let Some(asked) = self.image_view.take_asked() {
@@ -178,8 +179,18 @@ impl App {
         }
 
         let cursor = self.image_view.selected_index();
-        if let Some(path) = self.grid_view.filmstrip(ctx, cursor, height) {
+        let (opened, dragged) = self.grid_view.filmstrip(ctx, cursor, height);
+
+        if let Some(path) = opened {
             self.image_view.select_path(&path);
+        }
+
+        // Through the field the settings window reads, so dragging the strip's
+        // edge is a change that is still there on the next launch.
+        if let Some(height) = dragged {
+            self.settings.grid_view.filmstrip_height = height;
+            self.grid_view.set_config(self.settings.grid_view.clone());
+            self.save_settings();
         }
     }
 

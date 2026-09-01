@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::actions::Callback;
 
-pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, PanelsAtStart};
+pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, MenuConfig, PanelsAtStart};
 pub use defaults::*;
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 
@@ -40,6 +40,9 @@ pub struct Config {
     /// What counts as one run of frames, read by both surfaces that detect one.
     #[serde(default)]
     pub group: GroupConfig,
+    /// What the second button offers.
+    #[serde(default)]
+    pub menus: MenuConfig,
     /// Whether something in the file on disk could not be read.
     ///
     /// A configuration that was only partly understood must never be written
@@ -81,6 +84,7 @@ impl Default for Config {
             cull: CullConfig::default(),
             browsing: BrowsingConfig::default(),
             group: GroupConfig::default(),
+            menus: MenuConfig::default(),
             partial: false,
             migrated: Vec::new(),
             document: None,

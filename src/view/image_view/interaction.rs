@@ -81,6 +81,12 @@ impl ImageView {
         };
 
         let chosen = actions::show_context_menu(
+            &egui::Ui::new(
+                ctx.clone(),
+                egui::Id::new("photograph menu"),
+                egui::UiBuilder::new().max_rect(response.rect),
+            ),
+            "photograph",
             Verb::ON_A_PHOTOGRAPH,
             &self.config.context_menu,
             response,

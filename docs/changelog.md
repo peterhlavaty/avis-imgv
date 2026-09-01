@@ -2,6 +2,49 @@
 
 ## 2026-09-01
 
+- **Right-click the thing itself.** About twenty surfaces answer the second
+  button now: the photograph, a cell, the mode indicator, every word of the
+  status bar, the position counter, the run a frame belongs to, the marks, the
+  file name, the metadata panel and each of its rows, the cache readout, the
+  histogram and its two figures, the folder tree, the destination panel. Each
+  carries the verbs that were already a few files away, and each names the
+  settings page it leads to.
+
+  Every one of them opens on the **press** of the button rather than on its
+  release, which is Microsoft's toolbar guidance and which removes the ambiguity
+  with a drag at its source instead of tuning a threshold. Each draws the same
+  chevron on hover and ends its hover text with the same four words, so a
+  surface either says it has a menu or does not have one.
+
+  Nothing is reachable *only* by right-click: the last row of every menu is the
+  page that holds the same decision, and `menus.settings_rows` turns those rows
+  off without making anything unreachable — which is why there is no menu
+  editor.
+- **A mode indicator.** `F2` cycles six modes and three of them draw no
+  photographs, and the only places the mode was named were the menu bar, the
+  cheat sheet's title and the organiser's own heading. One word at the left end
+  of the status bar, carrying the six as radios.
+- **Four controls move to where the effect is.** How many thumbnails fit across
+  is on the filter bar, which is where Lightroom keeps it; the strip's height,
+  the keyword panel's width and the metadata panel's width are the edges of
+  those panels. All four write the configuration field the settings window
+  reads, so the value is still there on the next launch — which is the thing
+  none of the viewer's in-view controls used to do.
+- **Clicking a mark shows only those.** A star, a flag or a colour label in the
+  status bar narrows the folder to the photographs carrying it, with the filter
+  bar raised so the change is visible and reversible.
+- **`Shift + F10` opens the menu of whatever has the keyboard.** egui cannot
+  read the dedicated Menu key at all — its key list runs F1 to F35 — so this is
+  the only keyboard route there is. It works while a text field has the cursor,
+  which is exactly when somebody needs it.
+- **The destination panel is a place destinations can be added.** The tenth and
+  later were dropped in silence; they are all listed now, the first nine keep
+  their digits and the rest are reached with a click. The ad-hoc "Choose a
+  folder…" row offers to keep the folder as a slot.
+- **A right click in the folder tree opens a menu** rather than opening the
+  folder, which is what it did before — inverted, unsaid, and in the way of
+  this.
+
 - **The window says what is wrong, and what has been changed.** A file only
   partly read draws a permanent red bar naming what it costs, with every control
   below it disabled rather than hidden — greying the whole window out would

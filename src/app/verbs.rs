@@ -167,6 +167,17 @@ impl App {
                 self.tag_config.advance_after_marking = on;
                 self.save_settings();
             }
+            BarAction::Settings(path) => self.open_settings_at(path),
+            BarAction::ToggleStack => self.apply_command(Command::ToggleStack),
+            BarAction::ShowEverything => self.apply_command(Command::SuspendFilter),
+            // One verb, offered wherever a mark is drawn. It closes every dead
+            // end of its kind at once: a true statement on screen that cannot
+            // be acted on.
+            BarAction::ShowOnlyFlag(flag) => self.show_only(Narrow::Flag(flag)),
+            BarAction::ShowOnlyLabel(label) => self.show_only(Narrow::Label(label)),
+            BarAction::ShowOnlyStars(stars) => self.show_only(Narrow::Stars(stars)),
+            BarAction::BindKey(path) => self.arm_key(path),
+            BarAction::Mode(mode) => self.set_mode(mode),
             BarAction::SetPairing(prefer) => {
                 if self.settings.raw.pair_with_jpeg == prefer {
                     return;
@@ -260,5 +271,84 @@ impl App {
 
         let menu_key = crate::ui::keys::describe(&self.config.sc_menu);
         crate::app::panels::first_run_hint(ctx, &menu_key);
+    }
+}
+
+impl App {
+    /// Opens the keyboard editor with the row that binds `path` armed.
+    ///
+    /// The other half of the reverse trip: a menu on the thing itself is the
+    /// route to its key, which closes the loop the keyboard editor otherwise
+    /// owns alone.
+    pub(super) fn arm_key(&mut self, path: &'static str) {
+        self.keys.arm(path);
+        self.keys_visible = true;
+    }
+}
+
+/// What a "show only these" was asked about.
+///
+/// A payload rather than a whole `Rules`, because `Command` derives `Copy` and
+/// is taken by value, and three of the seven fields of `Rules` are `String`s.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Narrow {
+    Flag(crate::metadata::xmp::Flag),
+    Label(crate::metadata::xmp::Label),
+    Stars(u8),
+}
+
+impl App {
+    /// Narrows the folder to the photographs carrying one mark.
+    ///
+    /// The filter bar is raised with it, so the change is visible and
+    /// reversible: a folder that silently lost nine tenths of itself is a
+    /// worse answer than no answer.
+    pub(super) fn show_only(&mut self, narrow: Narrow) {
+        use crate::metadata::xmp::Label;
+        use crate::view::narrow::{FlagRule, LabelRule};
+
+        match narrow {
+            Narrow::Flag(flag) => {
+                self.narrowing.rules.flag = match flag {
+                    crate::metadata::xmp::Flag::Picked => FlagRule::Picked,
+                    crate::metadata::xmp::Flag::Rejected => FlagRule::Rejected,
+                    crate::metadata::xmp::Flag::Unflagged => FlagRule::Unflagged,
+                };
+            }
+            Narrow::Label(label) => {
+                self.narrowing.rules.label = Label::CHOICES
+                    .iter()
+                    .position(|candidate| *candidate == label)
+                    .map(LabelRule::One)
+                    .unwrap_or(LabelRule::Any);
+            }
+            Narrow::Stars(stars) => {
+                self.narrowing.rules.min_stars = stars;
+                self.narrowing.rules.max_stars = crate::metadata::xmp::MAX_RATING as u8;
+            }
+        }
+
+        self.narrowing.suspended = false;
+        self.filter_visible = true;
+        self.apply_narrowing();
+    }
+}
+
+impl App {
+    /// Opens the menu of whichever surface last had the keyboard.
+    ///
+    /// egui has no `Key::ContextMenu` — its key list runs F1 to F35 and has no
+    /// entry for the dedicated Menu key — so `Shift + F10` is the only keyboard
+    /// route there is. Each surface opens its own popup anchored to its own
+    /// rect rather than at the pointer, which is where a keyboard user's
+    /// attention already is.
+    pub(super) fn open_context_for_focus(&mut self, _ctx: &egui::Context) {
+        // The photograph or the cell, whichever is on screen: those are the two
+        // surfaces a keyboard user is on, and the two whose menus carry verbs
+        // rather than settings alone.
+        crate::ui::surface::ask_for_menu(match self.mode {
+            super::Mode::Grid => "cell",
+            _ => "photograph",
+        });
     }
 }

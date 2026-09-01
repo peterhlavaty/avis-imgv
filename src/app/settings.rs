@@ -198,6 +198,7 @@ impl App {
         crate::annotations::sidecar::name_like_adobe(
             self.settings.tags.sidecar_naming == "replacing",
         );
+        crate::ui::surface::show_settings_rows(self.settings.menus.settings_rows);
         self.config = self.settings.general.clone();
         self.tag_config = self.settings.tags.clone();
         self.image_view.set_config(self.settings.image_view.clone());
@@ -230,6 +231,10 @@ impl App {
             if self.settings.general.last_settings_page != remembered {
                 self.settings.general.last_settings_page = remembered;
             }
+        }
+
+        if let Some(path) = self.settings_state.arm_key.take() {
+            self.arm_key(path);
         }
 
         if let Some(run) = outcome.run {

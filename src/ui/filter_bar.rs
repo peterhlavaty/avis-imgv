@@ -17,6 +17,7 @@ pub fn ui(
     narrowing: &mut Narrowing,
     shown: (usize, usize),
     stacking: &mut StackState<'_>,
+    columns: &mut usize,
 ) -> (bool, StackOutcome) {
     let mut changed = false;
     let mut stacked = StackOutcome::default();
@@ -44,6 +45,9 @@ pub fn ui(
                 ui.separator();
 
                 stacked = stacks(ui, stacking);
+                ui.separator();
+
+                stacked.columns = size(ui, columns);
                 ui.separator();
 
                 if ui
@@ -88,6 +92,39 @@ pub struct StackOutcome {
     pub retuned: bool,
     /// Every stack was closed, or every one opened.
     pub set_all: Option<bool>,
+    /// How many thumbnails across, if the rail moved.
+    pub columns: Option<usize>,
+    /// A settings row a menu asked for.
+    pub settings: Option<&'static str>,
+}
+
+/// How many thumbnails fit across the sheet.
+///
+/// On the bar rather than only in the settings window, which is where Lightroom
+/// keeps it: on the Grid toolbar, not in preferences. It writes the
+/// configuration field through the same setter, so the value survives the
+/// session — which is the thing none of this program's in-view controls used to
+/// do.
+fn size(ui: &mut egui::Ui, columns: &mut usize) -> Option<usize> {
+    ui.label("Across").on_hover_text(
+        "How many thumbnails fit in a row, which is what decides how large they are",
+    );
+
+    let mut wanted = *columns;
+    let moved = ui
+        .add(
+            egui::Slider::new(&mut wanted, 1..=16)
+                .clamping(egui::SliderClamping::Edits)
+                .show_value(false),
+        )
+        .changed();
+
+    if moved {
+        *columns = wanted;
+        return Some(wanted);
+    }
+
+    None
 }
 
 /// The stacking controls: on or off, how many runs, and how strictly to read

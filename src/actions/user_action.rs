@@ -6,7 +6,7 @@
 
 use std::{path::Path, process::Command};
 
-use eframe::egui::Response;
+use eframe::egui::{self, Response};
 
 use crate::config::ContextMenuEntry;
 use crate::ui::menus::{self, Chosen, Verb};
@@ -148,6 +148,8 @@ pub fn get_command_args(cmd: &str) -> Vec<String> {
 /// registering anything when the entry list was empty — which it is on a fresh
 /// install — so the second button did nothing at all.
 pub fn show_context_menu(
+    ui: &egui::Ui,
+    surface: &'static str,
     verbs: &[Verb],
     entries: &[ContextMenuEntry],
     response: &Response,
@@ -156,7 +158,10 @@ pub fn show_context_menu(
 ) -> Option<Chosen> {
     let mut result = None;
 
-    response.context_menu(|ui| {
+    // Through the shared helper: on the press rather than the release, with the
+    // same chevron and the same four words on every surface, and reachable from
+    // the keyboard by name.
+    crate::ui::surface::named_menu(ui, response, surface, |ui| {
         let Some(chosen) = menus::rows(ui, verbs, entries, count) else {
             return;
         };

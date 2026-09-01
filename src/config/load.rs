@@ -257,6 +257,7 @@ impl Config {
             cull: section(&map, "cull", &mut partial),
             browsing: section(&map, "browsing", &mut partial),
             group: section(&map, "group", &mut partial),
+            menus: section(&map, "menus", &mut partial),
             partial,
             migrated: Vec::new(),
             document: Some(map),

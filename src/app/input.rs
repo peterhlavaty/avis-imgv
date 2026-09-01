@@ -51,6 +51,12 @@ pub enum Command {
     ShowKeys,
     /// Open the whole settings window.
     ShowSettings,
+    /// Open the menu for whatever last had the keyboard.
+    ///
+    /// The keyboard route to the second button. egui cannot read the dedicated
+    /// Menu key at all — its key list runs F1 to F35 and grepping it for `Menu`
+    /// returns nothing — so this is the only route there is.
+    ContextMenu,
     /// Show or hide the strip of thumbnails under the photograph.
     ToggleFilmstrip,
     /// Show the folder stacked, or put every frame back.
@@ -98,10 +104,22 @@ pub fn collect(
     }
 
     if utils::are_inputs_muted(ctx) {
+        // One exception. `are_inputs_muted` treats any focused widget as mute,
+        // and the keyboard route to a menu is exactly what somebody who is
+        // typing needs to be able to reach.
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, egui::Key::F10)) {
+            commands.push(Command::ContextMenu);
+        }
+
         return commands;
     }
 
-    if ctx.input(|i| i.key_pressed(egui::Key::F10)) {
+    // Shift first, and consumed, because both of these are read with
+    // `key_pressed`, which ignores modifiers entirely — so the more specific
+    // shortcut has to be matched first or F10 would answer both.
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::SHIFT, egui::Key::F10)) {
+        commands.push(Command::ContextMenu);
+    } else if ctx.input(|i| i.key_pressed(egui::Key::F10)) {
         commands.push(Command::ToggleMetrics);
     }
 

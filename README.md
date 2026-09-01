@@ -254,7 +254,7 @@ rather than part of the default C++ workload; without it the build stops at
 
 ```
 "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify ^
-  --installPath "C:\Program Files (x86)\Microsoft Visual Studio2\BuildTools" ^
+  --installPath "C:\Program Files (x86)\Microsoft Visual StudioÂ2\BuildTools" ^
   --add Microsoft.VisualStudio.Component.VC.Llvm.ClangToolset --passive
 ```
 
@@ -415,7 +415,7 @@ What kind of group it is follows from what the photographer changed:
 | Series | everything else: the same thing, more than once |
 
 Every one of those is a proposal. The kind is a dropdown, **Not a group** puts
-a whole run back among the loose frames, `×` takes one frame out, and anything
+a whole run back among the loose frames, `Ã` takes one frame out, and anything
 loose can be put into any group from the bottom of the list — where it lands in
 the order it was taken, not at the end. Three numbers at the top decide how the
 folder is read at all: the gap that ends a run, how alike two frames have to
@@ -491,7 +491,7 @@ apart.
 The frame that stands for a folded run is the sharpest one that could be
 measured, which is usually the question a burst is asking. `,` and `.` change
 it, and the status bar says where you are the whole time:
-`Series 2 · frame 4 of 17 · stack 6 of 41`, in amber while the run is folded.
+`Series 2 Â· frame 4 of 17 Â· stack 6 of 41`, in amber while the run is folded.
 The first word is the kind of run, and **Help → What the marks mean** is the
 legend for the four glyphs.
 
@@ -591,10 +591,22 @@ explaining itself:
 | **What the marks mean** | The legend: the four stack glyphs, the three states of the strip under a cell, the overlay colours, the border round a pinned pane. |
 | **Template placeholders…** | Everything that may go in a name template, an overlay line or a cell caption. Click one to copy it. |
 | **Recent messages…** | The last hundred things the viewer said, whether or not they were read. The band across the top holds four for six seconds and drops the rest; this does not. |
-| **Open the configuration file** · **Open the log file** | With whatever the system uses for them. |
+| **Open the configuration file** Â· **Open the log file** | With whatever the system uses for them. |
 | **About** | The version, the graphics adapter being drawn on, whether this build can develop a raw file, and both file paths with a button that copies them. |
 
 ## The right button
+
+About twenty surfaces answer the second button, and each of them says so: the
+same small chevron on hover, and the same four words at the end of its hover
+text. Every menu opens on the *press* rather than on the release, and the last
+row of every one of them is the settings page that holds the same decision —
+nothing here is reachable only by right-click. `Shift + F10` opens the menu of
+whatever has the keyboard, which is the only keyboard route there is: egui
+cannot read the dedicated Menu key at all.
+
+`menus.settings_rows` turns the settings rows off, which leaves the verbs, your
+own entries and the copy group. It is the whole of the configurability offered
+for the built-in rows, and the reason there is no menu editor.
 
 Right-clicking a photograph or a cell offers what can be done to it: fit,
 actual pixels, fill, compare, move to the bin, copy the path, copy the picture,
@@ -721,7 +733,7 @@ These are the knobs that decide how far ahead of you the viewer runs.
 | `full_resolution_neighbours` | How far either side of the image on screen to also decode at full resolution, ready to be zoomed into. Each one is a whole decoded photograph in memory. `0` turns that off. | 1 |
 | `upload_budget_ms` | How long a frame may spend moving decoded images onto the GPU. | 8 |
 
-A screen sized copy costs `width × height × 4` bytes at the size of your
+A screen sized copy costs `width Ã height Ã 4` bytes at the size of your
 monitor: about 11 MB for a 24 megapixel photograph on a 1080p screen, so the
 default budget holds a couple of hundred of them. A quarter of the budget is
 set aside for the full resolution copies, which are 96 MB each.
@@ -757,7 +769,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `scroll_navigation` | Use the scroll wheel to change image | true |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
-| `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • ƒ5.6 • 1/500 • 200 ISO` | as above |
+| `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
 
 ### Grid view
 

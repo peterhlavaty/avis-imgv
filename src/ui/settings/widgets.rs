@@ -46,8 +46,9 @@ impl Touched {
 }
 
 /// Draws one row: its label, its control, and whatever it has to say.
-pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
+pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> (Touched, Option<&'static str>) {
     let mut touched = Touched::default();
+    let mut asked = None;
 
     ui.horizontal(|ui| {
         // The bullet, which is a button: clicking it puts the field back.
@@ -75,6 +76,16 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
             egui::Vec2::new(LABEL_WIDTH, ui.spacing().interact_size.y),
             egui::Label::new(row.label).wrap(),
         );
+
+        let label_response = ui.interact(
+            ui.min_rect(),
+            ui.id().with((row.path, "row")),
+            egui::Sense::click(),
+        );
+
+        if let Some(path) = row_menu(ui, &label_response, row) {
+            asked = Some(path);
+        }
 
         touched = touched.merge(control(ui, row, config));
 
@@ -110,7 +121,36 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
     });
 
     ui.add_space(6.0);
-    touched
+    (touched, asked)
+}
+
+/// The row's own menu: the two things somebody who found this page by accident
+/// needs, and the one thing somebody who found it on purpose does.
+///
+/// The registry is keyed on the path and never on the label, which is why
+/// "Copy setting name" yields something that can be pasted into a forum answer
+/// and still work — nomacs stored shortcuts under their *translated* names and
+/// broke every one when the interface language changed.
+fn row_menu(ui: &egui::Ui, response: &egui::Response, row: &Row) -> Option<&'static str> {
+    let mut asked = None;
+
+    crate::ui::surface::menu(ui, response, |ui| {
+        if ui
+            .button("Copy setting name")
+            .on_hover_text(row.path)
+            .clicked()
+        {
+            ui.ctx().copy_text(row.path.to_string());
+            ui.close();
+        }
+
+        if row.access.is_a_key() && ui.button("Change this key…").clicked() {
+            asked = Some(row.path);
+            ui.close();
+        }
+    });
+
+    asked
 }
 
 /// How wide a row's name column is.

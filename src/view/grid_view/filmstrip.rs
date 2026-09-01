@@ -41,6 +41,12 @@ const GAP: f32 = 3.0;
 pub struct Picked {
     /// A store position the user clicked on.
     pub selected: Option<usize>,
+    /// The strip was dragged to this height.
+    ///
+    /// Through the field the settings window reads, so a dragged edge survives
+    /// the session — which is the thing none of this program's in-view controls
+    /// used to do.
+    pub height: Option<f32>,
 }
 
 /// Draws the strip, `height` points tall.
@@ -54,16 +60,22 @@ pub fn show(
     cursor: usize,
     height: f32,
 ) -> Picked {
-    let mut picked = Picked { selected: None };
+    let mut picked = Picked {
+        selected: None,
+        height: None,
+    };
 
     if height <= 0.0 || visible.is_empty() {
         return picked;
     }
 
-    egui::TopBottomPanel::bottom("filmstrip")
+    let panel = egui::TopBottomPanel::bottom("filmstrip")
         .show_separator_line(false)
         .frame(egui::Frame::NONE.fill(BACKGROUND).inner_margin(4.0))
-        .exact_height(height)
+        .resizable(true)
+        .default_height(height)
+        .min_height(48.0)
+        .max_height(400.0)
         .show(ctx, |ui| {
             ui.interact(
                 ui.max_rect(),
@@ -107,6 +119,12 @@ pub fn show(
                 });
             });
         });
+
+    // The dragged height, reported so it reaches the configuration.
+    let dragged = panel.response.rect.height();
+    if (dragged - height).abs() > 1.0 {
+        picked.height = Some(dragged);
+    }
 
     picked
 }

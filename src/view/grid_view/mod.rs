@@ -248,13 +248,15 @@ impl GridView {
         ctx: &egui::Context,
         cursor: usize,
         height: f32,
-    ) -> Option<PathBuf> {
+    ) -> (Option<PathBuf>, Option<f32>) {
         let picked = filmstrip::show(ctx, &mut self.store, &self.visible, cursor, height);
 
-        picked
+        let opened = picked
             .selected
             .and_then(|index| self.store.path(index))
-            .map(Path::to_path_buf)
+            .map(Path::to_path_buf);
+
+        (opened, picked.height)
     }
 
     /// Draws the grid.
@@ -496,6 +498,8 @@ impl GridView {
         };
 
         let chosen = actions::show_context_menu(
+            ui,
+            "cell",
             Verb::ON_A_CELL,
             &self.config.context_menu,
             response,

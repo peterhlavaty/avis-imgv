@@ -103,29 +103,51 @@ impl App {
         // photograph into eleven per cent of it.
         let most = (ctx.content_rect().width() * MOST_OF_THE_WINDOW).max(220.);
 
-        egui::SidePanel::right("image_metadata")
+        let mut asked: Option<&'static str> = None;
+
+        let panel = egui::SidePanel::right("image_metadata")
             .resizable(true)
             .show_separator_line(false)
             .min_width(220.)
-            .default_width(340.)
+            .default_width(self.config.side_panel_width)
             .max_width(most)
             .show_animated(ctx, self.side_panel_visible, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    panels::metadata_panel(
+                    asked = panels::metadata_panel(
                         ui,
                         self.image_view.active_metadata(),
                         &self.config.metadata_tags,
                         !self.paths.is_empty(),
-                    );
+                    )
+                    .or(asked);
 
                     if let Some(found) = self.image_view.active_histogram() {
-                        crate::ui::histogram::show(ui, found);
+                        asked = crate::ui::histogram::show(ui, found).or(asked);
                     }
                     ui.add_space(20.);
                     ui.separator();
-                    panels::cache_stats(ui, &self.image_view.stats(), &self.grid_view.stats());
+                    asked =
+                        panels::cache_stats(ui, &self.image_view.stats(), &self.grid_view.stats())
+                            .or(asked);
                 });
             });
+
+        // The dragged width, written back to the field the window reads. It
+        // was a hardcoded `default_width(340.)`, so dragging the edge was a
+        // gesture the viewer forgot on the way out.
+        if let Some(response) = panel {
+            let width = response.response.rect.width();
+            if self.side_panel_visible && (width - self.config.side_panel_width).abs() > 1.0 {
+                self.config.side_panel_width = width;
+                self.settings.general.side_panel_width = width;
+                self.save_settings();
+            }
+        }
+
+        if let Some(path) = asked {
+            // The reverse trip, from a readout to the setting behind it.
+            self.open_settings_at(path);
+        }
     }
 
     /// Draws the navigator and directory tree overlays.

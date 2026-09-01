@@ -403,6 +403,16 @@ pub fn rows() -> Vec<Row> {
             },
         ),
         row!(
+            KeysAndMouse / Menus,
+            "menus.settings_rows",
+            "Menus carry their settings rows",
+            "Turning it off leaves the verbs, your own entries, the copy group and the \n             last row, so nothing becomes unreachable. It is the whole of the \n             configurability offered for the built-in rows, and the reason there is no \n             menu editor.",
+            ["menu", "right click", "context menu", "rows", "settings"],
+            Live,
+            None,
+            boolean!(menus.settings_rows),
+        ),
+        row!(
             MovingAndDeleting / Confirmations,
             "cull.confirm",
             "Ask before",

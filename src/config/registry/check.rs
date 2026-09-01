@@ -134,6 +134,37 @@ fn actions(config: &Config, found: &mut Vec<Complaint>) {
             });
         }
     }
+
+    // A configured menu row whose words now sit two rows below a built-in one
+    // saying nearly the same thing. It is reported and nothing is done about
+    // it: the entry is the user's own, and the viewer does not rename or remove
+    // what somebody wrote.
+    for (where_it_is, entries) in [
+        ("image_view.context_menu", &config.image_view.context_menu),
+        ("grid_view.context_menu", &config.grid_view.context_menu),
+    ] {
+        for entry in entries.iter() {
+            let words = entry.description.to_lowercase();
+            let shadows = crate::ui::menus::Verb::ON_A_PHOTOGRAPH
+                .iter()
+                .chain(crate::ui::menus::Verb::ON_A_CELL)
+                .any(|verb| verb.label(1).to_lowercase().contains(&words) && words.len() > 3);
+
+            if !shadows {
+                continue;
+            }
+
+            found.push(Complaint {
+                path: where_it_is,
+                says: format!(
+                    "Your menu row \"{}\" now sits below a built-in one saying nearly \n                     the same thing.",
+                    entry.description
+                ),
+                instead: "Nothing was changed: the row is yours. Rename it, take it off, \n                          or leave it."
+                    .to_string(),
+            });
+        }
+    }
 }
 
 /// An unknown key name becomes the unreachable sentinel, so a typo makes a

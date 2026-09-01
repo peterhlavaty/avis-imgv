@@ -28,7 +28,7 @@ const SELECTED: egui::Color32 = egui::Color32::from_rgb(126, 168, 224);
 const LEVEL: f32 = 12.;
 
 /// What the user asked for by clicking in the panel.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     SetRating(u8),
     SetFlag(Flag),
@@ -36,6 +36,11 @@ pub enum Action {
     SetLabel(Option<usize>),
     AddTag(String),
     RemoveTag(String),
+    /// The panel was dragged to this width.
+    ///
+    /// Reported so it reaches the configuration field the settings window
+    /// reads, rather than being a gesture the viewer forgets on the way out.
+    PanelWidth(f32),
 }
 
 /// The panel's own state, which the application owns between frames.
@@ -76,7 +81,7 @@ pub fn ui(
 ) -> Vec<Action> {
     let mut actions = Vec::new();
 
-    egui::SidePanel::left("tag_panel")
+    let panel = egui::SidePanel::left("tag_panel")
         .resizable(true)
         .show_separator_line(false)
         .default_width(width)
@@ -110,6 +115,15 @@ pub fn ui(
                 actions.extend(offered(ui, &sections));
             });
         });
+
+    // The dragged width, reported back so it can be written to the field the
+    // settings window reads. It was a gesture the viewer forgot on the way out.
+    if let Some(panel) = panel {
+        let dragged = panel.response.rect.width();
+        if (dragged - width).abs() > 1.0 {
+            actions.push(Action::PanelWidth(dragged));
+        }
+    }
 
     actions
 }

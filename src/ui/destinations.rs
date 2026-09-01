@@ -50,6 +50,10 @@ pub enum Answer {
     Send(Slot),
     /// Pick a folder that is not on the panel.
     Browse,
+    /// Pick a folder and keep it as a slot.
+    Remember,
+    /// Go to the page that holds the destinations.
+    Settings,
     Cancel,
 }
 
@@ -71,16 +75,35 @@ pub fn ui(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
             );
             ui.add_space(8.0);
 
-            for (index, slot) in asking.slots.iter().enumerate().take(9) {
-                let digit = index + 1;
-                let response = ui
-                    .button(format!("{digit}   {}", slot.label))
-                    .on_hover_text(slot.path.display().to_string());
+            // Every one of them, scrolling. `take(9)` used to drop the tenth
+            // in silence, so the panel that exists to hold destinations was
+            // the one place a written destination could vanish.
+            egui::ScrollArea::vertical()
+                .max_height(360.0)
+                .show(ui, |ui| {
+                    for (index, slot) in asking.slots.iter().enumerate() {
+                        let response = if index < 9 {
+                            ui.button(format!("{}   {}", index + 1, slot.label))
+                        } else {
+                            // No digit left; the arrows and a click reach it.
+                            ui.button(format!("    {}", slot.label))
+                        };
 
-                if response.clicked() {
-                    answer = Some(Answer::Send(slot.clone()));
-                }
-            }
+                        let response = response.on_hover_text(if index < 9 {
+                            slot.path.display().to_string()
+                        } else {
+                            format!(
+                                "{}  ·  no digit left: there are nine, and the digit is \
+                                 the gesture",
+                                slot.path.display()
+                            )
+                        });
+
+                        if response.clicked() {
+                            answer = Some(Answer::Send(slot.clone()));
+                        }
+                    }
+                });
 
             if let Some(last) = &asking.last {
                 ui.add_space(6.0);
@@ -94,9 +117,30 @@ pub fn ui(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
             }
 
             ui.add_space(6.0);
-            if ui.button("Choose a folder…").clicked() {
+            let ad_hoc = ui
+                .button("Choose a folder…")
+                .on_hover_text("A folder used once. Right-click to keep it as a slot instead.");
+
+            if ad_hoc.clicked() {
                 answer = Some(Answer::Browse);
             }
+
+            // The panel that exists to hold destinations was the one place you
+            // could not add one.
+            crate::ui::surface::menu(ui, &ad_hoc, |ui| {
+                if ui.button("Choose a folder and keep it").clicked() {
+                    answer = Some(Answer::Remember);
+                    ui.close();
+                }
+
+                if crate::ui::surface::more_settings(
+                    ui,
+                    crate::config::registry::Page::MovingAndDeleting,
+                ) {
+                    answer = Some(Answer::Settings);
+                    ui.close();
+                }
+            });
 
             ui.add_space(4.0);
             ui.label(RichText::new("Escape leaves them where they are").weak());

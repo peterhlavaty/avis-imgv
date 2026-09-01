@@ -220,10 +220,30 @@ fn help_menu(ui: &mut egui::Ui, keys: &MenuKeys, action: &mut Option<MenuAction>
 ///
 /// `open` says whether there is a photograph at all: with no folder the panel
 /// said "Loading…", which is a lie that never resolves.
-pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[String], open: bool) {
+///
+/// Returns the settings row a menu asked for, if one did.
+pub fn metadata_panel(
+    ui: &mut egui::Ui,
+    metadata: Option<&Metadata>,
+    tags: &[String],
+    open: bool,
+) -> Option<&'static str> {
+    let mut asked = None;
     ui.add_space(20.);
     ui.label(RichText::new("Image Metadata").heading());
     ui.add_space(10.);
+
+    let heading = ui.interact(
+        ui.min_rect(),
+        ui.id().with("metadata heading"),
+        egui::Sense::click(),
+    );
+    crate::ui::surface::menu(ui, &heading, |ui| {
+        if crate::ui::surface::more_settings(ui, crate::config::registry::Page::ThePhotograph) {
+            asked = Some("general.metadata_tags");
+            ui.close();
+        }
+    });
 
     let Some(metadata) = metadata else {
         if open {
@@ -231,7 +251,7 @@ pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[St
         } else {
             ui.weak("No photograph open.");
         }
-        return;
+        return asked;
     };
 
     let mut drawn = 0;
@@ -247,8 +267,29 @@ pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[St
             // Truncated rather than wrapped, with the whole of it on hover:
             // one long value — the directory, nearly always — used to decide
             // how wide the whole panel was.
-            ui.add(egui::Label::new(value).truncate())
-                .on_hover_text(value);
+            let row = ui.add(
+                egui::Label::new(value)
+                    .truncate()
+                    .sense(egui::Sense::click()),
+            );
+
+            crate::ui::surface::with_menu(ui, &row, value, |ui| {
+                if ui.button("Copy the value").clicked() {
+                    ui.ctx().copy_text(value.clone());
+                    ui.close();
+                }
+                if ui.button("Copy the tag name").clicked() {
+                    ui.ctx().copy_text(tag.clone());
+                    ui.close();
+                }
+                if crate::ui::surface::more_settings(
+                    ui,
+                    crate::config::registry::Page::ThePhotograph,
+                ) {
+                    asked = Some("general.metadata_tags");
+                    ui.close();
+                }
+            });
         });
     }
 
@@ -264,12 +305,38 @@ pub fn metadata_panel(ui: &mut egui::Ui, metadata: Option<&Metadata>, tags: &[St
             tags.len()
         ));
     }
+
+    asked
 }
 
 /// Draws how full the caches are, so the effect of the budgets is visible.
-pub fn cache_stats(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreStats) {
+///
+/// Returns the settings row a menu asked for. Every line here is a true
+/// statement about a number somebody can change, and the page that holds it was
+/// two menus and a scroll away.
+pub fn cache_stats(
+    ui: &mut egui::Ui,
+    images: &StoreStats,
+    thumbnails: &StoreStats,
+) -> Option<&'static str> {
+    let mut asked = None;
+
     ui.add_space(20.);
-    ui.label(RichText::new("Cache").heading());
+    let heading =
+        ui.add(egui::Label::new(RichText::new("Cache").heading()).sense(egui::Sense::click()));
+
+    crate::ui::surface::with_menu(
+        ui,
+        &heading,
+        "What the viewer is holding, and what bounds it.",
+        |ui| {
+            if crate::ui::surface::more_settings(ui, crate::config::registry::Page::SpeedAndMemory)
+            {
+                asked = Some("cache.ram_budget_mb");
+                ui.close();
+            }
+        },
+    );
     ui.add_space(10.);
 
     for (label, stats, hint) in [
@@ -311,9 +378,22 @@ pub fn cache_stats(ui: &mut egui::Ui, images: &StoreStats, thumbnails: &StoreSta
     memory(ui, images, thumbnails);
 
     if images.failed > 0 {
-        ui.label(format!("{} image(s) could not be opened", images.failed))
-            .on_hover_text("The log says why for each of them");
+        let failed = ui.add(
+            egui::Label::new(format!("{} image(s) could not be opened", images.failed))
+                .sense(egui::Sense::click()),
+        );
+
+        crate::ui::surface::with_menu(ui, &failed, "The log says why for each of them.", |ui| {
+            if ui.button("Open the log").clicked() {
+                if let Some(path) = crate::logging::path() {
+                    crate::actions::reveal::with_the_system(&path);
+                }
+                ui.close();
+            }
+        });
     }
+
+    asked
 }
 
 /// What the viewer is actually holding, tier by tier.

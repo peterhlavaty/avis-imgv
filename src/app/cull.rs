@@ -369,6 +369,37 @@ impl App {
                     self.carry_errand(asking.errand, &slot);
                 }
             }
+            Answer::Remember => {
+                let picked = rfd::FileDialog::new()
+                    .set_directory(&self.base_path)
+                    .pick_folder();
+
+                if let Some(folder) = picked {
+                    let label = folder
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned();
+
+                    self.settings
+                        .cull
+                        .destinations
+                        .push(crate::config::Destination {
+                            label: label.clone(),
+                            path: folder.display().to_string(),
+                        });
+                    self.save_settings();
+
+                    let slot = Slot {
+                        label,
+                        path: folder,
+                    };
+                    self.notices
+                        .say(format!("Kept \"{}\" as a destination.", slot.label));
+                    self.carry_errand(asking.errand, &slot);
+                }
+            }
+            Answer::Settings => self.open_settings_at("cull.destinations"),
             Answer::Cancel => self.last_errand = None,
         }
     }

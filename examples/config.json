@@ -480,5 +480,8 @@
     "max_gap": 60.0,
     "tolerance": 12,
     "min_frames": 2
+  },
+  "menus": {
+    "settings_rows": true
   }
 }

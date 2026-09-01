@@ -287,6 +287,28 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                             if label.double_clicked() {
                                 result = get_selected_path(&tree.entries[i].path);
                             }
+
+                            // The menu the right button was freed for. Taking a
+                            // gesture back costs whoever had learned it, which
+                            // is the price of having taken it in the first
+                            // place; this is what it was taken back for.
+                            let path = entry.path.clone();
+                            crate::ui::surface::menu(ui, &label, |ui| {
+                                if ui.button("Open this folder").clicked() {
+                                    result = get_selected_path(&path);
+                                    ui.close();
+                                }
+
+                                if ui.button("Copy the path").clicked() {
+                                    ui.ctx().copy_text(path.display().to_string());
+                                    ui.close();
+                                }
+
+                                if ui.button("Show it in the file manager").clicked() {
+                                    crate::actions::reveal::folder(&path);
+                                    ui.close();
+                                }
+                            });
                         }
 
                         if let Some(i) = selected_at {

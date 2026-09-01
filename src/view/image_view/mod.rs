@@ -163,7 +163,14 @@ impl ImageView {
     ///
     /// `marks` are the stars, flag and label on the image on screen, which the status
     /// bar shows so rating with the panel closed is not silent.
-    pub fn ui(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks, nothing: &Nothing) {
+    pub fn ui(
+        &mut self,
+        ctx: &egui::Context,
+        flags: Flags,
+        marks: Marks,
+        nothing: &Nothing,
+        mode: crate::app::mode::Mode,
+    ) {
         if self.warm() {
             ctx.request_repaint();
         }
@@ -173,7 +180,7 @@ impl ImageView {
         }
 
         if self.slideshow.is_none() {
-            self.show_bottom_bar(ctx, flags, marks);
+            self.show_bottom_bar(ctx, flags, marks, mode);
         }
 
         let response = self.show_images(ctx, nothing);
@@ -591,7 +598,13 @@ impl ImageView {
             .unwrap_or_else(|| crate::ui::theme::backdrop(&self.backdrop))
     }
 
-    fn show_bottom_bar(&mut self, ctx: &egui::Context, flags: Flags, marks: Marks) {
+    fn show_bottom_bar(
+        &mut self,
+        ctx: &egui::Context,
+        flags: Flags,
+        marks: Marks,
+        mode: crate::app::mode::Mode,
+    ) {
         let name = self.display_name();
         let (at, total) = self.position();
         let hidden = self.store.len() - total;
@@ -605,6 +618,7 @@ impl ImageView {
             name,
             percentage_zoom: self.metrics.percentage_zoom,
             marks,
+            mode,
             flags: Flags {
                 filling: self.viewport.maximize,
                 comparing,

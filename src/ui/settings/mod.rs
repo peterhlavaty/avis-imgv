@@ -39,6 +39,8 @@ pub struct State {
     pub at_startup: Vec<String>,
     /// Which reset scope has been asked for and not confirmed.
     pub confirming: Option<Reset>,
+    /// A key the window was asked to change, from a row's own menu.
+    pub arm_key: Option<&'static str>,
 }
 
 /// How much a reset covers. Always stated, never implied.
@@ -233,9 +235,16 @@ fn page(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> widgets::T
             state.reveal = None;
         }
 
+        let (found, key) = response.inner;
+        if let Some(path) = key {
+            // "Change this key…" on a row of the keyboard page: the control is
+            // the route to its own key.
+            state.arm_key = Some(path);
+        }
+
         touched = widgets::Touched {
-            changed: touched.changed || response.inner.changed,
-            committed: touched.committed || response.inner.committed,
+            changed: touched.changed || found.changed,
+            committed: touched.committed || found.committed,
         };
     }
 
@@ -274,7 +283,12 @@ fn results(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> widgets
 
     for hit in hits {
         ui.weak(RichText::new(hit.row.page.label()).small());
-        let found = widgets::row(ui, hit.row, config);
+        let (found, key) = widgets::row(ui, hit.row, config);
+
+        if let Some(path) = key {
+            state.arm_key = Some(path);
+        }
+
         touched = widgets::Touched {
             changed: touched.changed || found.changed,
             committed: touched.committed || found.committed,

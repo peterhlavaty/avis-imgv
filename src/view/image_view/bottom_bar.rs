@@ -99,6 +99,12 @@ pub struct Status<'a> {
     pub percentage_zoom: f32,
     pub marks: Marks,
     pub flags: Flags,
+    /// Which mode is on screen.
+    ///
+    /// `Mode::label()` is drawn in three places, none of them where people
+    /// spend their time, while one key cycles all six and three of the six draw
+    /// no photographs at all.
+    pub mode: crate::app::mode::Mode,
 }
 
 /// What the user asked for by clicking in the bar.
@@ -126,6 +132,60 @@ pub enum BarAction {
     SetAdvancing(bool),
     /// Which half of a raw+JPEG pair is the one browsed.
     SetPairing(Prefer),
+    /// Go to the settings row behind this readout.
+    ///
+    /// The reverse trip: somebody who opened the window out of habit learns the
+    /// shorter route, and somebody who found the short route can still get to
+    /// the page.
+    Settings(&'static str),
+    /// Arm the keyboard editor on the row that binds this.
+    BindKey(&'static str),
+    /// Switch to this mode.
+    Mode(crate::app::mode::Mode),
+    /// Open or fold the run this frame belongs to.
+    ToggleStack,
+    /// Narrow the folder to the photographs carrying this mark.
+    ///
+    /// The one verb that closes every dead end of its kind: a mark drawn on
+    /// screen and no way to say "show me those".
+    ShowOnlyFlag(Flag),
+    ShowOnlyLabel(Label),
+    ShowOnlyStars(u8),
+    /// Set the narrowing rules aside without forgetting them.
+    ShowEverything,
+}
+
+/// One word at the left end saying which mode is on screen.
+///
+/// There was no mode indicator at all: `Mode::label()` is drawn in the menu, in
+/// the cheat sheet's title and in the organiser's own heading, and `F2` cycles
+/// six modes of which three draw no photographs. Somebody who pressed it once
+/// too often had nothing on screen telling them where they were.
+fn mode_word(ui: &mut egui::Ui, mode: crate::app::mode::Mode) -> Vec<BarAction> {
+    use crate::app::mode::Mode;
+
+    let mut asked = Vec::new();
+
+    let word =
+        ui.add(egui::Label::new(egui::RichText::new(mode.label()).strong()).sense(Sense::click()));
+
+    crate::ui::surface::with_menu(ui, &word, "Which mode the window is in.", |ui| {
+        for wanted in Mode::ALL {
+            // Radios rather than buttons: the menu is also where somebody finds
+            // out which mode they are in, which is the whole point of the word.
+            if ui.radio(mode == *wanted, wanted.label()).clicked() {
+                asked.push(BarAction::Mode(*wanted));
+                ui.close();
+            }
+        }
+
+        if crate::ui::surface::more_settings(ui, crate::config::registry::Page::OpeningAFolder) {
+            asked.push(BarAction::Settings("general.start_in"));
+            ui.close();
+        }
+    });
+
+    asked
 }
 
 /// Draws the words saying what mode the viewer is in, and takes their clicks.
@@ -135,125 +195,173 @@ pub enum BarAction {
 /// **Advancing** and **RAW+JPEG** carry a setting, and are the only place in
 /// the running program either of those two is visible.
 fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> Vec<BarAction> {
+    use crate::config::registry::Page;
+    use crate::ui::surface;
+
     let mut asked = Vec::new();
 
     if flags.flattened {
-        let word = ui
-            .add(egui::Label::new("Flattened").sense(Sense::click()))
-            .on_hover_text(
-                "Photographs in sub-folders are part of this collection. \
-                 Right-click for more.",
-            );
-
-        word.context_menu(|ui| {
-            if ui.button("Only this folder").clicked() {
-                asked.push(BarAction::ToggleFlatten);
-                ui.close();
-            }
-        });
+        let word = word(ui, "Flattened");
+        surface::with_menu(
+            ui,
+            &word,
+            "Photographs in sub-folders are part of this collection.",
+            |ui| {
+                if ui.button("Only this folder").clicked() {
+                    asked.push(BarAction::ToggleFlatten);
+                    ui.close();
+                }
+                if surface::bind_a_key(ui, "flattening") {
+                    asked.push(BarAction::BindKey("general.sc_flatten_dir"));
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::OpeningAFolder) {
+                    asked.push(BarAction::Settings("browsing.sort"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if flags.watching {
-        let word = ui
-            .add(egui::Label::new("Watching").sense(Sense::click()))
-            .on_hover_text(
-                "The folder is being watched, so a file written into it appears. \
-                 Right-click for more.",
-            );
-
-        word.context_menu(|ui| {
-            if ui.button("Stop watching the folder").clicked() {
-                asked.push(BarAction::ToggleWatching);
-                ui.close();
-            }
-        });
+        let word = word(ui, "Watching");
+        surface::with_menu(
+            ui,
+            &word,
+            "The folder is being watched, so a file written into it appears.",
+            |ui| {
+                if ui.button("Stop watching the folder").clicked() {
+                    asked.push(BarAction::ToggleWatching);
+                    ui.close();
+                }
+                if surface::bind_a_key(ui, "watching") {
+                    asked.push(BarAction::BindKey("general.sc_watch_directory"));
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::OpeningAFolder) {
+                    asked.push(BarAction::Settings("browsing.filter_follows_folder"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if flags.filling {
-        let word = ui
-            .add(egui::Label::new("Filling").sense(Sense::click()))
-            .on_hover_text(
-                "Every photograph fills the window, cropping whichever side is longer. \
-                 Right-click for more.",
-            );
-
-        word.context_menu(|ui| {
-            if ui.button("Fit the whole photograph instead").clicked() {
-                commands.push(Command::Fit);
-                ui.close();
-            }
-        });
+        let word = word(ui, "Filling");
+        surface::with_menu(
+            ui,
+            &word,
+            "Every photograph fills the window, cropping whichever side is longer.",
+            |ui| {
+                if ui.button("Fit the whole photograph instead").clicked() {
+                    commands.push(Command::Fit);
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::ThePhotograph) {
+                    asked.push(BarAction::Settings("image_view.enlarge_to_fit"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if flags.advancing {
-        let word = ui
-            .add(egui::Label::new("Advancing").sense(Sense::click()))
-            .on_hover_text(
-                "A star, a flag or a label moves on to the next photograph. \
-                 Right-click for more.",
-            );
-
-        word.context_menu(|ui| {
-            if ui
-                .button("Stay on the photograph after marking it")
-                .clicked()
-            {
-                asked.push(BarAction::SetAdvancing(false));
-                ui.close();
-            }
-        });
+        let word = word(ui, "Advancing");
+        surface::with_menu(
+            ui,
+            &word,
+            "A star, a flag or a label moves on to the next photograph.",
+            |ui| {
+                if ui
+                    .button("Stay on the photograph after marking it")
+                    .clicked()
+                {
+                    asked.push(BarAction::SetAdvancing(false));
+                    ui.close();
+                }
+                if surface::bind_a_key(ui, "advancing") {
+                    asked.push(BarAction::BindKey("tags.sc_toggle_advance"));
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::Marks) {
+                    asked.push(BarAction::Settings("tags.advance_after_marking"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if flags.comparing {
-        let word = ui
-            .add(egui::Label::new("Comparing").sense(Sense::click()))
-            .on_hover_text("Several photographs are pinned side by side. Right-click for more.");
-
-        word.context_menu(|ui| {
-            if ui.button("Stop comparing").clicked() {
-                commands.push(Command::StopComparing);
-                ui.close();
-            }
-        });
+        let word = word(ui, "Comparing");
+        surface::with_menu(
+            ui,
+            &word,
+            "Several photographs are pinned side by side.",
+            |ui| {
+                if ui.button("Stop comparing").clicked() {
+                    commands.push(Command::StopComparing);
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::ThePhotograph) {
+                    asked.push(BarAction::Settings("image_view.nr_images_shown"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if flags.marking != Overlay::Off {
-        let word = ui
-            .add(egui::Label::new(flags.marking.label()).sense(Sense::click()))
-            .on_hover_text(
-                "A mask is painted over the photograph. Help → What the marks mean \n                 says what the colours are. Right-click for more.",
-            );
-
-        word.context_menu(|ui| {
-            if ui.button("Show the photograph as it is").clicked() {
-                commands.push(Command::CycleMarks);
-                ui.close();
-            }
-        });
+        let word = word(ui, flags.marking.label());
+        surface::with_menu(
+            ui,
+            &word,
+            "A mask is painted over the photograph. Help → What the marks mean says \
+             what the colours are.",
+            |ui| {
+                if ui.button("Show the photograph as it is").clicked() {
+                    commands.push(Command::CycleMarks);
+                    ui.close();
+                }
+                if surface::bind_a_key(ui, "the mask") {
+                    asked.push(BarAction::BindKey("image_view.sc_marks"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if flags.paired {
-        let word = ui
-            .add(egui::Label::new("RAW+JPEG").sense(Sense::click()))
-            .on_hover_text(
-                "This frame was shot as two files, and a rating, a move or a deletion \
-                 is about to happen to both. Right-click for more.",
-            );
+        let word = word(ui, "RAW+JPEG");
 
-        // The three sentences this needs have been written since pairing was
-        // built and drawn nowhere; this is the only place in the running
-        // program the setting behind them is visible.
-        word.context_menu(|ui| {
-            for prefer in Prefer::ALL {
-                if ui.button(prefer.label()).clicked() {
-                    asked.push(BarAction::SetPairing(*prefer));
+        // The three sentences this needs were written when pairing was built
+        // and drawn nowhere; this is the only place in the running program the
+        // setting behind them is visible.
+        surface::with_menu(
+            ui,
+            &word,
+            "This frame was shot as two files, and a rating, a move or a deletion is \
+             about to happen to both.",
+            |ui| {
+                for prefer in Prefer::ALL {
+                    if ui.button(prefer.label()).clicked() {
+                        asked.push(BarAction::SetPairing(*prefer));
+                        ui.close();
+                    }
+                }
+                if surface::more_settings(ui, Page::RawFiles) {
+                    asked.push(BarAction::Settings("raw.pair_with_jpeg"));
                     ui.close();
                 }
-            }
-        });
+            },
+        );
     }
 
     asked
+}
+
+/// One clickable word in the flags row.
+fn word(ui: &mut egui::Ui, text: &str) -> egui::Response {
+    ui.add(egui::Label::new(text).sense(Sense::click()))
 }
 
 /// Draws the bar and reports the interactions it produced.
@@ -264,6 +372,8 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
         .show_separator_line(false)
         .show(ctx, |ui| {
             ui.horizontal_centered(|ui| {
+                outcome.bar.extend(mode_word(ui, status.mode));
+
                 outcome.jump_to = jump_field(ui, status);
 
                 let counted = match status.hidden {
@@ -271,20 +381,36 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     hidden => format!("{}/{} (+{hidden})", status.position, status.total),
                 };
 
-                ui.add_sized(
+                let counter = ui.add_sized(
                     Vec2::new(
                         if status.hidden == 0 { 45. } else { 90. },
                         ui.available_height(),
                     ),
-                    egui::Label::new(counted),
-                )
+                    egui::Label::new(counted).sense(Sense::click()),
+                );
+
                 // Two calls rather than one with an empty string: an empty
                 // hover text still lays out and paints a frame.
-                .on_hover_text(match status.hidden {
-                    0 => "Which photograph of how many, in the order on screen".to_string(),
+                let says = match status.hidden {
+                    0 => "Which photograph of how many, in the order on screen.".to_string(),
                     hidden => format!(
                         "Which photograph of how many. {hidden} more are hidden by the filter."
                     ),
+                };
+
+                crate::ui::surface::with_menu(ui, &counter, &says, |ui| {
+                    if status.hidden > 0 && ui.button("Show everything").clicked() {
+                        outcome.bar.push(BarAction::ShowEverything);
+                        ui.close();
+                    }
+
+                    if crate::ui::surface::more_settings(
+                        ui,
+                        crate::config::registry::Page::OpeningAFolder,
+                    ) {
+                        outcome.bar.push(BarAction::Settings("browsing.flag"));
+                        ui.close();
+                    }
                 });
 
                 if let Some(place) = status.flags.place {
@@ -294,23 +420,81 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                         ui.visuals().text_color()
                     };
 
-                    ui.label(egui::RichText::new(place.describe()).color(colour))
-                        .on_hover_text(
-                            "One run of frames. The colour says it is folded up; \n                             the key that opens it shows the rest.",
-                        );
+                    let said = ui.add(
+                        egui::Label::new(egui::RichText::new(place.describe()).color(colour))
+                            .sense(Sense::click()),
+                    );
+
+                    crate::ui::surface::with_menu(
+                        ui,
+                        &said,
+                        "One run of frames. Amber says it is folded up.",
+                        |ui| {
+                            if ui
+                                .button(if place.collapsed {
+                                    "Open this run"
+                                } else {
+                                    "Fold it back up"
+                                })
+                                .clicked()
+                            {
+                                outcome.bar.push(BarAction::ToggleStack);
+                                ui.close();
+                            }
+
+                            if crate::ui::surface::bind_a_key(ui, "opening a run") {
+                                outcome
+                                    .bar
+                                    .push(BarAction::BindKey("general.sc_toggle_stack"));
+                                ui.close();
+                            }
+
+                            if crate::ui::surface::more_settings(
+                                ui,
+                                crate::config::registry::Page::OpeningAFolder,
+                            ) {
+                                outcome.bar.push(BarAction::Settings("group.max_gap"));
+                                ui.close();
+                            }
+                        },
+                    );
                 }
 
                 outcome
                     .bar
                     .extend(flag_words(ui, &status.flags, &mut outcome.commands));
 
-                marks(ui, &status.marks);
+                outcome.bar.extend(marks(ui, &status.marks));
 
                 // Leave room for the zoom controls pinned to the right.
                 let name_width = (ui.available_width() - 245.).max(20.);
-                ui.add_sized(
+                let name = ui.add_sized(
                     Vec2::new(name_width, ui.available_height()),
-                    egui::Label::new(status.name.clone()).truncate(),
+                    egui::Label::new(status.name.clone())
+                        .truncate()
+                        .sense(Sense::click()),
+                );
+
+                crate::ui::surface::with_menu(
+                    ui,
+                    &name,
+                    "What this photograph is called, in the template you set.",
+                    |ui| {
+                        if ui.button("Copy the name").clicked() {
+                            ui.ctx().copy_text(status.name.clone());
+                            ui.close();
+                        }
+
+                        if crate::ui::surface::more_settings(
+                            ui,
+                            crate::config::registry::Page::ThePhotograph,
+                        ) {
+                            outcome
+                                .bar
+                                .push(BarAction::Settings("image_view.name_format"));
+                            ui.close();
+                        }
+                    },
                 );
 
                 ui.with_layout(
@@ -333,25 +517,81 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
 
 /// The three marks, drawn only when there is something to draw: the bar is a
 /// summary, not a control, and an unmarked photograph should say nothing.
-fn marks(ui: &mut egui::Ui, marks: &Marks) {
+///
+/// Each of them is a door now. A true statement that cannot be acted on is the
+/// commonest kind of dead end in this program, and "three stars" is one of the
+/// most obviously actionable things on screen.
+fn marks(ui: &mut egui::Ui, marks: &Marks) -> Vec<BarAction> {
+    use crate::config::registry::Page;
+    use crate::ui::surface;
+
+    let mut asked = Vec::new();
+
     if marks.flag != Flag::Unflagged {
         let colour = match marks.flag {
             Flag::Rejected => egui::Color32::from_rgb(219, 96, 96),
             _ => ui.visuals().text_color(),
         };
 
-        ui.label(egui::RichText::new(marks.flag.glyph()).color(colour));
+        let glyph = ui.add(
+            egui::Label::new(egui::RichText::new(marks.flag.glyph()).color(colour))
+                .sense(Sense::click()),
+        );
+
+        surface::with_menu(ui, &glyph, "The flag on this photograph.", |ui| {
+            if ui.button("Show only these").clicked() {
+                asked.push(BarAction::ShowOnlyFlag(marks.flag));
+                ui.close();
+            }
+            if surface::more_settings(ui, Page::Marks) {
+                asked.push(BarAction::Settings("tags.advance_after_marking"));
+                ui.close();
+            }
+        });
     }
 
     if let Some(label) = marks.label {
         let (r, g, b) = label.colour();
-        ui.label(egui::RichText::new("■").color(egui::Color32::from_rgb(r, g, b)))
-            .on_hover_text(label.name());
+        let swatch = ui.add(
+            egui::Label::new(egui::RichText::new("■").color(egui::Color32::from_rgb(r, g, b)))
+                .sense(Sense::click()),
+        );
+
+        surface::with_menu(ui, &swatch, label.name(), |ui| {
+            if ui.button("Show only these").clicked() {
+                asked.push(BarAction::ShowOnlyLabel(label));
+                ui.close();
+            }
+            if surface::bind_a_key(ui, "this colour") {
+                asked.push(BarAction::BindKey("tags.sc_label[0]"));
+                ui.close();
+            }
+            if surface::more_settings(ui, Page::Marks) {
+                asked.push(BarAction::Settings("tags.sc_label"));
+                ui.close();
+            }
+        });
     }
 
     if marks.stars > 0 {
-        ui.label(stars(marks.stars));
+        let shown = ui.add(egui::Label::new(stars(marks.stars)).sense(Sense::click()));
+
+        surface::with_menu(ui, &shown, "The rating on this photograph.", |ui| {
+            if ui
+                .button(format!("Show only {} stars and better", marks.stars))
+                .clicked()
+            {
+                asked.push(BarAction::ShowOnlyStars(marks.stars));
+                ui.close();
+            }
+            if surface::more_settings(ui, Page::Marks) {
+                asked.push(BarAction::Settings("tags.sc_rating"));
+                ui.close();
+            }
+        });
     }
+
+    asked
 }
 
 /// A rating as filled stars, without the empty ones.

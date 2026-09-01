@@ -169,6 +169,13 @@ impl App {
                         store.remove_tag(path, &tag);
                     });
                 }
+                // Through the same field the settings window writes, so a
+                // dragged edge survives the session.
+                Action::PanelWidth(width) => {
+                    self.tag_config.panel_width = width;
+                    self.settings.tags.panel_width = width;
+                    self.save_settings();
+                }
             }
         }
 

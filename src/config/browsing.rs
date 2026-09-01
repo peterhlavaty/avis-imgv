@@ -262,3 +262,27 @@ mod tests {
         assert!(!confirm.bin_several);
     }
 }
+
+/// What the second button offers.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(default)]
+pub struct MenuConfig {
+    /// Whether the built-in menus carry their settings rows.
+    ///
+    /// The whole of the configurability offered for the built-in rows, and the
+    /// reason a menu editor is not needed: turning it off leaves the verbs,
+    /// your own entries, the copy group and the last row, so nothing becomes
+    /// unreachable. A person who wants a four-row menu and a person who wants a
+    /// nine-row one are both being reasonable, which is the test a new field
+    /// has to pass.
+    #[serde(default = "yes")]
+    pub settings_rows: bool,
+}
+
+impl Default for MenuConfig {
+    fn default() -> Self {
+        MenuConfig {
+            settings_rows: true,
+        }
+    }
+}

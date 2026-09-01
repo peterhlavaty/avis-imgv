@@ -42,6 +42,15 @@ pub struct State {
 }
 
 impl State {
+    /// Arms the row that binds `path`, for a menu that asked to bind a key.
+    ///
+    /// Searched for rather than indexed, because the list is a filtered view
+    /// over the registry and its positions are not stable.
+    pub fn arm(&mut self, path: &str) {
+        self.listening = bindings::all().iter().position(|b| b.path() == path);
+        self.query.clear();
+    }
+
     /// Whether a row is armed, which is what the viewer has to mute for.
     ///
     /// Arming a row and pressing Delete used to send the photograph on screen
