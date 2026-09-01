@@ -2,6 +2,23 @@
 
 ## 2026-09-01
 
+- **Taking hold of a slider does not move it.** The handle can now be grabbed
+  where it is and the drag set out from there, which is what a fine rail is
+  for; pressing the rail somewhere else still puts the handle there, so the far
+  end of a long range is one gesture away as before. The value is left alone
+  until the handle has actually moved, rather than only on the frame of the
+  press: egui runs a pass twice whenever something in it asks for another look,
+  and the second pass saw a drag already under way and read the value back off
+  the handle — rounding it, which is a slider that moves the moment it is
+  touched by however much the rounding came to.
+- **The ends of a rail are the ends of its range, exactly.** Aiming looks for
+  the roundest number within a hand's width of the pointer, and at an end every
+  such number is inside the range rather than on it. On the zoom rail, whose
+  left end is the fitted magnification and whose scale is logarithmic, that
+  landed about one per cent above fitting: a photograph a shade too large for
+  the window, with a few points of slack to pan into and nothing on screen to
+  say why.
+
 - **The zoom rail holds the middle of the picture, not the pointer.**
   Magnifying is about a point in the photograph and holds whatever is under the
   pointer, which is right for the wheel and for the keys and wrong for a rail:

@@ -89,13 +89,22 @@ fn ask(what: Ask) {
 
 /// Where a drag has got to, kept between frames.
 ///
-/// Two numbers: where on the rail the value is being read from, which is no
-/// longer where the pointer is, and where the pointer was last seen, which is
-/// what the next frame's movement is measured from.
+/// Where on the rail the value is being read from, which is no longer where the
+/// pointer is; where the pointer was last seen, which is what the next frame's
+/// movement is measured from; and whether the handle has yet moved at all.
 #[derive(Clone, Copy, Debug, Default)]
 struct At {
     on_rail: f32,
     pointer: f32,
+    /// Taken hold of and not yet moved, so the value is not to be touched.
+    ///
+    /// Not the same as "this is the press frame": egui runs a pass twice
+    /// whenever something in it asks for another look — a popup working out
+    /// where it fits is enough — and the second pass sees a drag already under
+    /// way. Reading the value off the handle again would round it to the
+    /// nearest number worth aiming at, which is a slider that moves the moment
+    /// it is touched by however much the rounding came to.
+    held: bool,
 }
 
 /// A slider.
@@ -197,6 +206,21 @@ impl<'a> Fine<'a> {
     /// values a drag could reach would be exactly the ones a bound drag
     /// reaches, and the whole thing would buy nothing on a long range.
     fn aimed(&mut self, at: f32, rail: Rangef, aim: f32) -> f64 {
+        // The ends of the rail are the ends of the range, exactly. Aiming looks
+        // for the roundest number *within* a hand's width of the pointer, and
+        // at an end every such number is inside the range rather than on it: on
+        // the zoom rail, whose left end is now the fitted magnification and
+        // whose scale is logarithmic, that landed about one per cent above
+        // fitting — a photograph a shade too large for the window, with slack
+        // to pan into and nothing on screen to say why.
+        if at <= rail.min {
+            return self.range.0;
+        }
+
+        if at >= rail.max {
+            return self.range.1;
+        }
+
         egui::emath::smart_aim::best_in_range_f64(
             self.value_at(at - aim, rail),
             self.value_at(at + aim, rail),
@@ -266,16 +290,33 @@ impl<'a> Fine<'a> {
         let window = ui.ctx().viewport_rect().x_range();
         let before = ui.data_mut(|data| data.get_temp::<At>(id));
 
-        let at = match before {
-            // The press itself: the handle goes where it was pressed, so the
-            // far end of a long range is still one gesture away.
-            None => rail.clamp(pointer.x),
-            Some(before) => drag::along(
-                before.on_rail,
-                drag::moved(pointer.x, before.pointer, window),
-                gain,
-                rail,
-            ),
+        // Taking hold of the handle moves nothing. A drag that begins by
+        // shifting the value it was about to adjust is a drag that has to be
+        // undone before it can be used, and on a fine rail the whole point is
+        // to set out from where the value already is. Pressing the rail
+        // *elsewhere* still puts the handle there, which is what keeps the far
+        // end of a long range one gesture away.
+        let (at, held) = match before {
+            None => {
+                let value = self.get();
+                let handle = self.position_of(value, rail);
+
+                if (pointer.x - handle).abs() <= grabbing(ui, response.rect) {
+                    (handle, true)
+                } else {
+                    (rail.clamp(pointer.x), false)
+                }
+            }
+            Some(before) => {
+                let at = drag::along(
+                    before.on_rail,
+                    drag::moved(pointer.x, before.pointer, window),
+                    gain,
+                    rail,
+                );
+
+                (at, before.held && at == before.on_rail)
+            }
         };
 
         ui.data_mut(|data| {
@@ -284,9 +325,14 @@ impl<'a> Fine<'a> {
                 At {
                     on_rail: at,
                     pointer: pointer.x,
+                    held,
                 },
             );
         });
+
+        if held {
+            return;
+        }
 
         // Only while there is rail left to cover. At either end, and whenever
         // the handle is under the pointer anyway, the pointer running out of
@@ -417,6 +463,15 @@ impl<'a> Fine<'a> {
     }
 }
 
+/// How near the handle a press counts as taking hold of it.
+///
+/// Half the handle plus a little: the handle is about eight points across, and
+/// a hand aiming at it that misses by two should still be taking hold of it
+/// rather than throwing the value across the rail.
+fn grabbing(ui: &Ui, rect: egui::Rect) -> f32 {
+    paint::handle_half_width(rect, ui.style().visuals.handle_shape) + 4.0
+}
+
 impl Widget for Fine<'_> {
     fn ui(mut self, ui: &mut Ui) -> Response {
         let inner = ui.horizontal(|ui| self.add_contents(ui));
@@ -434,8 +489,13 @@ mod tests {
     /// the other's. Every test here takes this first.
     static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
 
-    fn moved_to(at: Pos2) -> Vec<Event> {
-        vec![Event::PointerMoved(at)]
+    /// Where the drag begins.
+    #[derive(Clone, Copy)]
+    enum Press {
+        /// On the handle itself, which is how somebody takes hold of a slider.
+        OnTheHandle,
+        /// Somewhere else along the rail, as a fraction of it.
+        At(f32),
     }
 
     fn button(at: Pos2, pressed: bool) -> Event {
@@ -447,17 +507,17 @@ mod tests {
         }
     }
 
-    /// Presses a rail in the middle, drags it by each step in turn, and says
-    /// where the value ended up.
+    /// Presses a rail and drags it by each step in turn, saying where the value
+    /// ended up.
     ///
     /// A widget's interaction is decided from where it was the frame before, so
     /// the press cannot land on the frame it is sent: the empty frame after it
     /// is the one the rail first hears about it, and the steps follow that.
-    fn dragged_from_the_middle(travel: f32, steps: &[f32]) -> f64 {
+    fn dragged(travel: f32, from: f64, press: Press, steps: &[f32]) -> f64 {
         travels(travel);
 
         let ctx = egui::Context::default();
-        let mut value = 50.0_f64;
+        let mut value = from;
         let mut rect = Rect::ZERO;
         let mut at = Pos2::ZERO;
 
@@ -471,18 +531,23 @@ mod tests {
                 });
             });
 
-            let rail = paint::rail(rect, ctx.style().visuals.handle_shape);
+            let shape = ctx.style().visuals.handle_shape;
+            let rail = paint::rail(rect, shape);
 
             input = RawInput::default();
             input.events = match pass {
                 0 => {
-                    at = Pos2::new(rail.center(), rect.center().y);
+                    let x = match press {
+                        Press::OnTheHandle => drag::position_of(value, rail, (0.0, 100.0), false),
+                        Press::At(along) => rail.min + rail.span() * along,
+                    };
+                    at = Pos2::new(x, rect.center().y);
                     vec![Event::PointerMoved(at), button(at, true)]
                 }
                 1 => Vec::new(),
                 pass if pass < steps.len() + 2 => {
                     at.x += steps[pass - 2];
-                    moved_to(at)
+                    vec![Event::PointerMoved(at)]
                 }
                 _ => vec![button(at, false)],
             };
@@ -497,8 +562,8 @@ mod tests {
     fn a_longer_travel_moves_the_value_less() {
         let _one_at_a_time = ONE_AT_A_TIME.lock();
 
-        let bound = dragged_from_the_middle(1.0, &[30.0]);
-        let fine = dragged_from_the_middle(3.0, &[30.0]);
+        let bound = dragged(1.0, 50.0, Press::OnTheHandle, &[30.0]);
+        let fine = dragged(3.0, 50.0, Press::OnTheHandle, &[30.0]);
 
         assert!(bound > 50.0, "the bound drag moved it: {bound}");
         assert!(fine > 50.0, "and so did the fine one: {fine}");
@@ -515,31 +580,55 @@ mod tests {
     fn the_drag_adds_up_over_the_frames_it_took() {
         let _one_at_a_time = ONE_AT_A_TIME.lock();
 
-        let one_go = dragged_from_the_middle(2.0, &[40.0]);
-        let in_pieces = dragged_from_the_middle(2.0, &[10.0, 10.0, 10.0, 10.0]);
+        let one_go = dragged(2.0, 50.0, Press::OnTheHandle, &[40.0]);
+        let in_pieces = dragged(2.0, 50.0, Press::OnTheHandle, &[10.0, 10.0, 10.0, 10.0]);
         assert!(
             (one_go - in_pieces).abs() < 1.0,
             "{one_go} in one go against {in_pieces} in four"
         );
 
-        let there_and_back = dragged_from_the_middle(2.0, &[40.0, -40.0]);
+        let there_and_back = dragged(2.0, 50.0, Press::OnTheHandle, &[40.0, -40.0]);
         assert!(
             (there_and_back - 50.0).abs() < 1.0,
             "it should have come back to where it started, not {there_and_back}"
         );
     }
 
-    /// The press is still a jump, which is what keeps the far end of a long
-    /// range one gesture away rather than a journey.
+    /// Taking hold of a slider does not move it. A drag that begins by shifting
+    /// the value it was about to adjust has to be undone before it can be used.
     #[test]
-    fn a_press_puts_the_handle_under_the_pointer() {
+    fn taking_hold_of_the_handle_does_not_move_it() {
         let _one_at_a_time = ONE_AT_A_TIME.lock();
 
-        let pressed = dragged_from_the_middle(10.0, &[]);
+        for from in [37.3, 0.0, 100.0, 62.5] {
+            let held = dragged(3.0, from, Press::OnTheHandle, &[]);
+            assert_eq!(held, from, "taking hold of it at {from} moved it to {held}");
+        }
+    }
+
+    /// Pressing the rail somewhere else still puts the handle there, which is
+    /// what keeps the far end of a long range one gesture away rather than a
+    /// journey.
+    #[test]
+    fn a_press_away_from_the_handle_puts_it_under_the_pointer() {
+        let _one_at_a_time = ONE_AT_A_TIME.lock();
+
+        let pressed = dragged(10.0, 5.0, Press::At(0.5), &[]);
         assert!(
             (pressed - 50.0).abs() < 2.0,
             "the middle of the rail is the middle of the range, not {pressed}"
         );
+    }
+
+    /// The ends of the rail are the ends of the range, exactly. Aiming for a
+    /// round number lands *inside* the range at an end, which on the zoom rail
+    /// left the photograph a shade too large for the window.
+    #[test]
+    fn a_drag_to_an_end_lands_exactly_on_it() {
+        let _one_at_a_time = ONE_AT_A_TIME.lock();
+
+        assert_eq!(dragged(3.0, 50.0, Press::OnTheHandle, &[-1000.0]), 0.0);
+        assert_eq!(dragged(3.0, 50.0, Press::OnTheHandle, &[1000.0]), 100.0);
     }
 
     /// The mailbox holds one ask and empties when it is read, so a row pressed

@@ -16,6 +16,17 @@ pub fn handle_radius(rect: Rect) -> f32 {
     rect.height() / 2.5
 }
 
+/// Half the width of the handle as it is drawn, which is also how far in from
+/// each end of the rect its centre can go.
+pub fn handle_half_width(rect: Rect, shape: HandleShape) -> f32 {
+    let radius = handle_radius(rect);
+
+    match shape {
+        HandleShape::Circle => radius,
+        HandleShape::Rect { aspect_ratio } => radius * aspect_ratio,
+    }
+}
+
 /// The stretch of the rect the handle's centre can be in.
 ///
 /// A rect taller than it is wide would shrink to nothing and leave the ends the
@@ -23,13 +34,7 @@ pub fn handle_radius(rect: Rect) -> f32 {
 /// rails here are all far wider than they are tall; the guard is for the one
 /// that is given its height by a layout rather than by a number.
 pub fn rail(rect: Rect, shape: HandleShape) -> Rangef {
-    let radius = handle_radius(rect);
-    let radius = match shape {
-        HandleShape::Circle => radius,
-        HandleShape::Rect { aspect_ratio } => radius * aspect_ratio,
-    };
-
-    let shrunk = rect.x_range().shrink(radius);
+    let shrunk = rect.x_range().shrink(handle_half_width(rect, shape));
 
     if shrunk.min > shrunk.max {
         Rangef::point(rect.center().x)

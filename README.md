@@ -877,9 +877,10 @@ point the pointer moves, and no hand places a pointer to the point.
 `mouse.slider_travel` says how far the pointer goes to cross the whole rail, as
 a multiple of the rail's own length: at `1` the handle is under the pointer, as
 it always used to be, and at the `3` it ships as the hand moves three times as
-far and places the handle three times as precisely. A press still jumps to
-wherever it landed, so the far end of a range is one gesture away whatever the
-setting says. When the pointer runs out of screen with rail still to cover it is
+far and places the handle three times as precisely. Taking hold of the
+handle moves nothing — the drag sets out from the value it is already on — while
+pressing the rail somewhere else still puts the handle there, so the far end of
+a range stays one gesture away whatever the setting says. When the pointer runs out of screen with rail still to cover it is
 put back on the other side and carries on, so a long drag is not cut short by
 the edge of the monitor. Every slider in the program reads the one value, and
 the second button on any of them offers the five distances and the page that

@@ -321,6 +321,16 @@ Leaving the seam for later means the next session pays for it with interest.
   than wrapped. A press still jumps to where it landed, so the far end of a
   range is one gesture away; the aim radius is divided by the travel too, or the
   reachable values would be the ones a bound drag already reached.
+- **Taking hold of a handle moves nothing, and the ends of a rail are the ends
+  of its range.** A press within `grabbing` of the handle sets out from the
+  value it is on; a press elsewhere still puts the handle there. The value is
+  held until the handle has *moved*, not merely until the press frame is over —
+  egui runs a pass twice whenever something in it asks for another look, and the
+  second pass would read the value back off the handle and round it. And
+  `aimed` returns the range's own ends at the rail's ends rather than the
+  roundest number near them, which on the logarithmic zoom rail was a per cent
+  above fitting: a photograph a shade too large for the window with slack to pan
+  into.
 - **The pointer is put back when it runs out of window, and nothing records
   that it was.** `slider/drag.rs` reads a jump of more than half a window as a
   wrap and takes the width off it — phase unwrapping, not a log of what was
