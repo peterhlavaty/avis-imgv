@@ -18,6 +18,21 @@ use super::{input, ImageView};
 
 impl ImageView {
     pub(super) fn handle_pointer(&mut self, ctx: &egui::Context, response: &Response) {
+        // While a window of the viewer's own is up, the photograph is a
+        // picture rather than a surface: no wheel, no drag, no pinch. The
+        // wheel is the one that mattered — a notch spent scrolling a page of
+        // settings walked the folder behind it, because `contains_pointer` is
+        // decided by where the pointer is and the window covers only part of
+        // the screen.
+        //
+        // Not `are_inputs_muted`, which a focused text field also answers yes
+        // to: typing in the filter bar takes the keys, and the wheel over the
+        // photograph goes on meaning what it means.
+        if crate::utils::is_a_window_in_front(ctx) {
+            self.viewport.scroll_delta = Vec2::ZERO;
+            return;
+        }
+
         let hovered = response.contains_pointer();
         let notch = if hovered { wheel::read(ctx) } else { None };
 
@@ -159,6 +174,11 @@ impl ImageView {
     }
 
     pub(super) fn handle_context_menu(&mut self, ctx: &egui::Context, response: &Response) {
+        // The photograph has no menu while a window is over it.
+        if crate::utils::is_a_window_in_front(ctx) {
+            return;
+        }
+
         let Some(path) = self.active_path() else {
             return;
         };

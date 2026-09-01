@@ -425,6 +425,15 @@ impl GridView {
     /// picture is larger than the window and something else when it is not —
     /// which is a mode with nothing on screen to say which one you are in.
     fn handle_band(&mut self, ctx: &egui::Context) {
+        // Nothing is picked out or pushed about while a window is over the
+        // sheet: the middle drag that pans it is a pointer gesture like any
+        // other.
+        if utils::is_a_window_in_front(ctx) {
+            self.band_from = None;
+            self.band = None;
+            return;
+        }
+
         let (position, pressed, down, dragging) = ctx.input(|i| {
             (
                 i.pointer.interact_pos(),
@@ -646,6 +655,11 @@ impl GridView {
         index: usize,
         response: &egui::Response,
     ) {
+        // A cell behind a window is not a cell: no cursor, no click, no menu.
+        if utils::is_a_window_in_front(ui.ctx()) {
+            return;
+        }
+
         if response.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }

@@ -85,7 +85,7 @@ pub fn show(
     // 614 logical space of a 1366 by 768 laptop at 125 per cent. darktable's
     // preferences window put its Close button below the bottom of a 14-inch
     // screen, where it could not be reached at all.
-    egui::Window::new("Settings")
+    let shown = egui::Window::new("Settings")
         .open(open)
         .default_size([900.0, 600.0])
         .min_size([720.0, 480.0])
@@ -93,6 +93,9 @@ pub fn show(
         .show(ctx, |ui| {
             outcome = contents(ui, state, config);
         });
+
+    // Nothing behind it is clicked, dragged or scrolled while it is up.
+    crate::utils::in_front(ctx, shown.as_ref());
 
     outcome
 }

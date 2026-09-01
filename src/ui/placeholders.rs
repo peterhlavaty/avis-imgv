@@ -11,7 +11,7 @@ use crate::metadata::template::PLACEHOLDERS;
 
 /// Draws the window.
 pub fn ui(ctx: &egui::Context, open: &mut bool) {
-    egui::Window::new("Template placeholders")
+    let shown = egui::Window::new("Template placeholders")
         .open(open)
         .default_width(560.0)
         .default_height(480.0)
@@ -51,6 +51,8 @@ pub fn ui(ctx: &egui::Context, open: &mut bool) {
                     });
             });
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 }
 
 #[cfg(test)]

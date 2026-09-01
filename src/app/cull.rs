@@ -13,7 +13,6 @@ use crate::metadata::xmp::Flag;
 use crate::organize::files;
 use crate::organize::journal::Step;
 use crate::ui::destinations::{self, Answer, Asking, Errand, Slot};
-use crate::utils;
 
 use super::App;
 
@@ -128,13 +127,9 @@ impl App {
             return;
         };
 
-        // A window asking a question owns the keyboard while it is up, or the
-        // key that answers it also does whatever it does the rest of the time.
-        utils::set_mute_state(ctx, true);
-
         let mut answered = None;
 
-        egui::Window::new(if pending.permanent {
+        let shown = egui::Window::new(if pending.permanent {
             "Delete for good"
         } else {
             "Move to the bin"
@@ -165,6 +160,8 @@ impl App {
                 .weak(),
             );
         });
+
+        crate::utils::in_front(ctx, shown.as_ref());
 
         // Consumed rather than read. Answering the question un-mutes the
         // keyboard, and the views draw after this does, so a key merely looked
@@ -199,19 +196,18 @@ impl App {
 
         match answered {
             Some(true) => {
-                self.close_modal(ctx);
+                self.close_modal();
                 self.carry_out(pending);
             }
-            Some(false) => self.close_modal(ctx),
+            Some(false) => self.close_modal(),
             None => {}
         }
     }
 
-    /// Gives the keyboard back once nothing is being asked.
-    fn close_modal(&mut self, ctx: &egui::Context) {
+    /// Nothing is being asked any more.
+    fn close_modal(&mut self) {
         self.pending_delete = None;
         self.asking = None;
-        utils::set_mute_state(ctx, false);
     }
 
     /// Does it, and says what happened.
@@ -339,15 +335,11 @@ impl App {
             return;
         };
 
-        // The digits are the point of this panel, and they are also the star
-        // ratings, so it takes the keyboard for as long as it is up.
-        utils::set_mute_state(ctx, true);
-
         let Some(answer) = destinations::ui(ctx, &asking) else {
             return;
         };
 
-        self.close_modal(ctx);
+        self.close_modal();
 
         match answer {
             Answer::Send(slot) => self.carry_errand(asking.errand, &slot),
@@ -551,12 +543,9 @@ impl App {
             return;
         };
 
-        // A window asking a question owns the keyboard while it is up.
-        utils::set_mute_state(ctx, true);
-
         let mut answered = None;
 
-        egui::Window::new("Undo")
+        let shown = egui::Window::new("Undo")
             .collapsible(false)
             .resizable(false)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -577,6 +566,8 @@ impl App {
                 ui.label(egui::RichText::new("Enter or Y to undo · Escape to leave it").weak());
             });
 
+        crate::utils::in_front(ctx, shown.as_ref());
+
         let said_no = ctx.input_mut(|i| {
             let escaped = i.consume_key(egui::Modifiers::NONE, egui::Key::Escape);
             escaped | i.consume_key(egui::Modifiers::NONE, egui::Key::N)
@@ -596,12 +587,10 @@ impl App {
         match answered {
             Some(true) => {
                 self.pending_undo = None;
-                utils::set_mute_state(ctx, false);
                 self.carry_out_undo();
             }
             Some(false) => {
                 self.pending_undo = None;
-                utils::set_mute_state(ctx, false);
             }
             None => {}
         }

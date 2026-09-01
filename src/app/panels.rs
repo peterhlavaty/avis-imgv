@@ -57,6 +57,13 @@ pub fn top_menu(
     egui::TopBottomPanel::top("menu")
         .show_separator_line(false)
         .show_animated(ctx, visible, |ui| {
+            // Nothing on the bar while a window is in front. Opening a folder
+            // or changing the mode from behind a settings window is a click
+            // aimed past the window it was meant for.
+            if crate::utils::is_a_window_in_front(ui.ctx()) {
+                ui.disable();
+            }
+
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
                     for (label, picked) in [
@@ -467,12 +474,19 @@ fn format_mib(bytes: usize) -> String {
 
 /// One line saying the keyboard has been taken, and which key gets it back.
 ///
-/// `are_inputs_muted` is `explicit-mute || memory.focused().is_some()`, so the
-/// whole viewer goes deaf while any text field holds focus — the filter bar's
+/// `are_inputs_muted` is `a window in front || memory.focused().is_some()`, so
+/// the whole viewer goes deaf while any text field holds focus — the filter bar's
 /// three, the tag panel's one, the folder jobs' eight — with `Escape` the only
 /// way out and `Alt+Q` the only shortcut that survives. Nothing on screen said
 /// any of it, so the symptom was a viewer that had stopped answering its keys.
 pub fn typing_notice(ctx: &egui::Context) {
+    // Not while a window is in front. The viewer being deaf is the point
+    // there, not a surprise to be explained, and the line would be drawn at
+    // the foot of a window nobody is typing into.
+    if crate::utils::is_a_window_in_front(ctx) {
+        return;
+    }
+
     if !ctx.memory(|memory| memory.focused().is_some()) {
         return;
     }

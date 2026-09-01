@@ -180,6 +180,10 @@ fn draw_cell(
         );
     }
 
+    if crate::utils::is_a_window_in_front(ui.ctx()) {
+        return false;
+    }
+
     if response.hovered() {
         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }

@@ -246,7 +246,7 @@ pub fn history_window(
     let mut showing = *open;
     let mut asked = None;
 
-    egui::Window::new("Recent messages")
+    let shown = egui::Window::new("Recent messages")
         .open(&mut showing)
         .default_width(620.0)
         .default_height(420.0)
@@ -308,6 +308,8 @@ pub fn history_window(
                 }
             });
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 
     if showing {
         notices.mark_seen();

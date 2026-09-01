@@ -22,7 +22,7 @@ pub enum Answer {
 pub fn ask(ctx: &egui::Context, open: &mut bool) -> Answer {
     let mut answer = Answer::Waiting;
 
-    egui::Window::new("The configuration file has changed")
+    let shown = egui::Window::new("The configuration file has changed")
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -58,6 +58,8 @@ pub fn ask(ctx: &egui::Context, open: &mut bool) -> Answer {
                 }
             });
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 
     if answer != Answer::Waiting {
         *open = false;

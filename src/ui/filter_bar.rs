@@ -25,6 +25,12 @@ pub fn ui(
     egui::TopBottomPanel::top("filter_bar")
         .show_separator_line(false)
         .show_animated(ctx, visible, |ui| {
+            // The bar narrows the folder, which is a change to what is on
+            // screen behind the window that is being read.
+            if crate::utils::is_a_window_in_front(ui.ctx()) {
+                ui.disable();
+            }
+
             ui.add_space(2.0);
 
             ui.horizontal_wrapped(|ui| {

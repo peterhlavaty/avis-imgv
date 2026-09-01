@@ -108,6 +108,12 @@ pub fn ui(
     }
 
     let panel = panel.show_animated(ctx, visible, |ui| {
+        // A keyword clicked from behind a window is written to a sidecar, so
+        // the panel goes quiet while one is up.
+        if crate::utils::is_a_window_in_front(ui.ctx()) {
+            ui.disable();
+        }
+
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.add_space(20.);
             ui.label(RichText::new("Rating & Tags").heading());

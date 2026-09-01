@@ -176,7 +176,7 @@ impl App {
             Some(Overlay::Navigator) => {
                 if navigator::ui(&mut self.navigator_path, ctx) {
                     let path = PathBuf::from(self.navigator_path.clone());
-                    input::close(ctx, &mut self.overlay);
+                    input::close(&mut self.overlay);
                     self.open_directory(&path, None);
                 }
             }
@@ -187,7 +187,7 @@ impl App {
                     .unwrap_or_else(|| self.base_path.clone());
 
                 if let Some(path) = tree::ui(&opened.to_string_lossy(), ctx) {
-                    input::close(ctx, &mut self.overlay);
+                    input::close(&mut self.overlay);
                     self.open_directory(&path, None);
                 }
             }

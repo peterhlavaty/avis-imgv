@@ -33,7 +33,7 @@ impl About {
 
 /// Draws the window. Nothing in it changes anything.
 pub fn ui(ctx: &egui::Context, open: &mut bool, about: &About) {
-    egui::Window::new("About avis-imgv")
+    let shown = egui::Window::new("About avis-imgv")
         .open(open)
         .resizable(false)
         .default_width(520.0)
@@ -65,6 +65,8 @@ pub fn ui(ctx: &egui::Context, open: &mut bool, about: &About) {
                 "What the viewer has been doing, and what went wrong.",
             );
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 }
 
 /// One path, with a copy button and a way to open it.

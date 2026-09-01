@@ -118,9 +118,6 @@ pub struct App {
     /// what the file complained about.
     settings_state: crate::ui::settings::State,
     settings_visible: bool,
-    /// Whether the keyboard editor is the reason the viewer is deaf, so only
-    /// it undoes that.
-    muted_for_keys: bool,
     /// A fullscreen change asked for by a mode, sent on the next frame.
     pending_fullscreen: Option<bool>,
     /// Whether the window was already fullscreen before a mode asked for it,
@@ -237,6 +234,14 @@ pub struct App {
     /// Commands raised from a place with no egui context to hand, run at the
     /// end of the frame that raised them.
     pending_commands: Vec<Command>,
+    /// Whether a text field had the keyboard on the frame before this one.
+    ///
+    /// egui clears the focus itself the moment Escape is pressed, in
+    /// `Focus::begin_pass`, before this program is called at all — so by the
+    /// time the key can be read, "was anything being typed into" no longer has
+    /// an answer. It is remembered instead, and it is what decides whether a
+    /// press leaves the search box or shuts the window it is in.
+    was_typing: bool,
 }
 
 impl App {
@@ -338,7 +343,6 @@ impl App {
             keys_visible: false,
             settings_state: crate::ui::settings::State::default(),
             settings_visible: false,
-            muted_for_keys: false,
             pending_fullscreen: None,
             was_fullscreen: fullscreen,
             notices: Notices::default(),
@@ -378,6 +382,7 @@ impl App {
             copying: verbs::Copying::default(),
             pending_clipboard: None,
             pending_commands: Vec::new(),
+            was_typing: false,
         };
 
         for clash in keys::clashes(&app.settings) {
@@ -916,6 +921,65 @@ impl App {
         }
     }
 
+    /// Whether one of the viewer's own windows is up.
+    ///
+    /// Every window the program opens over itself is here, and while any of
+    /// them is up the viewer behind it is neither clicked nor typed at. The
+    /// panels are not: the filter bar, the information panel and the keyword
+    /// panel sit beside the photograph rather than over it, and are used while
+    /// it is being looked at.
+    fn a_window_is_in_front(&self) -> bool {
+        self.settings_visible
+            || self.keys_visible
+            || self.cheat_sheet_visible
+            || self.about_visible
+            || self.legend_visible
+            || self.placeholders_visible
+            || self.messages_visible
+            || self.conflict_visible
+            || self.pending_delete.is_some()
+            || self.pending_undo.is_some()
+            || self.asking.is_some()
+            || self.overlay.is_some()
+    }
+
+    /// Shuts the window in front when Escape asks for it.
+    ///
+    /// The window that owns the keyboard has to be answerable from it, and the
+    /// settings window has no other key that reaches it: it is opened from a
+    /// key and was closed only with the mouse.
+    ///
+    /// The questions are not in this list. Escape is an *answer* there — leave
+    /// them alone — and the window that asked reads it itself; so do the
+    /// overlays, and the sheet of keys, which any key closes. An armed row in
+    /// the keyboard editor owns it too, where Escape means "leave the binding
+    /// as it was" rather than "shut the editor".
+    fn escape_shuts_a_window(&mut self, ctx: &egui::Context) {
+        if self.keys.is_listening() {
+            return;
+        }
+
+        let typing = self.was_typing;
+        let mut plain = [
+            &mut self.settings_visible,
+            &mut self.keys_visible,
+            &mut self.messages_visible,
+            &mut self.about_visible,
+            &mut self.legend_visible,
+            &mut self.placeholders_visible,
+        ];
+
+        // Which one is in front, asked before the key is taken so that Escape
+        // still reaches everything else when none of these is up.
+        let Some(open) = plain.iter_mut().find(|open| ***open) else {
+            return;
+        };
+
+        if input::escape_shuts_a_window(ctx, typing) {
+            **open = false;
+        }
+    }
+
     /// What the viewer is busy with, if anything worth saying.
     ///
     /// In the order it matters: a folder being read is the one that used to
@@ -1094,6 +1158,13 @@ impl eframe::App for App {
         self.image_view
             .set_display_edge(longest_edge_in_pixels(ctx));
 
+        // Escape, in the order the presses come. The first leaves whatever
+        // text field has the keyboard, the second shuts the window in front:
+        // surrendering the focus first would spend both on one press, because
+        // the question the second asks is whether anything is being typed
+        // into.
+        self.escape_shuts_a_window(ctx);
+
         // Wherever the keyboard has wandered off to, Escape brings it back.
         // A text field with focus mutes every shortcut in the viewer, and
         // finding out which field has it is not the user's job.
@@ -1103,6 +1174,19 @@ impl eframe::App for App {
 
         self.continue_opening(ctx);
         input::update_overlay(ctx, &mut self.overlay, &self.config);
+
+        // One place decides who is listening. A window of the viewer's own
+        // owns the mouse and the keyboard while it is up, and everything
+        // behind it goes quiet: the shortcuts, the gestures, and the wheel
+        // over the photograph, which used to walk the folder while somebody
+        // was scrolling a page of settings.
+        //
+        // Written here rather than by each window because the question is
+        // whether *any* of them is up, and a flag several owners set and clear
+        // is a flag one of them clears while another still needs it. After the
+        // overlays, so the frame one opens on is already quiet.
+        crate::utils::set_window_in_front(ctx, self.a_window_is_in_front());
+
         self.handle_gestures(ctx);
         self.handle_dropped_files(ctx);
         for command in input::collect(ctx, &self.config, &self.tag_config, &self.settings.cull) {
@@ -1212,6 +1296,11 @@ impl eframe::App for App {
         self.note_position(ctx);
         self.note_chrome();
         self.run_benchmark(ctx);
+
+        // Read at the end of the frame, when every field that asked for the
+        // keyboard this frame has it, and used on the next one: see
+        // `was_typing`.
+        self.was_typing = ctx.memory(|memory| memory.focused().is_some());
         self.perf_metrics.end_frame();
     }
 

@@ -380,6 +380,12 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
     egui::TopBottomPanel::bottom("image_view_bottom_bar")
         .show_separator_line(false)
         .show(ctx, |ui| {
+            // Readable but not pressable while a window is in front: every
+            // button on it changes what the photograph behind is doing.
+            if crate::utils::is_a_window_in_front(ui.ctx()) {
+                ui.disable();
+            }
+
             ui.horizontal_centered(|ui| {
                 outcome.bar.extend(mode_word(ui, status.mode));
 

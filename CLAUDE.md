@@ -154,6 +154,20 @@ message.
   The wheel is read off the `MouseWheel` event (`view::wheel`) rather than off
   `raw_scroll_delta`, because Shift and Alt are spent by egui before this crate
   sees a delta.
+- **A window in front owns the mouse and the keyboard.** Whether one is up is
+  decided once a frame, in `App::a_window_is_in_front`, and written to the
+  context with `utils::set_window_in_front`; a window that sets and clears a
+  flag of its own is a window that clears it while another still needs it.
+  `are_inputs_muted` is that flag *or* a focused text field, and gates the keys;
+  the pointer takes two more things. Every window calls `utils::in_front`, which
+  is egui's modal layer and stops the scroll areas and the focus behind it — and
+  the few places that read the pointer for themselves ask
+  `utils::is_a_window_in_front`, because `Response::contains_pointer` comes from
+  a hit test that knows nothing about modal layers and is true wherever the
+  window is not actually drawn. `Escape` shuts the window in front, and
+  `App::was_typing` is why it takes two presses to do it from a search box:
+  egui clears the focus itself before the program is called, so "was anything
+  being typed into" has to be remembered from the frame before.
 - **A turn is written to the sidecar and never to the photograph.** The eight
   orientations compose (`Orientation::then`), so the camera's and the user's are
   one orientation by the time anything draws. The same rule as the ratings: this

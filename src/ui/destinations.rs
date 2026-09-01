@@ -61,7 +61,7 @@ pub enum Answer {
 pub fn ui(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
     let mut answer = None;
 
-    egui::Window::new(format!("{} to…", asking.errand.verb()))
+    let shown = egui::Window::new(format!("{} to…", asking.errand.verb()))
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -145,6 +145,8 @@ pub fn ui(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
             ui.add_space(4.0);
             ui.label(RichText::new("Escape leaves them where they are").weak());
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 
     answer.or_else(|| keyboard(ctx, asking))
 }

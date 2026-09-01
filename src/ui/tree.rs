@@ -204,7 +204,7 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
         area_width = available_width;
     }
     let pos_x = (available_width / 2.) - area_width / 2.;
-    Area::new(Id::new("tree"))
+    let shown = Area::new(Id::new("tree"))
         .fixed_pos(Pos2::new(pos_x, 5.))
         .order(egui::Order::Foreground)
         .interactable(true)
@@ -357,6 +357,8 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                     })
                 });
         });
+
+    crate::utils::in_front(ctx, Some(&shown));
 
     result
 }

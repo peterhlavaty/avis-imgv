@@ -284,7 +284,7 @@ pub fn ui(
     let tallest = ctx.content_rect().height() * 0.75;
     let mut box_has_focus = false;
 
-    egui::Window::new(format!("Keys — {}", mode.label()))
+    let shown = egui::Window::new(format!("Keys — {}", mode.label()))
         .collapsible(false)
         .resizable(false)
         .default_width(620.0)
@@ -362,6 +362,8 @@ pub fn ui(
                 });
             });
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 
     if just_opened {
         return open;

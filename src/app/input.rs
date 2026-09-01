@@ -229,10 +229,32 @@ pub fn advances(command: Command, advancing: bool) -> bool {
     advancing && command.is_a_mark()
 }
 
-/// Opens and closes the overlays, keeping the input mute flag in step.
+/// Whether Escape means "shut the window in front".
 ///
-/// While one is open every other shortcut is muted so that typing a path
-/// cannot trigger an action; Escape always closes.
+/// `typing` is whether a text field had the keyboard on the frame before this
+/// one, which the application remembers rather than asks: egui clears the
+/// focus itself in `Focus::begin_pass` the moment Escape is pressed, before
+/// this program is called, so by the time the key can be read nothing is
+/// focused and the question has no answer left in the context.
+///
+/// The first press leaves the field and the second shuts the window, which is
+/// the two-step the rest of the program uses. Consumed rather than read, so
+/// the window being shut does not also mean whatever else Escape means that
+/// frame — leaving a comparison, or clearing the selection in the sheet.
+pub fn escape_shuts_a_window(ctx: &egui::Context, typing: bool) -> bool {
+    if typing {
+        return false;
+    }
+
+    ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+}
+
+/// Opens and closes the overlays.
+///
+/// While one is open every other shortcut is muted, so that typing a path
+/// cannot trigger an action; the muting itself is decided once a frame by the
+/// application, which counts an open overlay as a window in front. Escape
+/// always closes.
 pub fn update_overlay(ctx: &egui::Context, open: &mut Option<Overlay>, config: &GeneralConfig) {
     let toggles = [
         (Overlay::Navigator, &config.sc_navigator),
@@ -241,7 +263,7 @@ pub fn update_overlay(ctx: &egui::Context, open: &mut Option<Overlay>, config: &
 
     let escaped = open.is_some() && ctx.input(|i| i.key_pressed(egui::Key::Escape));
     if escaped {
-        close(ctx, open);
+        close(open);
         return;
     }
 
@@ -254,20 +276,18 @@ pub fn update_overlay(ctx: &egui::Context, open: &mut Option<Overlay>, config: &
 
         if ctx.input_mut(|i| shortcut::consume(i, shortcut)) {
             if mine {
-                close(ctx, open);
+                close(open);
             } else {
                 *open = Some(overlay);
-                utils::set_mute_state(ctx, true);
             }
             return;
         }
     }
 }
 
-/// Closes whatever overlay is open and gives the keyboard back.
-pub fn close(ctx: &egui::Context, open: &mut Option<Overlay>) {
+/// Closes whatever overlay is open.
+pub fn close(open: &mut Option<Overlay>) {
     *open = None;
-    utils::set_mute_state(ctx, false);
 }
 
 #[cfg(test)]
@@ -328,17 +348,17 @@ mod tests {
     }
 
     #[test]
-    fn quitting_works_even_while_typing() {
+    fn quitting_works_even_while_something_else_has_the_input() {
         let ctx = context_with(vec![key_press(Key::Q, Modifiers::ALT)]);
-        utils::set_mute_state(&ctx, true);
+        utils::set_window_in_front(&ctx, true);
 
         assert_eq!(collected(&ctx), vec![Command::Exit]);
     }
 
     #[test]
-    fn other_shortcuts_are_muted_while_typing() {
+    fn other_shortcuts_are_muted_while_something_else_has_the_input() {
         let ctx = context_with(vec![key_press(Key::Backspace, Modifiers::NONE)]);
-        utils::set_mute_state(&ctx, true);
+        utils::set_window_in_front(&ctx, true);
 
         assert!(collected(&ctx).is_empty());
     }
@@ -346,26 +366,27 @@ mod tests {
     #[test]
     fn typing_a_digit_in_the_search_box_does_not_rate_the_image() {
         let ctx = context_with(vec![key_press(Key::Num3, Modifiers::NONE)]);
-        utils::set_mute_state(&ctx, true);
+        utils::set_window_in_front(&ctx, true);
 
         assert!(collected(&ctx).is_empty());
     }
 
+    /// The overlay's own key still reaches it while everything else is muted,
+    /// which is what closes it. Whether the viewer is muted at all is the
+    /// application's decision now, made once a frame from what is open.
     #[test]
-    fn an_overlay_opens_mutes_and_closes() {
+    fn an_overlay_opens_and_closes_on_its_own_key() {
         let config = GeneralConfig::default();
         let mut open = None;
 
         let ctx = context_with(vec![key_press(Key::T, Modifiers::NONE)]);
         update_overlay(&ctx, &mut open, &config);
         assert_eq!(open, Some(Overlay::DirectoryTree));
-        assert!(utils::are_inputs_muted(&ctx));
 
         let ctx = context_with(vec![key_press(Key::T, Modifiers::NONE)]);
-        utils::set_mute_state(&ctx, true);
+        utils::set_window_in_front(&ctx, true);
         update_overlay(&ctx, &mut open, &config);
         assert_eq!(open, None);
-        assert!(!utils::are_inputs_muted(&ctx));
     }
 
     #[test]
@@ -432,10 +453,30 @@ mod tests {
         let mut open = Some(Overlay::Navigator);
 
         let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
-        utils::set_mute_state(&ctx, true);
+        utils::set_window_in_front(&ctx, true);
         update_overlay(&ctx, &mut open, &config);
 
         assert_eq!(open, None);
-        assert!(!utils::are_inputs_muted(&ctx));
+    }
+
+    /// Escape shuts the window in front, but only once nothing is being typed
+    /// into: the first press leaves the search box, the second shuts the
+    /// window.
+    #[test]
+    fn escape_shuts_a_window_only_when_nothing_had_the_keyboard() {
+        let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
+
+        assert!(!escape_shuts_a_window(&ctx, true));
+        assert!(escape_shuts_a_window(&ctx, false));
+    }
+
+    /// And it takes the key with it, so shutting the window does not also
+    /// leave the comparison behind it.
+    #[test]
+    fn shutting_a_window_spends_the_key() {
+        let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
+
+        assert!(escape_shuts_a_window(&ctx, false));
+        assert!(!escape_shuts_a_window(&ctx, false));
     }
 }

@@ -18,7 +18,7 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
         area_width = available_width;
     }
     let pos_x = (available_width / 2.) - area_width / 2.;
-    Area::new(Id::new("navigator"))
+    let shown = Area::new(Id::new("navigator"))
         .fixed_pos(Pos2::new(pos_x, 5.))
         .order(egui::Order::Foreground)
         .interactable(true)
@@ -109,6 +109,8 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                     })
                 })
         });
+
+    crate::utils::in_front(ctx, Some(&shown));
     is_selected
 }
 

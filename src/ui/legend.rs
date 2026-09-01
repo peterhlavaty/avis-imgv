@@ -14,7 +14,7 @@ use crate::view::stacks;
 
 /// Draws the legend window.
 pub fn ui(ctx: &egui::Context, open: &mut bool) {
-    egui::Window::new("What the marks mean")
+    let shown = egui::Window::new("What the marks mean")
         .open(open)
         .default_width(540.0)
         .default_height(520.0)
@@ -72,6 +72,8 @@ pub fn ui(ctx: &egui::Context, open: &mut bool) {
                 );
             });
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 }
 
 /// One row: a glyph, its name, and what it means.

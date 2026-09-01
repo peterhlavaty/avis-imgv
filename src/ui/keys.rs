@@ -77,13 +77,15 @@ pub fn show(
         return None;
     }
 
-    egui::Window::new("Keyboard")
+    let shown = egui::Window::new("Keyboard")
         .open(open)
         .default_width(640.0)
         .resizable(true)
         .show(ctx, |ui| {
             outcome = contents(ui, state, config);
         });
+
+    crate::utils::in_front(ctx, shown.as_ref());
 
     outcome
 }

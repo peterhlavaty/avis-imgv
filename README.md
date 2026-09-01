@@ -603,6 +603,25 @@ count. The cache readout cannot give one at all: what is in RAM is the length
 of a list trimmed to a budget, so it is permanently less than the folder and a
 bar driven by it would never fill.
 
+### While a window is open
+
+A window the viewer opens over itself owns the mouse and the keyboard while it
+is up. The wheel scrolls the page of settings rather than walking the folder
+behind it, a click lands on the window rather than on a thumbnail behind it,
+and the keys mean what the window says they mean — a digit typed into the
+search box is a digit and not a star. The bar at the top, the bar at the
+bottom, the filter bar and the keyword panel grey out to say so; the
+information panel stays readable, because reading it is not doing anything.
+
+`Escape` shuts the window in front. The first press leaves whatever field has
+the cursor and the second shuts the window, so a search half typed is not lost
+to a key pressed once. The questions — the two deletions, the bulk undo, and
+where photographs are being sent — answer `Escape` themselves, where it means
+"leave them alone".
+
+The same holds for the keyboard editor, the sheet of keys, the four windows the
+Help menu opens, the "go to" bar and the directory tree.
+
 ### When a change takes effect
 
 Everything in the settings window applies while the window is open, with one

@@ -2,6 +2,21 @@
 
 ## 2026-09-01
 
+- **A window in front owns the mouse and the keyboard.** A wheel notch spent on
+  a page of settings also walked the folder behind it, and a key pressed there
+  did whatever it does the rest of the time: the settings window was drawn over
+  the viewer and the viewer went on reading its own input. While the settings
+  window, the keyboard editor, the sheet of keys, a question, the "go to" bar,
+  the directory tree or any of the Help windows is up, the viewer behind it
+  neither reads a key nor answers the pointer — no wheel, no drag, no click on
+  a thumbnail, no gesture. The menu bar, the bottom bar, the filter bar and the
+  keyword panel grey out while it is; the information panel stays readable.
+- **`Escape` shuts the window in front.** The first press leaves whatever field
+  has the cursor and the second shuts the window, so a half-typed search is not
+  lost to one press. The questions still answer it themselves, where it means
+  "leave them alone", and an armed row in the keyboard editor still reads it as
+  "leave the binding as it was".
+
 - **A folder is read between frames.** The crawl was three synchronous lines and
   on a deep tree or a share over the network the window stopped repainting
   entirely — the one state that draws nothing because the program is not
