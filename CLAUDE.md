@@ -94,13 +94,13 @@ one piece of the work each.
 | `src/decoder/` | bytes to RGBA8: `codec`, `color` (lcms2), `resize`, `histogram`, `overlays`, `raw/` (LibRaw FFI) |
 | `src/metadata/` | EXIF and XMP read from the same buffer the decode uses; `containers/` per file format, `xmp/` for sidecars |
 | `src/cache/` | what lives in RAM and what lives on the GPU; `policy.rs` decides, `store/` holds, `loader.rs` and `preview.rs` are the threads |
-| `src/view/` | drawing: `image_view/`, `grid_view/`, `stacks.rs`, `narrow.rs`, `organize/` |
-| `src/app/` | wiring, input, modes, panels, the file watcher, `--benchmark` |
+| `src/view/` | drawing: `image_view/`, `grid_view/`, `stacks.rs`, `narrow.rs`, `organize/`, `wheel.rs` |
+| `src/app/` | wiring, input, modes, panels, the file watcher, `--benchmark`, `gestures.rs` |
 | `src/annotations/` | stars, flags, labels and tags, written to XMP sidecars |
 | `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping |
 | `src/config/` | the configuration file, its defaults, migrations between versions, and `registry/` — one row per field, which the settings window, the search and the key editor are all views over |
 | `src/session.rs` | what is remembered between runs: window, folder, position |
-| `src/ui/` | shared widgets, the notice bar, the key binding clash check |
+| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `progress.rs` |
 
 **Keep files short.** Aim for 300 lines; the median here is 264. Past that,
 split along the seam the file already has — a `mod.rs` plus siblings — rather
@@ -128,6 +128,40 @@ message.
 - **Anything the user should know** goes to `notices.say`, not only to the log.
 - **Keywords are hierarchical**: written to `lr:hierarchicalSubject` *and*
   `dc:subject`, never only one.
+- **A setting is a row in the registry.** `src/config/registry/table/` holds one
+  file per section of the configuration file, and every view over the settings —
+  the window, the search, the key editor, the cheat sheet, the checks, the
+  export — is a filter over that one table. A field added to `Config` without a
+  row fails the build. The row carries the page it is drawn on, a sentence, the
+  aliases somebody might search for, an `Access` reaching the field, an `Effect`
+  saying when the change takes effect and a `Scope` saying where a key is read.
+- **Everything applies while the window is open.** A setting the caches are
+  built from is applied by building them again (`ImageStore::rebuild`), on the
+  frame the gesture *ends*. Exactly one field in the whole program carries the
+  restart badge — `cache.decode_threads` — and a test says so. A badge means
+  *your change has not taken effect*: a setting about the next launch gets
+  `Effect::NextLaunch` and no badge, because using it for changes that have
+  taken effect is what teaches people to ignore it.
+- **A key that nudges a value writes it back.** The overlay corner, the panes,
+  the columns, the badges, advance-after-marking and the filmstrip all live in
+  `config.json`; only *position* belongs in the session file.
+- **Every menu opens on the press**, through `ui::surface`, and ends with the
+  settings page that owns it. `Response::context_menu` opens on the release and
+  loses the menu to a six-point drag, so it is not used.
+- **A gesture is a second route, never the only one.** The mouse is eight fields
+  in `mouse`; the ones with a single meaning hold the name of a command from
+  `config::mouse::VERBS`, and a test asserts every one of them also has a key.
+  The wheel is read off the `MouseWheel` event (`view::wheel`) rather than off
+  `raw_scroll_delta`, because Shift and Alt are spent by egui before this crate
+  sees a delta.
+- **A turn is written to the sidecar and never to the photograph.** The eight
+  orientations compose (`Orientation::then`), so the camera's and the user's are
+  one orientation by the time anything draws. The same rule as the ratings: this
+  program does not open a photograph for writing.
+- **Nothing long-running may block a frame.** The folder crawl is a `Walk`
+  stepped a few milliseconds at a time; anything that takes longer than half a
+  second says so at the foot of the window, with a percentage only where an
+  honest total exists.
 
 ## Prose
 
