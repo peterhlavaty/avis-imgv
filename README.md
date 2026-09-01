@@ -207,6 +207,17 @@ coming to rest there, so that one press after twenty photographs walked past
 still lands on the rating. Where you were goes back with it, because all of it
 did happen.
 
+The history is kept between runs, and used only when it still describes what is
+on disk. Written beside the session file on the way out, it carries a signature
+of every photograph and every sidecar any of its rows mentions — the size and
+the time each was last written, or the fact that it is not there — together
+with the configuration file. If any of that has moved by the next run, the
+history is discarded and the viewer says so, because an undo against a file
+something else has edited is the one thing this program is most careful never
+to do. Rows about where you were name no files, so a run spent looking around
+never invalidates anything. It follows `general.restore_session` like the rest
+of what is remembered between runs, and the last five hundred rows are kept.
+
 Anything that would touch more than one file says what it is about to do and
 waits — that is `cull.confirm.undo_several`, and until now it was a setting
 nothing read.

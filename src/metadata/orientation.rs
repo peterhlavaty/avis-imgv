@@ -2,7 +2,8 @@
 
 /// EXIF orientation, describing how the stored pixels must be transformed to
 /// be displayed upright.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum Orientation {
     #[default]
     Normal,

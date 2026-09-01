@@ -2,6 +2,20 @@
 
 ## 2026-09-01
 
+- **The history survives closing the viewer, when it is still true.** It is
+  written beside the session file and read back at the next launch, but only
+  when it still describes what is on disk: a signature covers every photograph
+  and every sidecar any row mentions — each one's size and when it was last
+  written, or the fact that it is not there — and the configuration file.
+  Anything moved in between and it is discarded with a sentence saying why,
+  because an undo against a file another program has edited is exactly the
+  operation this viewer exists not to perform. Rows about where you were name
+  no files, so a run spent looking around invalidates nothing. Follows
+  `general.restore_session`; the last five hundred rows are kept.
+- **The signature covers the sidecars, not only the photographs.** Found by
+  editing one behind the viewer's back and watching it happily offer to put its
+  marks back: undoing a mark writes a *sidecar* and never touches the picture,
+  so watching the pictures alone watched the wrong file.
 - **A panel listing everything done this run.** `Ctrl + H`, down the right-hand
   side, in the order things happened. The row you are on is picked out; what
   was taken back, or left on a branch, is still in the list in italics rather

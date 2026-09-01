@@ -32,7 +32,8 @@ use crate::view::selection::Selection;
 /// One struct rather than six bools loose in the snapshot, so that "a panel
 /// was opened" is one row of history saying which, rather than six fields the
 /// difference has to be hunted through.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(default)]
 pub struct Panels {
     pub menu: bool,
     pub side: bool,
@@ -193,7 +194,7 @@ impl Snapshot {
 ///
 /// Both halves, always, which is what makes every one of these runnable in
 /// either direction without a second kind of recording.
-#[derive(Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
 pub enum Change {
     Folder(PathBuf, PathBuf),
     Mode(Mode, Mode),

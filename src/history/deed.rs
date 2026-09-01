@@ -50,7 +50,7 @@ impl Class {
 }
 
 /// One thing that was done.
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum Deed {
     /// The beginning, which is never run.
     ///
@@ -123,6 +123,18 @@ impl Deed {
             // Nothing here reaches the disk, so nothing here is ever asked
             // about before it runs.
             Deed::Changed(_) => 0,
+        }
+    }
+
+    /// Every file this deed would touch.
+    ///
+    /// Empty for a row about where the program was pointed: nothing there
+    /// reaches the disk, so a run spent looking around cannot make a history
+    /// stale.
+    pub fn paths(&self) -> Vec<std::path::PathBuf> {
+        match self {
+            Deed::Start | Deed::Changed(_) => Vec::new(),
+            Deed::Files(step) => step.paths(),
         }
     }
 

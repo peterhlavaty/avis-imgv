@@ -404,6 +404,29 @@ impl App {
             was_typing: false,
         };
 
+        // Read after the struct is built, because what it says goes to the
+        // notices and because a stale one is worth a sentence rather than a
+        // silence. The signature is a handful of file lookups over the paths
+        // the history mentions, which is nothing beside opening a folder.
+        match crate::history::persist::load(
+            app.settings.history.remember,
+            Config::path().as_deref(),
+        ) {
+            crate::history::persist::Read::Kept(history) => {
+                let count = history.len();
+                app.history = history;
+                app.notices.say(format!(
+                    "{count} things you did last time can still be undone"
+                ));
+            }
+            crate::history::persist::Read::Stale => {
+                let line = "The folder has changed since the last run, so what was done then                             can no longer be taken back";
+                app.startup_notices.push(line.to_string());
+                app.notices.say(line);
+            }
+            crate::history::persist::Read::Nothing => {}
+        }
+
         for clash in keys::clashes(&app.settings) {
             app.startup_notices.push(clash.clone());
             app.notices.warn(clash);
@@ -1362,6 +1385,7 @@ impl eframe::App for App {
         }
 
         self.session.save();
+        crate::history::persist::save(&self.history, Config::path().as_deref());
     }
 }
 

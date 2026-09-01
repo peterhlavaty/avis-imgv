@@ -23,7 +23,7 @@ use super::visible::Visible;
 ///
 /// Compared as well as cloned, because the history looks at it once a frame
 /// and has to know whether it moved without allocating to find out.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Selection {
     chosen: BTreeSet<usize>,
     /// Where the last run started, as a position in what is on show.

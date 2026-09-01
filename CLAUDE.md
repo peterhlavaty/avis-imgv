@@ -77,10 +77,18 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 cargo clippy --all-targets --no-default-features -- -D warnings
+cargo build --release
 ```
 
 A clippy warning is a failure. There is no rustfmt configuration: default
 style.
+
+**Every change ends with a release build.** `cargo build --release`, every time
+the code has been touched, and the viewer run from that build when the change
+is visible. Debug builds optimise this crate at level 1: too slow to judge
+anything about speed by, and a different program where it matters —
+`debug_assert!` is compiled out and integer overflow wraps rather than
+panicking. A change that has only ever been built in debug has not been built.
 
 ## The shape of the code
 
@@ -110,8 +118,29 @@ splitting when they are next touched; they are not licence to write more.
 **Keep folders small.** Around fifteen files to a directory. Past that the
 directory is two concerns and should be two directories.
 
-Both rules give way to a real reason, and the reason goes in the commit
+**Folders follow the functionality**, not the kind of file. A directory is
+named for a job the program does — decoding, caching, organising the folder —
+and holds the logic, the drawing and the tests for that job together. There is
+no directory of every widget or every type: `src/ui/` is the one exception and
+holds only what several concerns genuinely share. A file goes where its job
+lives, even when it resembles a file somewhere else.
+
+These rules give way to a real reason, and the reason goes in the commit
 message.
+
+**Write it once.** Before writing something that feels familiar, grep for it. If
+it exists, call it; if it nearly exists, widen it until it serves both callers
+rather than copying it and letting the two drift apart. Make a helper general
+enough for the callers it has and no more — the registry, `ui::surface` and
+`cache::policy` are each one rule with several views over it, and that is the
+shape to aim for. Duplication that survives a review is a bug that will be
+fixed in one place out of two.
+
+**Refactor as part of the change, not instead of it.** When a change wants a
+third copy, a fifth parameter or a flag that means "the other caller", the
+shape is wrong: change the shape first, then make the change. Either in the
+same commit or in the one before it, with the tests still passing at each step.
+Leaving the seam for later means the next session pays for it with interest.
 
 ## Things that already have an answer
 
@@ -135,6 +164,37 @@ message.
   row fails the build. The row carries the page it is drawn on, a sentence, the
   aliases somebody might search for, an `Access` reaching the field, an `Effect`
   saying when the change takes effect and a `Scope` saying where a key is read.
+- **The history watches the state; nothing tells it anything.** Undo, redo and
+  the history panel are `src/history/`, and not one of the five dispatchers
+  calls into it. `App::watch_history` asks once at the foot of the frame what
+  the program looks like and compares that with the frame before — so every
+  route in is covered by construction, including ones not written yet. Adding a
+  sixth dispatcher needs no work here; adding a piece of *state* worth taking
+  back means a field on `Watched`/`Snapshot`, a `Change` variant and an arm in
+  `app/history/restore.rs`, and nothing else. The comparison must stay
+  allocation-free: `Watched` borrows, `Snapshot` owns, and a clone happens only
+  on the frames something moved. The configuration is not in the snapshot —
+  only the registry can compare it, and that walk costs ten microseconds a
+  frame, so it runs on the frames `save_settings` has marked.
+- **A deed is recorded with both halves, never as an inverse.** That is what
+  makes redo possible at all, and it is why the journal never had one. A
+  restore sets an absolute value and never flips a flag: "make it what it was"
+  and "flip it" are the same thing only until something else flips it.
+- **Nothing in the history is ever overwritten.** Going back and doing
+  something else branches rather than truncating, node indices are stable for
+  the life of the tree, and a row that was undone is still drawn — in italics —
+  rather than removed. A limit forgets the *oldest*, re-parenting what hung off
+  it.
+- **A gesture is one row.** Nothing is watched while the pointer is down, and
+  nudges of the same kind inside `history.merge_within_ms` fold into one,
+  keeping where the gesture began. The same rule governs reading a panel's
+  dragged width back (`ui::width::Dragged`): a width that moved without the
+  button down is an animation or a layout pass, and writing it back is a
+  feedback loop that corrupts the setting.
+- **Anything kept between runs carries a signature of what it assumed.**
+  `history::persist` stores one over every file its rows mention — sidecars
+  included, because undoing a mark writes a sidecar and never touches the
+  picture — and refuses to load when it no longer holds, saying so.
 - **Everything applies while the window is open.** A setting the caches are
   built from is applied by building them again (`ImageStore::rebuild`), on the
   frame the gesture *ends*. Exactly one field in the whole program carries the

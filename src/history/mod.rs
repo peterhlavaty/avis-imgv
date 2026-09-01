@@ -35,6 +35,7 @@ use std::time::{Duration, SystemTime};
 pub mod deed;
 pub mod files;
 pub mod panel;
+pub mod persist;
 pub mod snapshot;
 pub mod tree;
 pub mod watch;
@@ -47,7 +48,7 @@ pub use tree::{Node, NodeId, Tree};
 pub use watch::Watcher;
 
 /// One row of the history: what was done, and when.
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Entry {
     /// What was done.
     pub deed: Deed,
@@ -94,6 +95,13 @@ impl History {
             tree: Tree::new(Entry::new(Deed::Start)),
             remember: 0,
         }
+    }
+
+    /// A history read back from somewhere, with a limit applied to it.
+    pub fn of(tree: Tree<Entry>, remember: usize) -> History {
+        let mut history = History { tree, remember };
+        history.tree.trim(remember);
+        history
     }
 
     /// An empty history that will keep at most this many deeds.

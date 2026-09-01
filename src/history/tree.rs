@@ -21,7 +21,7 @@ use super::files::Way;
 pub type NodeId = usize;
 
 /// One node and its place among the others.
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Node<T> {
     /// Where this came from. Only the root has none.
     pub parent: Option<NodeId>,
@@ -38,7 +38,7 @@ pub struct Node<T> {
 }
 
 /// A history and the one place in it that is *now*.
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct Tree<T> {
     nodes: Vec<Option<Node<T>>>,
     root: NodeId,

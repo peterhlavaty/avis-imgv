@@ -18,7 +18,7 @@ use super::visible::Visible;
 ///
 /// Every rule is "anything" by default and they combine with "and", so a
 /// filter nobody has touched is the whole folder.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)]
 pub struct Rules {
     /// Stars, as a closed range.
     pub min_stars: u8,
@@ -106,7 +106,8 @@ impl FlagRule {
 }
 
 /// Which colour label a photograph has to carry.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum LabelRule {
     #[default]
     Any,
@@ -192,7 +193,7 @@ impl SortBy {
 }
 
 /// A filter and an order, as the views hold them.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Default, PartialEq)]
 pub struct Narrowing {
     pub rules: Rules,
     pub sort: SortBy,

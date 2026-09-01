@@ -209,7 +209,7 @@ pub fn keyword_matches(keyword: &str, wanted: &str) -> bool {
 }
 
 /// What the viewer reads out of, and writes back into, an XMP document.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Xmp {
     /// Stars, 0 to [`MAX_RATING`], or [`REJECTED`].
     pub rating: i8,

@@ -5,7 +5,8 @@
 //! window is for right now.
 
 /// What the main area of the window is showing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum Mode {
     /// One photograph, filling the window.
     #[default]

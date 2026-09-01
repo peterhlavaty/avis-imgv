@@ -43,7 +43,7 @@ impl Way {
 }
 
 /// One thing that was done to files, recorded so it can be run either way.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq, Eq)]
 pub enum Step {
     /// Files that moved, as `(where it went, where it came from)`.
     ///
@@ -165,6 +165,37 @@ impl Step {
         }
     }
 
+    /// Every file this step would touch, in either direction.
+    ///
+    /// What a signature is taken over: if any of these is not what it was, the
+    /// step no longer describes the disk and must not be run against it.
+    ///
+    /// The sidecars are in it as well as the photographs, and that is not a
+    /// detail. Undoing a mark writes a *sidecar* and never touches the picture,
+    /// so a history that watched only the pictures would be a history that
+    /// happily put back marks over an edit another program had made — which is
+    /// the one thing this program is most careful never to do. Watched as
+    /// candidates rather than as what is on the disk, because whether a sidecar
+    /// exists is itself something that can change between two runs.
+    pub fn paths(&self) -> Vec<PathBuf> {
+        match self {
+            Step::Moved(moves) => moves
+                .iter()
+                .flat_map(|(now, was)| [now.clone(), was.clone()])
+                .flat_map(|path| with_sidecars(&path))
+                .collect(),
+            Step::Copied { pairs, made } => pairs
+                .iter()
+                .flat_map(|(from, to)| [from.clone(), to.clone()])
+                .flat_map(|path| with_sidecars(&path))
+                .chain(made.iter().cloned())
+                .collect(),
+            Step::Binned(binned) => binned.iter().flat_map(|p| with_sidecars(p)).collect(),
+            Step::Marked { image, .. } => with_sidecars(image),
+            Step::Many(steps) => steps.iter().flat_map(Step::paths).collect(),
+        }
+    }
+
     /// Runs the step in the given direction and reports what happened on disk.
     pub fn run(&self, way: Way) -> Done {
         match self {
@@ -191,6 +222,13 @@ impl Step {
             Step::Many(steps) => all_of(steps, way),
         }
     }
+}
+
+/// A photograph and the sidecars it could have, whether or not they are there.
+fn with_sidecars(image: &Path) -> Vec<PathBuf> {
+    let mut paths = vec![image.to_path_buf()];
+    paths.extend(crate::annotations::sidecar::candidates(image));
+    paths
 }
 
 /// What running a step actually did, for the caller to report and act on.
@@ -553,6 +591,49 @@ mod tests {
         let said = step.describe(Way::Back);
         assert!(said.starts_with("take away 1 copied file(s)"), "{said}");
         assert!(said.contains("1 more"), "{said}");
+    }
+
+    /// The one that got past a signature over the photographs alone: undoing
+    /// a mark writes the sidecar, so the sidecar is what has to be watched.
+    #[test]
+    fn a_mark_watches_the_sidecar_and_not_only_the_photograph() {
+        let step = Step::Marked {
+            image: PathBuf::from("/photos/a.jpg"),
+            before: Box::new(Xmp::default()),
+            after: Box::new(Xmp::default()),
+        };
+
+        let paths = step.paths();
+
+        assert!(paths.contains(&PathBuf::from("/photos/a.jpg")));
+        assert!(
+            paths
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "xmp")),
+            "{paths:?}"
+        );
+    }
+
+    /// And so does everything else that moves a photograph, because the
+    /// sidecar travels with it.
+    #[test]
+    fn moving_and_binning_watch_the_sidecars_too() {
+        for step in [
+            Step::Binned(vec![PathBuf::from("/photos/a.jpg")]),
+            Step::Moved(vec![(
+                PathBuf::from("/other/a.jpg"),
+                PathBuf::from("/photos/a.jpg"),
+            )]),
+        ] {
+            let paths = step.paths();
+
+            assert!(
+                paths
+                    .iter()
+                    .any(|p| p.extension().is_some_and(|e| e == "xmp")),
+                "{step:?} watches no sidecar"
+            );
+        }
     }
 
     #[test]

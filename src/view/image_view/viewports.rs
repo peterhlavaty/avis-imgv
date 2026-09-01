@@ -16,10 +16,30 @@ use super::canvas::Viewport;
 ///
 /// The latches — whether new images should fill the panel — are a preference
 /// and stay where they are; what is remembered is where the user got to.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq)]
 pub struct Place {
     pub zoom: f32,
+    #[serde(with = "as_a_pair")]
     pub pan: Vec2,
+}
+
+/// A `Vec2` as two numbers.
+///
+/// egui's own `serde` feature is not switched on in this build, and switching
+/// it on to write two floats would pull serialisation into every type the
+/// interface is made of.
+mod as_a_pair {
+    use eframe::epaint::Vec2;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer>(pan: &Vec2, out: S) -> Result<S::Ok, S::Error> {
+        [pan.x, pan.y].serialize(out)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(input: D) -> Result<Vec2, D::Error> {
+        let [x, y] = <[f32; 2]>::deserialize(input)?;
+        Ok(Vec2::new(x, y))
+    }
 }
 
 impl Place {
