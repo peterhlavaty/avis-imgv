@@ -8,10 +8,11 @@
 //! asking to win the argument about the default; they are asking to be allowed
 //! to lose it locally.
 //!
-//! So there are eight fields and no more. The number of *gestures* stays small
-//! and fixed — which is the answer to IrfanView's author, who has argued that
-//! "more options are not always a good move as they make programs harder to
-//! support" — and it is the mapping that opens up.
+//! So the gestures are few and fixed — which is the answer to IrfanView's
+//! author, who has argued that "more options are not always a good move as they
+//! make programs harder to support" — and it is the mapping that opens up. The
+//! one field here that is not a mapping is `slider_travel`, and it is here for
+//! the same reason: it is about the hand rather than about any one control.
 //!
 //! The wheel's two fields hold a *job* rather than a command, because a wheel
 //! is an axis and one notch either way cannot be one command. Everything with
@@ -62,6 +63,16 @@ pub struct MouseConfig {
     pub back: String,
     #[serde(default = "next")]
     pub forward: String,
+    /// How far the pointer travels to cross a slider, as a multiple of the
+    /// rail's own length.
+    ///
+    /// The only field here that is a number rather than a mapping. It is under
+    /// the mouse rather than under the window because it is a property of the
+    /// hand rather than of any one control: the same person wants the same
+    /// answer on every rail in the program, and gets it, because there is one
+    /// value and every rail reads it.
+    #[serde(default = "slider_travel")]
+    pub slider_travel: f32,
 }
 
 fn zooms() -> WheelJob {
@@ -84,6 +95,10 @@ fn next() -> String {
     "next".to_string()
 }
 
+fn slider_travel() -> f32 {
+    crate::ui::slider::drag::SHIPS_AS
+}
+
 impl Default for MouseConfig {
     fn default() -> Self {
         MouseConfig {
@@ -96,6 +111,7 @@ impl Default for MouseConfig {
             middle: nothing(),
             back: previous(),
             forward: next(),
+            slider_travel: slider_travel(),
         }
     }
 }

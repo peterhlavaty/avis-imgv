@@ -108,7 +108,7 @@ one piece of the work each.
 | `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping |
 | `src/config/` | the configuration file, its defaults, migrations between versions, and `registry/` — one row per field, which the settings window, the search and the key editor are all views over |
 | `src/session.rs` | what is remembered between runs: window, folder, position |
-| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `progress.rs` |
+| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `slider/` for the rails, `progress.rs` |
 
 **Keep files short.** Aim for 300 lines; the median here is 264. Past that,
 split along the seam the file already has — a `mod.rs` plus siblings — rather
@@ -294,6 +294,31 @@ Leaving the seam for later means the next session pays for it with interest.
   one gesture — `Area::is_dragging` is why `interaction::dragging` returns
   false — and where two readings are defensible it is a setting
   (`mouse.mark_area`), not a decision taken in the code.
+- **A slider's handle takes a share of what the pointer does.** Every rail in
+  the program is `ui::slider::Fine`, which is drawn exactly as egui's is —
+  `slider/paint.rs` is the toolkit's own code from the same style — and differs
+  only in the interaction: it reads the value off how far the pointer has
+  *moved*, divided by `mouse.slider_travel`. egui's `Slider` sets its value from
+  `interact_pointer_pos` before it paints, with no way in for a caller to say
+  where the pointer should be taken to be and no rect it can be given that is
+  not also the rect it draws into, which is why the widget is written out rather
+  than wrapped. A press still jumps to where it landed, so the far end of a
+  range is one gesture away; the aim radius is divided by the travel too, or the
+  reachable values would be the ones a bound drag already reached.
+- **The pointer is put back when it runs out of window, and nothing records
+  that it was.** `slider/drag.rs` reads a jump of more than half a window as a
+  wrap and takes the width off it — phase unwrapping, not a log of what was
+  asked for — which is what makes it right where the ask is ignored. Wayland
+  cannot warp a cursor; there the jump never arrives, no correction is made for
+  one, and the drag stops at the edge as it did before. Only while there is rail
+  left to cover: at either end the pointer meeting the edge means the drag is
+  over.
+- **A menu drawn from inside a widget leaves its ask in a mailbox.** A rail is
+  drawn in four subsystems and none of them has the configuration in hand, so
+  `ui::slider::asked` is emptied once a frame by `App::take_slider_ask` and goes
+  through the same `apply_settings` and `save_settings` the settings window
+  uses — which is what puts it in the history for free. The same shape as the
+  keyboard's ask in `surface`, and for the same reason.
 - **Nothing long-running may block a frame.** The folder crawl is a `Walk`
   stepped a few milliseconds at a time; anything that takes longer than half a
   second says so at the foot of the window, with a percentage only where an

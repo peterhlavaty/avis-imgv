@@ -826,7 +826,7 @@ are the only place in the running program those two settings are visible at all.
 
 ## The mouse
 
-Nine settings, in the `mouse` section of the configuration and on the *Keys
+Ten settings, in the `mouse` section of the configuration and on the *Keys
 and mouse* page. The number of gestures is fixed and small; what opens up is
 what each one means.
 
@@ -870,6 +870,20 @@ listed in the control. `nothing` is a legal value and is what the middle button
 ships as. The thumb buttons fire when the button goes down and have no
 double-click meaning: a viewer that waits to see whether a side-button click is
 a double makes walking a folder feel slow and still moves one frame.
+
+**A slider's handle does not have to keep up with the pointer.** Two hundred
+points of rail carrying four thousand values gives twenty of them to every
+point the pointer moves, and no hand places a pointer to the point.
+`mouse.slider_travel` says how far the pointer goes to cross the whole rail, as
+a multiple of the rail's own length: at `1` the handle is under the pointer, as
+it always used to be, and at the `3` it ships as the hand moves three times as
+far and places the handle three times as precisely. A press still jumps to
+wherever it landed, so the far end of a range is one gesture away whatever the
+setting says. When the pointer runs out of screen with rail still to cover it is
+put back on the other side and carries on, so a long drag is not cut short by
+the edge of the monitor. Every slider in the program reads the one value, and
+the second button on any of them offers the five distances and the page that
+owns them.
 
 **A click in the contact sheet picks a photograph out; two clicks open it.** A
 plain click used to leave the sheet altogether, which contradicted the cursor,
@@ -1057,6 +1071,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `double_click` | The command two clicks on the photograph run | `fit_or_actual` |
 | `middle` | The command the wheel pressed runs | `nothing` |
 | `back`, `forward` | The commands the thumb buttons run | `previous`, `next` |
+| `slider_travel` | How far the pointer moves to cross a slider, as a multiple of the rail's length | 3 |
 
 An older file with `image_view.scroll_navigation` in it has that key moved into
 `mouse.wheel` on the first launch — `true` becomes `next_or_previous` and

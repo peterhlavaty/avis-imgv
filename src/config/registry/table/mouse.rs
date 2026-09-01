@@ -1,6 +1,6 @@
 //! `mouse.*`: what the pointer does.
 //!
-//! Eight rows, all on one page, which is the point. nomacs's own thread about
+//! Ten rows, all on one page, which is the point. nomacs's own thread about
 //! the wheel ended with a collaborator noting that two checkboxes buried in
 //! two different places would already have swapped the functions — after seven
 //! years in which nobody in the thread had found them — and conceding that the
@@ -182,6 +182,38 @@ pub fn rows() -> Vec<Row> {
             Live,
             None,
             verb!(mouse.forward),
+        ),
+        row!(
+            KeysAndMouse / Mouse,
+            "mouse.slider_travel",
+            "How far the pointer moves to cross a slider",
+            "As a multiple of the rail's own length. At one the handle is under the \
+             pointer, which is how every slider used to work and why a long range was \
+             a lottery: two hundred points of rail carrying four thousand values gives \
+             twenty of them to the point. At three the hand moves three times as far \
+             and places the handle three times as precisely. A press still jumps to \
+             wherever it landed, so the far end is one gesture away whatever this says.",
+            [
+                "slider",
+                "sensitivity",
+                "too sensitive",
+                "fine",
+                "precision",
+                "rail",
+                "drag"
+            ],
+            Live,
+            None,
+            decimal!(
+                crate::ui::slider::drag::BOUND,
+                crate::ui::slider::drag::FURTHEST,
+                "×",
+                true,
+                mouse.slider_travel
+            ),
+            explained: "When the pointer runs out of screen with rail still to cover it is \
+                        put back on the other side and carries on, so a long drag is not \
+                        cut short by the edge of the monitor.",
         ),
     ]
 }

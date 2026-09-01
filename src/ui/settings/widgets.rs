@@ -206,7 +206,7 @@ fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
             rail,
         } => {
             let mut value = get(config);
-            let response = number(ui, &mut value, *min, *max, unit, *rail, row.effect);
+            let response = number(ui, &mut value, *min, *max, unit, *rail, row);
             if response.changed() {
                 set(config, value);
             }
@@ -221,7 +221,7 @@ fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
             rail,
         } => {
             let mut value = get(config);
-            let response = decimal(ui, &mut value, *min, *max, unit, *rail, row.effect);
+            let response = decimal(ui, &mut value, *min, *max, unit, *rail, row);
             if response.changed() {
                 set(config, value);
             }
@@ -289,7 +289,7 @@ const RAIL_WIDTH: f32 = 220.0;
 
 /// A whole number, as a rail with its own value box or as a box alone.
 ///
-/// `Slider`'s value display *is* a `DragValue`, so a rail with a box beside it
+/// The rail's value display *is* a `DragValue`, so a rail with a box beside it
 /// is one call rather than two widgets that can disagree.
 fn number(
     ui: &mut egui::Ui,
@@ -298,13 +298,13 @@ fn number(
     max: i64,
     unit: &str,
     rail: bool,
-    effect: Effect,
+    row: &Row,
 ) -> egui::Response {
-    if rail && !effect.badged() {
+    if rail && !row.effect.badged() {
         return ui.add(
-            egui::Slider::new(value, min..=max)
-                .clamping(egui::SliderClamping::Edits)
-                .suffix(unit),
+            crate::ui::slider::Fine::new(value, min..=max)
+                .suffix(unit)
+                .about(row.label),
         );
     }
 
@@ -326,13 +326,13 @@ fn decimal(
     max: f32,
     unit: &str,
     rail: bool,
-    effect: Effect,
+    row: &Row,
 ) -> egui::Response {
-    if rail && !effect.badged() {
+    if rail && !row.effect.badged() {
         return ui.add(
-            egui::Slider::new(value, min..=max)
-                .clamping(egui::SliderClamping::Edits)
-                .suffix(unit),
+            crate::ui::slider::Fine::new(value, min..=max)
+                .suffix(unit)
+                .about(row.label),
         );
     }
 

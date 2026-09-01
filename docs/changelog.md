@@ -2,6 +2,34 @@
 
 ## 2026-09-01
 
+- **A slider's handle no longer has to keep up with the pointer.** Two hundred
+  points of rail carrying four thousand values gave twenty of them to every
+  point the pointer moved, and no hand places a pointer to the point. The
+  handle now takes a share of what the pointer does: `mouse.slider_travel` says
+  how far the pointer goes to cross the whole rail as a multiple of the rail's
+  own length, and at the three it ships as, the hand moves three times as far
+  and places the handle three times as precisely. Every slider in the program
+  reads the one value, because it is a property of the hand rather than of any
+  one control.
+- **A press still jumps to where it landed**, so the far end of a long range is
+  one gesture away whatever the travel says, and the fine part is the drag
+  after it. What the toolkit assumes a hand can place a pointer to — the radius
+  it picks a round number out of — is divided by the travel as well, or the
+  values a drag could reach would have been exactly the ones it reached before
+  and the whole thing would have bought nothing on a long range.
+- **The pointer is put back when it runs out of screen.** A drag three times
+  longer than the rail will meet the edge of the monitor with rail still to
+  cover, and it used to stop there; the pointer now reappears at the other side
+  and carries on. The movement across the gap is read as the small step it was
+  rather than as the width of the window, which is arithmetic and not a record
+  of what was asked for — so on a platform that will not move a cursor at all
+  the jump never arrives, no correction is made for one, and the drag stops at
+  the edge as it always did.
+- **Every rail answers the second button**, with the five distances and the
+  page that owns them. It is about the drag rather than about the value, and
+  says so — *Slider* **Zoom** — because the reading beside that particular rail
+  already carries fit and fill under a heading of its own.
+
 - **Part of a photograph can be marked out.** Drag on one that fits the window
   and a rectangle follows the pointer; let go and it stays, with the rest of
   the picture darkened behind it and its four sides and four corners there to

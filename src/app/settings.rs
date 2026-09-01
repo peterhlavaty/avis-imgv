@@ -322,6 +322,7 @@ impl App {
             self.settings.tags.sidecar_naming == "replacing",
         );
         crate::ui::surface::show_settings_rows(self.settings.menus.settings_rows);
+        crate::ui::slider::travels(self.settings.mouse.slider_travel);
         // Before the copy is replaced, because the question is whether the
         // window moved it rather than what it now says.
         self.forced_panel_width |=
@@ -412,6 +413,42 @@ impl App {
         // Written on every gesture, which is what makes the window the thing
         // that decides rather than a form to be submitted.
         self.save_settings();
+    }
+
+    /// What a slider's own menu asked for, taken on the frame it was asked.
+    ///
+    /// A rail is drawn in four subsystems and not one of them has the
+    /// configuration in hand, so the menu leaves its ask in `ui::slider` and it
+    /// is collected here. Through the same two calls the settings window makes,
+    /// so a travel picked from a menu and a travel typed into the window are
+    /// the same deed — including in the history, which watches the registry
+    /// whenever `save_settings` says something moved.
+    pub(super) fn take_slider_ask(&mut self) {
+        match crate::ui::slider::asked() {
+            Some(crate::ui::slider::Ask::Travel(travel)) => {
+                if (self.settings.mouse.slider_travel - travel).abs() < 0.01 {
+                    return;
+                }
+
+                self.settings.mouse.slider_travel = travel;
+                self.apply_settings();
+                self.save_settings();
+
+                // Said out loud because the change is only felt on the next
+                // drag, and a menu that closes having apparently done nothing
+                // is a menu nobody trusts again.
+                self.notices
+                    .say(if travel <= crate::ui::slider::drag::BOUND {
+                        "Sliders follow the pointer.".to_string()
+                    } else {
+                        format!("The pointer now moves {travel:.0}× the rail to cross a slider.")
+                    });
+            }
+            Some(crate::ui::slider::Ask::Settings) => {
+                self.open_settings_at("mouse.slider_travel");
+            }
+            None => {}
+        }
     }
 
     /// Opens the settings window on the page it was last left on.

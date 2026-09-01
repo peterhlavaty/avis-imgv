@@ -266,6 +266,7 @@ impl App {
         theme::apply_theme(&cc.egui_ctx, config.general.theme == "light");
         crate::annotations::sidecar::name_like_adobe(config.tags.sidecar_naming == "replacing");
         crate::ui::surface::show_settings_rows(config.menus.settings_rows);
+        crate::ui::slider::travels(config.mouse.slider_travel);
         apply_text_scaling(&cc.egui_ctx, config.general.text_scaling);
 
         if fullscreen {
@@ -1349,6 +1350,7 @@ impl eframe::App for App {
             apply_text_scaling(ctx, self.config.text_scaling);
         }
 
+        self.take_slider_ask();
         self.remember_runtime();
         self.handle_pending_commands(ctx);
         self.handle_copying(ctx);

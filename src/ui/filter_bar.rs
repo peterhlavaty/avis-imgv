@@ -119,9 +119,10 @@ fn size(ui: &mut egui::Ui, columns: &mut usize) -> Option<usize> {
     let mut wanted = *columns;
     let moved = ui
         .add(
-            egui::Slider::new(&mut wanted, 1..=16)
-                .clamping(egui::SliderClamping::Edits)
-                .show_value(false),
+            crate::ui::slider::Fine::new(&mut wanted, 1..=16)
+                .show_value(false)
+                .about("Across")
+                .hint("How many thumbnails fit in a row."),
         )
         .changed();
 
@@ -189,11 +190,14 @@ fn stacks(ui: &mut egui::Ui, state: &mut StackState<'_>) -> StackOutcome {
     ui.label("Alike");
     let mut tolerance = state.settings.tolerance;
     if ui
-        .add(egui::Slider::new(&mut tolerance, 0..=32)
-                .clamping(egui::SliderClamping::Edits)
-                .show_value(false))
-        .on_hover_text(
-            "How different two frames may look and still belong together. Drag it and watch the runs join up or come apart.",
+        .add(
+            crate::ui::slider::Fine::new(&mut tolerance, 0..=32)
+                .show_value(false)
+                .about("Alike")
+                .hint(
+                    "How different two frames may look and still belong together. Drag it \
+                     and watch the runs join up or come apart.",
+                ),
         )
         .changed()
     {

@@ -730,10 +730,11 @@ fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
     let mut percent = percentage_zoom.clamp(MIN_PERCENT, MAX_PERCENT);
     let slider = ui.add_sized(
         Vec2::new(200., ui.available_height()),
-        egui::Slider::new(&mut percent, MIN_PERCENT..=MAX_PERCENT)
-            .clamping(egui::SliderClamping::Edits)
+        crate::ui::slider::Fine::new(&mut percent, MIN_PERCENT..=MAX_PERCENT)
             .logarithmic(true)
             .show_value(false)
+            .about("Zoom")
+            .hint("How large the photograph is drawn.")
             .text("ð"),
     );
 
