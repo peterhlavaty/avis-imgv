@@ -89,6 +89,8 @@ pub struct Flags {
 /// Everything the bar draws, borrowed from the view.
 pub struct Status<'a> {
     pub jump_to: &'a mut String,
+    /// Whether a key has just asked for the box to take the keyboard.
+    pub asking_to_go_to: bool,
     /// One based, as shown to the user.
     pub position: usize,
     pub total: usize,
@@ -630,11 +632,17 @@ fn jump_field(ui: &mut egui::Ui, status: &mut Status<'_>) -> Option<usize> {
         egui::TextEdit::singleline(status.jump_to).hint_text("go to"),
     );
 
-    // Reachable by clicking and by nothing else. egui hands focus to the next
-    // widget on Tab, and this is the first widget in the window — so `Tab`,
-    // which means "the other pane" while comparing, landed in here instead and
-    // a text field with focus mutes every shortcut in the viewer.
-    if response.gained_focus() && !response.clicked() {
+    if status.asking_to_go_to {
+        response.request_focus();
+    }
+
+    // Reachable by clicking, and by the key that asks for it. egui hands focus
+    // to the next widget on Tab, and this is the first widget in the window —
+    // so `Tab`, which means "the other pane" while comparing, landed in here
+    // instead, and a text field with focus mutes every shortcut in the viewer.
+    // The reasoning was sound and it left a control that could not be operated
+    // without a mouse, so now something can ask.
+    if response.gained_focus() && !response.clicked() && !status.asking_to_go_to {
         response.surrender_focus();
         return None;
     }

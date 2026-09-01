@@ -573,6 +573,21 @@ pub struct ImageViewConfig {
     /// one zoom and one pan, until one of them wins.
     #[serde(default = "default_sc_compare")]
     pub sc_compare: Shortcut,
+    /// Takes the focused photograph out of a comparison.
+    ///
+    /// A binding rather than a bare key, because it was read as `/` with no
+    /// modifiers: on the Slovak, German and French layouts that is Shift and a
+    /// digit, so the key could neither be pressed nor changed.
+    #[serde(default = "default_sc_drop_pane")]
+    pub sc_drop_pane: Shortcut,
+    /// Puts the cursor in the "go to" box in the status bar.
+    ///
+    /// The box surrenders focus if it gains it without a click, because Tab
+    /// means "the other pane" while comparing and this is the first widget in
+    /// the window. Sound reasoning, and it left a control that could not be
+    /// operated without a mouse.
+    #[serde(default = "default_sc_go_to")]
+    pub sc_go_to: Shortcut,
     #[serde(default = "default_sc_zoom_in")]
     pub sc_zoom_in: Shortcut,
     #[serde(default = "default_sc_zoom_out")]
@@ -821,6 +836,8 @@ impl Default for ImageViewConfig {
             sc_more_images_shown: default_sc_more_images_shown(),
             sc_less_images_shown: default_sc_less_images_shown(),
             sc_compare: default_sc_compare(),
+            sc_drop_pane: default_sc_drop_pane(),
+            sc_go_to: default_sc_go_to(),
             sc_zoom_in: default_sc_zoom_in(),
             sc_zoom_out: default_sc_zoom_out(),
             sc_pan_up: default_sc_pan_up(),

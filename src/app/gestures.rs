@@ -82,6 +82,61 @@ pub fn does(name: &str, config: &Config) -> Does {
     }
 }
 
+/// Where else each gesture verb lives.
+///
+/// A gesture must never be the only route to anything. GNOME's pointer
+/// guidance says actions that are physically demanding, "such as
+/// double-clicking or chording", should be avoided; on a trackpad the
+/// secondary click is a two-finger tap and the middle button does not exist at
+/// all. So every verb a gesture can be bound to has a key as well, and the
+/// test below says so — which is what stops the next gesture from being a
+/// command with one home.
+///
+/// The paths are the registry's. Where a verb is a toggle between two things
+/// that have a key each, both are named: two clicks moving between fitted and
+/// actual pixels is reachable as `image_view.sc_fit` and
+/// `image_view.sc_one_to_one`, one press each.
+#[cfg(test)]
+const HOMES: &[(&str, &[&str])] = &[
+    ("nothing", &[]),
+    (
+        "fit_or_actual",
+        &["image_view.sc_fit", "image_view.sc_one_to_one"],
+    ),
+    ("fit", &["image_view.sc_fit"]),
+    ("fill", &["image_view.sc_fit_maximize"]),
+    ("actual_pixels", &["image_view.sc_one_to_one"]),
+    ("zoom_in", &["image_view.sc_zoom_in"]),
+    ("zoom_out", &["image_view.sc_zoom_out"]),
+    ("next", &["image_view.sc_next"]),
+    ("previous", &["image_view.sc_prev"]),
+    ("next_stack", &["general.sc_next_stack"]),
+    ("previous_stack", &["general.sc_previous_stack"]),
+    ("page_forward", &["fixed.page_forward"]),
+    ("page_back", &["fixed.page_back"]),
+    ("first", &["fixed.first"]),
+    ("last", &["fixed.last"]),
+    ("fullscreen", &["general.sc_fullscreen"]),
+    ("contact_sheet", &["general.sc_toggle_gallery"]),
+    ("filmstrip", &["general.sc_filmstrip"]),
+    ("keywords", &["tags.sc_toggle_tag_panel"]),
+    ("information", &["general.sc_toggle_side_panel"]),
+    ("filter", &["general.sc_filter"]),
+    ("compare", &["image_view.sc_compare"]),
+    ("overlay", &["image_view.sc_overlay"]),
+    ("marks", &["image_view.sc_marks"]),
+    ("keep", &["tags.sc_pick"]),
+    ("reject", &["tags.sc_reject"]),
+    ("move_to", &["cull.sc_move"]),
+    ("copy_to", &["cull.sc_copy"]),
+    ("to_rejected_folder", &["cull.sc_reject_folder"]),
+    ("delete", &["general.sc_delete"]),
+    ("undo", &["cull.sc_undo"]),
+    ("keys", &["fixed.cheat_sheet"]),
+    ("settings", &["general.sc_settings"]),
+    ("exit", &["general.sc_exit"]),
+];
+
 impl Application {
     /// Reads the buttons and runs whatever they are bound to.
     ///
@@ -196,6 +251,57 @@ mod tests {
             Does::View(View::Previous)
         );
         assert_eq!(does(&config.mouse.forward, &config), Does::View(View::Next));
+    }
+
+    /// No command has fewer than two homes.
+    ///
+    /// Every verb a gesture can be bound to also has a key, so the gesture is
+    /// a second route rather than the only one. This is four lines and it
+    /// prevents the whole class of command that exists with no route anybody
+    /// will find.
+    #[test]
+    fn every_gesture_is_a_second_route_and_not_the_only_one() {
+        let paths: Vec<&str> = crate::config::registry::rows()
+            .iter()
+            .map(|row| row.path)
+            .collect();
+
+        for verb in VERBS {
+            let (_, homes) = HOMES
+                .iter()
+                .find(|(name, _)| *name == verb.value)
+                .unwrap_or_else(|| panic!("{} has no home listed", verb.value));
+
+            if verb.value == "nothing" {
+                continue;
+            }
+
+            assert!(!homes.is_empty(), "{} is only a gesture", verb.value);
+
+            for home in *homes {
+                assert!(
+                    paths.contains(home),
+                    "{} claims a home at {home}, which is not a row",
+                    verb.value
+                );
+                assert!(
+                    crate::config::bindings::is_a_key(home),
+                    "{home} is a row but not a key"
+                );
+            }
+        }
+    }
+
+    /// And nothing is listed as a home that is not a verb, so the table cannot
+    /// rot quietly in the other direction either.
+    #[test]
+    fn nothing_is_listed_that_is_not_a_verb() {
+        for (name, _) in HOMES {
+            assert!(
+                VERBS.iter().any(|verb| verb.value == *name),
+                "{name} is not a verb"
+            );
+        }
     }
 
     /// A folder dropped on the window opens as itself.

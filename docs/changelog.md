@@ -2,6 +2,23 @@
 
 ## 2026-09-01
 
+- **The cheat sheet lists the mouse.** Thirteen gestures with what each one
+  currently does, read from the settings rather than written out, and every row
+  opens the control behind it. A gesture nobody is told about is a gesture
+  nobody has.
+- **`/` is a binding now.** It dropped a pane in a comparison and was read as a
+  bare `/`, which on the Slovak, German and French layouts is Shift and a
+  digit: unpressable, and unrebindable, because a key read that way is a key
+  the editor cannot see.
+- **`Ctrl + J` puts the cursor in the "go to" box.** It could be reached by
+  clicking and by nothing else, because the key that would have landed in it
+  means "the other pane" while comparing.
+- **Six keys said they were read in the contact sheet and were read
+  everywhere.** Stacking and the five keys around it are taken by the
+  unconditional collector whatever is on screen, so a new key given the same
+  default would have been silently eaten — which is what happened, and is why
+  there is now a test that the shipped defaults do not collide with each other.
+
 - **A click in the contact sheet picks a photograph out. Two clicks open it.**
   The plain click was the one gesture that contradicted everything else the
   sheet has — a cursor, a selection, `Ctrl`-click, `Shift`-click, `Space` and

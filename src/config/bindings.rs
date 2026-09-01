@@ -133,6 +133,17 @@ pub fn all() -> Vec<Binding> {
         .collect()
 }
 
+/// Whether `path` names a key rather than some other kind of setting.
+///
+/// The cheat sheet lists gestures beside keys now, and a row has to know which
+/// window it opens: a key arms the key editor, and a gesture opens the page
+/// that owns it.
+pub fn is_a_key(path: &str) -> bool {
+    registry::rows()
+        .iter()
+        .any(|row| row.path == path && row.access.is_a_key())
+}
+
 /// The heading the marks are listed under, which is not a scope.
 ///
 /// The ratings, the colour labels and the flags are read everywhere, so their
@@ -183,7 +194,7 @@ mod tests {
     }
 
     /// The count is what stops a shortcut being added to the configuration and
-    /// quietly left out of the editor. Fifty-nine written fields, plus the six
+    /// quietly left out of the editor. Sixty-one written fields, plus the six
     /// ratings and the five colour labels; the keys the program reads for
     /// itself are in the list too, and are not editable.
     #[test]
@@ -195,7 +206,7 @@ mod tests {
             .count();
 
         assert_eq!(
-            editable, 70,
+            editable, 72,
             "a shortcut was added to the configuration without a registry row"
         );
     }

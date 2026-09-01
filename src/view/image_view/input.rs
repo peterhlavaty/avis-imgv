@@ -65,6 +65,8 @@ pub enum Command {
     Compare,
     /// Move the focus to the next pane of one.
     NextPane,
+    /// Put the cursor in the "go to" box.
+    GoTo,
     /// Drop the focused pane, leaving the survivors to re-tile.
     DropPane,
     /// Leave the comparison.
@@ -107,6 +109,8 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_more_images_shown, Command::ShowMoreImages),
         (&config.sc_less_images_shown, Command::ShowFewerImages),
         (&config.sc_compare, Command::Compare),
+        (&config.sc_drop_pane, Command::DropPane),
+        (&config.sc_go_to, Command::GoTo),
         (&config.sc_overlay, Command::CycleOverlay),
         (&config.sc_marks, Command::CycleMarks),
     ];
@@ -125,10 +129,12 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
             (egui::Key::End, Command::Last),
             (egui::Key::PageDown, Command::PageForward),
             (egui::Key::PageUp, Command::PageBack),
-            // The comparison keys, which mean nothing anywhere else and so
-            // are not worth a line in the configuration.
+            // The two comparison keys that mean the same thing on every
+            // layout. Dropping a pane used to be here as well, on a bare
+            // `/`, which on the Slovak, German and French layouts is Shift
+            // and a digit — unpressable, and unrebindable because a key read
+            // here is a key the editor cannot see.
             (egui::Key::Tab, Command::NextPane),
-            (egui::Key::Slash, Command::DropPane),
             (egui::Key::Escape, Command::StopComparing),
         ] {
             if input.consume_key(egui::Modifiers::NONE, key) {
@@ -253,6 +259,65 @@ mod tests {
 
         let ctx = context_with(vec![key_press(Key::Z)]);
         assert_eq!(collect(&ctx, &config), vec![Command::UserAction(0)]);
+    }
+
+    /// The two keys this stage rescued: one that could not be pressed on half
+    /// the keyboards in Europe, and one that could not be pressed at all.
+    #[test]
+    fn dropping_a_pane_is_a_binding_now() {
+        let config = ImageViewConfig::default();
+        let ctx = context_with(vec![key_press(Key::Slash)]);
+
+        assert_eq!(collect(&ctx, &config), vec![Command::DropPane]);
+    }
+
+    #[test]
+    fn the_slash_can_be_moved_off_a_key_nobody_can_reach() {
+        let config = ImageViewConfig {
+            sc_drop_pane: Shortcut::new("D", &["ctrl"]),
+            ..ImageViewConfig::default()
+        };
+
+        let ctx = context_with(vec![Event::Key {
+            key: Key::D,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::CTRL,
+        }]);
+
+        assert_eq!(collect(&ctx, &config), vec![Command::DropPane]);
+        assert_eq!(
+            collect(&context_with(vec![key_press(Key::Slash)]), &config),
+            vec![]
+        );
+    }
+
+    /// The "go to" box could be reached by clicking and by nothing else.
+    ///
+    /// The modifiers are the ones Windows actually sends — `command` is set
+    /// alongside `ctrl` there — because a test that sends only `ctrl` passes
+    /// against a build where the real key does nothing.
+    #[test]
+    fn the_go_to_box_has_a_key() {
+        let config = ImageViewConfig::default();
+        let held = Modifiers {
+            alt: false,
+            ctrl: true,
+            shift: false,
+            mac_cmd: false,
+            command: true,
+        };
+
+        let ctx = context_with(vec![Event::Key {
+            key: Key::J,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: held,
+        }]);
+
+        assert_eq!(collect(&ctx, &config), vec![Command::GoTo]);
     }
 
     #[test]

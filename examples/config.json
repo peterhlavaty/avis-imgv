@@ -91,6 +91,16 @@
       "key": "n",
       "modifiers": []
     },
+    "sc_drop_pane": {
+      "key": "Slash",
+      "modifiers": []
+    },
+    "sc_go_to": {
+      "key": "J",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
     "sc_zoom_in": {
       "key": "Plus",
       "modifiers": []

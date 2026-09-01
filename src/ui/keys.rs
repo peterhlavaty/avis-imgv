@@ -530,6 +530,20 @@ fn canonical(key: Key) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Nothing the viewer ships with collides with anything else it ships
+    /// with.
+    ///
+    /// The startup warning is for configurations people have edited; this is
+    /// for the ones nobody has. It was written after a new key was given a
+    /// default already taken by *Stacks*, which the checker looked straight
+    /// past because that row claimed to be read only in the contact sheet
+    /// while its key was being eaten in every mode.
+    #[test]
+    fn the_shipped_defaults_do_not_collide_with_each_other() {
+        let said = clashes(&Config::default());
+        assert!(said.is_empty(), "{said:#?}");
+    }
     use crate::config::registry::Scope;
 
     #[test]

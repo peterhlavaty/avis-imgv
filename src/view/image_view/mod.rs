@@ -37,6 +37,12 @@ use viewports::{Place, Viewports};
 
 /// Most images the view will place side by side. Beyond a handful they are too
 /// small to read, and each one costs a texture.
+/// How many frames the "go to" box is asked for the keyboard.
+///
+/// Two: `request_focus` takes effect on the frame after the one that asks, and
+/// the box surrenders focus the moment it gains it without a click.
+const ASKING_FRAMES: u8 = 2;
+
 /// How many photographs a comparison starts with.
 ///
 /// Two, because a comparison is nearly always between two frames of the same
@@ -97,6 +103,13 @@ pub struct ImageView {
     bar_actions: Vec<BarAction>,
     /// What the screen with nothing on it was clicked to do.
     asked: Option<Asked>,
+    /// Frames left to keep asking for the "go to" box to take the keyboard.
+    ///
+    /// More than one, because `request_focus` takes effect on the frame after
+    /// the one that asks, and the box gives focus back the moment it gains it
+    /// without a click — which is the rule that keeps Tab meaning "the other
+    /// pane" and is what made the box unreachable from the keyboard.
+    asking_to_go_to: u8,
     /// Commands the application read a gesture for and this view carries out.
     ///
     /// The application owns the pointer buttons, because it is the one place
@@ -157,6 +170,7 @@ impl ImageView {
             verb: None,
             bar_actions: Vec::new(),
             asked: None,
+            asking_to_go_to: 0,
             queued: Vec::new(),
             slideshow,
             slideshow_config,
@@ -332,6 +346,7 @@ impl ImageView {
                     });
                 }
             }
+            Command::GoTo => self.asking_to_go_to = ASKING_FRAMES,
             Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,
             Command::CycleOverlay => {
@@ -647,8 +662,23 @@ impl ImageView {
         let (at, total) = self.position();
         let hidden = self.store.len() - total;
         let comparing = self.is_comparing();
+        // Counted down here rather than where the key is read: the box is
+        // drawn once a frame, and asking for focus has to outlive the frame
+        // that asked.
+        let asking_to_go_to = self.asking_to_go_to > 0;
+        self.asking_to_go_to = self.asking_to_go_to.saturating_sub(1);
+
+        if asking_to_go_to {
+            // Asking for focus is not an event, and nothing else here is
+            // going to ask for another frame: the viewer draws when something
+            // happens. Without this the request sat pending until the next
+            // keystroke, which then went to whatever the keys still meant.
+            ctx.request_repaint();
+        }
+
         let mut status = Status {
             jump_to: &mut self.jump_to,
+            asking_to_go_to,
             // One based for the user, and zero when there is nothing open.
             position: total.min(at + 1),
             total,

@@ -815,6 +815,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. Unrelated to the screen sized copy, which is worked out from your monitor and needs no setting. | 0 |
 | `nr_images_shown` | Images displayed side by side | 1 |
 | `sc_compare` | Pin this picture and the next side by side, sharing one zoom and one pan | `N` |
+| `sc_drop_pane` | Take the focused photograph out of a comparison. A binding rather than a bare key, because `/` on the Slovak, German and French layouts is Shift and a digit | `/` |
+| `sc_go_to` | Put the cursor in the "go to" box, which could be reached by clicking and by nothing else | `Ctrl + J` |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
@@ -979,8 +981,9 @@ break the pairing it depends on.
 | Ctrl + / Ctrl - | More or fewer images side by side, or panes while comparing |
 | N | Compare this picture with the next |
 | Tab | Which pane the keys are about |
-| / | Drop that pane; the survivors re-tile |
+| / | Drop that pane; the survivors re-tile — `sc_drop_pane` |
 | Escape | Leave the comparison |
+| Ctrl + J | Put the cursor in the "go to" box in the status bar |
 
 Zooming keeps the point under the pointer, so magnifying an eye near the edge
 of the frame brings the eye closer rather than pushing it off screen. The keys

@@ -98,16 +98,6 @@ pub fn rows() -> Vec<Row> {
             ImageView
         ),
         fixed!(
-            "fixed.drop_pane",
-            "/",
-            "Drop this pane",
-            "Takes the focused photograph out of a comparison, leaving the others to \
-             re-tile. Read without modifiers, which on the Slovak, German and French \
-             layouts makes it hard to press.",
-            ["compare", "close", "remove", "slash"],
-            ImageView
-        ),
-        fixed!(
             "fixed.grid_arrows",
             "Arrows",
             "Move about the contact sheet",

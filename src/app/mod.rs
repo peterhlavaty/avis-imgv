@@ -1015,10 +1015,16 @@ impl eframe::App for App {
             // binding armed; the footer opens it with nothing armed.
             if let Some(path) = change {
                 self.cheat_sheet_visible = false;
+
+                // A key row arms the key editor; a gesture row opens the page
+                // that owns it. The sheet lists both now, and the row itself
+                // says which it is.
                 if path.is_empty() {
                     self.keys_visible = true;
-                } else {
+                } else if crate::config::bindings::is_a_key(path) {
                     self.arm_key(path);
+                } else {
+                    self.open_settings_at(path);
                 }
             }
         }

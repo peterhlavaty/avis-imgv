@@ -50,6 +50,160 @@ fn scopes_for(mode: Mode) -> &'static [Scope] {
     }
 }
 
+/// What the mouse does here, as rows of the same shape as the keys.
+///
+/// On the sheet because a gesture nobody is told about is a gesture nobody
+/// has: the wheel, the thumb buttons and the double click are all settings
+/// now, and a person who has changed one has nowhere else to read back what
+/// they changed it to. Every row leads to the control behind it.
+fn mouse_rows(config: &Config, mode: Mode, needle: &str) -> Vec<Row> {
+    let job = |wheel: crate::config::WheelJob| {
+        crate::config::mouse::WHEEL_JOBS
+            .iter()
+            .find(|choice| choice.value == wheel.value())
+            .map_or("Nothing", |choice| choice.label)
+    };
+
+    let verb = |name: &str| {
+        crate::config::mouse::VERBS
+            .iter()
+            .find(|choice| choice.value == crate::config::mouse::verb_or_nothing(name))
+            .map_or("Nothing", |choice| choice.label)
+    };
+
+    let sheet = mode == Mode::Grid;
+    let mouse = &config.mouse;
+
+    let rows: Vec<(String, &'static str, &'static str, &'static str)> = vec![
+        (
+            "Wheel".to_string(),
+            if sheet {
+                "Scroll the sheet"
+            } else {
+                job(mouse.wheel)
+            },
+            if sheet {
+                "The sheet is an ordinary scrolling list, and wheel down is further in."
+            } else {
+                "One job at a time, and wheel down goes forward."
+            },
+            "mouse.wheel",
+        ),
+        (
+            "Shift + wheel".to_string(),
+            if sheet { "Ten rows" } else { "Ten photographs" },
+            "The same step the page keys take.",
+            "mouse.wheel",
+        ),
+        (
+            "Ctrl + wheel".to_string(),
+            if sheet {
+                "Thumbnails per row"
+            } else {
+                job(mouse.ctrl_wheel)
+            },
+            "By convention: it is what a scrolling view does everywhere.",
+            "mouse.ctrl_wheel",
+        ),
+        (
+            "Alt + wheel".to_string(),
+            if sheet {
+                "Nothing"
+            } else {
+                "Move the photograph sideways"
+            },
+            "The axis the pan keys move on.",
+            "mouse.ctrl_wheel",
+        ),
+        (
+            "Click".to_string(),
+            if sheet {
+                "Pick this one out"
+            } else {
+                "Nothing; reserved"
+            },
+            "Ctrl adds one, Shift adds the run between.",
+            "grid_view.click_opens",
+        ),
+        (
+            "Double click".to_string(),
+            if sheet {
+                "Open it"
+            } else {
+                verb(&mouse.double_click)
+            },
+            "Never the only route to anything.",
+            "mouse.double_click",
+        ),
+        (
+            "Drag".to_string(),
+            if sheet {
+                "Pick out everything it crosses"
+            } else {
+                "Move the photograph"
+            },
+            "The two never share a surface, so they never share a button.",
+            "mouse.drag",
+        ),
+        (
+            "Middle drag".to_string(),
+            if sheet {
+                "Scroll the sheet"
+            } else {
+                "Move the photograph"
+            },
+            "Always, whether or not there is slack.",
+            "mouse.drag",
+        ),
+        (
+            "Middle click".to_string(),
+            verb(&mouse.middle),
+            "Nothing until you say otherwise: not every mouse has one.",
+            "mouse.middle",
+        ),
+        (
+            "Right click".to_string(),
+            "The menu for what is under the pointer",
+            "On the press, and Shift + F10 does the same from the keyboard.",
+            "menus.settings_rows",
+        ),
+        (
+            "Thumb back".to_string(),
+            verb(&mouse.back),
+            "On the down-stroke, with no double-click meaning.",
+            "mouse.back",
+        ),
+        (
+            "Thumb forward".to_string(),
+            verb(&mouse.forward),
+            "On the down-stroke, with no double-click meaning.",
+            "mouse.forward",
+        ),
+        (
+            "Drop a file".to_string(),
+            "Open its folder, on that file",
+            "A folder dropped on the window opens as itself.",
+            "browsing.filter_follows_folder",
+        ),
+    ];
+
+    rows.into_iter()
+        .filter(|(key, name, description, _)| {
+            needle.is_empty()
+                || key.to_lowercase().contains(needle)
+                || name.to_lowercase().contains(needle)
+                || description.to_lowercase().contains(needle)
+        })
+        .map(|(key, name, description, path)| Row {
+            key,
+            name,
+            description,
+            path,
+            editable: true,
+        })
+        .collect()
+}
+
 /// Draws the sheet, and reports whether it should stay open.
 ///
 /// `just_opened` says this is the frame the key that opened it was pressed,
@@ -78,7 +232,7 @@ pub fn ui(
     // ends up sized to nothing, and the list is clipped after a dozen rows.
     let live = scopes_for(mode);
 
-    let sections: Vec<(&'static str, Vec<Row>)> = bindings::SECTIONS
+    let mut sections: Vec<(&'static str, Vec<Row>)> = bindings::SECTIONS
         .iter()
         .map(|section| {
             let rows: Vec<Row> = bindings
@@ -119,6 +273,13 @@ pub fn ui(
         })
         .filter(|(_, rows)| !rows.is_empty())
         .collect();
+
+    // Last, because the keys are what somebody came for; present, because a
+    // gesture nobody is told about is a gesture nobody has.
+    let pointer = mouse_rows(config, mode, &needle);
+    if !pointer.is_empty() {
+        sections.push(("The mouse", pointer));
+    }
 
     let tallest = ctx.content_rect().height() * 0.75;
     let mut box_has_focus = false;
@@ -164,7 +325,7 @@ pub fn ui(
                                 );
 
                                 if row.editable {
-                                    if key.on_hover_text("Click to change this key").clicked() {
+                                    if key.on_hover_text("Click to change this").clicked() {
                                         *change = Some(row.path);
                                     }
                                 } else {

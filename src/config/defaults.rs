@@ -255,6 +255,27 @@ pub fn default_sc_zoom_out() -> Shortcut {
 }
 
 /// Lightroom's Survey key, which is what everybody who has used one expects.
+/// The key that drops a pane from a comparison.
+///
+/// Still `/` by default, because that is what it has always been and a
+/// migration would be moving somebody's key for no gain. What changes is that
+/// it is now a row like any other, so a layout where `/` is Shift and a digit
+/// has somewhere to say so.
+pub fn default_sc_drop_pane() -> Shortcut {
+    Shortcut::new("Slash", &[])
+}
+
+/// The key that puts the cursor in the "go to" box.
+///
+/// `Ctrl + J` for "jump to". `Ctrl + G` is what an editor uses for this and it
+/// is taken here by *Stacks* — which is how this default was found: the row
+/// claimed to be read only in the contact sheet, so the clash checker looked
+/// straight past it while the key itself was being eaten in every mode. The
+/// six stack rows say `Everywhere` now, which is where they are read.
+pub fn default_sc_go_to() -> Shortcut {
+    Shortcut::new("J", &[MOD_CTRL])
+}
+
 pub fn default_sc_compare() -> Shortcut {
     Shortcut::new("n", &[])
 }
