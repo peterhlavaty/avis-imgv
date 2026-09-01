@@ -156,12 +156,29 @@ pub fn show_context_menu(
     path: &Path,
     count: usize,
 ) -> Option<Chosen> {
+    use crate::ui::surface::Subject;
+
     let mut result = None;
+
+    // What was clicked, said at the top of the menu. One photograph by name;
+    // a selection by how many, because that is what every verb below is about
+    // and the name of the one under the pointer would be a lie about the rest.
+    let name = path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string());
+    let counted = format!("{count} photographs");
+
+    let subject = if count == 1 {
+        Subject::of("Photograph", &name)
+    } else {
+        Subject::of("Selection", &counted)
+    };
 
     // Through the shared helper: on the press rather than the release, with the
     // same chevron and the same four words on every surface, and reachable from
     // the keyboard by name.
-    crate::ui::surface::named_menu(ui, response, surface, |ui| {
+    crate::ui::surface::named_menu(ui, response, surface, subject, |ui| {
         let Some(chosen) = menus::rows(ui, rows, entries, count) else {
             return;
         };

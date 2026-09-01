@@ -182,10 +182,15 @@ fn background(ui: &mut egui::Ui, actions: &mut Vec<Action>) {
 
     let (_, empty) = ui.allocate_exact_size(rest, egui::Sense::click());
 
-    crate::ui::surface::menu(ui, &empty, |ui| {
-        ui.set_max_width(320.0);
-        always(ui, actions);
-    });
+    crate::ui::surface::menu(
+        ui,
+        &empty,
+        crate::ui::surface::Subject::the("The history"),
+        |ui| {
+            ui.set_max_width(crate::ui::surface::WIDEST);
+            always(ui, actions);
+        },
+    );
 }
 
 /// One row: what it was, whether it still stands, and its menu.
@@ -230,29 +235,37 @@ fn row(
         actions.push(Action::GoTo(id));
     }
 
-    crate::ui::surface::menu(ui, &label, |ui| {
-        ui.set_max_width(320.0);
+    // The row's own words at the top of its menu: the panel holds a hundred
+    // of them, they are truncated to whatever it is wide, and the menu opens
+    // over the one it was asked for.
+    crate::ui::surface::menu(
+        ui,
+        &label,
+        crate::ui::surface::Subject::of("What you did", &node.value.label),
+        |ui| {
+            ui.set_max_width(crate::ui::surface::WIDEST);
 
-        if ui
-            .add_enabled(!here, egui::Button::new("Go back to this"))
-            .clicked()
-        {
-            actions.push(Action::GoTo(id));
-            ui.close();
-        }
+            if ui
+                .add_enabled(!here, egui::Button::new("Go back to this"))
+                .clicked()
+            {
+                actions.push(Action::GoTo(id));
+                ui.close();
+            }
 
-        if ui
-            .button("Do only this again")
-            .on_hover_text("Carries this one out where you are now, and adds it to the end.")
-            .clicked()
-        {
-            actions.push(Action::Repeat(id));
-            ui.close();
-        }
+            if ui
+                .button("Do only this again")
+                .on_hover_text("Carries this one out where you are now, and adds it to the end.")
+                .clicked()
+            {
+                actions.push(Action::Repeat(id));
+                ui.close();
+            }
 
-        ui.separator();
-        always(ui, actions);
-    });
+            ui.separator();
+            always(ui, actions);
+        },
+    );
 }
 
 /// How long ago a row happened, in the words somebody would use.

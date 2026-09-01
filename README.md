@@ -745,6 +745,14 @@ nothing here is reachable only by right-click. `Shift + F10` opens the menu of
 whatever has the keyboard, which is the only keyboard route there is: egui
 cannot read the dedicated Menu key at all.
 
+Every menu also opens by saying what was clicked: the kind of thing and which
+one of them — *Keyword* **Tatras**, *Rating* **3/5**, *Setting* **Thumbnails
+per row**, *Photograph* **DSC0142.jpg**, or *24 photographs* where a selection
+is what the verbs are about. The menu is drawn over the thing it belongs to,
+often a glyph a few pixels wide with a neighbour that looks much like it, and
+*Show only these* means something different on each of the three badges in the
+status bar.
+
 `menus.settings_rows` turns the settings rows off, which leaves the verbs, your
 own entries and the copy group. It is the whole of the configurability offered
 for the built-in rows, and the reason there is no menu editor.

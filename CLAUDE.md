@@ -164,6 +164,18 @@ Leaving the seam for later means the next session pays for it with interest.
   row fails the build. The row carries the page it is drawn on, a sentence, the
   aliases somebody might search for, an `Access` reaching the field, an `Effect`
   saying when the change takes effect and a `Scope` saying where a key is read.
+- **If two photographers would want two answers, it is a setting.** A delay, a
+  threshold, a colour, a default, a count — a number chosen in the code is a
+  decision taken on somebody's behalf, and the whole cost of not taking it is a
+  row in `src/config/registry/table/` and a field with a sensible default. What
+  stays a constant is what has one right answer.
+- **A setting is reached from the thing it governs, and from every other place
+  it makes sense.** The settings window is an index, not the door: the panel a
+  width sizes, the badge a toggle draws, the bar a figure fills are each a route
+  to that row — `ui::surface::with_menu` marks the surface, `more_settings`
+  ends its menu on the page that owns it, and `bind_a_key` opens the keyboard
+  editor with the row armed. A person who can see a value changes it from
+  where they are standing.
 - **The history watches the state; nothing tells it anything.** Undo, redo and
   the history panel are `src/history/`, and not one of the five dispatchers
   calls into it. `App::watch_history` asks once at the foot of the frame what
@@ -214,9 +226,29 @@ Leaving the seam for later means the next session pays for it with interest.
 - **A key that nudges a value writes it back.** The overlay corner, the panes,
   the columns, the badges, advance-after-marking and the filmstrip all live in
   `config.json`; only *position* belongs in the session file.
+- **Everything drawn answers the second button.** A surface worth pointing at
+  carries a menu of the verbs that apply to it and the settings that govern
+  it — the picture, the filmstrip, a star, a keyword, a panel heading, a
+  figure in the bottom bar. A surface without one is a gap to be filled, not
+  a decision: the chevron and the same four words (`ui::surface::SAYS`) are
+  how a person learns the button is worth pressing anywhere, and it stops
+  being worth pressing the moment only some things answer. `Shift + F10` is
+  the keyboard's way in, which is why a menu it can reach is a `named_menu`.
+  Nothing, though, is reachable *only* by right-click.
 - **Every menu opens on the press**, through `ui::surface`, and ends with the
   settings page that owns it. `Response::context_menu` opens on the release and
   loses the menu to a six-point drag, so it is not used.
+- **A menu says what it was asked about.** Every one of them opens with the
+  kind of thing in the weak colour and which one of them in the strong —
+  *Keyword* **Tatras**, *Rating* **3/5**, *Photograph* **DSC0142.jpg** —
+  because a menu is drawn over the very thing it belongs to and its verbs are
+  worded for somebody who already knows: "Show only these" is three different
+  sentences depending on which of the three badges in the bottom bar was under
+  the pointer. It is a `surface::Subject` and an argument of `menu`,
+  `named_menu` and `with_menu`, so a new surface does not compile until it says
+  what it is about, and `surface` draws it rather than the caller so that none
+  of the thirty can word it differently. Always first, the way
+  `more_settings` is always last.
 - **One menu has a second level, and it is the turns.** A menu is a list of
   `ui::menus::Row`; `Row::Group` is the only one, holding the five ways of
   saying one verb that would otherwise take five of the twelve rows a menu may

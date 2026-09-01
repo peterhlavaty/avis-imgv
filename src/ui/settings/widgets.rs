@@ -144,21 +144,26 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> (Touched, Optio
 fn row_menu(ui: &egui::Ui, response: &egui::Response, row: &Row) -> Option<&'static str> {
     let mut asked = None;
 
-    crate::ui::surface::menu(ui, response, |ui| {
-        if ui
-            .button("Copy setting name")
-            .on_hover_text(row.path)
-            .clicked()
-        {
-            ui.ctx().copy_text(row.path.to_string());
-            ui.close();
-        }
+    crate::ui::surface::menu(
+        ui,
+        response,
+        crate::ui::surface::Subject::of("Setting", row.label),
+        |ui| {
+            if ui
+                .button("Copy setting name")
+                .on_hover_text(row.path)
+                .clicked()
+            {
+                ui.ctx().copy_text(row.path.to_string());
+                ui.close();
+            }
 
-        if row.access.is_a_key() && ui.button("Change this key…").clicked() {
-            asked = Some(row.path);
-            ui.close();
-        }
-    });
+            if row.access.is_a_key() && ui.button("Change this key…").clicked() {
+                asked = Some(row.path);
+                ui.close();
+            }
+        },
+    );
 
     asked
 }

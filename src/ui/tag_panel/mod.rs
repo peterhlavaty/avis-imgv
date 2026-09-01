@@ -181,15 +181,26 @@ fn stars(ui: &mut egui::Ui, rating: u8) -> Vec<Action> {
 
             let button = ui.add(egui::Button::new(label).frame(false));
 
-            crate::ui::surface::with_menu(ui, &button, &format!("{star} star(s)."), |ui| {
-                if ui
-                    .button(format!("Show only {star} stars and better"))
-                    .clicked()
-                {
-                    actions.push(Action::ShowOnlyStars(star.max(0) as u8));
-                    ui.close();
-                }
-            });
+            // Which star it is, not which rating is on the photograph: five
+            // of them are drawn side by side and they differ only by being
+            // filled.
+            let which = format!("{star}/{MAX_RATING}");
+
+            crate::ui::surface::with_menu(
+                ui,
+                &button,
+                crate::ui::surface::Subject::of("Rating", &which),
+                &format!("{star} star(s)."),
+                |ui| {
+                    if ui
+                        .button(format!("Show only {star} stars and better"))
+                        .clicked()
+                    {
+                        actions.push(Action::ShowOnlyStars(star.max(0) as u8));
+                        ui.close();
+                    }
+                },
+            );
 
             if button.clicked() {
                 let wanted = if star == rating { 0 } else { star };
@@ -218,12 +229,18 @@ fn flags(ui: &mut egui::Ui, current: Flag) -> Vec<Action> {
             let chosen = current == flag;
             let button = ui.selectable_label(chosen, label);
 
-            crate::ui::surface::with_menu(ui, &button, hint, |ui| {
-                if ui.button("Show only these").clicked() {
-                    actions.push(Action::ShowOnlyFlag(flag));
-                    ui.close();
-                }
-            });
+            crate::ui::surface::with_menu(
+                ui,
+                &button,
+                crate::ui::surface::Subject::of("Flag", flag.name()),
+                hint,
+                |ui| {
+                    if ui.button("Show only these").clicked() {
+                        actions.push(Action::ShowOnlyFlag(flag));
+                        ui.close();
+                    }
+                },
+            );
 
             if button.clicked() {
                 actions.push(Action::SetFlag(if chosen { Flag::Unflagged } else { flag }));
@@ -251,12 +268,18 @@ fn labels(ui: &mut egui::Ui, current: Option<Label>) -> Vec<Action> {
 
             let button = ui.add(egui::Button::new(swatch).frame(false));
 
-            crate::ui::surface::with_menu(ui, &button, label.name(), |ui| {
-                if ui.button("Show only these").clicked() {
-                    actions.push(Action::ShowOnlyLabel(index));
-                    ui.close();
-                }
-            });
+            crate::ui::surface::with_menu(
+                ui,
+                &button,
+                crate::ui::surface::Subject::of("Colour", label.name()),
+                label.name(),
+                |ui| {
+                    if ui.button("Show only these").clicked() {
+                        actions.push(Action::ShowOnlyLabel(index));
+                        ui.close();
+                    }
+                },
+            );
 
             if button.clicked() {
                 actions.push(Action::SetLabel((!chosen).then_some(index)));
@@ -282,22 +305,31 @@ fn on_image(ui: &mut egui::Ui, sections: &Sections) -> Vec<Action> {
             // there to be read on hover rather than taking up the whole panel.
             let response = ui.selectable_label(true, format!("{} {REMOVE}", leaf_of(tag)));
 
-            crate::ui::surface::with_menu(ui, &response, &hover(tag, "Remove"), |ui| {
-                if ui
-                    .button(format!("Show only \"{}\"", leaf_of(tag)))
-                    .clicked()
-                {
-                    actions.push(Action::ShowOnlyKeyword(leaf_of(tag).to_string()));
-                    ui.close();
-                }
+            crate::ui::surface::with_menu(
+                ui,
+                &response,
+                crate::ui::surface::Subject::of("Keyword", leaf_of(tag)),
+                &hover(tag, "Remove"),
+                |ui| {
+                    if ui
+                        .button(format!("Show only \"{}\"", leaf_of(tag)))
+                        .clicked()
+                    {
+                        actions.push(Action::ShowOnlyKeyword(leaf_of(tag).to_string()));
+                        ui.close();
+                    }
 
-                if crate::ui::surface::more_settings(ui, crate::config::registry::Page::Keywords) {
-                    // Keywords have their own page; the chip is the shortest
-                    // route to it.
-                    actions.push(Action::Settings("tags.categories"));
-                    ui.close();
-                }
-            });
+                    if crate::ui::surface::more_settings(
+                        ui,
+                        crate::config::registry::Page::Keywords,
+                    ) {
+                        // Keywords have their own page; the chip is the
+                        // shortest route to it.
+                        actions.push(Action::Settings("tags.categories"));
+                        ui.close();
+                    }
+                },
+            );
 
             if response.clicked() {
                 actions.push(Action::RemoveTag(tag.clone()));

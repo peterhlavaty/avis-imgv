@@ -127,20 +127,25 @@ pub fn ui(ctx: &egui::Context, asking: &Asking) -> Option<Answer> {
 
             // The panel that exists to hold destinations was the one place you
             // could not add one.
-            crate::ui::surface::menu(ui, &ad_hoc, |ui| {
-                if ui.button("Choose a folder and keep it").clicked() {
-                    answer = Some(Answer::Remember);
-                    ui.close();
-                }
+            crate::ui::surface::menu(
+                ui,
+                &ad_hoc,
+                crate::ui::surface::Subject::the("Choose a folder"),
+                |ui| {
+                    if ui.button("Choose a folder and keep it").clicked() {
+                        answer = Some(Answer::Remember);
+                        ui.close();
+                    }
 
-                if crate::ui::surface::more_settings(
-                    ui,
-                    crate::config::registry::Page::MovingAndDeleting,
-                ) {
-                    answer = Some(Answer::Settings);
-                    ui.close();
-                }
-            });
+                    if crate::ui::surface::more_settings(
+                        ui,
+                        crate::config::registry::Page::MovingAndDeleting,
+                    ) {
+                        answer = Some(Answer::Settings);
+                        ui.close();
+                    }
+                },
+            );
 
             ui.add_space(4.0);
             ui.label(RichText::new("Escape leaves them where they are").weak());

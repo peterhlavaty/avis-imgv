@@ -178,21 +178,28 @@ fn mode_word(ui: &mut egui::Ui, mode: crate::app::mode::Mode) -> Vec<BarAction> 
     let word =
         ui.add(egui::Label::new(egui::RichText::new(mode.label()).strong()).sense(Sense::click()));
 
-    crate::ui::surface::with_menu(ui, &word, "Which mode the window is in.", |ui| {
-        for wanted in Mode::ALL {
-            // Radios rather than buttons: the menu is also where somebody finds
-            // out which mode they are in, which is the whole point of the word.
-            if ui.radio(mode == *wanted, wanted.label()).clicked() {
-                asked.push(BarAction::Mode(*wanted));
+    crate::ui::surface::with_menu(
+        ui,
+        &word,
+        crate::ui::surface::Subject::of("Mode", mode.label()),
+        "Which mode the window is in.",
+        |ui| {
+            for wanted in Mode::ALL {
+                // Radios rather than buttons: the menu is also where somebody finds
+                // out which mode they are in, which is the whole point of the word.
+                if ui.radio(mode == *wanted, wanted.label()).clicked() {
+                    asked.push(BarAction::Mode(*wanted));
+                    ui.close();
+                }
+            }
+
+            if crate::ui::surface::more_settings(ui, crate::config::registry::Page::OpeningAFolder)
+            {
+                asked.push(BarAction::Settings("general.start_in"));
                 ui.close();
             }
-        }
-
-        if crate::ui::surface::more_settings(ui, crate::config::registry::Page::OpeningAFolder) {
-            asked.push(BarAction::Settings("general.start_in"));
-            ui.close();
-        }
-    });
+        },
+    );
 
     asked
 }
@@ -210,10 +217,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     let mut asked = Vec::new();
 
     if flags.flattened {
-        let word = word(ui, "Flattened");
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            "Flattened",
             "Photographs in sub-folders are part of this collection.",
             |ui| {
                 if ui.button("Only this folder").clicked() {
@@ -233,10 +239,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     }
 
     if flags.watching {
-        let word = word(ui, "Watching");
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            "Watching",
             "The folder is being watched, so a file written into it appears.",
             |ui| {
                 if ui.button("Stop watching the folder").clicked() {
@@ -256,10 +261,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     }
 
     if flags.filling {
-        let word = word(ui, "Filling");
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            "Filling",
             "Every photograph fills the window, cropping whichever side is longer.",
             |ui| {
                 if ui.button("Fit the whole photograph instead").clicked() {
@@ -275,10 +279,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     }
 
     if flags.advancing {
-        let word = word(ui, "Advancing");
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            "Advancing",
             "A star, a flag or a label moves on to the next photograph.",
             |ui| {
                 if ui
@@ -301,10 +304,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     }
 
     if flags.comparing {
-        let word = word(ui, "Comparing");
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            "Comparing",
             "Several photographs are pinned side by side.",
             |ui| {
                 if ui.button("Stop comparing").clicked() {
@@ -320,10 +322,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     }
 
     if flags.marking != Overlay::Off {
-        let word = word(ui, flags.marking.label());
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            flags.marking.label(),
             "A mask is painted over the photograph. Help → What the marks mean says \
              what the colours are.",
             |ui| {
@@ -340,14 +341,12 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     }
 
     if flags.paired {
-        let word = word(ui, "RAW+JPEG");
-
         // The three sentences this needs were written when pairing was built
         // and drawn nowhere; this is the only place in the running program the
         // setting behind them is visible.
-        surface::with_menu(
+        word(
             ui,
-            &word,
+            "RAW+JPEG",
             "This frame was shot as two files, and a rating, a move or a deletion is \
              about to happen to both.",
             |ui| {
@@ -368,9 +367,22 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     asked
 }
 
-/// One clickable word in the flags row.
-fn word(ui: &mut egui::Ui, text: &str) -> egui::Response {
-    ui.add(egui::Label::new(text).sense(Sense::click()))
+/// One clickable word in the flags row, and the menu it carries.
+///
+/// The word is its own subject: it is the whole of what was clicked, and six
+/// of them stand in a row saying one word each, so the menu opens by saying
+/// which of the six it belongs to.
+fn word<R>(
+    ui: &mut egui::Ui,
+    text: &str,
+    hint: &str,
+    contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> Option<R> {
+    use crate::ui::surface;
+
+    let word = ui.add(egui::Label::new(text).sense(Sense::click()));
+
+    surface::with_menu(ui, &word, surface::Subject::the(text), hint, contents)
 }
 
 /// Draws the bar and reports the interactions it produced.
@@ -401,7 +413,7 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                         if status.hidden == 0 { 45. } else { 90. },
                         ui.available_height(),
                     ),
-                    egui::Label::new(counted).sense(Sense::click()),
+                    egui::Label::new(counted.as_str()).sense(Sense::click()),
                 );
 
                 // Two calls rather than one with an empty string: an empty
@@ -413,20 +425,26 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     ),
                 };
 
-                crate::ui::surface::with_menu(ui, &counter, &says, |ui| {
+                crate::ui::surface::with_menu(
+                    ui,
+                    &counter,
+                    crate::ui::surface::Subject::of("Position", &counted),
+                    &says,
+                    |ui| {
                     if status.hidden > 0 && ui.button("Show everything").clicked() {
                         outcome.bar.push(BarAction::ShowEverything);
                         ui.close();
                     }
 
-                    if crate::ui::surface::more_settings(
-                        ui,
-                        crate::config::registry::Page::OpeningAFolder,
-                    ) {
-                        outcome.bar.push(BarAction::Settings("browsing.flag"));
-                        ui.close();
-                    }
-                });
+                        if crate::ui::surface::more_settings(
+                            ui,
+                            crate::config::registry::Page::OpeningAFolder,
+                        ) {
+                            outcome.bar.push(BarAction::Settings("browsing.flag"));
+                            ui.close();
+                        }
+                    },
+                );
 
                 if let Some(place) = status.flags.place {
                     let colour = if place.collapsed {
@@ -440,9 +458,12 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                             .sense(Sense::click()),
                     );
 
+                    let run = place.describe();
+
                     crate::ui::surface::with_menu(
                         ui,
                         &said,
+                        crate::ui::surface::Subject::of("Run", &run),
                         "One run of frames. Amber says it is folded up.",
                         |ui| {
                             if ui
@@ -493,6 +514,7 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                 crate::ui::surface::with_menu(
                     ui,
                     &name,
+                    crate::ui::surface::Subject::of("Photograph", &status.name),
                     "What this photograph is called, in the template you set.",
                     |ui| {
                         if ui.button("Copy the name").clicked() {
@@ -571,16 +593,22 @@ fn marks(ui: &mut egui::Ui, marks: &Marks) -> Vec<BarAction> {
                 .sense(Sense::click()),
         );
 
-        surface::with_menu(ui, &glyph, "The flag on this photograph.", |ui| {
-            if ui.button("Show only these").clicked() {
-                asked.push(BarAction::ShowOnlyFlag(marks.flag));
-                ui.close();
-            }
-            if surface::more_settings(ui, Page::Marks) {
-                asked.push(BarAction::Settings("tags.advance_after_marking"));
-                ui.close();
-            }
-        });
+        surface::with_menu(
+            ui,
+            &glyph,
+            surface::Subject::of("Flag", marks.flag.name()),
+            "The flag on this photograph.",
+            |ui| {
+                if ui.button("Show only these").clicked() {
+                    asked.push(BarAction::ShowOnlyFlag(marks.flag));
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::Marks) {
+                    asked.push(BarAction::Settings("tags.advance_after_marking"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if let Some(label) = marks.label {
@@ -590,38 +618,52 @@ fn marks(ui: &mut egui::Ui, marks: &Marks) -> Vec<BarAction> {
                 .sense(Sense::click()),
         );
 
-        surface::with_menu(ui, &swatch, label.name(), |ui| {
-            if ui.button("Show only these").clicked() {
-                asked.push(BarAction::ShowOnlyLabel(label));
-                ui.close();
-            }
-            if surface::bind_a_key(ui, "this colour") {
-                asked.push(BarAction::BindKey("tags.sc_label[0]"));
-                ui.close();
-            }
-            if surface::more_settings(ui, Page::Marks) {
-                asked.push(BarAction::Settings("tags.sc_label"));
-                ui.close();
-            }
-        });
+        surface::with_menu(
+            ui,
+            &swatch,
+            surface::Subject::of("Colour", label.name()),
+            label.name(),
+            |ui| {
+                if ui.button("Show only these").clicked() {
+                    asked.push(BarAction::ShowOnlyLabel(label));
+                    ui.close();
+                }
+                if surface::bind_a_key(ui, "this colour") {
+                    asked.push(BarAction::BindKey("tags.sc_label[0]"));
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::Marks) {
+                    asked.push(BarAction::Settings("tags.sc_label"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     if marks.stars > 0 {
         let shown = ui.add(egui::Label::new(stars(marks.stars)).sense(Sense::click()));
 
-        surface::with_menu(ui, &shown, "The rating on this photograph.", |ui| {
-            if ui
-                .button(format!("Show only {} stars and better", marks.stars))
-                .clicked()
-            {
-                asked.push(BarAction::ShowOnlyStars(marks.stars));
-                ui.close();
-            }
-            if surface::more_settings(ui, Page::Marks) {
-                asked.push(BarAction::Settings("tags.sc_rating"));
-                ui.close();
-            }
-        });
+        let rating = format!("{}/{}", marks.stars, crate::metadata::xmp::MAX_RATING);
+
+        surface::with_menu(
+            ui,
+            &shown,
+            surface::Subject::of("Rating", &rating),
+            "The rating on this photograph.",
+            |ui| {
+                if ui
+                    .button(format!("Show only {} stars and better", marks.stars))
+                    .clicked()
+                {
+                    asked.push(BarAction::ShowOnlyStars(marks.stars));
+                    ui.close();
+                }
+                if surface::more_settings(ui, Page::Marks) {
+                    asked.push(BarAction::Settings("tags.sc_rating"));
+                    ui.close();
+                }
+            },
+        );
     }
 
     asked
@@ -710,28 +752,41 @@ fn zoom_label(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
         egui::Label::new(format!("{percentage_zoom:.1}%")).sense(Sense::click()),
     );
 
-    response.context_menu(|ui| {
-        for (label, command) in [
-            ("Fit to screen", Command::Fit),
-            ("Fill screen", Command::Fill),
-            ("Fit horizontal", Command::FitHorizontal),
-            ("Fit vertical", Command::FitVertical),
-        ] {
-            if ui.button(label).clicked() {
-                commands.push(command);
-                ui.close();
-            }
-        }
+    // Through the same helper as everything else. This was the last menu in
+    // the program opening on the release, with no chevron, no hover text and
+    // nothing saying what it was about — and `Response::context_menu` loses the
+    // menu to a six-point drag, which on a figure this small is most of the
+    // gestures aimed at it.
+    let reading = format!("{percentage_zoom:.1}%");
 
-        ui.separator();
-
-        for percentage in PERCENTAGES {
-            if ui.button(format!("{percentage:.0}%")).clicked() {
-                commands.push(Command::ZoomToPercent(*percentage));
-                ui.close();
+    crate::ui::surface::with_menu(
+        ui,
+        &response,
+        crate::ui::surface::Subject::of("Zoom", &reading),
+        "How large the photograph is drawn.",
+        |ui| {
+            for (label, command) in [
+                ("Fit to screen", Command::Fit),
+                ("Fill screen", Command::Fill),
+                ("Fit horizontal", Command::FitHorizontal),
+                ("Fit vertical", Command::FitVertical),
+            ] {
+                if ui.button(label).clicked() {
+                    commands.push(command);
+                    ui.close();
+                }
             }
-        }
-    });
+
+            ui.separator();
+
+            for percentage in PERCENTAGES {
+                if ui.button(format!("{percentage:.0}%")).clicked() {
+                    commands.push(Command::ZoomToPercent(*percentage));
+                    ui.close();
+                }
+            }
+        },
+    );
 
     commands
 }

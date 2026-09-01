@@ -245,12 +245,17 @@ pub fn metadata_panel(
         ui.id().with("metadata heading"),
         egui::Sense::click(),
     );
-    crate::ui::surface::menu(ui, &heading, |ui| {
-        if crate::ui::surface::more_settings(ui, crate::config::registry::Page::ThePhotograph) {
-            asked = Some("general.metadata_tags");
-            ui.close();
-        }
-    });
+    crate::ui::surface::menu(
+        ui,
+        &heading,
+        crate::ui::surface::Subject::the("The metadata panel"),
+        |ui| {
+            if crate::ui::surface::more_settings(ui, crate::config::registry::Page::ThePhotograph) {
+                asked = Some("general.metadata_tags");
+                ui.close();
+            }
+        },
+    );
 
     let Some(metadata) = metadata else {
         if open {
@@ -280,23 +285,31 @@ pub fn metadata_panel(
                     .sense(egui::Sense::click()),
             );
 
-            crate::ui::surface::with_menu(ui, &row, value, |ui| {
-                if ui.button("Copy the value").clicked() {
-                    ui.ctx().copy_text(value.clone());
-                    ui.close();
-                }
-                if ui.button("Copy the tag name").clicked() {
-                    ui.ctx().copy_text(tag.clone());
-                    ui.close();
-                }
-                if crate::ui::surface::more_settings(
-                    ui,
-                    crate::config::registry::Page::ThePhotograph,
-                ) {
-                    asked = Some("general.metadata_tags");
-                    ui.close();
-                }
-            });
+            // The tag names the row; the value is what the two copy verbs are
+            // about, and the menu covers the row it was asked for.
+            crate::ui::surface::with_menu(
+                ui,
+                &row,
+                crate::ui::surface::Subject::of(tag, value),
+                value,
+                |ui| {
+                    if ui.button("Copy the value").clicked() {
+                        ui.ctx().copy_text(value.clone());
+                        ui.close();
+                    }
+                    if ui.button("Copy the tag name").clicked() {
+                        ui.ctx().copy_text(tag.clone());
+                        ui.close();
+                    }
+                    if crate::ui::surface::more_settings(
+                        ui,
+                        crate::config::registry::Page::ThePhotograph,
+                    ) {
+                        asked = Some("general.metadata_tags");
+                        ui.close();
+                    }
+                },
+            );
         });
     }
 
@@ -335,6 +348,7 @@ pub fn cache_stats(
     crate::ui::surface::with_menu(
         ui,
         &heading,
+        crate::ui::surface::Subject::the("The cache panel"),
         "What the viewer is holding, and what bounds it.",
         |ui| {
             if crate::ui::surface::more_settings(ui, crate::config::registry::Page::SpeedAndMemory)
@@ -390,14 +404,22 @@ pub fn cache_stats(
                 .sense(egui::Sense::click()),
         );
 
-        crate::ui::surface::with_menu(ui, &failed, "The log says why for each of them.", |ui| {
-            if ui.button("Open the log").clicked() {
-                if let Some(path) = crate::logging::path() {
-                    crate::actions::reveal::with_the_system(&path);
+        let count = format!("{} photographs", images.failed);
+
+        crate::ui::surface::with_menu(
+            ui,
+            &failed,
+            crate::ui::surface::Subject::of("Would not open", &count),
+            "The log says why for each of them.",
+            |ui| {
+                if ui.button("Open the log").clicked() {
+                    if let Some(path) = crate::logging::path() {
+                        crate::actions::reveal::with_the_system(&path);
+                    }
+                    ui.close();
                 }
-                ui.close();
-            }
-        });
+            },
+        );
     }
 
     asked

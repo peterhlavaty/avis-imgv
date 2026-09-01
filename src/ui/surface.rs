@@ -12,6 +12,11 @@
 //! it has a menu or does not have one. NN/g's finding, applied to a second
 //! affordance: because only *some* things carried tooltips, people stopped
 //! expecting them and missed the ones that existed.
+//!
+//! And every menu it draws opens with a line naming what was clicked, because
+//! the menu itself is drawn over that thing and the verbs in it are worded for
+//! a reader who already knows: "Show only these" is three different sentences
+//! depending on which badge in the bar was under the pointer.
 
 use eframe::egui::{self, PointerButton, Response, RichText};
 
@@ -24,6 +29,79 @@ pub const SAYS: &str = "Right-click for more.";
 /// The chevron drawn in the corner of a surface that has a menu.
 const CHEVRON: &str = "⌄";
 
+/// How wide a menu is allowed to be.
+///
+/// Here rather than at each menu because the heading is truncated against it:
+/// a menu whose width came from the longest thing in it would be as wide as a
+/// path, and the two places that already chose a width chose this one.
+pub const WIDEST: f32 = 320.0;
+
+/// What a menu is about: the kind of thing, and which one of them.
+///
+/// Two fields rather than one sentence, so that every heading in the program
+/// is built the same way — the kind in the weak colour and which one in the
+/// strong — and no caller invents its own punctuation between them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Subject<'a> {
+    kind: &'a str,
+    which: &'a str,
+}
+
+impl<'a> Subject<'a> {
+    /// A thing of a kind, and which one it is: a keyword, and the word.
+    pub fn of(kind: &'a str, which: &'a str) -> Self {
+        Subject { kind, which }
+    }
+
+    /// A thing there is only one of on the screen: a panel, a heading, a word
+    /// in the bar that is either itself or absent.
+    pub fn the(kind: &'a str) -> Self {
+        Subject { kind, which: "" }
+    }
+
+    /// The whole of it on one line, for the hover and for the tests.
+    pub fn said(&self) -> String {
+        if self.which.is_empty() {
+            self.kind.to_string()
+        } else {
+            format!("{} — {}", self.kind, self.which)
+        }
+    }
+}
+
+/// The first row of every menu: what was clicked to open it.
+///
+/// A menu opens at the pointer and covers the thing it was asked about, and
+/// several of the things worth asking about are a glyph a few pixels wide with
+/// a neighbour that looks much like it — the flag, the colour and the rating
+/// sit together in the bottom bar, the five swatches in the tag panel differ
+/// only by colour, and a metadata row's menu offers to copy a value it never
+/// names. Always first, never varying: the mirror of [`more_settings`], which
+/// is always last, and drawn here rather than by the callers so that it cannot
+/// be forgotten by one of them or worded differently by another.
+fn about(ui: &mut egui::Ui, subject: Subject<'_>) {
+    ui.scope(|ui| {
+        // The width is bounded for the heading alone. A long name is then
+        // truncated here rather than deciding how wide the whole menu is, and
+        // nothing about the rows below this changes.
+        ui.set_max_width(WIDEST);
+
+        ui.horizontal(|ui| {
+            // Lined up with the text of the rows, which carry a button's
+            // padding and would otherwise start further in than the heading.
+            ui.add_space(ui.spacing().button_padding.x);
+            ui.label(RichText::new(subject.kind).weak().small());
+
+            if !subject.which.is_empty() {
+                ui.add(egui::Label::new(RichText::new(subject.which).strong().small()).truncate())
+                    .on_hover_text(subject.which);
+            }
+        });
+    });
+
+    ui.separator();
+}
+
 /// Marks a response as carrying a menu, and draws the menu when it is asked for.
 ///
 /// `hint` is the sentence under the pointer, without the trailing words: those
@@ -31,6 +109,7 @@ const CHEVRON: &str = "⌄";
 pub fn with_menu<R>(
     ui: &egui::Ui,
     response: &Response,
+    subject: Subject<'_>,
     hint: &str,
     contents: impl FnOnce(&mut egui::Ui) -> R,
 ) -> Option<R> {
@@ -43,7 +122,7 @@ pub fn with_menu<R>(
     };
     response.clone().on_hover_text(hint);
 
-    menu(ui, response, contents)
+    menu(ui, response, subject, contents)
 }
 
 /// Which surface the keyboard asked for a menu on.
@@ -79,9 +158,10 @@ fn claimed(surface: &str) -> bool {
 pub fn menu<R>(
     ui: &egui::Ui,
     response: &Response,
+    subject: Subject<'_>,
     contents: impl FnOnce(&mut egui::Ui) -> R,
 ) -> Option<R> {
-    named_menu(ui, response, "", contents)
+    named_menu(ui, response, "", subject, contents)
 }
 
 /// The same, for a surface the keyboard can reach by name.
@@ -89,6 +169,7 @@ pub fn named_menu<R>(
     ui: &egui::Ui,
     response: &Response,
     surface: &'static str,
+    subject: Subject<'_>,
     contents: impl FnOnce(&mut egui::Ui) -> R,
 ) -> Option<R> {
     // On the press, not the release. A drag that begins on this surface and a
@@ -130,7 +211,10 @@ pub fn named_menu<R>(
         .open_memory(open)
         .close_behavior(behaviour)
         .at_pointer_fixed()
-        .show(contents)
+        .show(|ui| {
+            about(ui, subject);
+            contents(ui)
+        })
         .map(|inner| inner.inner)
 }
 
@@ -214,5 +298,70 @@ mod tests {
     fn the_hover_text_always_ends_the_same_way() {
         assert!(SAYS.ends_with("more."));
         assert!(SAYS.starts_with("Right-click"));
+    }
+
+    /// Both halves are said, in that order, with one punctuation between them.
+    #[test]
+    fn a_subject_says_the_kind_and_which_one() {
+        assert_eq!(Subject::of("Keyword", "Tatras").said(), "Keyword — Tatras");
+        assert_eq!(Subject::of("Rating", "3/5").said(), "Rating — 3/5");
+    }
+
+    /// A thing there is only one of says only what it is, with no dangling
+    /// dash after it.
+    #[test]
+    fn a_subject_of_one_thing_says_only_what_it_is() {
+        assert_eq!(Subject::the("The history").said(), "The history");
+        assert!(!Subject::the("Watching").said().contains('—'));
+    }
+
+    /// An empty half is the same as not having one, which is what lets a
+    /// caller pass a name it computed and may not have.
+    #[test]
+    fn an_empty_half_is_no_half() {
+        assert_eq!(Subject::of("Flag", ""), Subject::the("Flag"));
+        assert_eq!(Subject::of("Flag", "").said(), "Flag");
+    }
+
+    /// The heading is drawn, both halves of it, before whatever the menu
+    /// carries — which is the whole of what this file promises about it.
+    #[test]
+    fn the_heading_is_drawn_above_the_rows() {
+        let ctx = egui::Context::default();
+        let output = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                about(ui, Subject::of("Keyword", "Tatras"));
+                let _ = ui.button("Show only this");
+            });
+        });
+
+        let drawn = painted(&output);
+        let heading = drawn
+            .iter()
+            .position(|text| text == "Keyword")
+            .expect("the kind is drawn");
+        let which = drawn
+            .iter()
+            .position(|text| text == "Tatras")
+            .expect("which one it is, is drawn");
+        let row = drawn
+            .iter()
+            .position(|text| text == "Show only this")
+            .expect("the row is drawn");
+
+        assert!(heading < row, "the heading comes first: {drawn:?}");
+        assert!(which < row, "and so does which one it is: {drawn:?}");
+    }
+
+    /// Every piece of text the frame painted, in the order it was painted.
+    fn painted(output: &egui::FullOutput) -> Vec<String> {
+        output
+            .shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                _ => None,
+            })
+            .collect()
     }
 }

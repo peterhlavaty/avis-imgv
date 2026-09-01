@@ -262,7 +262,7 @@ pub fn rows(
 ) -> Option<Chosen> {
     let mut chosen = None;
 
-    ui.set_max_width(320.);
+    ui.set_max_width(crate::ui::surface::WIDEST);
 
     for row in rows {
         match *row {

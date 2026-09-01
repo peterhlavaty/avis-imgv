@@ -160,25 +160,33 @@ fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
                 .sense(Sense::click()),
             );
 
-            crate::ui::surface::with_menu(ui, &figure, hover, |ui| {
-                if ui.button("Mark it on the photograph").clicked() {
-                    asked = Some(Asked::Clipping);
-                    ui.close();
-                }
+            let reading = format!("{percent:.1}%");
 
-                if ui.button("Show only these on the photograph").clicked() {
-                    asked = Some(Asked::Clipping);
-                    ui.close();
-                }
+            crate::ui::surface::with_menu(
+                ui,
+                &figure,
+                crate::ui::surface::Subject::of(label, &reading),
+                hover,
+                |ui| {
+                    if ui.button("Mark it on the photograph").clicked() {
+                        asked = Some(Asked::Clipping);
+                        ui.close();
+                    }
 
-                if crate::ui::surface::more_settings(
-                    ui,
-                    crate::config::registry::Page::ThePhotograph,
-                ) {
-                    asked = Some(Asked::Settings("image_view.sc_marks"));
-                    ui.close();
-                }
-            });
+                    if ui.button("Show only these on the photograph").clicked() {
+                        asked = Some(Asked::Clipping);
+                        ui.close();
+                    }
+
+                    if crate::ui::surface::more_settings(
+                        ui,
+                        crate::config::registry::Page::ThePhotograph,
+                    ) {
+                        asked = Some(Asked::Settings("image_view.sc_marks"));
+                        ui.close();
+                    }
+                },
+            );
         }
     });
 

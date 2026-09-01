@@ -2,6 +2,22 @@
 
 ## 2026-09-01
 
+- **Every menu says what it was asked about.** A menu is drawn over the thing
+  it belongs to, and its verbs are worded for somebody who already knows which
+  thing that was: *Show only these* sits on the flag, the colour and the
+  rating, three badges a few pixels apart at the same end of the status bar,
+  and the five colour swatches in the tag panel differ by nothing but a colour.
+  Each of the thirty menus now opens with the kind of thing and which one of
+  them — *Keyword* **Tatras**, *Rating* **3/5**, *Folder* **2026-05 Wedding**,
+  *Setting* **Thumbnails per row**, *Photograph* **DSC0142.jpg** — and a
+  right-click on a selection in the sheet says *24 photographs*, which is what
+  every verb below it is about. A metadata row's menu offered to copy a value
+  and a tag name without saying either; it says both. A long one is cut off
+  with an ellipsis and shown whole on the hover.
+- **The magnification was the last menu opening on the release.** The
+  percentage at the right of the status bar had no chevron, no hover text, no
+  heading and a menu that a six-point drag lost. It goes through the same
+  helper as everything else now.
 - **Every row in the history says what it was, not what kind of thing it
   was.** *Marked DSC0142.jpg* is now *Gave DSC0142.jpg 3 stars*, or *Rejected*,
   *Kept*, *Labelled red*, *Turned*, *Tagged Tatras* — the two documents are

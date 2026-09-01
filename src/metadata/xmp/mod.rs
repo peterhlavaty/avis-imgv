@@ -103,6 +103,19 @@ impl Flag {
             Flag::Rejected => "✖",
         }
     }
+
+    /// The word for it, for a menu heading or a sentence.
+    ///
+    /// The same three words the narrowing rules use, because a glyph in the
+    /// bar and a rule in the filter are the same thing and being told they are
+    /// *kept* in one place and *picked* in the other is being told nothing.
+    pub fn name(self) -> &'static str {
+        match self {
+            Flag::Unflagged => "Unflagged",
+            Flag::Picked => "Kept",
+            Flag::Rejected => "Rejected",
+        }
+    }
 }
 
 /// The colour labels every other program writes, in their conventional order.
@@ -378,6 +391,17 @@ mod hierarchy_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A flag is called in a menu what the filter calls it, because they are
+    /// the same three states and two vocabularies for them are one too many.
+    #[test]
+    fn a_flag_is_called_what_the_filter_calls_it() {
+        use crate::view::narrow::FlagRule;
+
+        assert_eq!(Flag::Picked.name(), FlagRule::Picked.label());
+        assert_eq!(Flag::Rejected.name(), FlagRule::Rejected.label());
+        assert_eq!(Flag::Unflagged.name(), FlagRule::Unflagged.label());
+    }
 
     #[test]
     fn ratings_are_clamped_to_the_defined_range() {

@@ -293,7 +293,16 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                             // is the price of having taken it in the first
                             // place; this is what it was taken back for.
                             let path = entry.path.clone();
-                            crate::ui::surface::menu(ui, &label, |ui| {
+                            let name = path
+                                .file_name()
+                                .map(|name| name.to_string_lossy().into_owned())
+                                .unwrap_or_else(|| path.display().to_string());
+
+                            crate::ui::surface::menu(
+                                ui,
+                                &label,
+                                crate::ui::surface::Subject::of("Folder", &name),
+                                |ui| {
                                 if ui.button("Open this folder").clicked() {
                                     result = get_selected_path(&path);
                                     ui.close();
@@ -304,11 +313,12 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                                     ui.close();
                                 }
 
-                                if ui.button("Show it in the file manager").clicked() {
-                                    crate::actions::reveal::folder(&path);
-                                    ui.close();
-                                }
-                            });
+                                    if ui.button("Show it in the file manager").clicked() {
+                                        crate::actions::reveal::folder(&path);
+                                        ui.close();
+                                    }
+                                },
+                            );
                         }
 
                         if let Some(i) = selected_at {
