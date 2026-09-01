@@ -57,6 +57,8 @@ impl App {
 
         match verb {
             Verb::Bin => self.delete_open_image(false),
+            Verb::PutBack => self.put_back(),
+            Verb::DeleteForGood => self.delete_open_image(true),
             Verb::CopyPath => self.copy_paths(),
             Verb::CopyPicture => {
                 let crop = self.marked_crop(&path);

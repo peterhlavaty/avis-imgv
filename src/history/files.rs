@@ -61,6 +61,19 @@ pub enum Step {
     },
     /// Files sent to the platform's bin.
     Binned(Vec<PathBuf>),
+    /// Photographs put in the viewer's own bin, as `(where it is in the bin,
+    /// where it came from)`.
+    ///
+    /// The same two halves as [`Step::Moved`], read the same way round,
+    /// because putting something in a folder *is* a move. What it has that a
+    /// move has not is the note the bin keeps of where each thing came from,
+    /// written going forward and left alone going back — a row whose file is
+    /// not there is invisible to everything that reads the note and live again
+    /// the moment the file returns. That is what lets undo, redo and the bin's
+    /// own "put back" agree without one of them ever telling the others
+    /// anything, and it is why putting something back is recorded as a plain
+    /// [`Step::Moved`].
+    Interred(Vec<(PathBuf, PathBuf)>),
     /// A photograph's marks, as they were and as they were made.
     Marked {
         image: PathBuf,
@@ -85,6 +98,7 @@ impl Step {
             Step::Moved(moves) => moves.len(),
             Step::Copied { made, .. } => made.len(),
             Step::Binned(binned) => binned.len(),
+            Step::Interred(moved) => moved.len(),
             Step::Marked { .. } => 1,
             Step::Many(steps) => steps.iter().map(Step::files).sum(),
         }
@@ -99,6 +113,7 @@ impl Step {
             Step::Moved(moves) => moves.is_empty(),
             Step::Copied { made, .. } => made.is_empty(),
             Step::Binned(binned) => binned.is_empty(),
+            Step::Interred(moved) => moved.is_empty(),
             Step::Marked { .. } => false,
             Step::Many(steps) => steps.iter().all(Step::is_empty),
         }
@@ -121,6 +136,12 @@ impl Step {
             }
             (Step::Binned(binned), Way::Forward) => {
                 format!("send {} to the bin again", files(binned.len()))
+            }
+            (Step::Interred(moved), Way::Back) => {
+                format!("take {} back out of the bin", files(moved.len()))
+            }
+            (Step::Interred(moved), Way::Forward) => {
+                format!("put {} in the bin again", files(moved.len()))
             }
             (Step::Marked { image, .. }, way) => {
                 let name = image.file_name().unwrap_or_default().to_string_lossy();
@@ -165,6 +186,13 @@ impl Step {
                 (1, Some(one)) => format!("Sent {} to the bin", name_of(one)),
                 (many, _) => format!("Sent {} to the bin", files(many)),
             },
+            // Named by where it came from rather than by what it is called
+            // inside: a second `DSC0001.jpg` is filed as `DSC0001 (2).jpg`,
+            // and nobody has ever seen a photograph under that name.
+            Step::Interred(moved) => match (moved.len(), moved.first()) {
+                (1, Some((_, was))) => format!("Sent {} to the bin", name_of(was)),
+                (many, _) => format!("Sent {} to the bin", files(many)),
+            },
             Step::Marked {
                 image,
                 before,
@@ -204,6 +232,11 @@ impl Step {
                 .chain(made.iter().cloned())
                 .collect(),
             Step::Binned(binned) => binned.iter().flat_map(|p| with_sidecars(p)).collect(),
+            Step::Interred(moved) => moved
+                .iter()
+                .flat_map(|(inside, was)| [inside.clone(), was.clone()])
+                .flat_map(|path| with_sidecars(&path))
+                .collect(),
             Step::Marked { image, .. } => with_sidecars(image),
             Step::Many(steps) => steps.iter().flat_map(Step::paths).collect(),
         }
@@ -223,6 +256,10 @@ impl Step {
             Step::Binned(binned) => match way {
                 Way::Back => bring_back(binned),
                 Way::Forward => bin_again(binned),
+            },
+            Step::Interred(moved) => match way {
+                Way::Back => shift(moved.iter().map(|(inside, was)| (inside, was))),
+                Way::Forward => inter(moved),
             },
             Step::Marked {
                 image,
@@ -436,6 +473,26 @@ fn copy_again(pairs: &[(PathBuf, PathBuf)]) -> Done {
     done
 }
 
+/// Puts photographs into the viewer's own bin, and notes where each came from.
+///
+/// The note is written once for the batch rather than once a file, because it
+/// is one document: a folder of two hundred rejects would otherwise rewrite it
+/// two hundred times. The bin is the parent of where they landed, which is why
+/// this step does not have to carry it separately.
+fn inter(moved: &[(PathBuf, PathBuf)]) -> Done {
+    let mut done = shift(moved.iter().map(|(inside, was)| (was, inside)));
+
+    let Some(root) = moved.first().and_then(|(inside, _)| inside.parent()) else {
+        return done;
+    };
+
+    if let Err(e) = crate::organize::bin::note(root, &done.moved) {
+        done.failed.push(format!("{e}"));
+    }
+
+    done
+}
+
 /// Sends the files to the bin again, for a redo.
 fn bin_again(binned: &[PathBuf]) -> Done {
     let mut done = Done::default();
@@ -539,6 +596,7 @@ mod tests {
         }
         .is_empty());
         assert!(Step::Binned(vec![]).is_empty());
+        assert!(Step::Interred(vec![]).is_empty());
         assert!(Step::Many(vec![Step::Binned(vec![])]).is_empty());
     }
 
@@ -626,6 +684,7 @@ mod tests {
                 made: vec![PathBuf::from("b")],
             },
             Step::Binned(vec![PathBuf::from("a")]),
+            Step::Interred(vec![(PathBuf::from("bin/a"), PathBuf::from("a"))]),
             Step::Marked {
                 image: PathBuf::from("a.jpg"),
                 before: Box::new(Xmp::default()),
@@ -727,6 +786,10 @@ mod tests {
     fn moving_and_binning_watch_the_sidecars_too() {
         for step in [
             Step::Binned(vec![PathBuf::from("/photos/a.jpg")]),
+            Step::Interred(vec![(
+                PathBuf::from("/bin/a.jpg"),
+                PathBuf::from("/photos/a.jpg"),
+            )]),
             Step::Moved(vec![(
                 PathBuf::from("/other/a.jpg"),
                 PathBuf::from("/photos/a.jpg"),
@@ -909,5 +972,48 @@ mod tests {
             crate::annotations::sidecar::read(&image).map(|x| x.rating),
             Some(1)
         );
+    }
+
+    /// The viewer's own bin runs both ways, and the note it keeps of where
+    /// everything came from is written going in and left alone coming out.
+    #[test]
+    fn the_viewers_own_bin_runs_both_ways() {
+        let dir = temp_dir("interred");
+        let bin = dir.join("bin");
+        let photograph = dir.join("a.jpg");
+        write(&photograph, "one");
+
+        let step = Step::Interred(vec![(bin.join("a.jpg"), photograph.clone())]);
+
+        let done = step.run(Way::Forward);
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        assert!(bin.join("a.jpg").exists());
+        assert!(!photograph.exists());
+        assert_eq!(
+            crate::organize::bin::came_from(&bin, &bin.join("a.jpg")),
+            Some(photograph.clone()),
+            "the bin remembers where it came from"
+        );
+
+        let done = step.run(Way::Back);
+        assert!(done.failed.is_empty(), "{:?}", done.failed);
+        assert!(photograph.exists());
+        assert_eq!(fs::read_to_string(&photograph).unwrap(), "one");
+        assert!(
+            crate::organize::bin::holds(&bin).is_empty(),
+            "and stops offering what is no longer in it"
+        );
+    }
+
+    /// A row in the panel is named by what the photograph is called, not by
+    /// what the bin had to file it under.
+    #[test]
+    fn a_deletion_is_named_after_the_photograph_rather_than_the_copy() {
+        let step = Step::Interred(vec![(
+            PathBuf::from("/bin/DSC0001 (2).jpg"),
+            PathBuf::from("/photos/DSC0001.jpg"),
+        )]);
+
+        assert_eq!(step.label(), "Sent DSC0001.jpg to the bin");
     }
 }

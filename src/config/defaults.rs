@@ -443,6 +443,29 @@ pub fn default_rejected_folder() -> String {
     "_Rejected".to_string()
 }
 
+/// The platform's, because Delete meaning what it means in every other
+/// program is what nearly everybody expects the first time they press it.
+pub fn default_bin() -> String {
+    "system".to_string()
+}
+
+/// Nothing, meaning the folder the viewer keeps under the local data
+/// directory.
+///
+/// A path written here rather than left out would be a path from whichever
+/// machine the file was first written on, and a configuration that follows
+/// somebody onto a second one would point its bin at a drive letter that is
+/// not there.
+pub fn default_bin_folder() -> Option<String> {
+    None
+}
+
+/// Asked, because a bin left full is a bin nobody looks in and the whole point
+/// of a folder is that it can be looked in.
+pub fn default_ask_to_empty_the_bin() -> bool {
+    true
+}
+
 /// Alt, because bare M and C are the fill-the-window and the context menu.
 pub fn default_sc_move() -> Shortcut {
     Shortcut::new("m", &[MOD_ALT])
@@ -450,6 +473,12 @@ pub fn default_sc_move() -> Shortcut {
 pub fn default_sc_copy() -> Shortcut {
     Shortcut::new("c", &[MOD_ALT])
 }
+/// B for back, and free: the bare letter is nothing and no other command has
+/// taken it with a modifier.
+pub fn default_sc_put_back() -> Shortcut {
+    Shortcut::new("b", &[MOD_CTRL])
+}
+
 /// The reject key with shift: the same verb, carried out on the disk.
 pub fn default_sc_reject_folder() -> Shortcut {
     Shortcut::new("x", &[MOD_SHIFT])

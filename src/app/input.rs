@@ -41,6 +41,8 @@ pub enum Command {
     Delete,
     /// Delete it outright, which is asked about first.
     DeletePermanently,
+    /// Take it out of the viewer's own bin and put it back where it came from.
+    PutBack,
     /// Fill the screen, or give it back.
     ToggleFullscreen,
     /// Show or hide the bar that narrows and orders the folder.
@@ -163,6 +165,7 @@ pub fn collect(
         (&cull.sc_move, Command::MoveTo),
         (&cull.sc_copy, Command::CopyTo),
         (&cull.sc_reject_folder, Command::ToRejectedFolder),
+        (&cull.sc_put_back, Command::PutBack),
         (&history.sc_undo, Command::Undo),
         (&history.sc_redo, Command::Redo),
         (&history.sc_panel, Command::ToggleHistoryPanel),

@@ -46,6 +46,8 @@ impl App {
                 }
             }
             MenuAction::BinRejected => self.bin_rejected(),
+            MenuAction::OpenBin => self.open_bin(),
+            MenuAction::EmptyBin => self.ask_to_empty_the_bin(),
             MenuAction::Mode(mode) => self.set_mode(mode),
             MenuAction::AllSettings => self.open_settings(),
             MenuAction::Keyboard => self.keys_visible = true,
@@ -344,6 +346,13 @@ impl App {
             .set_backdrop(&self.settings.general.backdrop);
         self.grid_view.set_config(self.settings.grid_view.clone());
         self.grid_view.set_backdrop(&self.settings.general.backdrop);
+
+        // Moving the bin can make the folder already on screen the bin, or
+        // stop it being one, and the two menus read this rather than asking
+        // per frame.
+        let in_the_bin = self.in_the_bin();
+        self.image_view.in_the_bin = in_the_bin;
+        self.grid_view.in_the_bin = in_the_bin;
         // Shortening it takes effect on the frame it is shortened, rather than
         // at the next deed: a limit that has not bitten yet is a limit nobody
         // can tell is working.

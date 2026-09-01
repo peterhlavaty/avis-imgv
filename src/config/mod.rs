@@ -275,6 +275,24 @@ pub struct CullConfig {
     /// Which of the reversible things ask first.
     #[serde(default)]
     pub confirm: Confirmations,
+    /// Which bin the delete key means: `system` or `folder`.
+    ///
+    /// The platform's stays the default. It is what Delete means everywhere
+    /// else, and a viewer that quietly means something else by it is a viewer
+    /// somebody has to be told about.
+    #[serde(default = "default_bin")]
+    pub bin: String,
+    /// Where the viewer's own bin is, when that is the one in use.
+    ///
+    /// Absolute, or nothing for the folder under the local data directory. One
+    /// bin rather than one per shoot: a bin relative to the open folder would
+    /// be a different bin in every folder, and the question asked at closing
+    /// time would be about whichever one happened to be open.
+    #[serde(default = "default_bin_folder")]
+    pub bin_folder: Option<String>,
+    /// Whether a bin left with something in it is asked about on the way out.
+    #[serde(default = "default_ask_to_empty_the_bin")]
+    pub ask_to_empty_the_bin: bool,
 
     #[serde(default = "default_sc_move")]
     pub sc_move: Shortcut,
@@ -282,6 +300,8 @@ pub struct CullConfig {
     pub sc_copy: Shortcut,
     #[serde(default = "default_sc_reject_folder")]
     pub sc_reject_folder: Shortcut,
+    #[serde(default = "default_sc_put_back")]
+    pub sc_put_back: Shortcut,
 }
 
 impl Default for CullConfig {
@@ -290,9 +310,13 @@ impl Default for CullConfig {
             destinations: default_destinations(),
             rejected_folder: default_rejected_folder(),
             confirm: Confirmations::default(),
+            bin: default_bin(),
+            bin_folder: default_bin_folder(),
+            ask_to_empty_the_bin: default_ask_to_empty_the_bin(),
             sc_move: default_sc_move(),
             sc_copy: default_sc_copy(),
             sc_reject_folder: default_sc_reject_folder(),
+            sc_put_back: default_sc_put_back(),
         }
     }
 }

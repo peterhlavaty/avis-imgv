@@ -15,6 +15,10 @@ pub enum MenuAction {
     Mode(Mode),
     /// Send every rejected picture in the folder to the bin.
     BinRejected,
+    /// Open the viewer's own bin, which is a folder like any other.
+    OpenBin,
+    /// Delete everything in it, folder and all. Asked about first.
+    EmptyBin,
     /// Open the whole settings window.
     AllSettings,
     /// Open the editor for the keyboard map.
@@ -84,6 +88,32 @@ pub fn top_menu(
                         .clicked()
                     {
                         action = Some(MenuAction::BinRejected);
+                        ui.close();
+                    }
+
+                    ui.separator();
+
+                    // The bin is a folder, so the way to look in it is the way
+                    // into any other folder: open it. That is the whole
+                    // argument for it being a folder.
+                    if ui
+                        .button("Open the bin")
+                        .on_hover_text(
+                            "The viewer's own bin, as a folder — what an hour of \
+                             culling threw away, before any of it is really gone",
+                        )
+                        .clicked()
+                    {
+                        action = Some(MenuAction::OpenBin);
+                        ui.close();
+                    }
+
+                    if ui
+                        .button("Empty the bin…")
+                        .on_hover_text("Delete everything in it for good")
+                        .clicked()
+                    {
+                        action = Some(MenuAction::EmptyBin);
                         ui.close();
                     }
                 });

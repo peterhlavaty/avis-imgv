@@ -194,7 +194,7 @@ mod tests {
     }
 
     /// The count is what stops a shortcut being added to the configuration and
-    /// quietly left out of the editor. Sixty-five written fields, plus the six
+    /// quietly left out of the editor. Sixty-six written fields, plus the six
     /// ratings and the five colour labels; the keys the program reads for
     /// itself are in the list too, and are not editable.
     #[test]
@@ -206,7 +206,7 @@ mod tests {
             .count();
 
         assert_eq!(
-            editable, 77,
+            editable, 78,
             "a shortcut was added to the configuration without a registry row"
         );
     }

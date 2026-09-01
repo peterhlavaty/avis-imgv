@@ -130,6 +130,11 @@ pub struct App {
     advancing: bool,
     /// A deletion the user has been asked about but has not answered.
     pending_delete: Option<cull::Pending>,
+    /// How far the viewer has got with being closed.
+    ///
+    /// A bin with something still in it is asked about on the way out, and a
+    /// question takes frames to answer while a close takes none.
+    leaving: cull::Leaving,
     /// A run of the history that has been asked about but not answered.
     pending_history: Option<history::Pending>,
     /// Where photographs were last sent, so the same key twice repeats it.
@@ -367,6 +372,7 @@ impl App {
             notices: Notices::default(),
             advancing,
             pending_delete: None,
+            leaving: cull::Leaving::default(),
             pending_history: None,
             last_destination: None,
             last_errand: None,
@@ -526,6 +532,13 @@ impl App {
 
         self.base_path = arriving;
         self.navigator_path = self.base_path.to_string_lossy().to_string();
+
+        // Asked once, when the folder changes, rather than per menu: it is two
+        // string comparisons and a `ProjectDirs` lookup, and a context menu is
+        // opened on the frame somebody is already waiting on.
+        let in_the_bin = self.in_the_bin();
+        self.image_view.in_the_bin = in_the_bin;
+        self.grid_view.in_the_bin = in_the_bin;
         self.paths = paths;
         self.marks.clear();
 
@@ -985,6 +998,7 @@ impl App {
             || self.messages_visible
             || self.conflict_visible
             || self.pending_delete.is_some()
+            || matches!(self.leaving, cull::Leaving::Asking(..))
             || self.pending_history.is_some()
             || self.asking.is_some()
             || self.overlay.is_some()
@@ -1095,6 +1109,7 @@ impl App {
             Command::Turn(clockwise) => self.turn(clockwise),
             Command::Delete => self.delete_open_image(false),
             Command::DeletePermanently => self.delete_open_image(true),
+            Command::PutBack => self.put_back(),
             Command::MoveTo => self.send_somewhere(Errand::Move),
             Command::CopyTo => self.send_somewhere(Errand::Copy),
             Command::ToRejectedFolder => self.send_to_rejected(),
@@ -1321,6 +1336,7 @@ impl eframe::App for App {
         self.show_filter_bar(ctx);
         self.show_destinations(ctx);
         self.show_pending_delete(ctx);
+        self.consider_leaving(ctx);
         self.show_pending_history(ctx);
         self.show_keyboard(ctx);
         self.show_settings(ctx);

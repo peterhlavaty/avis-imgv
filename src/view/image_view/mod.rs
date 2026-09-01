@@ -58,6 +58,9 @@ use input::Anchor::Pointer as POINTER;
 
 pub struct ImageView {
     store: ImageStore,
+    /// Whether the folder on show is the viewer's own bin, which changes two
+    /// rows of the menu the photograph carries and nothing else.
+    pub in_the_bin: bool,
     /// Position in the store, not in what is on show.
     cursor: usize,
     /// Which of the store's photographs are being walked through.
@@ -145,6 +148,7 @@ impl ImageView {
 
         ImageView {
             store: ImageStore::new(render_state, loader, store_config, output_profile),
+            in_the_bin: false,
             cursor: 0,
             visible: Visible::default(),
             marking: crate::decoder::overlays::Overlay::default(),

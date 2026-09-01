@@ -34,6 +34,7 @@ impl Config {
         icc(self, &mut found);
         keyword_catalogue(self, &mut found);
         rejects(self, &mut found);
+        the_bin(self, &mut found);
         destinations(self, &mut found);
         actions(self, &mut found);
         keys(self, &mut found);
@@ -92,6 +93,26 @@ fn rejects(config: &Config, found: &mut Vec<Complaint>) {
     });
 }
 
+/// A bin folder that is not an absolute path is not a bin folder.
+///
+/// A relative one would be a different folder in every shoot, so the viewer
+/// uses its own instead — quietly, and with the setting still reading as though
+/// it were doing something. This is the sentence that says otherwise.
+fn the_bin(config: &Config, found: &mut Vec<Complaint>) {
+    let named = config.cull.bin_folder.as_deref().unwrap_or_default().trim();
+
+    if !named.is_empty() && !std::path::Path::new(named).is_absolute() {
+        found.push(Complaint {
+            path: "cull.bin_folder",
+            says: format!("\"{named}\" is not an absolute path."),
+            instead: "The folder the viewer keeps beside its own files is used. One bin \
+                      rather than one per shoot: a relative path would be a different \
+                      bin in every folder."
+                .to_string(),
+        });
+    }
+}
+
 /// An empty destination path is dropped without a word, and the tenth is
 /// truncated because there are only nine digits.
 fn destinations(config: &Config, found: &mut Vec<Complaint>) {
@@ -148,6 +169,8 @@ fn actions(config: &Config, found: &mut Vec<Complaint>) {
             let shadows = crate::ui::menus::Row::ON_A_PHOTOGRAPH
                 .iter()
                 .chain(crate::ui::menus::Row::ON_A_CELL)
+                .chain(crate::ui::menus::Row::ON_A_PHOTOGRAPH_IN_THE_BIN)
+                .chain(crate::ui::menus::Row::ON_A_CELL_IN_THE_BIN)
                 .flat_map(|row| row.verbs())
                 .any(|verb| verb.label(1).to_lowercase().contains(&words) && words.len() > 3);
 
@@ -267,6 +290,22 @@ mod tests {
 
     /// A typo in a key name makes a command permanently unreachable, and the
     /// only record used to be a log line.
+    /// The setting reads as though it were doing something; it is not.
+    #[test]
+    fn a_bin_folder_that_is_not_absolute_says_so() {
+        let mut config = Config::default();
+        config.cull.bin_folder = Some("Deleted".to_string());
+
+        let found = config.check();
+        assert!(
+            found.iter().any(|c| c.path == "cull.bin_folder"),
+            "{found:?}"
+        );
+
+        config.cull.bin_folder = None;
+        assert!(config.check().is_empty(), "empty means the viewer's own");
+    }
+
     #[test]
     fn a_key_name_that_is_not_a_key_is_reported() {
         let mut config = Config::default();

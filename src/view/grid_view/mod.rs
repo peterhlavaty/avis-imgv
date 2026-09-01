@@ -56,6 +56,9 @@ const PAGE: f32 = 10.0;
 pub struct GridView {
     store: ImageStore,
     config: GridViewConfig,
+    /// Whether the folder on show is the viewer's own bin, which changes two
+    /// rows of the menu a cell carries and nothing else.
+    pub in_the_bin: bool,
     columns: usize,
     /// Set when the user picks an image, consumed by the app.
     selected: Option<PathBuf>,
@@ -114,6 +117,7 @@ impl GridView {
     ) -> GridView {
         GridView {
             store: ImageStore::new(render_state, loader, store_config, output_profile),
+            in_the_bin: false,
             columns: config.images_per_row.max(1),
             badges: Badges::of(&config.badges),
             config,
@@ -711,7 +715,7 @@ impl GridView {
         let chosen = actions::show_context_menu(
             ui,
             "cell",
-            Row::ON_A_CELL,
+            Row::on_a_cell(self.in_the_bin),
             &self.config.context_menu,
             response,
             &path,

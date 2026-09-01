@@ -152,6 +152,47 @@ looked at, which is a few milliseconds.
 Nothing is ever removed with an unconditional delete: `fs::remove_file` appears
 in this codebase only where the user has said "for good" and been asked twice.
 
+### A bin of the viewer's own
+
+The platform's bin is the default and stays it, because Delete meaning what it
+means in every other program is what nearly everybody expects. It has two costs
+and both land on a photographer: it does not reach a memory card or a share
+over the network at all, and it cannot be *looked in* — the question after an
+hour of culling being "did I throw out anything I meant to keep".
+
+Setting **What the delete key means** (`cull.bin`) to *A folder of the viewer's
+own* answers both. It is deliberately nothing clever: a folder, at
+`cull.bin_folder` or beside the viewer's own files, that photographs are
+*moved* into. Because it is only a folder it opens like any other —
+**File → Open the bin** — so what an hour of culling threw away can be walked
+through, compared and zoomed before any of it is really gone.
+
+- **It remembers where everything came from.** A `.avis-bin.json` inside the
+  bin holds a name and a path per photograph, so `Ctrl + B`, or **Put it back
+  where it came from** on the second button, returns it to the folder it was
+  thrown out of — making that folder again if it has since been tidied away.
+  Two folders both holding a `DSC0001.jpg` is the ordinary case, so the second
+  one in is filed as `DSC0001 (2).jpg` and its origin recorded under that name.
+- **Emptying it deletes the folder**, and is always asked about. A folder with
+  no `.avis-bin.json` in it is refused: `remove_dir_all` against a path that
+  came out of a text box is the most dangerous line in the program, and it only
+  ever runs where the note the bin keeps about itself is.
+- **Standing in the bin, `Delete` means for good**, as it does in every file
+  manager's own bin, and asks; `Shift + Delete` is the same thing without the
+  detour. Both take one photograph or a whole selection, which is how a bin is
+  emptied in part.
+- **A bin left with something in it is asked about on the way out** — empty it
+  and close, keep it and close, or do not close. Turn that off with
+  `cull.ask_to_empty_the_bin` if the bin is being used as a holding folder.
+- Undo covers all of it. Sending to the viewer's own bin is one step in the
+  history and comes straight back out, which is not true of the platform's on
+  macOS.
+
+Moving onto a different drive from the card is a copy rather than a rename, so
+a folder of sixty megapixel raws takes as long to throw out as it takes to
+write; the same is now true of a destination on another drive, which used to
+fail outright.
+
 ### Somewhere else, rather than nowhere
 
 `Alt + M` moves the photograph and `Alt + C` copies it, both to a small panel of
@@ -1123,8 +1164,13 @@ break the pairing it depends on.
 |-----|---------|---------|
 | `destinations` | Folders one keystroke can send a photograph to, in the order the digits reach them. A relative path is taken against the open folder. | Selects, To edit |
 | `rejected_folder` | What the folder for the frames that are not staying is called | `_Rejected` |
+| `bin` | What the delete key means: `system` for the platform's bin, `folder` for one of the viewer's own that can be opened and looked in | `system` |
+| `bin_folder` | Where that folder is. An absolute path, or nothing for one beside the viewer's own files. One bin rather than one per shoot | null |
+| `ask_to_empty_the_bin` | Whether closing the viewer with something still in that bin asks about emptying it first | `true` |
+| `confirm` | Which of the reversible things ask first: `bin_several`, `empty_rejects`, `undo_several` | all on |
 | `sc_move` `sc_copy` | Open the panel that asks where | `Alt + M` `Alt + C` |
 | `sc_reject_folder` | Move into the rejected folder | `Shift + X` |
+| `sc_put_back` | Take it out of the viewer's own bin and put it back where it came from | `Ctrl + B` |
 
 ### History
 
@@ -1194,8 +1240,9 @@ break the pairing it depends on.
 | P / X / U | Keep it, throw it out, or take either mark off |
 | 6 – 9, Ctrl + 9 | Colour label: red, yellow, green, blue, purple |
 | Ctrl + Shift + A | Move to the next picture after every mark |
-| Delete | Send the picture on screen to the bin, sidecar and all |
-| Shift + Delete | Delete it outright, after asking
+| Delete | Send the picture on screen to the bin, sidecar and all. Standing in the viewer's own bin it means for good, and asks |
+| Shift + Delete | Delete it outright, after asking |
+| Ctrl + B | Put it back where it came from, out of the viewer's own bin
 | F10 | Toggle frame timings |
 
 ### Image view

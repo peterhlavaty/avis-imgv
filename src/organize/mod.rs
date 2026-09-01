@@ -6,6 +6,7 @@
 //! deciding and the working out are here, as plain functions over a list; the
 //! touching is a separate step that can be refused.
 
+pub mod bin;
 pub mod files;
 pub mod filter;
 pub mod gather;

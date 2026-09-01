@@ -10,8 +10,8 @@
 //!   buffer instead of shelling out,
 //! - [`cache`] decides what lives in RAM and what lives on the GPU,
 //! - [`view`] draws it, [`app`] wires it together,
-//! - [`organize`] works on the folder rather than the image: bulk renaming
-//!   and correcting a camera clock,
+//! - [`organize`] works on the folder rather than the image: bulk renaming,
+//!   correcting a camera clock, and the bin the viewer keeps of its own,
 //! - [`history`] remembers what was done and how to get back to any of it,
 //! - [`annotations`] holds what the user puts on an image: stars and tags,
 //!   kept in XMP sidecars.

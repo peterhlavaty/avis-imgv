@@ -2,6 +2,41 @@
 
 ## 2026-09-01
 
+- **A bin of the viewer's own, which can be opened and looked in.** The
+  platform's bin stays the default — Delete meaning what it means in every
+  other program is what nearly everybody expects — but *What the delete key
+  means* on the moving and deleting page now offers a folder instead. It is
+  deliberately nothing clever: photographs are moved into it, and because it is
+  only a folder, **File → Open the bin** opens it like any other, so what an
+  hour of culling threw away can be walked through, compared and zoomed before
+  any of it is really gone. It reaches a memory card and a network share, which
+  the platform's does not.
+
+  A note inside the bin holds where every photograph came from, so `Ctrl + B`
+  or **Put it back where it came from** returns one to the folder it was thrown
+  out of, making that folder again if it has since been tidied away. Two
+  folders both holding a `DSC0001.jpg` is the ordinary case, so the second in
+  is filed as `DSC0001 (2).jpg` with its own origin. Standing in the bin,
+  `Delete` means for good and asks, as it does in every file manager's own bin,
+  so the bin can be emptied in part. Emptying it whole is **File → Empty the
+  bin**, always confirmed, and refused outright for a folder with no note in it
+  — `remove_dir_all` against a path that came out of a text box is the most
+  dangerous line in the program. Closing the viewer with something still in the
+  bin asks whether to empty it first, unless `cull.ask_to_empty_the_bin` says
+  not to.
+- **A photograph can be moved onto another drive.** Renaming cannot leave the
+  filesystem it started on, and the ordinary case here leaves it: a card is not
+  the drive the bin is on, and neither is a share. Such a move is now a copy
+  followed by a delete, and the source is only let go of once the copy has
+  arrived, so an interruption leaves the photograph where it was rather than
+  nowhere. Destinations on a second drive used to fail outright. A move into a
+  folder that is not there any more now makes it, which is what taking a
+  deletion back needs after the shoot was tidied away.
+- **Two confirmation settings that nothing read now decide something.** *Moving
+  more than one photograph to the bin* and *Emptying the rejects* have had rows
+  in the settings window since it was written; both were compared against a
+  count in the code and the answer ignored. Turning one off now means what it
+  says. This is the same fault the undo confirmation had.
 - **A list long enough to scroll answers the second button again.** A menu
   opened on whatever the pointer was hovering over, and egui hovers nothing at
   all while something is being dragged — including the drag-to-scroll surface

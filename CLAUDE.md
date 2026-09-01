@@ -105,7 +105,7 @@ one piece of the work each.
 | `src/view/` | drawing: `image_view/`, `grid_view/`, `stacks.rs`, `narrow.rs`, `organize/`, `wheel.rs` |
 | `src/app/` | wiring, input, modes, panels, the file watcher, `--benchmark`, `gestures.rs` |
 | `src/annotations/` | stars, flags, labels and tags, written to XMP sidecars |
-| `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping |
+| `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping, `bin/` for the viewer's own bin |
 | `src/config/` | the configuration file, its defaults, migrations between versions, and `registry/` — one row per field, which the settings window, the search and the key editor are all views over |
 | `src/session.rs` | what is remembered between runs: window, folder, position |
 | `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `slider/` for the rails, `progress.rs` |
@@ -146,6 +146,22 @@ Leaving the seam for later means the next session pays for it with interest.
 
 - **Deleting** goes through the `trash` crate to the platform's bin, never
   `fs::remove_file`. Culling is when people delete fastest and regret hardest.
+- **The viewer's own bin is a folder and nothing else.** That is the whole
+  argument for it: it opens like any other folder, so an hour of culling can be
+  looked through before any of it is really gone, and it reaches a card the
+  platform's bin cannot. The one thing a folder cannot do is say where a file
+  belongs, so `organize/bin/ledger.rs` writes that inside it — and the note is
+  *append-mostly*: a row whose file has gone is invisible to everything that
+  reads it and live again the moment the file returns. That is what lets undo,
+  redo and "put back" agree without one of them ever telling the others
+  anything, and it is why `Step::Interred` writes the note going forward and
+  leaves it alone going back, and why putting something back is recorded as a
+  plain `Step::Moved`. The name a photograph is filed under is reserved for
+  good, because reusing it would put a different picture behind a memory.
+  `remove_dir_all` runs only against a folder holding that note.
+- **Moving a photograph may leave the filesystem.** `files::move_file` answers
+  `EXDEV`/`ERROR_NOT_SAME_DEVICE` with a copy and only lets go of the source
+  once the copy has arrived. A card is not the drive the bin is on.
 - **Writing a sidecar** is atomic: temporary file in the same directory, then
   rename over the original. A document the writer did not finish is never
   written, and a document the reader could not parse is never replaced.

@@ -204,7 +204,7 @@ impl ImageView {
                 egui::UiBuilder::new().max_rect(response.rect),
             ),
             "photograph",
-            Row::ON_A_PHOTOGRAPH,
+            Row::on_a_photograph(self.in_the_bin),
             &self.config.context_menu,
             response,
             &path,

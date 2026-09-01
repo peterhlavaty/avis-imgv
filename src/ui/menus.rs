@@ -42,8 +42,14 @@ pub enum Verb {
     TurnHalf,
     MirrorHorizontally,
     MirrorVertically,
-    /// Send it to the platform's bin.
+    /// Send it to the bin.
     Bin,
+    /// Take it out of the viewer's own bin and put it back where it came from.
+    /// Offered only inside the bin, where [`Verb::Bin`] means nothing.
+    PutBack,
+    /// Off the disk. Offered only inside the bin, which is the one place
+    /// deleting for good is the verb that applies.
+    DeleteForGood,
     CopyPath,
     /// The pixels themselves, on the clipboard.
     CopyPicture,
@@ -113,6 +119,15 @@ impl Verb {
                 "Move {} to the bin",
                 these("this photograph", "photographs")
             ),
+            Verb::PutBack => format!(
+                "Put {} back where {} came from",
+                these("this photograph", "photographs"),
+                if count == 1 { "it" } else { "they" }
+            ),
+            Verb::DeleteForGood => format!(
+                "Delete {} for good",
+                these("this photograph", "photographs")
+            ),
             Verb::CopyPath => format!("Copy the {}", these("path", "paths")),
             Verb::CopyPicture => "Copy the picture".to_string(),
             Verb::ShowInFolder => "Show it in the file manager".to_string(),
@@ -146,9 +161,14 @@ impl Verb {
             }
             Verb::MirrorVertically => "Mirrored vertically, top for bottom",
             Verb::Bin => {
-                "To the platform's bin, which does not reach a memory card \
-                          or a network share"
+                "To the bin — the platform's, unless the viewer has been given a \
+                 folder of its own, which is what reaches a memory card"
             }
+            Verb::PutBack => {
+                "Out of the bin and back into the folder it was thrown out of, \
+                 which the bin wrote down when it took it"
+            }
+            Verb::DeleteForGood => "Off the disk. Nothing can take this one back",
             Verb::CopyPath => "The whole path, for pasting into something else",
             Verb::CopyPicture => "The pixels themselves, decoded at full size and turned upright",
             Verb::ShowInFolder => "Open the folder it is in, with it picked out",
@@ -191,6 +211,25 @@ impl Row {
         Row::Verb(Verb::ShowInFolder),
     ];
 
+    /// The same, standing inside the viewer's own bin.
+    ///
+    /// A menu carries the verbs that apply to what it was drawn over, and
+    /// "move this to the bin" applies to nothing that is already in one. The
+    /// two verbs that do apply take its place, in its position, so the row
+    /// muscle memory reaches for is the one that means something here.
+    pub const ON_A_PHOTOGRAPH_IN_THE_BIN: &'static [Row] = &[
+        Row::Verb(Verb::Fit),
+        Row::Verb(Verb::ActualPixels),
+        Row::Verb(Verb::Fill),
+        Row::Verb(Verb::Compare),
+        Row::Group("Turn", Verb::TURNS),
+        Row::Verb(Verb::PutBack),
+        Row::Verb(Verb::DeleteForGood),
+        Row::Verb(Verb::CopyPath),
+        Row::Verb(Verb::CopyPicture),
+        Row::Verb(Verb::ShowInFolder),
+    ];
+
     /// The rows a cell carries. `Open` leads, because that is what a cell is
     /// for, and the zoom verbs are not about anything the sheet draws.
     pub const ON_A_CELL: &'static [Row] = &[
@@ -202,6 +241,37 @@ impl Row {
         Row::Verb(Verb::CopyPicture),
         Row::Verb(Verb::ShowInFolder),
     ];
+
+    /// The same, standing inside the viewer's own bin.
+    pub const ON_A_CELL_IN_THE_BIN: &'static [Row] = &[
+        Row::Verb(Verb::Open),
+        Row::Verb(Verb::Compare),
+        Row::Group("Turn", Verb::TURNS),
+        Row::Verb(Verb::PutBack),
+        Row::Verb(Verb::DeleteForGood),
+        Row::Verb(Verb::CopyPath),
+        Row::Verb(Verb::CopyPicture),
+        Row::Verb(Verb::ShowInFolder),
+    ];
+
+    /// Which of the two lists a photograph carries.
+    ///
+    /// Asked in one place, so the two views cannot answer it differently and a
+    /// verb added to one list cannot go quietly missing from the other.
+    pub fn on_a_photograph(in_the_bin: bool) -> &'static [Row] {
+        match in_the_bin {
+            true => Row::ON_A_PHOTOGRAPH_IN_THE_BIN,
+            false => Row::ON_A_PHOTOGRAPH,
+        }
+    }
+
+    /// Which of the two lists a cell carries.
+    pub fn on_a_cell(in_the_bin: bool) -> &'static [Row] {
+        match in_the_bin {
+            true => Row::ON_A_CELL_IN_THE_BIN,
+            false => Row::ON_A_CELL,
+        }
+    }
 
     /// Every verb this row can reach, whether or not it is behind a word.
     pub fn verbs(self) -> impl Iterator<Item = Verb> {

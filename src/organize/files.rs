@@ -27,7 +27,15 @@ pub fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
         return Err(occupied(to));
     }
 
-    std::fs::rename(from, to)?;
+    // The folder a photograph came from can be gone by the time it is put
+    // back: taking a deletion back is exactly the case where the shoot was
+    // tidied away afterwards, and a rename will not make a parent. The copy
+    // has always done this.
+    if let Some(parent) = to.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    carry(from, to)?;
 
     for candidate in sidecars_of(from) {
         let wanted = sidecar_beside(&candidate, from, to);
@@ -41,12 +49,49 @@ pub fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
             continue;
         }
 
-        if let Err(e) = std::fs::rename(&candidate, &wanted) {
+        if let Err(e) = carry(&candidate, &wanted) {
             tracing::warn!("Could not move {}: {e}", candidate.display());
         }
     }
 
     Ok(())
+}
+
+/// Moves one file, across filesystems where it has to be.
+///
+/// `fs::rename` cannot leave the device it started on, and leaving it is the
+/// ordinary case here rather than the exotic one: the card a first pass is
+/// done from is not the drive the bin folder is on, and neither is a share
+/// over the network. So the failure that means exactly that is caught and
+/// answered with a copy — and the source is only let go of once the copy has
+/// arrived, so an interrupted move leaves the photograph where it was rather
+/// than nowhere.
+fn carry(from: &Path, to: &Path) -> std::io::Result<()> {
+    match std::fs::rename(from, to) {
+        Err(e) if crosses_devices(&e) => {}
+        other => return other,
+    }
+
+    std::fs::copy(from, to)?;
+
+    if let Err(e) = std::fs::remove_file(from) {
+        // Half a move is worse than none: the photograph is now in two places
+        // and the next thing to read the folder will find both.
+        let _ = std::fs::remove_file(to);
+        return Err(e);
+    }
+
+    Ok(())
+}
+
+/// Whether a rename failed because the two paths are on different filesystems.
+///
+/// By number rather than by [`std::io::ErrorKind`], which has no stable name
+/// for this: `EXDEV` on every unix, `ERROR_NOT_SAME_DEVICE` on Windows.
+fn crosses_devices(e: &std::io::Error) -> bool {
+    let code = if cfg!(windows) { 17 } else { 18 };
+
+    e.raw_os_error() == Some(code)
 }
 
 /// The sidecars that belong to `image` and to nothing else.
@@ -244,6 +289,23 @@ mod tests {
         move_file(&dir.join("a.jpg"), &dir.join("b.jpg")).unwrap();
 
         assert_eq!(std::fs::read(dir.join("b.jpg")).unwrap(), b"picture");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The folder a photograph came from can have been tidied away since, and
+    /// putting it back has to make it again rather than fail.
+    #[test]
+    fn a_photograph_moves_into_a_folder_that_is_not_there_yet() {
+        let dir = temp_dir("makes-the-folder");
+        std::fs::write(dir.join("a.jpg"), b"picture").unwrap();
+        std::fs::write(dir.join("a.jpg.xmp"), b"<x:xmpmeta/>").unwrap();
+
+        let into = dir.join("gone").join("deeper");
+        move_file(&dir.join("a.jpg"), &into.join("a.jpg")).unwrap();
+
+        assert!(into.join("a.jpg").exists());
+        assert!(into.join("a.jpg.xmp").exists());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
