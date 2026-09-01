@@ -1,6 +1,24 @@
-//! The rows for `history.*`: what is kept, and the two keys that walk it.
+//! The rows for `history.*`: what is kept, what undo stops on, and the keys.
 
 use super::*;
+
+const CLASSES: &[Choice] = &[
+    Choice {
+        value: "view",
+        label: "Where you were",
+        sentence: "The mode, the panels, the photograph you were on, the zoom, the narrowing.",
+    },
+    Choice {
+        value: "settings",
+        label: "Settings",
+        sentence: "Anything changed in this window.",
+    },
+    Choice {
+        value: "content",
+        label: "Photographs",
+        sentence: "Stars, flags, labels, keywords, turns, and moving or deleting a file.",
+    },
+];
 
 pub fn rows() -> Vec<Row> {
     vec![
@@ -17,6 +35,40 @@ pub fn rows() -> Vec<Row> {
             Live,
             None,
             whole!(usize, 0, 100000, "", true, history.remember),
+        ),
+        row!(
+            History / Plain,
+            "history.undoes",
+            "One press of undo stops on",
+            "Everything is remembered whatever is ticked here, and everything is in the \
+             history panel and can be gone back to by clicking it. What a tick decides \
+             is only whether one press of undo comes to *rest* there. With the first \
+             unticked, undo after twenty photographs walked past still lands on the \
+             rating rather than twenty presses short of it — and where you were goes \
+             back with it, because all of it did happen.",
+            ["undo", "redo", "skip", "classes", "what undo does", "stop"],
+            Live,
+            None,
+            Access::Flags {
+                get: |c, name| c.history.undoes.get(name),
+                set: |c, name, on| c.history.undoes.set(name, on),
+                options: CLASSES,
+            },
+        ),
+        row!(
+            History / Plain,
+            "history.merge_within_ms",
+            "Count nudges this close together as one",
+            "A wheel turned twice, or an arrow held down, arrives once a frame. Two \
+             that land within this of each other become one line in the history, so \
+             that one press of undo is worth a whole gesture rather than a sixtieth of \
+             a second. Nought switches it off and lists every notch. A drag is one \
+             line whatever this says, because nothing is recorded until the button \
+             comes up.",
+            ["undo", "history", "merge", "coalesce", "gesture", "repeat"],
+            Live,
+            None,
+            whole!(u64, 0, 5000, " ms", true, history.merge_within_ms),
         ),
         row!(
             KeysAndMouse / Keys,

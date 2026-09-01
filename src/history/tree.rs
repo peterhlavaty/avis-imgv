@@ -129,6 +129,17 @@ impl<T> Tree<T> {
         self.get(id).map(|node| &node.value)
     }
 
+    /// What the node holds, to be changed in place.
+    ///
+    /// Only for folding one row into the one it continues; the shape of the
+    /// tree is never edited through this.
+    pub fn value_mut(&mut self, id: NodeId) -> Option<&mut T> {
+        self.nodes
+            .get_mut(id)
+            .and_then(Option::as_mut)
+            .map(|node| &mut node.value)
+    }
+
     /// Every node still in the tree, in the order the nodes were made.
     ///
     /// Creation order rather than tree order, because that is the order the

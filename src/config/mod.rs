@@ -16,7 +16,7 @@ use crate::actions::Callback;
 
 pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, MenuConfig, PanelsAtStart};
 pub use defaults::*;
-pub use history::HistoryConfig;
+pub use history::{HistoryConfig, Undoes};
 pub use mouse::{DragButton, MouseConfig, WheelJob};
 pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
 

@@ -168,9 +168,22 @@ memory card or a network share has instead of a bin.
 ### Taking it back
 
 `Ctrl + Z` takes back the last thing done and `Ctrl + Y` does it again. It
-covers moving, copying, sending to the bin and every mark — a rating pressed by
-mistake is one keystroke to undo — and it keeps all of them, unless
-`history.remember` is set to a number.
+covers everything: moving, copying, sending to the bin and every mark — a
+rating pressed by mistake is one keystroke to undo — and also the mode, the
+panels, the photograph you were on, the zoom and pan, the number of columns,
+what the folder is narrowed to, what is picked out, and every setting. It keeps
+all of them, unless `history.remember` is set to a number.
+
+Nothing has to be told about it. The history watches what the program *looks
+like* once at the foot of each frame rather than being called from the places
+that carry out commands, so a key, a menu, the second button, the bottom bar
+and a mouse gesture are all covered by the same few lines, and so is anything
+added later.
+
+A gesture is one line rather than sixty. Nothing is recorded while the button
+is down, so a zoom dragged out is one entry — where it started and where it was
+let go; and a wheel turned twice or an arrow held down folds into one entry as
+long as the notches land within `history.merge_within_ms` of each other.
 
 Going back never throws anything away. Having undone four things, all four are
 still there and `Ctrl + Y` walks forward through them one at a time; and going
@@ -178,9 +191,17 @@ back and then doing something *different* keeps both, so the four that were
 undone are still reachable rather than overwritten. What that makes is a tree
 rather than a list.
 
+One press of undo walks back until it has taken back something worth stopping
+on, and `history.undoes` says what counts. All three kinds are ticked to start
+with. Unticking *Where you were* does not stop the viewer remembering where you
+were — it stays in the panel and can still be clicked — it only stops `Ctrl + Z`
+coming to rest there, so that one press after twenty photographs walked past
+still lands on the rating. Where you were goes back with it, because all of it
+did happen.
+
 Anything that would touch more than one file says what it is about to do and
-waits — `history.remember` aside, that is `cull.confirm.undo_several`, and until
-now it was a setting nothing read.
+waits — that is `cull.confirm.undo_several`, and until now it was a setting
+nothing read.
 
 A copy is undone by sending the copies to the bin rather than deleting them,
 because an undo should not itself be the thing nobody can take back. Coming back
@@ -1004,6 +1025,8 @@ break the pairing it depends on.
 | Key | Meaning | Default |
 |-----|---------|---------|
 | `remember` | How many of the things you have done are kept, or nought for all of them | `0` |
+| `undoes` | Which kinds one press of undo comes to rest on: `view`, `settings`, `content` | all on |
+| `merge_within_ms` | How close two nudges have to be to count as one line. Nought lists every notch | `500` |
 | `sc_undo` | Take back the last thing done | `Ctrl + Z` |
 | `sc_redo` | Do it again | `Ctrl + Y` |
 

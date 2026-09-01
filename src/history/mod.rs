@@ -30,15 +30,19 @@
 //! left stays whole and stays reachable. [`tree`] holds that shape and is
 //! tested on its own.
 
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 pub mod deed;
 pub mod files;
+pub mod snapshot;
 pub mod tree;
+pub mod watch;
 
 pub use deed::{Class, Deed};
 pub use files::{Done, Step, Way};
+pub use snapshot::{Change, Panels, Slot, Snapshot, Watched};
 pub use tree::{Node, NodeId, Tree};
+pub use watch::Watcher;
 
 /// One row of the history: what was done, and when.
 #[derive(Debug, Clone)]
@@ -149,6 +153,45 @@ impl History {
         // A trim never drops the cursor, so the node just pushed is still
         // there; saying so keeps the caller from having to check.
         self.tree.get(id).is_some().then_some(id)
+    }
+
+    /// Files what a look at the program found, folding a gesture into one row.
+    ///
+    /// A nudge that carries on from the nudge before it — the wheel turned
+    /// twice, an arrow held down — becomes the same row rather than a new one,
+    /// keeping where the gesture began. Anything else is its own row.
+    pub fn note(&mut self, changes: Vec<Change>, within: Duration) -> Option<NodeId> {
+        if changes.is_empty() {
+            return None;
+        }
+
+        let now = SystemTime::now();
+        let at = self.tree.cursor();
+
+        if at != self.tree.root() {
+            let carries_on = self
+                .tree
+                .value(at)
+                .and_then(|entry| match &entry.deed {
+                    Deed::Changed(older) => Some((older.clone(), entry.at)),
+                    _ => None,
+                })
+                .is_some_and(|(older, was)| watch::continues(&older, was, &changes, now, within));
+
+            if carries_on {
+                if let Some(entry) = self.tree.value_mut(at) {
+                    if let Deed::Changed(older) = &mut entry.deed {
+                        watch::fold(older, &changes);
+                    }
+                    entry.label = entry.deed.label();
+                    entry.at = now;
+                }
+
+                return Some(at);
+            }
+        }
+
+        self.record(Deed::Changed(changes))
     }
 
     /// Moves to a node without running anything, once the running is done.
@@ -265,6 +308,13 @@ mod tests {
     fn binned(name: &str) -> Deed {
         Deed::Files(Step::Binned(vec![PathBuf::from(name)]))
     }
+
+    /// A walk of the folder, which is the continuous kind.
+    fn walked(from: usize, to: usize) -> Vec<Change> {
+        vec![Change::Cursor(from, to)]
+    }
+
+    const HALF_A_SECOND: Duration = Duration::from_millis(500);
 
     #[test]
     fn a_new_history_has_nothing_to_undo() {
@@ -392,6 +442,112 @@ mod tests {
         let a = history.record(binned("a.jpg")).unwrap();
 
         assert_eq!(history.entry(a).unwrap().label, "Sent 1 file(s) to the bin");
+    }
+
+    /// A wheel turned twice is one row, and undoing it goes back to where the
+    /// gesture began rather than to the middle of it.
+    #[test]
+    fn a_walk_carried_on_is_one_row_that_remembers_its_beginning() {
+        let mut history = History::new();
+
+        let first = history.note(walked(0, 1), HALF_A_SECOND).unwrap();
+        let again = history.note(walked(1, 2), HALF_A_SECOND).unwrap();
+        let more = history.note(walked(2, 9), HALF_A_SECOND).unwrap();
+
+        assert_eq!(first, again);
+        assert_eq!(first, more);
+        assert_eq!(history.len(), 1, "one gesture, one row");
+
+        match &history.entry(first).unwrap().deed {
+            Deed::Changed(changes) => match changes.as_slice() {
+                [Change::Cursor(from, to)] => assert_eq!((*from, *to), (0, 9)),
+                other => panic!("{other:?}"),
+            },
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// Switching the folding off lists every notch, which is what somebody who
+    /// sets the window to nought is asking for.
+    #[test]
+    fn a_window_of_nothing_gives_every_notch_its_own_row() {
+        let mut history = History::new();
+
+        history.note(walked(0, 1), Duration::ZERO);
+        history.note(walked(1, 2), Duration::ZERO);
+
+        assert_eq!(history.len(), 2);
+    }
+
+    /// A decision is never folded into the nudge in front of it, however fast
+    /// it followed: they are different slots.
+    #[test]
+    fn a_different_slot_starts_a_new_row() {
+        let mut history = History::new();
+
+        let walk = history.note(walked(0, 1), HALF_A_SECOND).unwrap();
+        let columns = history
+            .note(vec![Change::Columns(4, 6)], HALF_A_SECOND)
+            .unwrap();
+
+        assert_ne!(walk, columns);
+        assert_eq!(history.len(), 2);
+    }
+
+    /// The whole point of the classes: one press lands on the rating rather
+    /// than on the twenty photographs walked past since.
+    #[test]
+    fn undo_with_the_view_switched_off_walks_past_it_to_the_rating() {
+        let mut history = History::new();
+        let rating = history.record(binned("a.jpg")).unwrap();
+        let walk = history.note(walked(0, 1), Duration::ZERO).unwrap();
+        let more = history.note(walked(1, 2), Duration::ZERO).unwrap();
+
+        let route = history.plan_undo(|class| class != Class::View);
+
+        assert_eq!(
+            route,
+            vec![(more, Way::Back), (walk, Way::Back), (rating, Way::Back)],
+            "everything between is run; only where it stops is different"
+        );
+        assert_eq!(
+            history.landing(&route),
+            Some(history.root()),
+            "and it lands before the rating, which is what taking it back means"
+        );
+
+        // With the view switched on, the same press stops at the first notch.
+        let route = history.plan_undo(|_| true);
+        assert_eq!(route, vec![(more, Way::Back)]);
+    }
+
+    /// A row carrying a settings change is a settings row, so switching that
+    /// class off steps over it.
+    #[test]
+    fn a_row_is_classed_by_what_it_carries() {
+        let mut history = History::new();
+
+        let view = history.note(walked(0, 1), Duration::ZERO).unwrap();
+        assert_eq!(history.entry(view).unwrap().deed.class(), Class::View);
+
+        let settings = history
+            .note(
+                vec![Change::Settings(Box::default(), Box::default())],
+                Duration::ZERO,
+            )
+            .unwrap();
+        assert_eq!(
+            history.entry(settings).unwrap().deed.class(),
+            Class::Settings
+        );
+    }
+
+    #[test]
+    fn a_look_that_found_nothing_is_not_a_row() {
+        let mut history = History::new();
+
+        assert_eq!(history.note(Vec::new(), HALF_A_SECOND), None);
+        assert!(history.is_empty());
     }
 
     #[test]

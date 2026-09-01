@@ -30,7 +30,7 @@ use crate::app::stacking::Stacking;
 use crate::cache::loader::Loader;
 use crate::config::{Config, GeneralConfig, TagConfig};
 use crate::crawler;
-use crate::history::History;
+use crate::history::{History, Watcher};
 use crate::organize::pairs::Pairs;
 use crate::session::{Geometry, Session};
 use crate::ui::destinations::{Asking, Errand, Slot};
@@ -139,6 +139,13 @@ pub struct App {
     asking: Option<Asking>,
     /// What has been done this run, and how to get back to any of it.
     history: History,
+    /// What the program looked like at the foot of the last frame.
+    ///
+    /// Named apart from `watcher`, which watches the folder on disk: this one
+    /// watches the program itself.
+    watching: Watcher,
+    /// Whether the configuration has been written since the history last looked.
+    settings_touched: bool,
     /// How the folder is narrowed and ordered, and whether its bar is up.
     narrowing: Narrowing,
     /// The runs of frames the folder holds, when it is being shown stacked.
@@ -278,6 +285,10 @@ impl App {
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
         let settings = config.clone();
+        // Before the sections are moved out into their own fields, and so that
+        // the first settings change of the session has something to be
+        // compared against.
+        let watching = Watcher::watching(&settings);
         // A first run is one with no session file. `Session::load` hands back
         // a default for a missing file and an unreadable one alike, so the
         // file itself has to be looked for.
@@ -353,6 +364,8 @@ impl App {
             last_errand: None,
             asking: None,
             history: History::with_limit(config.history.remember),
+            watching,
+            settings_touched: false,
             narrowing: Narrowing::of(&config.browsing),
             stacking: Stacking::of(&config.group, config.browsing.stack_by_default),
             filter_visible: false,
@@ -1092,7 +1105,20 @@ impl App {
     /// is actually opened, and only when it is not already holding the folder.
     /// Folds sub-directories into the collection, or unfolds them again.
     fn toggle_flatten(&mut self) {
-        self.flattened = !self.flattened;
+        self.set_flattened(!self.flattened);
+    }
+
+    /// Reads the folder with or without its sub-folders.
+    ///
+    /// Split out of the toggle so that the history can put it back: undoing is
+    /// "make it what it was", never "flip it", which are the same thing only
+    /// as long as nothing else has flipped it in between.
+    pub(super) fn set_flattened(&mut self, flattened: bool) {
+        if self.flattened == flattened {
+            return;
+        }
+
+        self.flattened = flattened;
         tracing::info!("Flattened directories: {}", self.flattened);
 
         let base = self.base_path.clone();
@@ -1303,6 +1329,11 @@ impl eframe::App for App {
         self.note_position(ctx);
         self.note_chrome();
         self.run_benchmark(ctx);
+
+        // Last, when every command has been carried out and every view has
+        // drawn, so that what it sees is where the frame ended rather than a
+        // state half way through being changed.
+        self.watch_history(ctx);
 
         // Read at the end of the frame, when every field that asked for the
         // keyboard this frame has it, and used on the next one: see

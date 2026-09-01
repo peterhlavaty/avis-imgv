@@ -6,6 +6,7 @@
 //! arrived from a key, a menu, a gesture or the settings window.
 
 use super::files::{Step, Way};
+use super::snapshot::Change;
 
 /// What kind of thing a deed is, so that undo can be told to step over some.
 ///
@@ -58,6 +59,12 @@ pub enum Deed {
     Start,
     /// Something that touched files or marks.
     Files(Step),
+    /// Something the program looked like that it no longer does.
+    ///
+    /// One row may hold several: two things that moved on the same frame moved
+    /// together, and putting one back without the other would leave a state
+    /// that never existed.
+    Changed(Vec<Change>),
 }
 
 impl Deed {
@@ -69,6 +76,13 @@ impl Deed {
             // state at the start of a run is.
             Deed::Start => Class::View,
             Deed::Files(_) => Class::Content,
+            // A row that carries a settings change is a settings row even if
+            // something else moved with it, because that is the half somebody
+            // switching the class off is asking not to stop on.
+            Deed::Changed(changes) => match changes.iter().any(Change::is_a_setting) {
+                true => Class::Settings,
+                false => Class::View,
+            },
         }
     }
 
@@ -77,6 +91,11 @@ impl Deed {
         match self {
             Deed::Start => "Where this run started".to_string(),
             Deed::Files(step) => step.label(),
+            Deed::Changed(changes) => match changes.split_first() {
+                Some((first, [])) => first.label(),
+                Some((first, rest)) => format!("{}, and {} more", first.label(), rest.len()),
+                None => "Did nothing".to_string(),
+            },
         }
     }
 
@@ -86,6 +105,10 @@ impl Deed {
         match self {
             Deed::Start => "do nothing".to_string(),
             Deed::Files(step) => step.describe(way),
+            Deed::Changed(_) => match way {
+                Way::Back => format!("undo \"{}\"", self.label()),
+                Way::Forward => format!("do \"{}\" again", self.label()),
+            },
         }
     }
 
@@ -97,6 +120,9 @@ impl Deed {
         match self {
             Deed::Start => 0,
             Deed::Files(step) => step.files(),
+            // Nothing here reaches the disk, so nothing here is ever asked
+            // about before it runs.
+            Deed::Changed(_) => 0,
         }
     }
 
@@ -105,6 +131,7 @@ impl Deed {
         match self {
             Deed::Start => true,
             Deed::Files(step) => step.is_empty(),
+            Deed::Changed(changes) => changes.is_empty(),
         }
     }
 }

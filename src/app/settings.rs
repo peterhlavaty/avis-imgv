@@ -153,6 +153,13 @@ impl App {
     /// person who just changed a key needs to know their change is not being
     /// kept.
     pub(super) fn save_settings(&mut self) {
+        // Every deliberate change to the configuration ends here, which is what
+        // makes this the honest place to tell the history to look. Comparing
+        // the hundred and eighty registry rows on every frame instead cost ten
+        // microseconds of every one of them, measured, for an answer that is
+        // "nothing moved" all but a handful of times in a session.
+        self.settings_touched = true;
+
         match self.settings.save() {
             Ok(Save::Written) => {}
             // Somebody has edited the file since it was read. Writing would

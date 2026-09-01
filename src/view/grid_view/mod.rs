@@ -210,6 +210,15 @@ impl GridView {
         self.selection.clear();
     }
 
+    /// What is picked out, for the history to watch and to put back.
+    pub fn selection(&self) -> &Selection {
+        &self.selection
+    }
+
+    pub fn set_selection(&mut self, selection: Selection) {
+        self.selection = selection;
+    }
+
     /// Takes a photograph that has appeared into the sheet, at `index`.
     ///
     /// The keyboard cursor is a position in what is on show rather than a
@@ -929,7 +938,7 @@ impl GridView {
     }
 
     /// Changes the column count, keeping the user roughly where they were.
-    fn set_columns(&mut self, columns: usize) {
+    pub fn set_columns(&mut self, columns: usize) {
         self.scroll_to = Some(self.cursor);
         self.columns = columns;
     }

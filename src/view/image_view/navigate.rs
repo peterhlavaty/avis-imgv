@@ -15,7 +15,7 @@ use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
 use super::slideshow::Slideshow;
-use super::viewports::Place;
+use super::viewports::{Place, Viewports};
 use super::{zoom, ImageView};
 use crate::view::visible::Visible;
 
@@ -207,6 +207,19 @@ impl ImageView {
         if let Some(slideshow) = &mut self.slideshow {
             slideshow.restart();
         }
+    }
+
+    /// Where the open photograph is zoomed and panned to.
+    ///
+    /// The part of the viewport that belongs to the picture rather than to the
+    /// view: the latches saying what a *new* image should do are a preference
+    /// and are not something to put back.
+    pub fn place(&self) -> Place {
+        Place::of(&self.viewport)
+    }
+
+    pub fn set_place(&mut self, place: Place) {
+        Viewports::put(&mut self.viewport, place);
     }
 
     pub fn select_path(&mut self, path: &Path) {

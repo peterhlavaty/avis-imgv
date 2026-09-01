@@ -2,6 +2,34 @@
 
 ## 2026-09-01
 
+- **Undo covers everything now, not only the files.** The mode, the panels, the
+  photograph you were on, the zoom and the pan, the columns, what the folder is
+  narrowed to, what is picked out, and every setting — all of it goes back and
+  comes forward again. Nothing had to be told about it: the history watches what
+  the program *looks like* once at the foot of each frame instead of being
+  called from the places that carry out commands. There are five separate
+  dispatchers here and a filter bar that goes round all of them, so a rule
+  written at each would have been six copies of one rule and a seventh route
+  added later would have recorded nothing without anybody noticing.
+- **A gesture is one line of history rather than sixty.** Nothing is looked at
+  while the button is down, so a zoom dragged out is one entry — where it
+  started and where it was let go — and a wheel turned twice or an arrow held
+  folds into one as long as the notches land within `history.merge_within_ms`
+  of each other. Nought lists every notch.
+- **`history.undoes` says what one press comes to rest on.** All three kinds are
+  ticked. Unticking *Where you were* does not stop the viewer remembering where
+  you were: it stays in the history and can still be gone back to. It stops
+  `Ctrl + Z` *stopping* there, so one press after twenty photographs walked past
+  lands on the rating rather than twenty presses short of it — and where you
+  were goes back with it, because all of it did happen.
+- **Watching costs nothing measurable.** The comparison is against a dozen
+  scalars and two collections and allocates nothing; a copy is made only on the
+  frames where something moved. The configuration is compared separately,
+  through the registry, and only on the frames it has actually been written —
+  walking those hundred and eighty rows every frame measured at ten
+  microseconds of every frame for an answer that is "nothing moved" almost
+  always. `--benchmark` reads the same 60.1 images a second as before, with the
+  same 0.08 ms median frame.
 - **`Ctrl + Y` does again what `Ctrl + Z` took back.** The undo journal recorded
   the inverse of an operation and nothing else, which is why there had never
   been a redo: the forward half was thrown away as it went, so having gone back

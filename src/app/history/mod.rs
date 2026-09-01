@@ -18,6 +18,9 @@ use crate::history::{Class, Deed, Done, NodeId, Way};
 
 use super::App;
 
+mod restore;
+mod watch;
+
 /// A run of the history the user has been asked about but has not answered.
 ///
 /// The route is kept with the sentence so that what is carried out is exactly
@@ -36,8 +39,8 @@ impl App {
     ///
     /// Everything is recorded whatever this says; the setting decides only
     /// where one press comes to rest.
-    fn stops_on(&self, _class: Class) -> bool {
-        true
+    fn stops_on(&self, class: Class) -> bool {
+        self.settings.history.undoes.get(class.name())
     }
 
     /// Takes back the last thing done.
@@ -126,12 +129,35 @@ impl App {
                     done.remarked.extend(part.remarked);
                     done.failed.extend(part.failed);
                 }
+                Deed::Changed(changes) => {
+                    // Same reason, and going back means running them in the
+                    // opposite order to the one they were recorded in.
+                    let changes = changes.clone();
+
+                    match way {
+                        Way::Back => {
+                            for change in changes.iter().rev() {
+                                self.restore(change, Way::Back);
+                            }
+                        }
+                        Way::Forward => {
+                            for change in &changes {
+                                self.restore(change, Way::Forward);
+                            }
+                        }
+                    }
+                }
             }
         }
 
         if let Some(landing) = self.history.landing(&route) {
             self.history.arrive(landing);
         }
+
+        // The program has just been moved by the history rather than by the
+        // user. Without this the next look would see the difference, file it
+        // as a new deed, and undo would never let go of the end of the list.
+        self.watching.resync();
 
         self.settle(done, said);
     }

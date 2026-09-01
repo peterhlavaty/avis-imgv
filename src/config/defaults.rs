@@ -457,6 +457,13 @@ pub fn default_sc_redo() -> Shortcut {
     Shortcut::new("y", &[MOD_CTRL])
 }
 
+/// Half a second, which is longer than a key repeats and shorter than a pause
+/// for thought. Two notches of a wheel are one row; a walk taken up again
+/// after looking at something is a new one.
+pub fn default_merge_within_ms() -> u64 {
+    500
+}
+
 /// `F3` is what a Windows program uses for "find", and the backslash is what
 /// FastRawViewer uses for the bypass.
 pub fn default_sc_filter() -> Shortcut {
