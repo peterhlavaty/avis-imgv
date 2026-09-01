@@ -48,7 +48,10 @@ pub fn does(name: &str, config: &Config) -> Does {
         "fit_or_actual" => Does::View(View::ToggleActualPixels),
         "fit" => Does::View(View::Fit),
         "fill" => Does::View(View::Fill),
-        "actual_pixels" => Does::View(View::ZoomToPercent(100.0)),
+        "actual_pixels" => Does::View(View::ZoomToPercent(
+            100.0,
+            crate::view::image_view::input::Anchor::Pointer,
+        )),
         "zoom_in" => Does::View(View::ZoomBy(step)),
         "zoom_out" => Does::View(View::ZoomBy(1.0 / step)),
         "next" => Does::View(View::Next),

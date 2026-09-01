@@ -52,16 +52,9 @@ const COMPARE_PANES: usize = 2;
 
 const MAX_IMAGES_SHOWN: usize = 8;
 
-/// What a zoom holds still: the middle of the picture, or the point the
-/// pointer is over.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Anchor {
-    Centre,
-    Pointer,
-}
-
-use Anchor::Centre as CENTRE;
-use Anchor::Pointer as POINTER;
+use input::Anchor;
+use input::Anchor::Centre as CENTRE;
+use input::Anchor::Pointer as POINTER;
 
 pub struct ImageView {
     store: ImageStore,
@@ -258,6 +251,7 @@ impl ImageView {
 
         let before = self.viewport.zoom;
         change(&mut self.viewport, &self.metrics);
+        self.viewport.zoom = zoom::floored(self.viewport.zoom, self.config.zoom_out_past_fit);
 
         self.viewport.pan = zoom::hold(
             &self.metrics,
@@ -266,6 +260,20 @@ impl ImageView {
             self.viewport.zoom,
             held,
         );
+    }
+
+    /// The smallest magnification the zoom will reach, as a percentage of the
+    /// photograph's own pixels, or nought when nothing holds it.
+    ///
+    /// The fitted percentage is what the reading says at a zoom of one, which
+    /// is what the floor is expressed in; every photograph and every window
+    /// size gives a different number, so it cannot be a constant in the bar.
+    fn least_zoom(&self) -> f32 {
+        if self.config.zoom_out_past_fit {
+            return 0.0;
+        }
+
+        zoom::fitted_percent(&self.metrics)
     }
 
     /// Where the pointer is over the drawn photograph, nought to one.
@@ -340,8 +348,8 @@ impl ImageView {
             Command::ZoomBy(factor) => {
                 self.zooming(ctx, POINTER, |viewport, _| zoom::by(viewport, factor));
             }
-            Command::ZoomToPercent(percent) => {
-                self.zooming(ctx, POINTER, |viewport, metrics| {
+            Command::ZoomToPercent(percent, anchor) => {
+                self.zooming(ctx, anchor, |viewport, metrics| {
                     zoom::to_percent(viewport, metrics, percent)
                 });
             }
@@ -680,6 +688,7 @@ impl ImageView {
         let (at, total) = self.position();
         let hidden = self.store.len() - total;
         let comparing = self.is_comparing();
+        let least_zoom = self.least_zoom();
         // Counted down here rather than where the key is read: the box is
         // drawn once a frame, and asking for focus has to outlive the frame
         // that asked.
@@ -703,6 +712,7 @@ impl ImageView {
             hidden,
             name,
             percentage_zoom: self.metrics.percentage_zoom,
+            least_zoom,
             marks,
             mode,
             unread,

@@ -294,6 +294,22 @@ Leaving the seam for later means the next session pays for it with interest.
   one gesture — `Area::is_dragging` is why `interaction::dragging` returns
   false — and where two readings are defensible it is a setting
   (`mouse.mark_area`), not a decision taken in the code.
+- **A zoom says what it holds still.** `input::Anchor` is an argument of
+  `ZoomToPercent` rather than a decision taken in `apply`, because the same
+  magnification is asked for from the keyboard, from a menu over the photograph
+  and from a rail in the status bar, and only the first two happen anywhere near
+  the picture. Magnifying holds the pointer; fitting and filling hold the middle
+  because they are about the panel; and so does anything asked for from the bar
+  (`Anchor::FROM_THE_BAR`), whose pointer is on the control and may even be *put
+  back* on the other side of the window mid-drag.
+- **Zooming out stops at fitting.** One floor, `zoom::floored`, applied in
+  `zooming` after the change rather than inside each command, so it covers the
+  wheel, the keys, the rail and the presets, and a command added later cannot
+  forget it. `image_view.zoom_out_past_fit` lifts it. The rail's left end is
+  then the fitted percentage rather than one per cent: a stretch of rail asking
+  for something the view will refuse is worse on a fine drag than it sounds,
+  because the drag carries on past the end and has to be walked all the way back
+  before the handle moves again.
 - **A slider's handle takes a share of what the pointer does.** Every rail in
   the program is `ui::slider::Fine`, which is drawn exactly as egui's is —
   `slider/paint.rs` is the toolkit's own code from the same style — and differs

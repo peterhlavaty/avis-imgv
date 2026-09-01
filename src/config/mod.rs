@@ -534,6 +534,15 @@ pub struct ImageViewConfig {
     /// its own size it is a postage stamp in the middle of the screen.
     #[serde(default = "default_enlarge_to_fit")]
     pub enlarge_to_fit: bool,
+    /// Whether the zoom goes out past fitting the window.
+    ///
+    /// It does not, by default, and stops exactly at the fit. Below it the
+    /// photograph has a border on all four sides and there is nothing more to
+    /// see, so every notch spent getting there is a notch spent getting back:
+    /// the sibling of [`Self::enlarge_to_fit`], which is the same argument
+    /// about a photograph too small to fill the window in the first place.
+    #[serde(default = "default_zoom_out_past_fit")]
+    pub zoom_out_past_fit: bool,
     /// How much one press of the zoom keys changes the magnification.
     #[serde(default = "default_zoom_step")]
     pub zoom_step: f32,
@@ -828,6 +837,7 @@ impl Default for ImageViewConfig {
             should_wait: default_should_wait(),
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             enlarge_to_fit: default_enlarge_to_fit(),
+            zoom_out_past_fit: default_zoom_out_past_fit(),
             zoom_step: default_zoom_step(),
             zoom_step_factor: default_zoom_step_factor(),
             zoom_step_max: default_zoom_step_max(),

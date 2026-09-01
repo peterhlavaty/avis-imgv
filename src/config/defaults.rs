@@ -626,6 +626,11 @@ pub fn default_zoom_step_max() -> f32 {
     8.0
 }
 
+/// Whether the zoom goes out past fitting the window.
+pub fn default_zoom_out_past_fit() -> bool {
+    false
+}
+
 /// How fast a held pan key moves the view, in screens a second.
 pub fn default_pan_speed() -> f32 {
     1.5

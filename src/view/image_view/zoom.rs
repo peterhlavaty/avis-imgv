@@ -12,9 +12,30 @@ use super::canvas::{self, Metrics, Viewport};
 /// The default of `image_view.zoom_step_max`.
 pub const MAX_STEP: f32 = 8.0;
 
+/// The magnification at which the whole photograph fits the panel.
+///
+/// Everything here is a multiple of it, which is what lets one number be the
+/// floor whatever the photograph and whatever the window.
+pub const FITTED: f32 = 1.0;
+
 /// Shows the whole image, fitted to the panel.
 pub fn fit(viewport: &mut Viewport) {
-    viewport.zoom = 1.0;
+    viewport.zoom = FITTED;
+}
+
+/// Holds a magnification to the floor the settings put under it.
+///
+/// Past fitting there is a border on all four sides and nothing more to see,
+/// so `image_view.zoom_out_past_fit` is off and the zoom stops exactly at the
+/// fit. Applied after the change rather than inside each of them, so that one
+/// rule covers the wheel, the keys, the rail and the presets, and a command
+/// added later cannot forget it.
+pub fn floored(zoom: f32, past_fit: bool) -> f32 {
+    if past_fit {
+        zoom
+    } else {
+        zoom.max(FITTED)
+    }
 }
 
 /// Fills the panel, cropping whichever side overflows.
@@ -68,6 +89,23 @@ pub fn to_percent(viewport: &mut Viewport, metrics: &Metrics, percent: f32) {
     let fitted = metrics.fit_size.x * metrics.pixels_per_point;
 
     set(viewport, ratio(wanted, fitted));
+}
+
+/// What the reading says when the whole photograph fits the panel.
+///
+/// A pure function of what the canvas measured, and deliberately not
+/// `percentage_zoom / viewport.zoom`: the metrics are what the *last* frame
+/// drew and the viewport is what this one is about to draw, so dividing one by
+/// the other while a drag is changing the zoom gives a floor that breathes. A
+/// rail whose ends move under the handle takes back most of what the drag just
+/// did — measured at about a third of it, which read as a slider three times
+/// less sensitive than it was set to.
+pub fn fitted_percent(metrics: &Metrics) -> f32 {
+    if metrics.image_size.x <= 0.0 {
+        return 0.0;
+    }
+
+    metrics.fit_size.x * metrics.pixels_per_point * 100.0 / metrics.image_size.x
 }
 
 /// Where the pan has to be for the point under `anchor` to stay put.
@@ -154,6 +192,70 @@ mod tests {
 
     fn viewport() -> Viewport {
         Viewport::default()
+    }
+
+    /// The floor the rail is given is the reading at a zoom of one, and it is
+    /// the same number however far the photograph is magnified right now.
+    #[test]
+    fn the_fitted_reading_does_not_move_with_the_zoom() {
+        let metrics = metrics();
+        assert_eq!(fitted_percent(&metrics), 20.0);
+
+        // Which is exactly the magnification `fit` leaves behind.
+        let mut viewport = viewport();
+        to_percent(&mut viewport, &metrics, fitted_percent(&metrics));
+        assert!(
+            (viewport.zoom - FITTED).abs() < 1e-5,
+            "asking for the fitted reading gave {}",
+            viewport.zoom
+        );
+    }
+
+    /// Before a frame has been drawn there is nothing to measure, and nothing
+    /// is divided by nought.
+    #[test]
+    fn there_is_no_fitted_reading_before_the_first_frame() {
+        assert_eq!(fitted_percent(&Metrics::default()), 0.0);
+    }
+
+    /// Past fitting there is a border on all four sides and nothing more to
+    /// see, so that is where zooming out stops.
+    #[test]
+    fn the_zoom_stops_at_fitting() {
+        assert_eq!(floored(0.25, false), FITTED);
+        assert_eq!(floored(FITTED, false), FITTED);
+        assert_eq!(floored(4.0, false), 4.0);
+    }
+
+    /// And for whoever wants the border, the setting lets it through
+    /// untouched.
+    #[test]
+    fn the_setting_lifts_the_floor() {
+        assert_eq!(floored(0.25, true), 0.25);
+        assert_eq!(floored(4.0, true), 4.0);
+    }
+
+    /// Every one of the fitting verbs lands on or above the floor, so none of
+    /// them is quietly moved by it.
+    #[test]
+    fn nothing_that_fits_or_fills_is_moved_by_the_floor() {
+        let metrics = metrics();
+
+        for change in [
+            &fit as &dyn Fn(&mut Viewport),
+            &|viewport| fill(viewport, &metrics),
+            &|viewport| fit_horizontal(viewport, &metrics),
+            &|viewport| fit_vertical(viewport, &metrics),
+        ] {
+            let mut viewport = viewport();
+            change(&mut viewport);
+
+            assert_eq!(
+                floored(viewport.zoom, false),
+                viewport.zoom,
+                "the floor moved a fitting verb"
+            );
+        }
     }
 
     #[test]

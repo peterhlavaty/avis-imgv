@@ -1043,6 +1043,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
+| `zoom_out_past_fit` | Let the zoom go out past fitting the window, leaving a border on all four sides | false |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
 
 ### Grid view
@@ -1233,9 +1234,22 @@ fit horizontal, fit vertical — hold the middle instead.
 `100%` means one image pixel to one **screen** pixel, counted in the pixels the
 screen actually has rather than in the points a window at 125% scaling is laid
 out in. The readout beside the slider says the same number, and the slider runs
-from 1% to 1600% logarithmically: it used to run from a tenth to ten times the
+logarithmically up to 1600%: it used to run from a tenth to ten times the
 *fitted* size, which on a twenty-four megapixel photograph could not reach
 actual size at all.
+
+**Zooming out stops at fitting.** Past it the photograph has a border on all
+four sides and there is nothing more to see, so every notch spent getting there
+is a notch spent getting back. The rail ends where the zoom does — its left end
+is whatever percentage this photograph fits the window at, not one per cent —
+and `image_view.zoom_out_past_fit` is there for whoever wants the border.
+
+**Magnifying holds whatever is under the pointer**, so an eye near the edge of
+the frame stays where it was instead of being pushed off screen by the very
+gesture aimed at it. Fitting and filling hold the middle of the panel instead,
+because they are about the panel rather than about a point in the picture — and
+so does the rail in the status bar, whose pointer is on the rail and not on the
+photograph.
 
 Zoom and pan belong to the image, not to the window: leaving a photograph
 half way into a corner and coming back to it later finds it exactly there.

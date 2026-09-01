@@ -2,6 +2,29 @@
 
 ## 2026-09-01
 
+- **The zoom rail holds the middle of the picture, not the pointer.**
+  Magnifying is about a point in the photograph and holds whatever is under the
+  pointer, which is right for the wheel and for the keys and wrong for a rail:
+  the pointer is on the rail, and wherever it happens to sit over the picture is
+  an accident of how the hand drifted — or of the wrap, which puts it back on
+  the other side of the window mid-drag. The anchor is now part of the command,
+  so a caller has to say which of the two it means, and everything asked for
+  from the status bar says the middle. Ctrl and the wheel still magnify towards
+  the pointer.
+- **Zooming out stops at fitting.** Past it the photograph has a border on all
+  four sides and there is nothing more to see, so every notch spent getting
+  there is a notch spent getting back. One floor, applied after the change
+  rather than inside each command, so it covers the wheel, the keys, the rail
+  and the list of percentages, and a command added later cannot forget it.
+  `image_view.zoom_out_past_fit` is for whoever wants the border — the sibling
+  of `enlarge_to_fit`, which is the same argument about a photograph too small
+  to fill the window in the first place.
+- **The rail ends where the zoom does.** Its left end is the fitted percentage
+  rather than one per cent, which is a different number for every photograph
+  and every window size. A stretch of rail that asks for something the view will
+  refuse is worse on a fine drag than it sounds: the drag would carry on past
+  the end and have to be walked all the way back before the handle moved again.
+
 - **A slider's handle no longer has to keep up with the pointer.** Two hundred
   points of rail carrying four thousand values gave twenty of them to every
   point the pointer moved, and no hand places a pointer to the point. The

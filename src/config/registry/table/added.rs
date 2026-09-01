@@ -261,6 +261,25 @@ pub fn rows() -> Vec<Row> {
         ),
         row!(
             ThePhotograph / Movement,
+            "image_view.zoom_out_past_fit",
+            "Zoom out past fitting the window",
+            "Off, so fitting is as far out as the zoom goes and it stops exactly              there. Past it the photograph has a border on all four sides and there              is nothing more to see, so every notch spent getting there is a notch              spent getting back.",
+            [
+                "zoom out",
+                "smaller",
+                "shrink",
+                "minimum",
+                "fit",
+                "borders",
+                "limit"
+            ],
+            Live,
+            None,
+            boolean!(image_view.zoom_out_past_fit),
+            explained: "The rail in the status bar ends where the zoom does, rather than                         carrying a stretch that asks for something it cannot have.",
+        ),
+        row!(
+            ThePhotograph / Movement,
             "image_view.zoom_step",
             "How much one zoom key changes it",
             "A quarter more each press. Every movement key in the viewer was a \

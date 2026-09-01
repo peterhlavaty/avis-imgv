@@ -8,7 +8,7 @@ use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
 use crate::organize::pairs::Prefer;
 use crate::view::stacks::Place;
 
-use super::input::Command;
+use super::input::{Anchor, Command};
 
 /// Zoom levels offered in the magnification context menu.
 const PERCENTAGES: &[f32] = &[200., 100., 75., 50., 25.];
@@ -99,6 +99,14 @@ pub struct Status<'a> {
     pub hidden: usize,
     pub name: String,
     pub percentage_zoom: f32,
+    /// The smallest magnification the zoom will reach, or nought when nothing
+    /// holds it.
+    ///
+    /// The rail ends where the zoom does. A stretch of rail that asks for
+    /// something the view will refuse is worse on a fine drag than it sounds:
+    /// the drag would carry on past the end and have to be walked all the way
+    /// back before the handle moved again.
+    pub least_zoom: f32,
     pub marks: Marks,
     pub flags: Flags,
     /// Which mode is on screen.
@@ -557,7 +565,7 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
 
                         outcome
                             .commands
-                            .extend(zoom_slider(ui, status.percentage_zoom));
+                            .extend(zoom_slider(ui, status.percentage_zoom, status.least_zoom));
 
                         outcome
                             .commands
@@ -720,17 +728,18 @@ fn jump_field(ui: &mut egui::Ui, status: &mut Status<'_>) -> Option<usize> {
 const MIN_PERCENT: f32 = 1.0;
 const MAX_PERCENT: f32 = 1600.0;
 
-fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
+fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32, least_zoom: f32) -> Vec<Command> {
     // Before the first frame there is no magnification to show, and a slider
     // sitting at its floor would look like one.
     if percentage_zoom <= 0.0 {
         return Vec::new();
     }
 
-    let mut percent = percentage_zoom.clamp(MIN_PERCENT, MAX_PERCENT);
+    let (least, most) = ends(least_zoom);
+    let mut percent = percentage_zoom.clamp(least, most);
     let slider = ui.add_sized(
         Vec2::new(200., ui.available_height()),
-        crate::ui::slider::Fine::new(&mut percent, MIN_PERCENT..=MAX_PERCENT)
+        crate::ui::slider::Fine::new(&mut percent, least..=most)
             .logarithmic(true)
             .show_value(false)
             .about("Zoom")
@@ -739,10 +748,25 @@ fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
     );
 
     if slider.changed() {
-        return vec![Command::ZoomToPercent(percent)];
+        return vec![Command::ZoomToPercent(percent, Anchor::FROM_THE_BAR)];
     }
 
     Vec::new()
+}
+
+/// The two ends of the rail, given whatever holds the zoom out.
+///
+/// A photograph small enough to be enlarged more than sixteen times fits at
+/// more than the usual ceiling, and a rail whose ends were the wrong way round
+/// would be a rail that does nothing at all; there the ceiling moves up instead
+/// of the floor moving down, because the floor is the one the view will
+/// actually enforce.
+fn ends(least_zoom: f32) -> (f32, f32) {
+    if !least_zoom.is_finite() || least_zoom <= MIN_PERCENT {
+        return (MIN_PERCENT, MAX_PERCENT);
+    }
+
+    (least_zoom, MAX_PERCENT.max(least_zoom * 2.0))
 }
 
 fn zoom_label(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
@@ -782,7 +806,7 @@ fn zoom_label(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
 
             for percentage in PERCENTAGES {
                 if ui.button(format!("{percentage:.0}%")).clicked() {
-                    commands.push(Command::ZoomToPercent(*percentage));
+                    commands.push(Command::ZoomToPercent(*percentage, Anchor::FROM_THE_BAR));
                     ui.close();
                 }
             }
@@ -801,5 +825,33 @@ mod tests {
         assert_eq!(stars(0), "");
         assert_eq!(stars(3), "★★★");
         assert_eq!(stars(5).chars().count(), 5);
+    }
+
+    /// With nothing holding the zoom out, the rail runs the range it always
+    /// ran.
+    #[test]
+    fn the_rail_runs_its_usual_range_when_nothing_holds_the_zoom() {
+        assert_eq!(ends(0.0), (MIN_PERCENT, MAX_PERCENT));
+        // A floor under the rail's own floor is no floor at all.
+        assert_eq!(ends(MIN_PERCENT / 2.0), (MIN_PERCENT, MAX_PERCENT));
+        assert_eq!(ends(f32::NAN), (MIN_PERCENT, MAX_PERCENT));
+    }
+
+    /// With the zoom held to fitting, the rail starts exactly where the zoom
+    /// stops — so its left end is the fit rather than a stretch that asks for
+    /// something the view will refuse.
+    #[test]
+    fn the_rail_starts_where_the_zoom_stops() {
+        assert_eq!(ends(37.5), (37.5, MAX_PERCENT));
+    }
+
+    /// A photograph small enough to be enlarged past the usual ceiling gets a
+    /// rail with its ends the right way round rather than no rail at all.
+    #[test]
+    fn a_floor_above_the_ceiling_raises_the_ceiling() {
+        let (least, most) = ends(MAX_PERCENT + 400.0);
+
+        assert_eq!(least, MAX_PERCENT + 400.0);
+        assert!(most > least, "{least} to {most} is not a rail");
     }
 }

@@ -19,6 +19,36 @@ use crate::utils;
 /// something to say when there is no configuration in hand.
 const ZOOM_STEP: f32 = 1.25;
 
+/// What a zoom holds still.
+///
+/// Magnifying is about a point in the picture, so it holds whatever is under
+/// the pointer: an eye near the edge of the frame used to be pushed off screen
+/// by the very gesture aimed at it. Fitting and filling are about the panel
+/// rather than about a point in the picture, so they hold its middle — and so
+/// does anything asked for by a control that is *not* the picture. The rail in
+/// the status bar is the case that taught that last part: the pointer is on the
+/// rail, and wherever it happens to sit over the photograph is an accident of
+/// how the hand drifted while dragging.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Anchor {
+    /// The middle of the panel.
+    Centre,
+    /// Whatever is under the pointer, or the middle when it is elsewhere.
+    Pointer,
+}
+
+impl Anchor {
+    /// What a zoom asked for from the status bar holds: the middle, always.
+    ///
+    /// Named once and shared by the rail and the list of percentages beside
+    /// it, because it is one decision about one surface. Magnifying towards the
+    /// pointer would swing the picture about under a gesture that has nothing
+    /// to do with any point in it — and while the rail is being dragged the
+    /// pointer may be *put back* on the other side of the window, so where it
+    /// sits over the photograph is not even an accident of the hand.
+    pub const FROM_THE_BAR: Anchor = Anchor::Centre;
+}
+
 /// Something the image view can be asked to do.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Command {
@@ -46,8 +76,13 @@ pub enum Command {
     CycleOverlay,
     /// Mark what has clipped, then what is in focus, then nothing.
     CycleMarks,
-    /// Magnify to a percentage of the image's own pixels.
-    ZoomToPercent(f32),
+    /// Magnify to a percentage of the image's own pixels, holding a point.
+    ///
+    /// The anchor is part of the command because the same magnification is
+    /// asked for from the keyboard, from a menu over the photograph and from a
+    /// rail in the status bar, and only the first two happen anywhere near the
+    /// picture. A caller has to say which it means.
+    ZoomToPercent(f32, Anchor),
     /// Fitted, or at one screen pixel per photograph pixel, whichever it is
     /// not already.
     ///
@@ -110,7 +145,10 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_zoom, Command::ZoomStep),
         (&config.sc_zoom_in, Command::ZoomBy(step)),
         (&config.sc_zoom_out, Command::ZoomBy(1.0 / step)),
-        (&config.sc_one_to_one, Command::ZoomToPercent(100.0)),
+        (
+            &config.sc_one_to_one,
+            Command::ZoomToPercent(100.0, Anchor::Pointer),
+        ),
         (&config.sc_zoom_to_area, Command::ZoomToArea),
         (&config.sc_repeat_place, Command::RepeatPlace),
         (&config.sc_frame, Command::ToggleFrame),

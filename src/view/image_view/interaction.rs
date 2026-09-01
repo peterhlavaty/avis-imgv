@@ -218,9 +218,10 @@ impl ImageView {
             // up to whoever has them.
             Some(Chosen::Verb(Verb::Fit)) => self.apply(input::Command::Fit, ctx),
             Some(Chosen::Verb(Verb::Fill)) => self.apply(input::Command::Fill, ctx),
-            Some(Chosen::Verb(Verb::ActualPixels)) => {
-                self.apply(input::Command::ZoomToPercent(100.0), ctx)
-            }
+            Some(Chosen::Verb(Verb::ActualPixels)) => self.apply(
+                input::Command::ZoomToPercent(100.0, input::Anchor::Pointer),
+                ctx,
+            ),
             Some(Chosen::Verb(Verb::Compare)) => self.apply(input::Command::Compare, ctx),
             Some(Chosen::Verb(verb)) => self.verb = Some((verb, path)),
             Some(Chosen::Entry(i)) => {
