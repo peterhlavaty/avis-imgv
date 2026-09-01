@@ -2,6 +2,12 @@
 
 ## 2026-09-01
 
+- **A drag begun on the zoom slider no longer moves the photograph.** egui
+  reports that a widget contains the pointer "even if some other widget is
+  being dragged", so letting the pointer stray up over the picture panned it
+  under a drag that was never about it. A pan now has to have started on the
+  photograph.
+
 - **A photograph can be turned, and the file is not touched.** `[` and `]`, and
   a row each way on the second button. The turn is written to the sidecar as
   `tiff:Orientation` and composed with the camera's own before anything is

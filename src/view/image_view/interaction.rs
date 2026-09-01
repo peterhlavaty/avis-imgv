@@ -50,7 +50,7 @@ impl ImageView {
         // `Next` also shoved the photograph that had arrived because of it.
         let mut delta = notch.map_or(Vec2::ZERO, |notch| self.wheel(ctx, notch));
 
-        if self.dragging(ctx) {
+        if self.dragging(ctx, response) {
             delta += ctx.input(|i| i.pointer.delta()) * ctx.pixels_per_point();
         }
 
@@ -105,9 +105,23 @@ impl ImageView {
     ///
     /// The wheel pressed and dragged always pans, whatever `mouse.drag` says,
     /// so a fitted photograph is not a dead surface.
-    fn dragging(&self, ctx: &egui::Context) -> bool {
+    ///
+    /// And the drag has to have *started* here. This is gated on
+    /// `contains_pointer`, which egui documents as true "even if some other
+    /// widget is being dragged", so dragging the zoom slider and letting the
+    /// pointer stray up over the photograph used to move it under a drag that
+    /// was never about it.
+    fn dragging(&self, ctx: &egui::Context, response: &Response) -> bool {
         ctx.input(|i| {
             if !i.pointer.is_decidedly_dragging() {
+                return false;
+            }
+
+            if !i
+                .pointer
+                .press_origin()
+                .is_some_and(|from| response.rect.contains(from))
+            {
                 return false;
             }
 
