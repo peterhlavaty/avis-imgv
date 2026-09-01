@@ -66,6 +66,14 @@ pub fn load(path: &Path, output_profile: &str) -> Option<Preview> {
         metadata.orientation
     };
 
+    // And the turn the user asked for, so a thumbnail agrees with the
+    // photograph it stands for. Read on this thread, which is a worker.
+    let orientation = orientation.then(
+        crate::annotations::sidecar::read(path)
+            .map(|xmp| xmp.orientation)
+            .unwrap_or_default(),
+    );
+
     let mut image = parsed.thumbnail.and_then(decode_thumbnail);
 
     // The thumbnail carries no profile of its own; what describes it is the

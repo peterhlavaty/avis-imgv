@@ -434,6 +434,14 @@ pub struct GeneralConfig {
     /// frame back.
     #[serde(default = "default_sc_stacks")]
     pub sc_stacks: Shortcut,
+    /// Turn the photograph a quarter, anticlockwise and clockwise.
+    ///
+    /// The turn is written to the sidecar; the photograph itself is never
+    /// touched.
+    #[serde(default = "default_sc_turn_left")]
+    pub sc_turn_left: Shortcut,
+    #[serde(default = "default_sc_turn_right")]
+    pub sc_turn_right: Shortcut,
     /// Opens or closes the stack the cursor is in.
     #[serde(default = "default_sc_toggle_stack")]
     pub sc_toggle_stack: Shortcut,
@@ -777,6 +785,8 @@ impl Default for GeneralConfig {
             sc_toggle_side_panel: default_sc_toggle_side_panel(),
             sc_filmstrip: default_sc_filmstrip(),
             sc_stacks: default_sc_stacks(),
+            sc_turn_left: default_sc_turn_left(),
+            sc_turn_right: default_sc_turn_right(),
             sc_toggle_stack: default_sc_toggle_stack(),
             sc_standing_back: default_sc_standing_back(),
             sc_standing_forward: default_sc_standing_forward(),

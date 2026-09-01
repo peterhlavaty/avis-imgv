@@ -231,6 +231,21 @@ impl GridView {
         }
     }
 
+    /// Turns a photograph a quarter on the card, without decoding it again.
+    pub fn turn(&mut self, path: &Path, clockwise: bool) {
+        if let Some(index) = self.store.index_of(path) {
+            self.store.turn(index, clockwise);
+        }
+    }
+
+    /// Turns a photograph on the card by any orientation, without decoding it
+    /// again. Undo takes the difference between the two orientations.
+    pub fn turn_by(&mut self, path: &Path, extra: crate::metadata::Orientation) {
+        if let Some(index) = self.store.index_of(path) {
+            self.store.turn_by(index, extra);
+        }
+    }
+
     /// Services the caches without drawing, so opening the grid does not start
     /// from nothing.
     pub fn warm(&mut self, cursor: usize) -> bool {

@@ -30,6 +30,13 @@ pub enum Command {
     SetLabel(usize),
     /// Move to the next photograph after every mark, or stop doing that.
     ToggleAdvance,
+    /// Turn it a quarter, clockwise or the other way.
+    ///
+    /// Written to the sidecar and never to the photograph: a raw file cannot
+    /// be rewritten without losing something, and a JPEG re-encoded is a JPEG
+    /// made worse. It is the most-expected verb after delete and the one most
+    /// often implemented by quietly modifying the file.
+    Turn(bool),
     /// Send the picture on screen to the platform's bin.
     Delete,
     /// Delete it outright, which is asked about first.
@@ -158,6 +165,8 @@ pub fn collect(
         (&config.sc_standing_forward, Command::StandingForward),
         (&config.sc_previous_stack, Command::PreviousStack),
         (&config.sc_next_stack, Command::NextStack),
+        (&config.sc_turn_left, Command::Turn(false)),
+        (&config.sc_turn_right, Command::Turn(true)),
     ];
 
     ctx.input_mut(|input| {

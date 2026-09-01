@@ -256,6 +256,14 @@
         "ctrl"
       ]
     },
+    "sc_turn_left": {
+      "key": "OpenBracket",
+      "modifiers": []
+    },
+    "sc_turn_right": {
+      "key": "CloseBracket",
+      "modifiers": []
+    },
     "sc_toggle_stack": {
       "key": "e",
       "modifiers": []

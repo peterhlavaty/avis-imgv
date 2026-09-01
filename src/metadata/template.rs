@@ -432,6 +432,7 @@ mod tests {
             label: Some("Red".to_string()),
             keywords: vec!["Tatras".to_string(), "Winter".to_string()],
             hierarchy: Vec::new(),
+            ..Default::default()
         };
         let subject = Subject::new(&at).with_annotations(&marks);
 
@@ -543,6 +544,7 @@ mod tests {
             label: Some("Red".to_string()),
             keywords: vec!["One".to_string()],
             hierarchy: Vec::new(),
+            ..Default::default()
         };
 
         let subject = Subject::new(&at)

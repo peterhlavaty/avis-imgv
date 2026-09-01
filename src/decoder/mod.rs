@@ -190,7 +190,16 @@ impl std::error::Error for DecodeError {}
 pub fn load(path: &Path, options: &DecodeOptions) -> Result<DecodedImage, DecodeError> {
     let started = Instant::now();
     let bytes = std::fs::read(path).map_err(DecodeError::Read)?;
-    let decoded = decode(&bytes, path, options)?;
+
+    // The turn the user asked for, read here rather than at the point of
+    // drawing: this is a worker thread and that is the frame. It is composed
+    // with the camera's before anything downstream — the size the photograph
+    // reports, the shape of the cell it lands in — is worked out from it.
+    let turned = crate::annotations::sidecar::read(path)
+        .map(|xmp| xmp.orientation)
+        .unwrap_or_default();
+
+    let decoded = decode(&bytes, path, options, turned)?;
 
     tracing::debug!(
         "{} -> decoded {}x{}{} in {}ms",
@@ -218,6 +227,7 @@ pub fn decode(
     bytes: &[u8],
     path: &Path,
     options: &DecodeOptions,
+    turned: Orientation,
 ) -> Result<DecodedImage, DecodeError> {
     let format = Format::from_path(path);
     let parsed = Metadata::parse(bytes, format);
@@ -258,6 +268,11 @@ pub fn decode(
     if format.is_some_and(Format::ignores_exif_orientation) {
         metadata.orientation = Orientation::Normal;
     }
+
+    // The camera's turn and then the user's, which from here on is one turn.
+    // Nothing below this line, and nothing that reads a decoded image, needs
+    // to know that two of them were involved.
+    metadata.orientation = metadata.orientation.then(turned);
 
     metadata.add_file_tags(path, bytes.len());
 
@@ -380,7 +395,7 @@ mod tests {
     #[test]
     fn decodes_to_rgba() {
         let bytes = encode(4, 2, [10, 20, 30, 255], ImageFormat::Png);
-        let decoded = decode(&bytes, Path::new("a.png"), &options()).unwrap();
+        let decoded = decode(&bytes, Path::new("a.png"), &options(), Orientation::Normal).unwrap();
 
         assert_eq!(decoded.size(), [4, 2]);
         assert_eq!(decoded.byte_len(), 4 * 2 * BYTES_PER_PIXEL);
@@ -390,7 +405,13 @@ mod tests {
     #[test]
     fn records_file_and_size_tags() {
         let bytes = encode(6, 3, [0, 0, 0, 255], ImageFormat::Png);
-        let decoded = decode(&bytes, Path::new("/photos/a.png"), &options()).unwrap();
+        let decoded = decode(
+            &bytes,
+            Path::new("/photos/a.png"),
+            &options(),
+            Orientation::Normal,
+        )
+        .unwrap();
 
         assert_eq!(decoded.file_name(), "a.png");
         assert_eq!(
@@ -403,7 +424,7 @@ mod tests {
     fn the_camera_orientation_travels_with_the_pixels() {
         // A JPEG with no EXIF is upright, and the pixels are left alone.
         let bytes = encode(4, 2, [10, 20, 30, 255], ImageFormat::Png);
-        let decoded = decode(&bytes, Path::new("a.png"), &options()).unwrap();
+        let decoded = decode(&bytes, Path::new("a.png"), &options(), Orientation::Normal).unwrap();
 
         assert_eq!(decoded.orientation, Orientation::Normal);
         assert_eq!(decoded.size(), [4, 2]);
@@ -413,14 +434,20 @@ mod tests {
     fn honours_the_max_edge() {
         let bytes = encode(40, 20, [255, 255, 255, 255], ImageFormat::Png);
         let options = options().with_max_edge(Some(10));
-        let decoded = decode(&bytes, Path::new("a.png"), &options).unwrap();
+        let decoded = decode(&bytes, Path::new("a.png"), &options, Orientation::Normal).unwrap();
 
         assert_eq!(decoded.size(), [10, 5]);
     }
 
     #[test]
     fn reports_undecodable_files() {
-        let error = decode(b"not an image", Path::new("a.png"), &options()).unwrap_err();
+        let error = decode(
+            b"not an image",
+            Path::new("a.png"),
+            &options(),
+            Orientation::Normal,
+        )
+        .unwrap_err();
         assert!(matches!(error, DecodeError::Unsupported(_)));
     }
 

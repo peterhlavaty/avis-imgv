@@ -166,6 +166,7 @@ enum Property {
     Rating,
     Label,
     Pick,
+    Orientation,
 }
 
 /// Which of them a namespace and a local name is, if any.
@@ -174,6 +175,7 @@ fn property_of(namespace: Namespace, name: &str) -> Option<Property> {
         (Namespace::Xmp, "Rating") => Some(Property::Rating),
         (Namespace::Xmp, "Label") => Some(Property::Label),
         (Namespace::DigiKam, "PickLabel") => Some(Property::Pick),
+        (Namespace::Tiff, "Orientation") => Some(Property::Orientation),
         _ => None,
     }
 }
@@ -189,6 +191,11 @@ fn apply(found: &mut Xmp, property: Property, text: &str) {
         Property::Label => {
             let label = text.trim();
             found.label = (!label.is_empty()).then(|| label.to_string());
+        }
+        Property::Orientation => {
+            if let Ok(value) = text.trim().parse::<u32>() {
+                found.orientation = crate::metadata::Orientation::from_exif(value);
+            }
         }
         Property::Pick => {
             if let Some(picked) = parse_pick(text) {

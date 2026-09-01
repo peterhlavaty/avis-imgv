@@ -2,6 +2,13 @@
 
 ## 2026-09-01
 
+- **A photograph can be turned, and the file is not touched.** `[` and `]`, and
+  a row each way on the second button. The turn is written to the sidecar as
+  `tiff:Orientation` and composed with the camera's own before anything is
+  drawn, so what is on screen is one turn however many went into it. It takes
+  the selection with it, goes on both halves of a raw-and-JPEG pair, survives a
+  restart, and `Ctrl + Z` puts both the sidecar and the picture back.
+
 - **The cheat sheet lists the mouse.** Thirteen gestures with what each one
   currently does, read from the settings rather than written out, and every row
   opens the control behind it. A gesture nobody is told about is a gesture

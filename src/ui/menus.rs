@@ -30,6 +30,9 @@ pub enum Verb {
     Fill,
     /// Pin this photograph and its neighbours side by side.
     Compare,
+    /// Turn it a quarter, in the sidecar rather than in the file.
+    TurnLeft,
+    TurnRight,
     /// Send it to the platform's bin.
     Bin,
     CopyPath,
@@ -48,6 +51,8 @@ impl Verb {
         Verb::ActualPixels,
         Verb::Fill,
         Verb::Compare,
+        Verb::TurnLeft,
+        Verb::TurnRight,
         Verb::Bin,
         Verb::CopyPath,
         Verb::CopyPicture,
@@ -59,6 +64,8 @@ impl Verb {
     pub const ON_A_CELL: &'static [Verb] = &[
         Verb::Open,
         Verb::Compare,
+        Verb::TurnLeft,
+        Verb::TurnRight,
         Verb::Bin,
         Verb::CopyPath,
         Verb::CopyPicture,
@@ -86,6 +93,8 @@ impl Verb {
             Verb::ActualPixels => "Actual pixels".to_string(),
             Verb::Fill => "Fill the window".to_string(),
             Verb::Compare => "Compare".to_string(),
+            Verb::TurnLeft => format!("Turn {} anticlockwise", these("it", "them")),
+            Verb::TurnRight => format!("Turn {} clockwise", these("it", "them")),
             Verb::Bin => format!(
                 "Move {} to the bin",
                 these("this photograph", "photographs")
@@ -104,6 +113,10 @@ impl Verb {
             Verb::ActualPixels => "One screen pixel per pixel of the photograph",
             Verb::Fill => "Fill the window, cropping whichever side is longer",
             Verb::Compare => "Pin this photograph and the ones beside it side by side",
+            Verb::TurnLeft | Verb::TurnRight => {
+                "A quarter turn, written to the sidecar. The photograph itself is \
+                 never touched"
+            }
             Verb::Bin => {
                 "To the platform's bin, which does not reach a memory card \
                           or a network share"
@@ -189,10 +202,15 @@ mod tests {
 
     /// Twelve rows including the last is the ceiling, and the user's own
     /// entries are appended to whatever is here.
+    ///
+    /// Ten on the photograph and one settings row is eleven, which leaves one.
+    /// The two turns are what took it there, and they are worth it: rotate is
+    /// the verb people look for on the second button before any other.
     #[test]
     fn no_built_in_list_uses_up_the_menu() {
-        assert!(Verb::ON_A_PHOTOGRAPH.len() <= 8);
-        assert!(Verb::ON_A_CELL.len() <= 8);
+        // The list, plus the settings row that closes every menu.
+        assert!(Verb::ON_A_PHOTOGRAPH.len() < 11);
+        assert!(Verb::ON_A_CELL.len() < 11);
     }
 
     /// Comparing two fits means two clicks, not four.

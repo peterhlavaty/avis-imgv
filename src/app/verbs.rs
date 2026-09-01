@@ -49,6 +49,8 @@ impl App {
     /// Does whatever a menu asked for that the view could not.
     pub(super) fn run_verb(&mut self, verb: Verb, path: PathBuf) {
         match verb {
+            Verb::TurnLeft => self.turn(false),
+            Verb::TurnRight => self.turn(true),
             Verb::Bin => self.delete_open_image(false),
             Verb::CopyPath => self.copy_paths(),
             Verb::CopyPicture => self.copy_picture(&path),

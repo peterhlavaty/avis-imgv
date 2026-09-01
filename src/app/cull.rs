@@ -623,8 +623,26 @@ impl App {
         }
 
         for path in &undone.remarked {
+            // What is on the card has already been turned, and the sidecar
+            // has just been put back; the difference between the two is what
+            // the card owes. The camera's own orientation is in both and
+            // cancels, so this is the user's turn and nothing else.
+            let was = self
+                .annotations
+                .peek(path)
+                .map(|xmp| xmp.orientation)
+                .unwrap_or_default();
+
             self.annotations.forget(path);
             self.refresh_mark(path);
+
+            let now = self.annotations.get(path, None).orientation;
+            let difference = was.inverse().then(now);
+
+            if difference != crate::metadata::Orientation::Normal {
+                self.image_view.turn_by(path, difference);
+                self.grid_view.turn_by(path, difference);
+            }
         }
 
         // Anything that came back or went away changes what the folder holds,

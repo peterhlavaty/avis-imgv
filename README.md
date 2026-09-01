@@ -194,9 +194,20 @@ and reported rather than replaced.
 | Colour label | `xmp:Label`, always the English colour name, and read back against the names Bridge and Lightroom use as well |
 | Tags | `dc:subject`, as an `rdf:Bag` |
 | Tags with levels | `lr:hierarchicalSubject`, as an `rdf:Bag` of `Places|Slovakia|Tatras` paths, beside the flat keywords rather than instead of them |
+| A turn | `tiff:Orientation`, the same eight values EXIF uses, composed with the camera's own before anything is drawn |
 
 Rejecting clears the stars and rating clears the rejection, because they are the
 same field — which is the convention rather than a limitation.
+
+### Turning a photograph
+
+`[` and `]` turn it a quarter, as does the second button on the photograph or
+on a cell. The turn is written to the sidecar and **the photograph itself is
+never touched**: a raw file cannot be rewritten without losing something, and a
+JPEG re-encoded is a JPEG made worse. It is composed with the camera's own
+orientation, so what is drawn is one turn however many went into it, and it
+survives a restart because the decoder reads the sidecar. `Ctrl + Z` puts both
+the sidecar and the picture back.
 
 Marks **inside** the image are read as well (JPEG `APP1`, PNG `iTXt`, WebP,
 TIFF, and Windows Explorer's EXIF rating), so a photograph rated elsewhere shows
@@ -609,8 +620,8 @@ own entries and the copy group. It is the whole of the configurability offered
 for the built-in rows, and the reason there is no menu editor.
 
 Right-clicking a photograph or a cell offers what can be done to it: fit,
-actual pixels, fill, compare, move to the bin, copy the path, copy the picture,
-and show it in the file manager. **Copy the picture** puts the file's own pixels
+actual pixels, fill, compare, turn it either way, move to the bin, copy the
+path, copy the picture, and show it in the file manager. **Copy the picture** puts the file's own pixels
 on the clipboard, decoded at full size and turned the right way up, on a thread
 of its own so a sixty megapixel raw does not stop the window.
 
@@ -802,6 +813,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `sc_filter` | Show or hide the filter bar | `F3` |
 | `sc_suspend_filter` | Set the rules aside without forgetting them | `\` |
 | `sc_stacks` | Stack the folder into its runs of frames, or put every frame back | `Ctrl + G` |
+| `sc_turn_left`, `sc_turn_right` | Turn the photograph a quarter, written to the sidecar and never to the file | `[`, `]` |
 | `sc_toggle_stack` | Open the run under the cursor, or fold it up again | `E` |
 | `sc_standing_back` `sc_standing_forward` | Walk the frames of a folded run without opening it | `,` `.` |
 | `sc_previous_stack` `sc_next_stack` | Step to the run before or after this one | `Ctrl + ←` `Ctrl + →` |
@@ -979,6 +991,7 @@ break the pairing it depends on.
 | O | Move what it says about itself round the corners, and off |
 | C | Mark what has clipped, then what is in focus, then nothing |
 | Ctrl + / Ctrl - | More or fewer images side by side, or panes while comparing |
+| [ / ] | Turn it a quarter, written to the sidecar and never to the file |
 | N | Compare this picture with the next |
 | Tab | Which pane the keys are about |
 | / | Drop that pane; the survivors re-tile — `sc_drop_pane` |

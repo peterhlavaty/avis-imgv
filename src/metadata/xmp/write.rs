@@ -9,7 +9,10 @@ use std::io::Cursor;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use quick_xml::{NsReader, Writer};
 
-use super::{namespace_of, Namespace, Xmp, NS_DC, NS_DIGIKAM, NS_LIGHTROOM, NS_RDF, NS_XMP};
+use super::{
+    namespace_of, Namespace, Orientation, Xmp, NS_DC, NS_DIGIKAM, NS_LIGHTROOM, NS_RDF, NS_TIFF,
+    NS_XMP,
+};
 
 /// Identifies documents this viewer wrote, in the toolkit field every XMP
 /// writer stamps.
@@ -162,6 +165,7 @@ fn is_ours_named(namespace: Namespace, name: &str) -> bool {
         (namespace, name),
         (Namespace::Xmp, "Rating")
             | (Namespace::Xmp, "Label")
+            | (Namespace::Tiff, "Orientation")
             | (Namespace::Dc, "subject")
             | (Namespace::Lightroom, "hierarchicalSubject")
             | (Namespace::DigiKam, "PickLabel")
@@ -181,6 +185,7 @@ fn write_description(
     let mut rebuilt = BytesStart::new(name.clone());
     let mut declares_xmp = false;
     let mut declares_digikam = false;
+    let mut declares_tiff = false;
 
     for attribute in element.attributes().flatten() {
         // Drop anything already there that we are about to write, whatever
@@ -191,6 +196,7 @@ fn write_description(
 
         declares_xmp |= attribute.key.as_ref() == "xmlns:xmp";
         declares_digikam |= attribute.key.as_ref() == "xmlns:digiKam";
+        declares_tiff |= attribute.key.as_ref() == "xmlns:tiff";
         rebuilt.push_attribute(attribute);
     }
 
@@ -201,6 +207,11 @@ fn write_description(
     }
     if xmp.picked && !declares_digikam {
         rebuilt.push_attribute(("xmlns:digiKam", NS_DIGIKAM));
+    }
+
+    let turned = xmp.orientation != Orientation::Normal;
+    if turned && !declares_tiff {
+        rebuilt.push_attribute(("xmlns:tiff", NS_TIFF));
     }
 
     let rating = xmp.rating.to_string();
@@ -214,6 +225,14 @@ fn write_description(
     // digiKam property behind in a sidecar that never had one.
     if xmp.picked {
         rebuilt.push_attribute(("digiKam:PickLabel", "3"));
+    }
+
+    // Likewise: a photograph nobody has turned carries no orientation, so a
+    // sidecar written by this viewer says nothing about how a file it never
+    // turned should be drawn.
+    let orientation = xmp.orientation.to_exif().to_string();
+    if turned {
+        rebuilt.push_attribute(("tiff:Orientation", orientation.as_str()));
     }
 
     writer.write_event(Event::Start(rebuilt))?;
@@ -313,6 +332,15 @@ fn fresh(xmp: &Xmp) -> String {
         None => String::new(),
     };
 
+    let (tiff_ns, turn) = if xmp.orientation == Orientation::Normal {
+        (String::new(), String::new())
+    } else {
+        (
+            format!("\n    xmlns:tiff=\"{NS_TIFF}\""),
+            format!("\n   tiff:Orientation=\"{}\"", xmp.orientation.to_exif()),
+        )
+    };
+
     let (digikam_ns, pick) = if xmp.picked {
         (
             format!("\n    xmlns:digiKam=\"{NS_DIGIKAM}\""),
@@ -328,8 +356,8 @@ fn fresh(xmp: &Xmp) -> String {
  <rdf:RDF xmlns:rdf="{NS_RDF}">
   <rdf:Description rdf:about=""
     xmlns:xmp="{NS_XMP}"
-    xmlns:dc="{NS_DC}"{digikam_ns}{lightroom_ns}
-   xmp:Rating="{rating}"{label}{pick}>
+    xmlns:dc="{NS_DC}"{digikam_ns}{lightroom_ns}{tiff_ns}
+   xmp:Rating="{rating}"{label}{pick}{turn}>
 {subject}  </rdf:Description>
  </rdf:RDF>
 </x:xmpmeta>
@@ -581,6 +609,49 @@ mod tests {
         assert!(back.keywords.is_empty());
     }
 
+    /// A turn goes to the sidecar and the photograph is not touched.
+    #[test]
+    fn a_turn_round_trips() {
+        let turned = Xmp {
+            orientation: Orientation::Rotate90Cw,
+            ..Default::default()
+        };
+
+        let written = updated(None, &turned);
+        assert!(written.contains("tiff:Orientation=\"6\""), "{written}");
+        assert_eq!(read(&written).unwrap(), turned);
+    }
+
+    /// And a photograph nobody has turned says nothing about orientation, so a
+    /// sidecar this viewer writes does not start claiming to know how a file
+    /// it never turned should be drawn.
+    #[test]
+    fn an_unturned_photograph_writes_no_orientation() {
+        let plain = Xmp {
+            rating: 3,
+            ..Default::default()
+        };
+
+        let written = updated(None, &plain);
+        assert!(!written.contains("tiff:Orientation"), "{written}");
+    }
+
+    /// A turn taken back leaves nothing behind either.
+    #[test]
+    fn turning_back_to_upright_takes_the_property_out() {
+        let turned = Xmp {
+            orientation: Orientation::Rotate90Cw,
+            ..Default::default()
+        };
+
+        let written = updated(None, &turned);
+        let back = Xmp::default();
+        let again = updated(Some(&written), &back);
+
+        assert!(!again.contains("tiff:Orientation"), "{again}");
+        assert_eq!(read(&again).unwrap(), back);
+    }
+
     #[test]
     fn a_label_and_a_pick_round_trip() {
         let marked = Xmp {
@@ -589,6 +660,7 @@ mod tests {
             label: Some("Green".to_string()),
             keywords: vec!["Keeper".to_string()],
             hierarchy: Vec::new(),
+            ..Default::default()
         };
 
         let written = updated(None, &marked);

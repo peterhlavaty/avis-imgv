@@ -848,6 +848,7 @@ impl App {
             Command::SetFlag(flag) => self.flag(flag),
             Command::SetLabel(index) => self.label(index),
             Command::ToggleAdvance => self.advancing = !self.advancing,
+            Command::Turn(clockwise) => self.turn(clockwise),
             Command::Delete => self.delete_open_image(false),
             Command::DeletePermanently => self.delete_open_image(true),
             Command::MoveTo => self.send_somewhere(Errand::Move),

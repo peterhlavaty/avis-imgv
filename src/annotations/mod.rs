@@ -128,6 +128,21 @@ impl AnnotationStore {
         })
     }
 
+    /// Turns the photograph a quarter, and writes that to the sidecar.
+    ///
+    /// Never to the photograph. It is the most-expected verb after delete and
+    /// the one most often implemented by rewriting the file — which loses a
+    /// raw file outright and costs a JPEG a generation of quality, and which
+    /// the user did not ask for and is not told about. What is written here is
+    /// an orientation beside the rating, and the camera's own is left where it
+    /// is.
+    pub fn turn(&mut self, image: &Path, clockwise: bool) -> bool {
+        self.edit(image, |annotations| {
+            annotations.orientation = annotations.orientation.turned(clockwise);
+            true
+        })
+    }
+
     /// Takes the colour label off, whatever it was.
     pub fn clear_label(&mut self, image: &Path) -> bool {
         self.edit(image, |annotations| annotations.label.take().is_some())

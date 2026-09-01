@@ -53,6 +53,22 @@ struct Upload<'a> {
 }
 
 impl GpuTexture {
+    /// Turns what is already on the card, without decoding anything again.
+    ///
+    /// A rotation is written to the sidecar and read back by the decoder, so
+    /// the lasting answer arrives the next time this photograph is decoded.
+    /// This is the same answer, applied now: a quarter turn is four corners
+    /// handed to the rasteriser in a different order, and waiting three
+    /// hundred milliseconds for a sixty-megapixel raw to come round again
+    /// before the picture moves is not an answer at all.
+    pub fn turn(&mut self, extra: Orientation) {
+        self.orientation = self.orientation.then(extra);
+
+        if extra.transposes() {
+            self.size = Vec2::new(self.size.y, self.size.x);
+        }
+    }
+
     /// Whether these texels are the image itself rather than a reduced copy.
     pub fn is_full(&self) -> bool {
         self.resolution >= 1.0
@@ -133,6 +149,13 @@ impl GpuCache {
 
     pub fn get(&self, index: usize) -> Option<&GpuTexture> {
         self.entries.get(&index)
+    }
+
+    /// Turns whatever is resident at `index`, if anything is.
+    pub fn turn(&mut self, index: usize, extra: Orientation) {
+        if let Some(texture) = self.entries.get_mut(&index) {
+            texture.turn(extra);
+        }
     }
 
     pub fn contains(&self, index: usize) -> bool {

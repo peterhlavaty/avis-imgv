@@ -13,6 +13,8 @@ pub mod write;
 
 use quick_xml::name::ResolveResult;
 
+use crate::metadata::Orientation;
+
 pub use read::read;
 pub use write::{update, MARKER};
 
@@ -28,6 +30,9 @@ pub const NS_DIGIKAM: &str = "http://www.digikam.org/ns/1.0/";
 /// Lightroom's namespace, which is where `hierarchicalSubject` lives — and
 /// where darktable, digiKam, Bridge and exiftool all look for it.
 pub const NS_LIGHTROOM: &str = "http://ns.adobe.com/lightroom/1.0/";
+
+/// Where the orientation lives, in a sidecar as in a file.
+pub const NS_TIFF: &str = "http://ns.adobe.com/tiff/1.0/";
 
 /// What separates the levels of a hierarchical keyword.
 ///
@@ -45,6 +50,8 @@ pub enum Namespace {
     DigiKam,
     /// Lightroom's, which is where hierarchical keywords live.
     Lightroom,
+    /// The one the orientation is in, which is what a turn is written to.
+    Tiff,
     Other,
 }
 
@@ -59,6 +66,7 @@ pub fn namespace_of(resolved: &ResolveResult<'_>) -> Namespace {
         NS_DC => Namespace::Dc,
         NS_RDF => Namespace::Rdf,
         NS_DIGIKAM => Namespace::DigiKam,
+        NS_TIFF => Namespace::Tiff,
         NS_LIGHTROOM => Namespace::Lightroom,
         _ => Namespace::Other,
     }
@@ -216,6 +224,19 @@ pub struct Xmp {
     /// The leaves, which is what `dc:subject` holds and what every program
     /// that does not know about hierarchies reads.
     pub keywords: Vec<String>,
+    /// How the photograph is to be turned, on top of what the camera said.
+    ///
+    /// A turn belongs in the sidecar and never in the photograph. nomacs #799
+    /// is the angriest issue in the whole corpus precisely because that viewer
+    /// implements rotation by rewriting the file — "the file on disk is
+    /// silently modified… all without the knowledge or consent of the user".
+    /// A raw file cannot be rewritten at all without losing something, and a
+    /// JPEG re-encoded is a JPEG made worse.
+    ///
+    /// Written as `tiff:Orientation`, which is where every program that reads
+    /// a sidecar looks for it, and composed with the camera's before anything
+    /// is drawn.
+    pub orientation: Orientation,
     /// The same keywords with their paths, as `Places|Slovakia|Tatras`.
     ///
     /// Kept beside the flat list rather than instead of it, because that is

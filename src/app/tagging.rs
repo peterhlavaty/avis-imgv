@@ -55,6 +55,30 @@ impl App {
         });
     }
 
+    /// Turns whatever is being marked a quarter.
+    ///
+    /// Through the same path as a star or a flag, so it takes the selection
+    /// with it, writes to both halves of a raw-and-JPEG pair, and is one step
+    /// of the undo journal however many photographs it touched.
+    pub(super) fn turn(&mut self, clockwise: bool) {
+        let paths = self.marked_paths();
+
+        self.mark(move |store, path| {
+            store.turn(path, clockwise);
+        });
+
+        // What is on the card is turned as well, so the picture moves now
+        // rather than when it is next decoded. The sidecar is the lasting
+        // answer and the decoder reads it; this is the same answer, applied
+        // without waiting three hundred milliseconds for a raw file.
+        for path in &paths {
+            for path in self.with_partners(path) {
+                self.image_view.turn(&path, clockwise);
+                self.grid_view.turn(&path, clockwise);
+            }
+        }
+    }
+
     /// Whether the photograph the others follow already carries something.
     ///
     /// Reads from the disk if it has to, because the answer decides what the

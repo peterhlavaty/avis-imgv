@@ -136,6 +136,39 @@ mod tests {
         }
     }
 
+    /// The whole point of writing a turn to a sidecar: the photograph is not
+    /// touched. nomacs #799 is the angriest issue in the corpus because that
+    /// viewer rewrites the file — "the file on disk is silently modified… all
+    /// without the knowledge or consent of the user" — and a raw file rewritten
+    /// is a raw file lost.
+    #[test]
+    fn turning_a_photograph_does_not_touch_the_photograph() {
+        let dir = temp_dir("turning-leaves-the-file-alone");
+        let image = dir.join("DSCF0001.JPG");
+
+        let before = b"not really a JPEG, but bytes are bytes".to_vec();
+        std::fs::write(&image, &before).unwrap();
+
+        let turned = Xmp {
+            orientation: crate::metadata::Orientation::Rotate90Cw,
+            ..Xmp::default()
+        };
+
+        write(&image, &turned).unwrap();
+
+        assert_eq!(
+            std::fs::read(&image).unwrap(),
+            before,
+            "the photograph itself was written to"
+        );
+        assert_eq!(
+            read(&image).map(|xmp| xmp.orientation),
+            Some(turned.orientation)
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// A path built with the separator of the host platform.
     fn photos(name: &str) -> PathBuf {
         PathBuf::from("photos").join(name)

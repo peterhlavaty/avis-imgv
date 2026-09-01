@@ -174,6 +174,20 @@ pub fn default_sc_filmstrip() -> Shortcut {
 }
 /// `Ctrl + G` for grouping, which is what Lightroom and Bridge both use for
 /// making a stack.
+/// The two keys that turn a photograph.
+///
+/// `[` and `]`, which is what Lightroom and Photoshop use and what a
+/// photographer's hands already know. Both are bindings rather than bare keys,
+/// which matters more here than usual: on the layouts where a bracket needs
+/// AltGr they are exactly the sort of key that has to be moved.
+pub fn default_sc_turn_left() -> Shortcut {
+    Shortcut::new("OpenBracket", &[])
+}
+
+pub fn default_sc_turn_right() -> Shortcut {
+    Shortcut::new("CloseBracket", &[])
+}
+
 pub fn default_sc_stacks() -> Shortcut {
     Shortcut::new("g", &[MOD_CTRL])
 }

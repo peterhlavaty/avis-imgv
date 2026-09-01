@@ -359,6 +359,16 @@ pub const VERBS: &[Choice] = &[
         sentence: "",
     },
     Choice {
+        value: "turn_left",
+        label: "Turn anticlockwise",
+        sentence: "",
+    },
+    Choice {
+        value: "turn_right",
+        label: "Turn clockwise",
+        sentence: "",
+    },
+    Choice {
         value: "keep",
         label: "Mark as a keeper",
         sentence: "",

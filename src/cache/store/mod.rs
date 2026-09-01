@@ -365,6 +365,29 @@ impl ImageStore {
     }
 
     /// Forgets everything cached about one image so it is decoded again.
+    /// Turns the photograph at `index` on the card, both sizes of it.
+    ///
+    /// The turn itself lives in the sidecar and reaches the decoder from
+    /// there; this is the picture moving now rather than when it is next
+    /// decoded. A photograph that is not resident needs nothing done to it:
+    /// whenever it is decoded, the sidecar will already say so.
+    pub fn turn(&mut self, index: usize, clockwise: bool) {
+        self.turn_by(
+            index,
+            if clockwise {
+                crate::metadata::Orientation::Rotate90Cw
+            } else {
+                crate::metadata::Orientation::Rotate270Cw
+            },
+        );
+    }
+
+    /// The same, by any orientation. Undo takes the difference between two.
+    pub fn turn_by(&mut self, index: usize, extra: crate::metadata::Orientation) {
+        self.gpu.turn(index, extra);
+        self.previews.turn(index, extra);
+    }
+
     pub fn reload(&mut self, index: usize) {
         self.ram.remove(index);
         self.full.remove(index);
