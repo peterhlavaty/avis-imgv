@@ -56,6 +56,10 @@ impl App {
             cursor: self.image_view.selected_index(),
             // Carried, not compared: it names the photograph a row moved to.
             showing: showing.as_deref().unwrap_or(&self.base_path),
+            // Also carried: the percentage the bottom bar shows, which is what
+            // anybody means by how far in they are and cannot be worked out
+            // from the zoom alone.
+            zoom_percent: self.image_view.zoom_percent(),
             place: self.image_view.place(),
             columns: self.grid_view.columns(),
             flattened: self.flattened,

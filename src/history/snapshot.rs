@@ -78,6 +78,12 @@ impl Panels {
 /// things that are not scalars rather than copies of them.
 pub struct Watched<'a> {
     pub folder: &'a Path,
+    /// How large the photograph is drawn, as the bottom bar says it.
+    ///
+    /// Carried and not compared, like the name: it is a function of the zoom
+    /// and of the window, and a window resized under a viewport nobody touched
+    /// would otherwise be a row of history.
+    pub zoom_percent: f32,
     /// The photograph on screen.
     ///
     /// Deliberately not compared: it is a function of the cursor, and comparing
@@ -120,6 +126,7 @@ impl Watched<'_> {
         Snapshot {
             folder: self.folder.to_path_buf(),
             showing: self.showing.to_path_buf(),
+            zoom_percent: self.zoom_percent,
             mode: self.mode,
             panels: self.panels,
             cursor: self.cursor,
@@ -139,6 +146,8 @@ pub struct Snapshot {
     pub folder: PathBuf,
     /// The photograph that was on screen. Not compared; see [`Watched`].
     pub showing: PathBuf,
+    /// How large it was drawn. Not compared; see [`Watched`].
+    pub zoom_percent: f32,
     pub mode: Mode,
     pub panels: Panels,
     pub cursor: usize,
@@ -176,7 +185,11 @@ impl Snapshot {
             });
         }
         if self.place != now.place {
-            changes.push(Change::Place(self.place, now.place));
+            changes.push(Change::Place {
+                from: self.place,
+                to: now.place,
+                percent: now.zoom_percent,
+            });
         }
         if self.columns != now.columns {
             changes.push(Change::Columns(self.columns, now.columns));
@@ -223,7 +236,17 @@ pub enum Change {
         to: usize,
         name: String,
     },
-    Place(Place, Place),
+    /// Where the photograph was zoomed and panned to, and how large that is.
+    ///
+    /// The percentage is what the bottom bar says, which is the number anybody
+    /// means by "how far in am I". It cannot be worked out from `Place` alone:
+    /// that is a multiple of the fitted size, and what the fitted size is
+    /// depends on the window.
+    Place {
+        from: Place,
+        to: Place,
+        percent: f32,
+    },
     Columns(usize, usize),
     Flattened(bool, bool),
     Advancing(bool, bool),
@@ -250,7 +273,7 @@ impl Change {
             Change::Mode(..) => Slot::Mode,
             Change::Panels(..) => Slot::Panels,
             Change::Cursor { .. } => Slot::Cursor,
-            Change::Place(..) => Slot::Place,
+            Change::Place { .. } => Slot::Place,
             Change::Columns(..) => Slot::Columns,
             Change::Flattened(..) => Slot::Flattened,
             Change::Advancing(..) => Slot::Advancing,
@@ -296,7 +319,17 @@ impl Change {
                 // came to rest and the only photograph worth naming.
                 name.clone_from(called);
             }
-            (Change::Place(_, to), Change::Place(_, now)) => *to = *now,
+            (
+                Change::Place { to, percent, .. },
+                Change::Place {
+                    to: now,
+                    percent: reached,
+                    ..
+                },
+            ) => {
+                *to = *now;
+                *percent = *reached;
+            }
             (Change::Columns(_, to), Change::Columns(_, now)) => *to = *now,
             (Change::Flattened(_, to), Change::Flattened(_, now)) => *to = *now,
             (Change::Advancing(_, to), Change::Advancing(_, now)) => *to = *now,
@@ -333,12 +366,26 @@ impl Change {
                     false => format!("{way} to {name}"),
                 }
             }
-            Change::Place(from, to) => match to.zoom.partial_cmp(&from.zoom) {
-                Some(std::cmp::Ordering::Greater) => "Zoomed in".to_string(),
-                Some(std::cmp::Ordering::Less) => "Zoomed out".to_string(),
-                _ => "Panned".to_string(),
+            Change::Place { from, to, percent } => {
+                let way = match to.zoom.partial_cmp(&from.zoom) {
+                    Some(std::cmp::Ordering::Greater) => "Zoomed in",
+                    Some(std::cmp::Ordering::Less) => "Zoomed out",
+                    // Same zoom, so the pan is what moved.
+                    _ => return "Panned".to_string(),
+                };
+
+                match *percent > 0.0 {
+                    true => format!("{way} to {percent:.0}%"),
+                    // Before the first frame has been drawn there is no
+                    // geometry to ask, and a percentage of nothing would be a
+                    // lie rather than a gap.
+                    false => way.to_string(),
+                }
+            }
+            Change::Columns(_, to) => match to {
+                1 => "Showed one column".to_string(),
+                many => format!("Showed {many} columns"),
             },
-            Change::Columns(_, to) => format!("{to} columns"),
             Change::Flattened(_, true) => "Read the sub-folders too".to_string(),
             Change::Flattened(_, false) => "Read this folder only".to_string(),
             Change::Advancing(_, true) => "Moved on after every mark".to_string(),
@@ -348,12 +395,12 @@ impl Change {
                 1 => "Picked one out".to_string(),
                 many => format!("Picked {many} out"),
             },
-            Change::Narrowing(..) => "Narrowed the folder".to_string(),
+            Change::Narrowing(from, to) => narrowing(from, to),
             Change::Settings(from, to) => match crate::config::registry::rows()
                 .iter()
                 .find(|row| row.access.differs(from, to))
             {
-                Some(row) => format!("Changed {}", row.label.to_lowercase()),
+                Some(row) => setting(row, to),
                 None => "Changed a setting".to_string(),
             },
         }
@@ -369,6 +416,112 @@ impl std::fmt::Debug for Change {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}({})", self.slot(), self.label())
     }
+}
+
+/// What the folder was narrowed or ordered by.
+///
+/// "Narrowed the folder" was true of eight different rules and useful for
+/// none of them. Compared field by field, in the order somebody would think of
+/// them, and the first difference is the row: one gesture changes one rule.
+fn narrowing(from: &Narrowing, to: &Narrowing) -> String {
+    if from.suspended != to.suspended {
+        return match to.suspended {
+            true => "Showed everything, keeping the rules".to_string(),
+            false => "Put the rules back".to_string(),
+        };
+    }
+
+    if from.sort != to.sort || from.descending != to.descending {
+        let backwards = match to.descending {
+            true => ", backwards",
+            false => "",
+        };
+
+        return format!("Sorted by {}{backwards}", to.sort.label().to_lowercase());
+    }
+
+    let (was, now) = (&from.rules, &to.rules);
+
+    if was.min_stars != now.min_stars || was.max_stars != now.max_stars {
+        return match (now.min_stars, now.max_stars) {
+            (0, most) if most >= crate::metadata::xmp::MAX_RATING as u8 => {
+                "Showed any rating".to_string()
+            }
+            (least, most) if least == most => format!("Showed only {least} stars"),
+            (least, most) if most >= crate::metadata::xmp::MAX_RATING as u8 => {
+                format!("Showed {least} stars and up")
+            }
+            (least, most) => format!("Showed {least} to {most} stars"),
+        };
+    }
+
+    if was.flag != now.flag {
+        return format!("Showed {}", now.flag.label().to_lowercase());
+    }
+
+    if was.label != now.label {
+        return format!("Showed {}", now.label.label().to_lowercase());
+    }
+
+    if was.name_contains != now.name_contains {
+        return match now.name_contains.is_empty() {
+            true => "Stopped searching the names".to_string(),
+            false => format!("Searched the names for {}", now.name_contains),
+        };
+    }
+
+    if was.keyword != now.keyword {
+        return match now.keyword.is_empty() {
+            true => "Stopped narrowing by keyword".to_string(),
+            false => format!("Showed only the keyword {}", now.keyword),
+        };
+    }
+
+    if was.extensions != now.extensions {
+        return match now.extensions.is_empty() {
+            true => "Showed every kind of file".to_string(),
+            false => format!("Showed only {}", now.extensions),
+        };
+    }
+
+    "Narrowed the folder".to_string()
+}
+
+/// What a settings row was changed *to*, not merely that it changed.
+///
+/// Read back through the same accessor the window writes with, so a row says
+/// the value the file now holds. Anything with no plain reading — a set of
+/// flags, a list of destinations — says only that it moved, which is honest.
+fn setting(row: &crate::config::registry::Row, to: &Config) -> String {
+    let label = row.label.to_lowercase();
+
+    if let Some(on) = row.access.boolean(to) {
+        return match on {
+            true => format!("Turned on {label}"),
+            false => format!("Turned off {label}"),
+        };
+    }
+
+    if let Some(value) = row.access.int(to) {
+        return format!("Set {label} to {value}");
+    }
+
+    if let Some(value) = row.access.float(to) {
+        return format!("Set {label} to {value:.2}");
+    }
+
+    if let Some(choice) = row.access.choice(to) {
+        return format!("Set {label} to {}", choice.replace('_', " "));
+    }
+
+    if let Some(text) = row.access.text(to) {
+        return match text.is_empty() {
+            true => format!("Cleared {label}"),
+            false => format!("Set {label} to {text}"),
+        };
+    }
+
+    format!("Changed {label}")
 }
 
 /// What a photograph is called, which is all a row needs of a path.
@@ -404,6 +557,7 @@ mod tests {
         Snapshot {
             folder: PathBuf::from("/photos"),
             showing: PathBuf::from("/photos/DSC0001.jpg"),
+            zoom_percent: 100.0,
             mode: Mode::Image,
             panels: Panels::default(),
             cursor: 0,
@@ -414,6 +568,11 @@ mod tests {
             selection: Selection::default(),
             narrowing: Narrowing::default(),
         }
+    }
+
+    /// A change of zoom or pan, with the percentage it came to rest at.
+    fn zoomed(from: Place, to: Place, percent: f32) -> Change {
+        Change::Place { from, to, percent }
     }
 
     /// A move of the cursor, named by where it ended up.
@@ -429,6 +588,7 @@ mod tests {
         Watched {
             folder: &of.folder,
             showing: &of.showing,
+            zoom_percent: of.zoom_percent,
             mode: of.mode,
             panels: of.panels,
             cursor: of.cursor,
@@ -613,9 +773,94 @@ mod tests {
             pan: Vec2::new(10.0, 0.0),
         };
 
-        assert_eq!(Change::Place(out, close).label(), "Zoomed in");
-        assert_eq!(Change::Place(close, out).label(), "Zoomed out");
-        assert_eq!(Change::Place(out, moved).label(), "Panned");
+        assert_eq!(zoomed(out, close, 250.0).label(), "Zoomed in to 250%");
+        assert_eq!(zoomed(close, out, 70.4).label(), "Zoomed out to 70%");
+        assert_eq!(zoomed(out, moved, 100.0).label(), "Panned");
+
+        // Before the first frame there is no geometry to ask, and a percentage
+        // of nothing would be a lie rather than a gap.
+        assert_eq!(zoomed(out, close, 0.0).label(), "Zoomed in");
+    }
+
+    /// "Narrowed the folder" was true of eight different rules and useful for
+    /// none of them.
+    #[test]
+    fn narrowing_says_which_rule_changed() {
+        use crate::view::narrow::{FlagRule, SortBy};
+
+        let plain = Narrowing::default();
+
+        let mut suspended = plain.clone();
+        suspended.suspended = true;
+        assert_eq!(
+            narrowing(&plain, &suspended),
+            "Showed everything, keeping the rules"
+        );
+        assert_eq!(narrowing(&suspended, &plain), "Put the rules back");
+
+        let mut sorted = plain.clone();
+        sorted.sort = SortBy::Name;
+        sorted.descending = true;
+        assert!(
+            narrowing(&plain, &sorted).starts_with("Sorted by "),
+            "{}",
+            narrowing(&plain, &sorted)
+        );
+        assert!(narrowing(&plain, &sorted).ends_with(", backwards"));
+
+        let mut stars = plain.clone();
+        stars.rules.min_stars = 3;
+        assert_eq!(narrowing(&plain, &stars), "Showed 3 stars and up");
+
+        let mut exact = plain.clone();
+        exact.rules.min_stars = 2;
+        exact.rules.max_stars = 2;
+        assert_eq!(narrowing(&plain, &exact), "Showed only 2 stars");
+
+        let mut flagged = plain.clone();
+        flagged.rules.flag = FlagRule::Picked;
+        assert!(narrowing(&plain, &flagged).starts_with("Showed "));
+
+        let mut searched = plain.clone();
+        searched.rules.name_contains = "tatra".to_string();
+        assert_eq!(narrowing(&plain, &searched), "Searched the names for tatra");
+        assert_eq!(narrowing(&searched, &plain), "Stopped searching the names");
+
+        let mut keyword = plain.clone();
+        keyword.rules.keyword = "Tatras".to_string();
+        assert_eq!(
+            narrowing(&plain, &keyword),
+            "Showed only the keyword Tatras"
+        );
+    }
+
+    /// Nothing to point at is still a sentence rather than an empty row.
+    #[test]
+    fn a_narrowing_with_nothing_to_name_still_says_something() {
+        let plain = Narrowing::default();
+
+        assert_eq!(narrowing(&plain, &plain), "Narrowed the folder");
+    }
+
+    /// A row says the value the setting was changed *to*, read back through
+    /// the same accessor the window writes with.
+    #[test]
+    fn a_setting_says_what_it_was_set_to() {
+        let was = Config::default();
+
+        let mut counted = Config::default();
+        counted.history.remember = 25;
+        assert_eq!(
+            Change::Settings(Box::new(was.clone()), Box::new(counted)).label(),
+            "Set actions to remember to 25"
+        );
+
+        let mut switched = Config::default();
+        switched.history.panel_visible = true;
+        assert_eq!(
+            Change::Settings(Box::new(was.clone()), Box::new(switched)).label(),
+            "Turned on show the history panel"
+        );
     }
 
     /// A settings row names the field that moved, off the registry, so the
@@ -628,6 +873,9 @@ mod tests {
 
         let change = Change::Settings(Box::new(was), Box::new(now));
 
-        assert_eq!(change.label(), "Changed open where the last run left off");
+        assert_eq!(
+            change.label(),
+            "Turned off open where the last run left off"
+        );
     }
 }

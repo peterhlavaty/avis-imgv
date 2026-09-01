@@ -52,7 +52,7 @@ impl App {
                 self.history_panel_visible = history;
             }
             Change::Cursor { from, to, .. } => self.go_to(*pick(way, from, to)),
-            Change::Place(from, to) => self.image_view.set_place(*pick(way, from, to)),
+            Change::Place { from, to, .. } => self.image_view.set_place(*pick(way, from, to)),
             Change::Columns(from, to) => self.grid_view.set_columns(*pick(way, from, to)),
             Change::Flattened(from, to) => self.set_flattened(*pick(way, from, to)),
             Change::Advancing(from, to) => self.advancing = *pick(way, from, to),

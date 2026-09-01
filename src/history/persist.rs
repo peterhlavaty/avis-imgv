@@ -354,10 +354,7 @@ mod tests {
 
         assert_eq!(back.len(), 2, "both rows, including the one taken back");
         assert_eq!(back.cursor(), first);
-        assert_eq!(
-            back.entry(first).unwrap().label,
-            "Sent 1 file(s) to the bin"
-        );
+        assert_eq!(back.entry(first).unwrap().label, "Sent a.jpg to the bin");
     }
 
     fn binned(name: &str) -> Deed {

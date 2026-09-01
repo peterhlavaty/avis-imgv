@@ -107,19 +107,20 @@ impl Step {
     /// What running this would do, in a sentence, so nothing happens silently.
     pub fn describe(&self, way: Way) -> String {
         match (self, way) {
-            (Step::Moved(moves), Way::Back) => format!("put {} file(s) back", moves.len()),
-            (Step::Moved(moves), Way::Forward) => format!("move {} file(s) again", moves.len()),
-            (Step::Copied { made, .. }, Way::Back) => {
-                format!("take away {} copied file(s)", made.len())
-            }
+            (Step::Moved(moves), Way::Back) => format!("put {} back", files(moves.len())),
+            (Step::Moved(moves), Way::Forward) => format!("move {} again", files(moves.len())),
+            (Step::Copied { made, .. }, Way::Back) => match made.len() {
+                1 => "take away the copy".to_string(),
+                many => format!("take away the {many} copies"),
+            },
             (Step::Copied { pairs, .. }, Way::Forward) => {
-                format!("copy {} file(s) again", pairs.len())
+                format!("copy {} again", files(pairs.len()))
             }
             (Step::Binned(binned), Way::Back) => {
-                format!("bring {} file(s) back from the bin", binned.len())
+                format!("bring {} back from the bin", files(binned.len()))
             }
             (Step::Binned(binned), Way::Forward) => {
-                format!("send {} file(s) to the bin again", binned.len())
+                format!("send {} to the bin again", files(binned.len()))
             }
             (Step::Marked { image, .. }, way) => {
                 let name = image.file_name().unwrap_or_default().to_string_lossy();
@@ -150,13 +151,25 @@ impl Step {
     /// them would be a list of the wrong history.
     pub fn label(&self) -> String {
         match self {
-            Step::Moved(moves) => format!("Moved {} file(s)", moves.len()),
-            Step::Copied { pairs, .. } => format!("Copied {} file(s)", pairs.len()),
-            Step::Binned(binned) => format!("Sent {} file(s) to the bin", binned.len()),
-            Step::Marked { image, .. } => format!(
-                "Marked {}",
-                image.file_name().unwrap_or_default().to_string_lossy()
-            ),
+            Step::Moved(moves) => match (moves.len(), moves.first()) {
+                (1, Some((now, _))) => format!("Moved {}{}", name_of(now), into(now)),
+                (many, Some((now, _))) => format!("Moved {}{}", files(many), into(now)),
+                _ => "Moved nothing".to_string(),
+            },
+            Step::Copied { pairs, .. } => match (pairs.len(), pairs.first()) {
+                (1, Some((from, to))) => format!("Copied {}{}", name_of(from), into(to)),
+                (many, Some((_, to))) => format!("Copied {}{}", files(many), into(to)),
+                _ => "Copied nothing".to_string(),
+            },
+            Step::Binned(binned) => match (binned.len(), binned.first()) {
+                (1, Some(one)) => format!("Sent {} to the bin", name_of(one)),
+                (many, _) => format!("Sent {} to the bin", files(many)),
+            },
+            Step::Marked {
+                image,
+                before,
+                after,
+            } => marked(image, before, after),
             Step::Many(steps) => match steps.first() {
                 Some(first) if steps.len() == 1 => first.label(),
                 Some(first) => format!("{} and {} more", first.label(), steps.len() - 1),
@@ -229,6 +242,100 @@ fn with_sidecars(image: &Path) -> Vec<PathBuf> {
     let mut paths = vec![image.to_path_buf()];
     paths.extend(crate::annotations::sidecar::candidates(image));
     paths
+}
+
+/// A count of files, in English rather than in "file(s)".
+pub fn files(count: usize) -> String {
+    match count {
+        1 => "1 file".to_string(),
+        many => format!("{many} files"),
+    }
+}
+
+/// What a file is called, which is all a row needs of a path.
+fn name_of(path: &Path) -> String {
+    path.file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into()
+}
+
+/// " to Selects", or nothing when the folder cannot be named.
+///
+/// Where something went is half of what a row about moving it says; the count
+/// alone leaves "Moved 3 files" and no way to find them again.
+fn into(destination: &Path) -> String {
+    match destination.parent().and_then(Path::file_name) {
+        Some(folder) => format!(" to {}", folder.to_string_lossy()),
+        None => String::new(),
+    }
+}
+
+/// What actually changed about a photograph's marks.
+///
+/// "Marked DSC0001.jpg" says a mark happened and nothing about which, in a
+/// program whose whole business is marks. The two documents are both here, so
+/// the row can say what it was — and they are compared in the order somebody
+/// would think of them, one thing per row, because a keystroke changes one.
+fn marked(image: &Path, before: &Xmp, after: &Xmp) -> String {
+    let name = name_of(image);
+
+    if before.rating != after.rating {
+        return match after.rating {
+            crate::metadata::xmp::REJECTED => format!("Rejected {name}"),
+            0 => format!("Took the stars off {name}"),
+            1 => format!("Gave {name} one star"),
+            stars => format!("Gave {name} {stars} stars"),
+        };
+    }
+
+    if before.picked != after.picked {
+        return match after.picked {
+            true => format!("Kept {name}"),
+            false => format!("Took the keep mark off {name}"),
+        };
+    }
+
+    if before.label != after.label {
+        return match &after.label {
+            Some(colour) => format!("Labelled {name} {}", colour.to_lowercase()),
+            None => format!("Took the colour off {name}"),
+        };
+    }
+
+    if before.orientation != after.orientation {
+        return format!("Turned {name}");
+    }
+
+    // The hierarchy is the fuller of the two lists and the one the flat
+    // keywords are derived from, so it is the one worth naming.
+    let added: Vec<&String> = after
+        .hierarchy
+        .iter()
+        .filter(|tag| !before.hierarchy.contains(tag))
+        .collect();
+
+    if let Some(first) = added.first() {
+        return match added.len() {
+            1 => format!("Tagged {name} {}", crate::metadata::xmp::leaf_of(first)),
+            many => format!("Tagged {name} with {many} keywords"),
+        };
+    }
+
+    let gone: Vec<&String> = before
+        .hierarchy
+        .iter()
+        .filter(|tag| !after.hierarchy.contains(tag))
+        .collect();
+
+    if let Some(first) = gone.first() {
+        return match gone.len() {
+            1 => format!("Took {} off {name}", crate::metadata::xmp::leaf_of(first)),
+            many => format!("Took {many} keywords off {name}"),
+        };
+    }
+
+    format!("Marked {name}")
 }
 
 /// What running a step actually did, for the caller to report and act on.
@@ -589,7 +696,7 @@ mod tests {
         ]);
 
         let said = step.describe(Way::Back);
-        assert!(said.starts_with("take away 1 copied file(s)"), "{said}");
+        assert!(said.starts_with("take away the copy"), "{said}");
         assert!(said.contains("1 more"), "{said}");
     }
 
@@ -634,6 +741,130 @@ mod tests {
                 "{step:?} watches no sidecar"
             );
         }
+    }
+
+    /// The one that mattered: "Marked DSC0001.jpg" said a mark had happened
+    /// and nothing about which, in a program whose whole business is marks.
+    #[test]
+    fn a_mark_says_what_the_mark_was() {
+        let image = PathBuf::from("/photos/DSC0001.jpg");
+
+        let starred = Xmp {
+            rating: 3,
+            ..Xmp::default()
+        };
+        let rejected = Xmp {
+            rating: crate::metadata::xmp::REJECTED,
+            ..Xmp::default()
+        };
+        let one = Xmp {
+            rating: 1,
+            ..Xmp::default()
+        };
+        let kept = Xmp {
+            picked: true,
+            ..Xmp::default()
+        };
+        let red = Xmp {
+            label: Some("Red".to_string()),
+            ..Xmp::default()
+        };
+        let tagged = Xmp {
+            hierarchy: vec!["Places|Slovakia|Tatras".to_string()],
+            ..Xmp::default()
+        };
+        let turned = Xmp {
+            orientation: crate::metadata::Orientation::Rotate90Cw,
+            ..Xmp::default()
+        };
+
+        for (before, after, expected) in [
+            (Xmp::default(), starred.clone(), "Gave DSC0001.jpg 3 stars"),
+            (Xmp::default(), one, "Gave DSC0001.jpg one star"),
+            (
+                starred.clone(),
+                Xmp::default(),
+                "Took the stars off DSC0001.jpg",
+            ),
+            (Xmp::default(), rejected, "Rejected DSC0001.jpg"),
+            (Xmp::default(), kept, "Kept DSC0001.jpg"),
+            (Xmp::default(), red.clone(), "Labelled DSC0001.jpg red"),
+            (red, Xmp::default(), "Took the colour off DSC0001.jpg"),
+            (Xmp::default(), turned, "Turned DSC0001.jpg"),
+            (Xmp::default(), tagged.clone(), "Tagged DSC0001.jpg Tatras"),
+            (tagged, Xmp::default(), "Took Tatras off DSC0001.jpg"),
+        ] {
+            let step = Step::Marked {
+                image: image.clone(),
+                before: Box::new(before),
+                after: Box::new(after),
+            };
+
+            assert_eq!(step.label(), expected);
+        }
+    }
+
+    /// A mark that changed nothing the row can name still says something
+    /// rather than an empty line.
+    #[test]
+    fn a_mark_with_nothing_to_say_still_names_the_photograph() {
+        let step = Step::Marked {
+            image: PathBuf::from("/photos/DSC0001.jpg"),
+            before: Box::new(Xmp::default()),
+            after: Box::new(Xmp::default()),
+        };
+
+        assert_eq!(step.label(), "Marked DSC0001.jpg");
+    }
+
+    /// Where something went is half of what a row about moving it says.
+    #[test]
+    fn moving_and_copying_say_where_to() {
+        let one = Step::Moved(vec![(
+            PathBuf::from("/photos/Selects/a.jpg"),
+            PathBuf::from("/photos/a.jpg"),
+        )]);
+        assert_eq!(one.label(), "Moved a.jpg to Selects");
+
+        let several = Step::Moved(vec![
+            (
+                PathBuf::from("/photos/Selects/a.jpg"),
+                PathBuf::from("/photos/a.jpg"),
+            ),
+            (
+                PathBuf::from("/photos/Selects/b.jpg"),
+                PathBuf::from("/photos/b.jpg"),
+            ),
+        ]);
+        assert_eq!(several.label(), "Moved 2 files to Selects");
+
+        let copied = Step::Copied {
+            pairs: vec![(
+                PathBuf::from("/photos/a.jpg"),
+                PathBuf::from("/photos/To edit/a.jpg"),
+            )],
+            made: vec![PathBuf::from("/photos/To edit/a.jpg")],
+        };
+        assert_eq!(copied.label(), "Copied a.jpg to To edit");
+    }
+
+    #[test]
+    fn binning_one_names_it_and_binning_several_counts_them() {
+        assert_eq!(
+            Step::Binned(vec![PathBuf::from("/photos/a.jpg")]).label(),
+            "Sent a.jpg to the bin"
+        );
+        assert_eq!(
+            Step::Binned(vec![PathBuf::from("a"), PathBuf::from("b")]).label(),
+            "Sent 2 files to the bin"
+        );
+    }
+
+    /// One of a thing is one of it, not "1 file(s)".
+    #[test]
+    fn one_file_is_not_files() {
+        assert_eq!(files(1), "1 file");
+        assert_eq!(files(3), "3 files");
     }
 
     #[test]

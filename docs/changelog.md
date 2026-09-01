@@ -2,6 +2,19 @@
 
 ## 2026-09-01
 
+- **Every row in the history says what it was, not what kind of thing it
+  was.** *Marked DSC0142.jpg* is now *Gave DSC0142.jpg 3 stars*, or *Rejected*,
+  *Kept*, *Labelled red*, *Turned*, *Tagged Tatras* — the two documents are
+  both in the row, so it can say which of them it was. *Zoomed in* is *Zoomed
+  in to 250%*, the percentage the bottom bar shows, which cannot be worked out
+  from the zoom alone because it depends on the window. *Moved 3 files* says
+  where to. *Narrowed the folder* was true of eight different rules and is now
+  the rule that changed: *Showed 3 stars and up*, *Sorted by capture time,
+  backwards*, *Searched the names for tatra*. And a settings row says the value
+  rather than the field: *Set actions to remember to 25*, *Turned off open
+  where the last run left off*.
+- **"1 file(s)" is "1 file", and 3 of them are "3 files".** In the rows and in
+  the question a bulk undo asks.
 - **A row that moved between photographs says which one.** *Went forward* on
   its own was no help in a list of them; it reads *Went forward to
   DSC0142.jpg* now, cut off with an ellipsis where the panel is too narrow and

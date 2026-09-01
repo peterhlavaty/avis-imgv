@@ -218,6 +218,15 @@ impl ImageView {
         Place::of(&self.viewport)
     }
 
+    /// How large the photograph is being drawn, as a percentage of its own
+    /// pixels — the number the bottom bar shows.
+    ///
+    /// Nought before the first frame has drawn it, there being no geometry to
+    /// ask yet.
+    pub fn zoom_percent(&self) -> f32 {
+        self.metrics.percentage_zoom
+    }
+
     pub fn set_place(&mut self, place: Place) {
         Viewports::put(&mut self.viewport, place);
     }

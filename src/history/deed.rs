@@ -168,11 +168,8 @@ mod tests {
     fn what_it_was_and_what_undoing_it_would_do_are_different_sentences() {
         let deed = Deed::Files(Step::Binned(vec![PathBuf::from("a")]));
 
-        assert_eq!(deed.label(), "Sent 1 file(s) to the bin");
-        assert_eq!(
-            deed.describe(Way::Back),
-            "bring 1 file(s) back from the bin"
-        );
+        assert_eq!(deed.label(), "Sent a to the bin");
+        assert_eq!(deed.describe(Way::Back), "bring 1 file back from the bin");
     }
 
     #[test]

@@ -455,7 +455,7 @@ mod tests {
         let mut history = History::new();
         let a = history.record(binned("a.jpg")).unwrap();
 
-        assert_eq!(history.entry(a).unwrap().label, "Sent 1 file(s) to the bin");
+        assert_eq!(history.entry(a).unwrap().label, "Sent a.jpg to the bin");
     }
 
     /// A wheel turned twice is one row, and undoing it goes back to where the
