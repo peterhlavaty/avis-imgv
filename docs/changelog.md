@@ -2,6 +2,16 @@
 
 ## 2026-09-01
 
+- **A list long enough to scroll answers the second button again.** A menu
+  opened on whatever the pointer was hovering over, and egui hovers nothing at
+  all while something is being dragged — including the drag-to-scroll surface
+  it lays over a scroll area whose content has outgrown it, which senses drag
+  alone and is therefore marked as dragged the moment *any* button goes down.
+  So every menu inside a list stopped opening on the day the list grew taller
+  than the space it is drawn in. The history panel found it first, at a hundred
+  and sixty-eight rows, with the left button still working and nothing in the
+  code having changed since the week it worked. A menu now opens on the surface
+  the press landed on, which is the question it was asking all along.
 - **Taking hold of a slider does not move it.** The handle can now be grabbed
   where it is and the drag set out from there, which is what a fine rail is
   for; pressing the rail somewhere else still puts the handle there, so the far

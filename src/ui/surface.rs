@@ -175,7 +175,21 @@ pub fn named_menu<R>(
     // On the press, not the release. A drag that begins on this surface and a
     // menu that opens under the pointer are then two different gestures rather
     // than the same one told apart by how long it lasted.
-    let pressed = (response.hovered()
+    //
+    // And where the press landed, rather than what is hovered. egui empties the
+    // hover set while anything at all is being dragged, and a scroll area
+    // whose content has outgrown it registers a drag-to-scroll surface over
+    // the whole of itself, which senses drag alone and is therefore marked as
+    // dragged on the frame *any* button goes down — the second one included.
+    // So every menu inside a list stopped opening on the day the list grew
+    // long enough to scroll, which is a fault that arrives with use rather
+    // than with the code and reads as the button having broken.
+    //
+    // `is_pointer_button_down_on` is the top-most *click*-sensing widget the
+    // press landed on, which is the question a menu is asking, and it answers
+    // no for a disabled panel or a layer under a window in front exactly as
+    // `hovered` does: egui strikes the sense off a widget that is either.
+    let pressed = (response.is_pointer_button_down_on()
         && ui
             .ctx()
             .input(|i| i.pointer.button_pressed(PointerButton::Secondary)))
@@ -351,6 +365,99 @@ mod tests {
 
         assert!(heading < row, "the heading comes first: {drawn:?}");
         assert!(which < row, "and so does which one it is: {drawn:?}");
+    }
+
+    /// The fault this was written for: a menu inside a list stopped opening on
+    /// the day the list grew long enough to scroll.
+    ///
+    /// It reached the history panel first, because that list is the one that
+    /// grows on its own — a hundred and sixty-eight rows after a fortnight —
+    /// and the button had visibly worked the week before. The cause is a
+    /// surface egui adds and nothing here asks for: a scroll area whose
+    /// content has outgrown it registers a drag-to-scroll rectangle over the
+    /// whole of itself, senses drag alone on it, and is therefore *dragged*
+    /// from the frame any button goes down. While something is dragged egui
+    /// hovers nothing else, so every row under the pointer answered no.
+    #[test]
+    fn a_menu_opens_in_a_list_long_enough_to_scroll() {
+        assert!(
+            menu_opened_on_a_right_click(40, true),
+            "a list taller than the space it is drawn in"
+        );
+        assert!(
+            menu_opened_on_a_right_click(3, true),
+            "and one that fits, which is how it looked when it was written"
+        );
+    }
+
+    /// The half of `hovered` worth keeping. A window in front owns the mouse,
+    /// and a panel behind it draws itself disabled — from which no menu opens,
+    /// however the press is read.
+    #[test]
+    fn a_disabled_surface_answers_nothing() {
+        assert!(!menu_opened_on_a_right_click(40, false));
+        assert!(!menu_opened_on_a_right_click(3, false));
+    }
+
+    /// Right-clicks the one surface in a list of `rows` rows, drawn in a panel
+    /// two hundred points tall, and answers whether its menu opened.
+    fn menu_opened_on_a_right_click(rows: usize, enabled: bool) -> bool {
+        let ctx = egui::Context::default();
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 200.0));
+        let mut where_it_is = egui::Rect::ZERO;
+
+        let draw = |ctx: &egui::Context, where_it_is: &mut egui::Rect| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                if !enabled {
+                    ui.disable();
+                }
+
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        for row in 0..rows {
+                            let response = ui.selectable_label(false, format!("row {row}"));
+
+                            if row == 0 {
+                                *where_it_is = response.rect;
+                                menu(ui, &response, Subject::the("A row"), |ui| {
+                                    let _ = ui.button("Do the thing");
+                                });
+                            }
+                        }
+                    });
+            });
+        };
+
+        let input = |events: Vec<egui::Event>| egui::RawInput {
+            screen_rect: Some(screen),
+            events,
+            ..Default::default()
+        };
+
+        // Twice, so that the hit test the press is decided by has a frame of
+        // rectangles behind it.
+        for _ in 0..2 {
+            let _ = ctx.run(input(Vec::new()), |ctx| draw(ctx, &mut where_it_is));
+        }
+
+        let at = where_it_is.center();
+        let moved = || vec![egui::Event::PointerMoved(at)];
+        let _ = ctx.run(input(moved()), |ctx| draw(ctx, &mut where_it_is));
+
+        let mut press = moved();
+        press.push(egui::Event::PointerButton {
+            pos: at,
+            button: PointerButton::Secondary,
+            pressed: true,
+            modifiers: egui::Modifiers::default(),
+        });
+        let _ = ctx.run(input(press), |ctx| draw(ctx, &mut where_it_is));
+
+        // The popup is laid out on the frame after the one that opened it.
+        let output = ctx.run(input(moved()), |ctx| draw(ctx, &mut where_it_is));
+
+        painted(&output).iter().any(|text| text == "Do the thing")
     }
 
     /// Every piece of text the frame painted, in the order it was painted.

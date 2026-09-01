@@ -238,6 +238,18 @@ Leaving the seam for later means the next session pays for it with interest.
 - **Every menu opens on the press**, through `ui::surface`, and ends with the
   settings page that owns it. `Response::context_menu` opens on the release and
   loses the menu to a six-point drag, so it is not used.
+- **A menu opens on the surface the press landed on, not on what is hovered.**
+  egui empties the hover set while anything at all is being dragged, and a
+  scroll area whose content has outgrown it lays a drag-to-scroll rectangle
+  over the whole of itself which senses drag alone — so it counts as dragged
+  from the frame *any* button goes down, the second one included, and every
+  menu inside a list stopped opening on the day the list grew long enough to
+  scroll. A fault that arrives with use rather than with the code, and reads as
+  the button having broken. `Response::is_pointer_button_down_on` is the
+  top-most click-sensing widget under the press, which is the question a menu
+  is asking, and it answers no for a disabled panel or a layer under a window
+  in front exactly as `hovered` did: egui strikes the sense off a widget that
+  is either.
 - **A menu says what it was asked about.** Every one of them opens with the
   kind of thing in the weak colour and which one of them in the strong —
   *Keyword* **Tatras**, *Rating* **3/5**, *Photograph* **DSC0142.jpg** —
