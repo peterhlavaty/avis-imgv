@@ -2,6 +2,19 @@
 
 ## 2026-09-01
 
+- **A row that moved between photographs says which one.** *Went forward* on
+  its own was no help in a list of them; it reads *Went forward to
+  DSC0142.jpg* now, cut off with an ellipsis where the panel is too narrow and
+  shown whole on the hover. The name is written down when it happens rather
+  than looked up when the row is drawn, because by then the folder may hold
+  something else.
+- **None of the history's own routes could shut the history panel.** Undo,
+  clicking a row from before it was opened, and *Do only this again* on a row
+  that closed it all did nothing. The panel had been added to the record of
+  which panels are up and to the half that reads it, and not to the half that
+  puts them back — so it was noted faithfully every time and never restored.
+  That half now takes the set apart field by field, which will not compile the
+  next time a panel is added and forgotten.
 - **Three ways to put the history panel away, and they agree.** `Ctrl + H` —
   rebindable, like every key here — the second button anywhere in the panel,
   and *Show the history panel* in the settings. Whichever is used it is written

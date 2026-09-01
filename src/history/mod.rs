@@ -321,7 +321,11 @@ mod tests {
 
     /// A walk of the folder, which is the continuous kind.
     fn walked(from: usize, to: usize) -> Vec<Change> {
-        vec![Change::Cursor(from, to)]
+        vec![Change::Cursor {
+            from,
+            to,
+            name: String::new(),
+        }]
     }
 
     const HALF_A_SECOND: Duration = Duration::from_millis(500);
@@ -470,7 +474,7 @@ mod tests {
 
         match &history.entry(first).unwrap().deed {
             Deed::Changed(changes) => match changes.as_slice() {
-                [Change::Cursor(from, to)] => assert_eq!((*from, *to), (0, 9)),
+                [Change::Cursor { from, to, .. }] => assert_eq!((*from, *to), (0, 9)),
                 other => panic!("{other:?}"),
             },
             other => panic!("{other:?}"),

@@ -37,6 +37,8 @@ impl App {
             return;
         }
 
+        let showing = self.image_view.active_path();
+
         let watched = Watched {
             folder: &self.base_path,
             mode: self.mode,
@@ -52,6 +54,8 @@ impl App {
             // The store position rather than the position in what is shown, so
             // that coming back to it survives the filter having moved.
             cursor: self.image_view.selected_index(),
+            // Carried, not compared: it names the photograph a row moved to.
+            showing: showing.as_deref().unwrap_or(&self.base_path),
             place: self.image_view.place(),
             columns: self.grid_view.columns(),
             flattened: self.flattened,

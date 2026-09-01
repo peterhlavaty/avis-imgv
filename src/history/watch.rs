@@ -220,12 +220,21 @@ mod tests {
 
     const HALF_A_SECOND: Duration = Duration::from_millis(500);
 
+    /// A move of the cursor, which is the continuous kind.
+    fn walked(from: usize, to: usize) -> Change {
+        Change::Cursor {
+            from,
+            to,
+            name: String::new(),
+        }
+    }
+
     #[test]
     fn a_walk_that_carries_on_is_one_row() {
         assert!(continues(
-            &[Change::Cursor(0, 1)],
+            &[walked(0, 1)],
             moment(10),
-            &[Change::Cursor(1, 2)],
+            &[walked(1, 2)],
             moment(10),
             HALF_A_SECOND,
         ));
@@ -234,9 +243,9 @@ mod tests {
     #[test]
     fn a_walk_taken_up_again_later_is_a_new_row() {
         assert!(!continues(
-            &[Change::Cursor(0, 1)],
+            &[walked(0, 1)],
             moment(10),
-            &[Change::Cursor(1, 2)],
+            &[walked(1, 2)],
             moment(30),
             HALF_A_SECOND,
         ));
@@ -247,7 +256,7 @@ mod tests {
     #[test]
     fn a_decision_is_never_folded_into_a_nudge() {
         assert!(!continues(
-            &[Change::Cursor(0, 1)],
+            &[walked(0, 1)],
             moment(10),
             &[Change::Mode(Mode::Image, Mode::Grid)],
             moment(10),
@@ -268,9 +277,9 @@ mod tests {
     #[test]
     fn two_slots_at_once_are_never_folded() {
         assert!(!continues(
-            &[Change::Cursor(0, 1)],
+            &[walked(0, 1)],
             moment(10),
-            &[Change::Cursor(1, 2), Change::Columns(4, 5)],
+            &[walked(1, 2), Change::Columns(4, 5)],
             moment(10),
             HALF_A_SECOND,
         ));
@@ -281,9 +290,9 @@ mod tests {
     #[test]
     fn a_window_of_nothing_folds_nothing() {
         assert!(!continues(
-            &[Change::Cursor(0, 1)],
+            &[walked(0, 1)],
             moment(10),
-            &[Change::Cursor(1, 2)],
+            &[walked(1, 2)],
             moment(10),
             Duration::ZERO,
         ));
@@ -291,18 +300,32 @@ mod tests {
 
     #[test]
     fn folding_keeps_the_beginning() {
-        let mut older = vec![Change::Cursor(3, 4)];
-        fold(&mut older, &[Change::Cursor(4, 12)]);
+        let mut older = vec![walked(3, 4)];
+        fold(&mut older, &[walked(4, 12)]);
 
-        assert!(matches!(older[0], Change::Cursor(3, 12)));
+        assert!(matches!(
+            older[0],
+            Change::Cursor {
+                from: 3,
+                to: 12,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn folding_leaves_a_slot_the_newer_set_says_nothing_about() {
-        let mut older = vec![Change::Cursor(3, 4), Change::Columns(4, 5)];
-        fold(&mut older, &[Change::Cursor(4, 12)]);
+        let mut older = vec![walked(3, 4), Change::Columns(4, 5)];
+        fold(&mut older, &[walked(4, 12)]);
 
-        assert!(matches!(older[0], Change::Cursor(3, 12)));
+        assert!(matches!(
+            older[0],
+            Change::Cursor {
+                from: 3,
+                to: 12,
+                ..
+            }
+        ));
         assert!(matches!(older[1], Change::Columns(4, 5)));
     }
 
@@ -345,7 +368,7 @@ mod tests {
 
     #[test]
     fn the_slots_of_a_set_are_reported_in_order() {
-        let changes = vec![Change::Cursor(0, 1), Change::Columns(4, 5)];
+        let changes = vec![walked(0, 1), Change::Columns(4, 5)];
 
         assert_eq!(slots(&changes), vec![Slot::Cursor, Slot::Columns]);
     }

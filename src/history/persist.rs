@@ -309,7 +309,11 @@ mod tests {
     fn a_row_about_the_view_mentions_no_files() {
         let mut history = History::new();
         history.note(
-            vec![crate::history::Change::Cursor(0, 1)],
+            vec![crate::history::Change::Cursor {
+                from: 0,
+                to: 1,
+                name: String::new(),
+            }],
             std::time::Duration::ZERO,
         );
 

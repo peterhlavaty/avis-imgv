@@ -78,6 +78,13 @@ impl Panels {
 /// things that are not scalars rather than copies of them.
 pub struct Watched<'a> {
     pub folder: &'a Path,
+    /// The photograph on screen.
+    ///
+    /// Deliberately not compared: it is a function of the cursor, and comparing
+    /// it as well would make a row out of a folder being re-read under a
+    /// cursor that never moved. It is carried so that a row can say *which*
+    /// photograph was moved to rather than only that one was.
+    pub showing: &'a Path,
     pub mode: Mode,
     pub panels: Panels,
     pub cursor: usize,
@@ -112,6 +119,7 @@ impl Watched<'_> {
     pub fn taken(&self) -> Snapshot {
         Snapshot {
             folder: self.folder.to_path_buf(),
+            showing: self.showing.to_path_buf(),
             mode: self.mode,
             panels: self.panels,
             cursor: self.cursor,
@@ -126,9 +134,11 @@ impl Watched<'_> {
 }
 
 /// Everything the history watches, owned.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Snapshot {
     pub folder: PathBuf,
+    /// The photograph that was on screen. Not compared; see [`Watched`].
+    pub showing: PathBuf,
     pub mode: Mode,
     pub panels: Panels,
     pub cursor: usize,
@@ -159,7 +169,11 @@ impl Snapshot {
             changes.push(Change::Panels(self.panels, now.panels));
         }
         if self.cursor != now.cursor {
-            changes.push(Change::Cursor(self.cursor, now.cursor));
+            changes.push(Change::Cursor {
+                from: self.cursor,
+                to: now.cursor,
+                name: name_of(&now.showing),
+            });
         }
         if self.place != now.place {
             changes.push(Change::Place(self.place, now.place));
@@ -199,7 +213,16 @@ pub enum Change {
     Folder(PathBuf, PathBuf),
     Mode(Mode, Mode),
     Panels(Panels, Panels),
-    Cursor(usize, usize),
+    /// The photograph moved to, and what it is called.
+    ///
+    /// The name is carried rather than looked up when the row is drawn,
+    /// because by then the folder may hold something else entirely — and
+    /// because a row is a record of what happened, not a question asked later.
+    Cursor {
+        from: usize,
+        to: usize,
+        name: String,
+    },
     Place(Place, Place),
     Columns(usize, usize),
     Flattened(bool, bool),
@@ -226,7 +249,7 @@ impl Change {
             Change::Folder(..) => Slot::Folder,
             Change::Mode(..) => Slot::Mode,
             Change::Panels(..) => Slot::Panels,
-            Change::Cursor(..) => Slot::Cursor,
+            Change::Cursor { .. } => Slot::Cursor,
             Change::Place(..) => Slot::Place,
             Change::Columns(..) => Slot::Columns,
             Change::Flattened(..) => Slot::Flattened,
@@ -260,7 +283,19 @@ impl Change {
             (Change::Folder(_, to), Change::Folder(_, now)) => *to = now.clone(),
             (Change::Mode(_, to), Change::Mode(_, now)) => *to = *now,
             (Change::Panels(_, to), Change::Panels(_, now)) => *to = *now,
-            (Change::Cursor(_, to), Change::Cursor(_, now)) => *to = *now,
+            (
+                Change::Cursor { to, name, .. },
+                Change::Cursor {
+                    to: now,
+                    name: called,
+                    ..
+                },
+            ) => {
+                *to = *now;
+                // The name goes with the end of the gesture, which is where it
+                // came to rest and the only photograph worth naming.
+                name.clone_from(called);
+            }
             (Change::Place(_, to), Change::Place(_, now)) => *to = *now,
             (Change::Columns(_, to), Change::Columns(_, now)) => *to = *now,
             (Change::Flattened(_, to), Change::Flattened(_, now)) => *to = *now,
@@ -287,10 +322,17 @@ impl Change {
                 Some((name, false)) => format!("Closed {name}"),
                 None => "Moved a panel".to_string(),
             },
-            Change::Cursor(from, to) => match to > from {
-                true => "Went forward".to_string(),
-                false => "Went back".to_string(),
-            },
+            Change::Cursor { from, to, name } => {
+                let way = match to > from {
+                    true => "Went forward",
+                    false => "Went back",
+                };
+
+                match name.is_empty() {
+                    true => way.to_string(),
+                    false => format!("{way} to {name}"),
+                }
+            }
             Change::Place(from, to) => match to.zoom.partial_cmp(&from.zoom) {
                 Some(std::cmp::Ordering::Greater) => "Zoomed in".to_string(),
                 Some(std::cmp::Ordering::Less) => "Zoomed out".to_string(),
@@ -329,6 +371,14 @@ impl std::fmt::Debug for Change {
     }
 }
 
+/// What a photograph is called, which is all a row needs of a path.
+fn name_of(path: &Path) -> String {
+    path.file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into()
+}
+
 /// Which piece of state a change is about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Slot {
@@ -353,6 +403,7 @@ mod tests {
     fn snapshot() -> Snapshot {
         Snapshot {
             folder: PathBuf::from("/photos"),
+            showing: PathBuf::from("/photos/DSC0001.jpg"),
             mode: Mode::Image,
             panels: Panels::default(),
             cursor: 0,
@@ -365,9 +416,19 @@ mod tests {
         }
     }
 
+    /// A move of the cursor, named by where it ended up.
+    fn walked(from: usize, to: usize, name: &str) -> Change {
+        Change::Cursor {
+            from,
+            to,
+            name: name.to_string(),
+        }
+    }
+
     fn watching<'a>(of: &'a Snapshot) -> Watched<'a> {
         Watched {
             folder: &of.folder,
+            showing: &of.showing,
             mode: of.mode,
             panels: of.panels,
             cursor: of.cursor,
@@ -399,7 +460,7 @@ mod tests {
         let changes = was.diff(&now);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].slot(), Slot::Cursor);
-        assert_eq!(changes[0].label(), "Went forward");
+        assert_eq!(changes[0].label(), "Went forward to DSC0001.jpg");
     }
 
     /// Two things moved on one frame are two changes in one row, so undoing
@@ -416,6 +477,44 @@ mod tests {
         assert_eq!(changes.len(), 2);
         assert_eq!(changes[0].slot(), Slot::Mode);
         assert_eq!(changes[1].slot(), Slot::Columns);
+    }
+
+    /// Carried, not compared. A folder re-read under a cursor that never moved
+    /// would otherwise be a row of history saying somebody had gone somewhere.
+    #[test]
+    fn the_photograph_on_screen_is_not_compared() {
+        let was = snapshot();
+        let mut now = snapshot();
+        now.showing = PathBuf::from("/photos/something else.jpg");
+
+        assert!(watching(&now).matches(&was), "only the cursor decides");
+        assert!(was.diff(&now).is_empty());
+    }
+
+    /// The row keeps the whole name. Fitting it to the panel is the drawing's
+    /// business, and the hover shows all of it.
+    #[test]
+    fn a_long_name_is_kept_whole_in_the_row() {
+        let long = "a very long file name indeed that will not fit in any panel.jpg";
+
+        let was = snapshot();
+        let mut now = snapshot();
+        now.cursor = 1;
+        now.showing = PathBuf::from("/photos").join(long);
+
+        assert_eq!(was.diff(&now)[0].label(), format!("Went forward to {long}"));
+    }
+
+    #[test]
+    fn going_back_says_so_and_names_the_photograph() {
+        let mut was = snapshot();
+        was.cursor = 5;
+
+        let mut now = snapshot();
+        now.cursor = 0;
+        now.showing = PathBuf::from("/photos/DSC0009.jpg");
+
+        assert_eq!(was.diff(&now)[0].label(), "Went back to DSC0009.jpg");
     }
 
     #[test]
@@ -476,13 +575,14 @@ mod tests {
     /// to arrive.
     #[test]
     fn absorbing_keeps_the_beginning_and_takes_the_new_end() {
-        let mut change = Change::Cursor(0, 1);
-        change.absorb(&Change::Cursor(1, 2));
-        change.absorb(&Change::Cursor(2, 9));
+        let mut change = walked(0, 1, "a.jpg");
+        change.absorb(&walked(1, 2, "b.jpg"));
+        change.absorb(&walked(2, 9, "i.jpg"));
 
         match change {
-            Change::Cursor(from, to) => {
+            Change::Cursor { from, to, name } => {
                 assert_eq!((from, to), (0, 9), "undo goes back to where it began");
+                assert_eq!(name, "i.jpg", "and it is named by where it came to rest");
             }
             other => panic!("{other:?}"),
         }
@@ -492,10 +592,10 @@ mod tests {
     /// slot, and this is the guard that says so.
     #[test]
     fn absorbing_a_different_slot_changes_nothing() {
-        let mut change = Change::Cursor(0, 1);
+        let mut change = walked(0, 1, "a.jpg");
         change.absorb(&Change::Mode(Mode::Image, Mode::Grid));
 
-        assert!(matches!(change, Change::Cursor(0, 1)));
+        assert!(matches!(change, Change::Cursor { from: 0, to: 1, .. }));
     }
 
     #[test]

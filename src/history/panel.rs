@@ -208,11 +208,22 @@ fn row(
         text = text.strong();
     }
 
+    // Truncated to whatever the panel is wide, with an ellipsis, rather than
+    // wrapped: a row is one line, and a photograph's name is the half of it
+    // most likely not to fit. The whole of it is on the hover, so nothing is
+    // lost — which is why `Entry::label` keeps the full text and the drawing
+    // is what decides how much of it there is room for.
+    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+
     let label = ui.selectable_label(here, text);
 
     let label = label.on_hover_text(match here {
-        true => "Where you are now".to_string(),
-        false => format!("Click to go back to just after this.\n{}", when(node)),
+        true => format!("{}\nWhere you are now.", node.value.label),
+        false => format!(
+            "{}\nClick to go back to just after this.\n{}",
+            node.value.label,
+            when(node)
+        ),
     });
 
     if label.clicked() && !here {

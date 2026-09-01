@@ -198,8 +198,10 @@ anywhere in the panel offers *Hide this panel* and a route to its settings, and
 *Show the history panel* in the settings does the same. However it is changed
 it is written down, so the next launch opens with it as it was left. The row you are on is picked out; anything
 taken back, or on a branch you left, is still in the list and drawn in italics
-rather than removed. Clicking a row takes the viewer back — or forward — to
-just after it. The second button on a row offers *Do only this again*, which
+rather than removed. A row that moved between photographs names the one it
+arrived at — *Went forward to DSC0142.jpg* — cut off with an ellipsis when the
+panel is too narrow for it, with the whole of it on the hover. Clicking a row
+takes the viewer back — or forward — to just after it. The second button on a row offers *Do only this again*, which
 carries that one thing out where you are now and files it as the latest thing
 done, rather than jumping to it.
 
