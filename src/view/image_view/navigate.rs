@@ -103,6 +103,15 @@ impl ImageView {
         self.mouse = mouse;
     }
 
+    /// Asks this view for something a gesture was bound to.
+    ///
+    /// Carried out on the next frame rather than now, because the caller is
+    /// the application and the view wants the same context the keys are read
+    /// with.
+    pub fn queue(&mut self, command: crate::view::image_view::input::Command) {
+        self.queued.push(command);
+    }
+
     /// The grey behind the photograph, as the configuration spells it.
     pub fn set_backdrop(&mut self, hex: &str) {
         self.backdrop = hex.to_string();

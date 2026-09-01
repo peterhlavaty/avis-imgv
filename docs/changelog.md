@@ -2,6 +2,25 @@
 
 ## 2026-09-01
 
+- **A click in the contact sheet picks a photograph out. Two clicks open it.**
+  The plain click was the one gesture that contradicted everything else the
+  sheet has — a cursor, a selection, `Ctrl`-click, `Shift`-click, `Space` and
+  `Enter` — and the only way back from it was `Backspace`. A culling tool's
+  contact sheet is a surface you act *on*. `grid_view.click_opens` puts the old
+  behaviour back.
+- **A drag across the sheet picks out everything it crosses**, and the middle
+  button drags the sheet about. The two never have to share a button, because
+  the image view has nothing to rubber-band and the sheet has nothing to pan.
+- **The thumb buttons walk the folder**, on the down-stroke and with no
+  double-click meaning ever. They have been arriving all along and nothing read
+  them.
+- **The wheel pressed, and two clicks on the photograph, run whatever they are
+  bound to.** Thirty-three commands to choose from, or nothing, which is what
+  the middle button ships as. Two clicks ship as fit ↔ actual pixels, which is
+  its own way back.
+- **Dropping a file on the window opens its folder, on that file.** The paths
+  have been arriving all along and nothing read them.
+
 - **The wheel does one job, and you can say which.** A notch used to move to
   the next photograph *and* shove the one that had just arrived, in that order,
   with nothing guarding the second against the first. It now does one of four

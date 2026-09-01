@@ -634,11 +634,13 @@ what each one means.
 | Shift + wheel | Ten photographs | Ten rows |
 | Ctrl + wheel | `mouse.ctrl_wheel`, which ships as zoom | Thumbnails per row |
 | Alt + wheel | Moves the photograph sideways | — |
-| Left drag | Moves the photograph, when there is somewhere to move it to | — |
-| Middle drag | Moves the photograph, always | — |
+| One click | Nothing; reserved | Picks the photograph out |
+| Two clicks | `mouse.double_click`, which ships as fit ↔ actual pixels | Opens the photograph |
+| Left drag | Moves the photograph, when there is somewhere to move it to | Picks out everything it crosses |
+| Middle drag | Moves the photograph, always | Scrolls the sheet |
 | Right button | The menu, on the press | The menu, on the press |
 | Thumb buttons | Previous and next — `mouse.back`, `mouse.forward` | Previous and next |
-| Two clicks | `mouse.double_click`, which ships as fit ↔ actual pixels | Opens the photograph |
+| A file dropped on the window | Opens its folder, on that file | The same |
 
 **Wheel down is forward**, in both views. It used to be wheel up in the image
 view and wheel down in the contact sheet, so the same movement of the wrist
@@ -659,7 +661,16 @@ photograph, so a photograph that fits the window is not a dead surface.
 **The double click, the middle button and the thumb buttons** hold the name of
 a command — `next`, `fullscreen`, `exit`, `delete` and about thirty others,
 listed in the control. `nothing` is a legal value and is what the middle button
-ships as.
+ships as. The thumb buttons fire when the button goes down and have no
+double-click meaning: a viewer that waits to see whether a side-button click is
+a double makes walking a folder feel slow and still moves one frame.
+
+**A click in the contact sheet picks a photograph out; two clicks open it.** A
+plain click used to leave the sheet altogether, which contradicted the cursor,
+the selection, `Ctrl`-click, `Shift`-click, `Space` and `Enter` all at once, and
+the only way back was `Backspace`. `grid_view.click_opens` puts the old
+behaviour back. Dragging across the sheet picks out everything the band
+crosses, and the middle button drags the sheet about.
 
 ## Supported image formats
 

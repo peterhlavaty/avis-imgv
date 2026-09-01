@@ -48,6 +48,14 @@ pub enum Command {
     CycleMarks,
     /// Magnify to a percentage of the image's own pixels.
     ZoomToPercent(f32),
+    /// Fitted, or at one screen pixel per photograph pixel, whichever it is
+    /// not already.
+    ///
+    /// Not on a key: it is what the double click ships bound to, and the two
+    /// halves of it have keys of their own. It is one command rather than two
+    /// because a gesture that is its own way back is worth more than a gesture
+    /// that needs a different one.
+    ToggleActualPixels,
     /// Put this image where the last one was left.
     RepeatPlace,
     ToggleFrame,

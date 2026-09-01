@@ -6,6 +6,7 @@ pub mod benchmark;
 mod chrome;
 mod conflict;
 mod cull;
+mod gestures;
 pub mod input;
 pub mod mode;
 pub mod panels;
@@ -795,6 +796,28 @@ impl App {
             .unwrap_or_default();
     }
 
+    /// Opens whatever was dropped on the window.
+    ///
+    /// egui-winit has been collecting these all along and nothing read them,
+    /// so the most ordinary thing anybody does with a picture and a window
+    /// did nothing at all.
+    fn handle_dropped_files(&mut self, ctx: &egui::Context) {
+        let dropped: Vec<PathBuf> = ctx.input(|i| {
+            i.raw
+                .dropped_files
+                .iter()
+                .filter_map(|file| file.path.clone())
+                .collect()
+        });
+
+        let Some((folder, land_on)) = gestures::dropped(&dropped) else {
+            return;
+        };
+
+        self.notices.say(format!("Opening {}", folder.display()));
+        self.open_directory(&folder, land_on.as_deref());
+    }
+
     /// Crawls `path` and opens what it finds.
     fn open_directory(&mut self, path: &Path, selected: Option<&Path>) {
         let mut paths = crawler::crawl(path, self.flattened);
@@ -945,6 +968,8 @@ impl eframe::App for App {
         }
 
         input::update_overlay(ctx, &mut self.overlay, &self.config);
+        self.handle_gestures(ctx);
+        self.handle_dropped_files(ctx);
         for command in input::collect(ctx, &self.config, &self.tag_config, &self.settings.cull) {
             // Marking a selection never advances: the mark went to two
             // hundred photographs rather than to the one on screen, so there

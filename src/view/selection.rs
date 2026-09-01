@@ -66,6 +66,24 @@ impl Selection {
         self.anchor = Some(position);
     }
 
+    /// Picks one photograph out and puts everything else back.
+    ///
+    /// What a plain click means everywhere: the click that used to leave the
+    /// contact sheet altogether.
+    pub fn only(&mut self, index: usize, position: usize) {
+        self.chosen.clear();
+        self.chosen.insert(index);
+        self.anchor = Some(position);
+    }
+
+    /// Picks a photograph out, leaving whatever else is picked alone.
+    ///
+    /// For the rubber band, which adds what it crosses to what it started
+    /// from rather than deciding one cell at a time.
+    pub fn add(&mut self, index: usize) {
+        self.chosen.insert(index);
+    }
+
     /// Everything on show, or nothing if that is already what is picked.
     ///
     /// One key doing both is how every file manager behaves, and it saves the
@@ -142,6 +160,33 @@ impl Selection {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A plain click in the contact sheet: this one, and nothing else.
+    #[test]
+    fn picking_one_out_puts_the_others_back() {
+        let mut selection = Selection::default();
+        selection.add(3);
+        selection.add(7);
+
+        selection.only(5, 5);
+
+        assert_eq!(selection.len(), 1);
+        assert!(selection.contains(5));
+        assert_eq!(selection.anchor(), Some(5), "and a run starts from here");
+    }
+
+    /// The rubber band adds to what was already picked, so dragging a second
+    /// run does not throw away the first.
+    #[test]
+    fn adding_leaves_what_was_there() {
+        let mut selection = Selection::default();
+        selection.add(1);
+        selection.add(2);
+        selection.add(2);
+
+        assert_eq!(selection.len(), 2);
+        assert!(selection.contains(1) && selection.contains(2));
+    }
 
     fn everything(total: usize) -> Visible {
         Visible::everything(total)

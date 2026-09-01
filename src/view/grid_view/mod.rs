@@ -10,7 +10,9 @@ pub mod layout;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use eframe::egui::{self, scroll_area::ScrollSource, Color32, Rect, Sense, UiBuilder};
+use eframe::egui::{
+    self, scroll_area::ScrollSource, Color32, PointerButton, Pos2, Rect, Sense, UiBuilder,
+};
 use eframe::egui_wgpu::RenderState;
 use eframe::epaint::Vec2;
 
@@ -64,6 +66,22 @@ pub struct GridView {
     asked: Option<Asked>,
     /// Image to scroll to on the next frame.
     scroll_to: Option<usize>,
+    /// Where a rubber band started, in screen coordinates.
+    ///
+    /// The band is read off the pointer rather than off a dragged widget: the
+    /// cells carry a menu on the second button and egui has a reported quarrel
+    /// with a widget that is both a drag source and a menu, so nothing here is
+    /// made a drag source.
+    band_from: Option<Pos2>,
+    /// The band as it stands this frame, for the cells to test against.
+    band: Option<Rect>,
+    /// What was picked out before the band began.
+    ///
+    /// A band adds to the selection rather than replacing it, so dragging a
+    /// second run does not throw away the first.
+    band_base: Selection,
+    /// Points to scroll by on the next frame, from the middle button.
+    scroll_points: f32,
     /// Rows to scroll by on the next frame, from Shift and the wheel.
     ///
     /// Kept rather than acted on, because the scroll has to happen inside the
@@ -101,6 +119,10 @@ impl GridView {
             config,
             selected: None,
             scroll_rows: 0.0,
+            scroll_points: 0.0,
+            band_from: None,
+            band: None,
+            band_base: Selection::default(),
             callback: None,
             verb: None,
             asked: None,
@@ -282,6 +304,7 @@ impl GridView {
         }
 
         self.handle_input(ctx);
+        self.handle_band(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -299,7 +322,14 @@ impl GridView {
                 return;
             }
 
-            let mut scroll_area = egui::ScrollArea::vertical().scroll_source(ScrollSource::ALL);
+            // Everything but the drag. Dragging the contents to scroll is
+            // egui's default and it is the same gesture as the rubber band;
+            // the wheel and the bar still scroll, and so does the middle
+            // button, which is the gesture that has nothing else to do here.
+            let mut scroll_area = egui::ScrollArea::vertical().scroll_source(ScrollSource {
+                drag: false,
+                ..ScrollSource::ALL
+            });
             if let Some(index) = self.scroll_to.take() {
                 scroll_area = scroll_area.vertical_scroll_offset(layout.scroll_offset_of(index));
             }
@@ -328,14 +358,99 @@ impl GridView {
                     ui.scroll_with_delta(Vec2::new(0., -(layout.row * 0.5)));
                 }
 
-                if self.scroll_rows != 0.0 {
-                    ui.scroll_with_delta(Vec2::new(0., -(layout.row * self.scroll_rows)));
+                if self.scroll_rows != 0.0 || self.scroll_points != 0.0 {
+                    let by = self.scroll_points - layout.row * self.scroll_rows;
+                    ui.scroll_with_delta(Vec2::new(0., by));
                     self.scroll_rows = 0.0;
+                    self.scroll_points = 0.0;
                 }
             });
         });
 
         self.show_selection_count(ctx);
+        self.show_band(ctx);
+    }
+
+    /// Reads the left drag that picks out everything it crosses.
+    ///
+    /// The image view has nothing to rubber-band and the sheet has nothing to
+    /// pan, so the two never have to share a button: a left drag is always a
+    /// selection here and always a pan there. What is deliberately not copied
+    /// is the size-dependent rule some viewers use — drag means pan when the
+    /// picture is larger than the window and something else when it is not —
+    /// which is a mode with nothing on screen to say which one you are in.
+    fn handle_band(&mut self, ctx: &egui::Context) {
+        let (position, pressed, down, dragging) = ctx.input(|i| {
+            (
+                i.pointer.interact_pos(),
+                i.pointer.button_pressed(PointerButton::Primary),
+                i.pointer.button_down(PointerButton::Primary),
+                i.pointer.is_decidedly_dragging(),
+            )
+        });
+
+        // The gesture the left button has just given up. Dragging the sheet
+        // about is what a middle drag does everywhere it does anything, and it
+        // is the one button here with nothing else to do.
+        if ctx.input(|i| i.pointer.button_down(PointerButton::Middle)) {
+            self.scroll_points += ctx.input(|i| i.pointer.delta().y);
+            ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+        }
+
+        if !down {
+            self.band_from = None;
+            self.band = None;
+            return;
+        }
+
+        // A band begins on a press *here*, and not merely on finding the
+        // button already down: a file being dragged in from a file manager
+        // arrives with the button held and the press belonging to somebody
+        // else, and it would otherwise paint a selection on its way to the
+        // drop. Whether the press is ours is decided once, so a drag that
+        // wanders over the selection count on its way is not cut short.
+        if self.band_from.is_none() {
+            if !pressed || ctx.is_pointer_over_area() || utils::are_inputs_muted(ctx) {
+                return;
+            }
+
+            self.band_from = position;
+            self.band_base = self.selection.clone();
+            return;
+        }
+
+        let (Some(from), Some(now)) = (self.band_from, position) else {
+            return;
+        };
+
+        if !dragging {
+            // Still inside the click threshold, so this may yet be a click.
+            return;
+        }
+
+        self.band = Some(Rect::from_two_pos(from, now));
+        self.selection = self.band_base.clone();
+    }
+
+    /// Draws the band itself, so a drag that is picking things out looks like
+    /// one.
+    fn show_band(&self, ctx: &egui::Context) {
+        let Some(band) = self.band else {
+            return;
+        };
+
+        let painter = ctx.layer_painter(egui::LayerId::new(
+            egui::Order::Foreground,
+            egui::Id::new("grid-band"),
+        ));
+
+        painter.rect_filled(band, 0.0, cell::SELECTED.gamma_multiply(0.25));
+        painter.rect_stroke(
+            band,
+            0.0,
+            egui::Stroke::new(1.0_f32, cell::SELECTED),
+            egui::StrokeKind::Inside,
+        );
     }
 
     /// Says how many photographs are picked out, and how to stop.
@@ -470,6 +585,10 @@ impl GridView {
 
         cell::outline(ui, rect, index == self.current, position == self.cursor);
 
+        if self.band.is_some_and(|band| band.intersects(rect)) {
+            self.selection.add(index);
+        }
+
         if let Some(response) = response {
             self.handle_cell_interaction(ui, position, index, &response);
         }
@@ -501,9 +620,22 @@ impl GridView {
                 self.selection.toggle(index, position);
             } else if modifiers.shift {
                 self.selection.extend_to(&self.visible, position);
-            } else {
+            } else if self.config.click_opens {
                 self.selected = Some(path.clone());
+            } else {
+                // A plain click picks this one out, and nothing else. It used
+                // to leave the contact sheet altogether, which contradicted
+                // the cursor, the selection, Ctrl-click, Shift-click, Space
+                // and Enter all at once, and the only way back was Backspace.
+                // A culling tool's sheet is a surface you act *on*.
+                self.selection.only(index, position);
             }
+        }
+
+        // What the sheet says `Open` means on a cell's menu, and what every
+        // list of files means by two clicks.
+        if !self.config.click_opens && response.double_clicked() {
+            self.selected = Some(path.clone());
         }
 
         // What the menu is about: the selection where the cell is in it, and

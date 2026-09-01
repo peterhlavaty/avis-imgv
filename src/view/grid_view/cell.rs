@@ -102,7 +102,7 @@ const CURSOR: Color32 = Color32::from_rgb(126, 168, 224);
 /// where the keyboard is and one says which photograph the other view is on,
 /// and a selection has to be legible at the same time as both.
 const SELECTED_TINT: Color32 = Color32::from_rgba_premultiplied(20, 44, 76, 90);
-const SELECTED: Color32 = Color32::from_rgb(126, 168, 224);
+pub const SELECTED: Color32 = Color32::from_rgb(126, 168, 224);
 
 const STAR: &str = "★";
 const REJECTED_TINT: Color32 = Color32::from_rgba_premultiplied(28, 6, 6, 150);

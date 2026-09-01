@@ -97,6 +97,13 @@ pub struct ImageView {
     bar_actions: Vec<BarAction>,
     /// What the screen with nothing on it was clicked to do.
     asked: Option<Asked>,
+    /// Commands the application read a gesture for and this view carries out.
+    ///
+    /// The application owns the pointer buttons, because it is the one place
+    /// that knows both its own commands and this view's; what belongs to the
+    /// view arrives here and is drained where the keys are read, so a gesture
+    /// and a key go through the same door.
+    queued: Vec<Command>,
     config: ImageViewConfig,
     /// What the pointer does. Its own section of the file, because a gesture
     /// belongs to the person holding the mouse rather than to a view.
@@ -150,6 +157,7 @@ impl ImageView {
             verb: None,
             bar_actions: Vec::new(),
             asked: None,
+            queued: Vec::new(),
             slideshow,
             slideshow_config,
             config,
@@ -185,6 +193,10 @@ impl ImageView {
     ) {
         if self.warm() {
             ctx.request_repaint();
+        }
+
+        for command in std::mem::take(&mut self.queued) {
+            self.apply(command, ctx);
         }
 
         for command in input::collect(ctx, &self.config) {
@@ -306,6 +318,19 @@ impl ImageView {
                 self.zooming(ctx, POINTER, |viewport, metrics| {
                     zoom::to_percent(viewport, metrics, percent)
                 });
+            }
+            Command::ToggleActualPixels => {
+                // Half a percent, because the magnification is a float that
+                // has been through a fit and a ratio, and a toggle that only
+                // worked when two floats were exactly equal would be a toggle
+                // that sticks.
+                if (self.metrics.percentage_zoom - 100.0).abs() < 0.5 {
+                    self.zooming(ctx, CENTRE, |viewport, _| zoom::fit(viewport));
+                } else {
+                    self.zooming(ctx, POINTER, |viewport, metrics| {
+                        zoom::to_percent(viewport, metrics, 100.0)
+                    });
+                }
             }
             Command::RepeatPlace => Viewports::put(&mut self.viewport, self.previous_place),
             Command::ToggleFrame => self.frame.enabled = !self.frame.enabled,
