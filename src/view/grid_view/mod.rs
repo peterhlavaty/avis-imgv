@@ -296,6 +296,14 @@ impl GridView {
         self.config = config;
     }
 
+    /// How tall the strip was last told to be.
+    ///
+    /// Asked before a new configuration is handed over, so the window can tell
+    /// whether it was the one that moved the strip's edge.
+    pub fn filmstrip_height(&self) -> f32 {
+        self.config.filmstrip_height
+    }
+
     /// The ground behind a thumbnail, derived from the one backdrop field.
     pub fn set_backdrop(&mut self, hex: &str) {
         self.backdrop = crate::ui::theme::backdrop(hex);
@@ -334,8 +342,9 @@ impl GridView {
         ctx: &egui::Context,
         cursor: usize,
         height: f32,
-    ) -> (Option<PathBuf>, Option<f32>) {
-        let picked = filmstrip::show(ctx, &mut self.store, &self.visible, cursor, height);
+        forced: bool,
+    ) -> (Option<PathBuf>, f32) {
+        let picked = filmstrip::show(ctx, &mut self.store, &self.visible, cursor, height, forced);
 
         let opened = picked
             .selected

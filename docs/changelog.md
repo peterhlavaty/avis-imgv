@@ -2,6 +2,35 @@
 
 ## 2026-09-02
 
+- **The strip of thumbnails keeps the height it is dragged to, and its
+  thumbnails grow with it.** Pulling the strip's top edge up moved it for one
+  frame and then put it back where it started, every time. egui remembers a
+  panel's size as the rectangle its *contents* came to rather than the
+  rectangle the drag asked for, and the strip sized its cells from the height
+  in the configuration — so however far the edge was pulled, what the strip
+  reported back was the height it already had, and that is what the next frame
+  was drawn at. The cells are now sized from the height the panel has actually
+  been given and fill it, which makes the two rectangles the same rectangle:
+  the edge stays where it is put and the thumbnails are as large as the strip
+  allows, up to the four hundred points the setting has always named.
+
+  The height reaches `grid_view.filmstrip_height` on the frame the hand comes
+  off the edge, through the same reading of a dragged panel the keyword panel
+  and the history panel use — which had been the other half of the fault. The
+  strip wrote the configuration to disk on every frame of a drag, and once
+  more whenever a short window clamped it, so a height nobody had touched was
+  quietly rewritten and the drag itself arrived in the history as sixty rows.
+
+  A height set in the settings window, or put back by an undo, now moves the
+  strip. It could not before: egui owns a panel's size from its second frame
+  on, so the number in the window changed the file and nothing else, and the
+  strip wrote its own height straight back over it on the following frame.
+
+  `grid_view.filmstrip_height` defaults to 96 points rather than to zero. It
+  has not carried "the strip is off" since that became `filmstrip_visible`,
+  and a default of zero left the height at a value the strip cannot be drawn
+  at, which is the trap the split was meant to close.
+
 - **A pan key is a step, and holding it is a glide.** The four pan keys were
   read as held keys and nothing else: the picture moved for as long as the key
   was down, so the smallest movement anybody could ask for was however long a

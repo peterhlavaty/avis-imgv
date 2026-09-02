@@ -1,6 +1,6 @@
-//! Reading a resizable panel's width back, once the drag has finished.
+//! Reading a resizable panel's size back, once the drag has finished.
 //!
-//! Shared because two panels want it and the naive version is wrong in a way
+//! Shared because three panels want it and the naive version is wrong in a way
 //! that is hard to see and easy to live with for a long time. Reading
 //! `rect.width()` and writing it back whenever it differs from the configured
 //! value looks right, and is a feedback loop: `show_animated` opens a panel by
@@ -10,44 +10,49 @@
 //! points came back at 298.66 after one run, and the history had two rows in it
 //! saying the user had made the panel wider, before it had been touched.
 //!
-//! Waiting for the width to hold still is not enough either. An animation is
+//! Waiting for the size to hold still is not enough either. An animation is
 //! sampled at whatever rate the frames happen to run at, and a panel settles
 //! more than once while a window is being laid out, so "it has not moved for a
 //! few frames" catches both of those as well as a drag.
 //!
 //! What actually tells them apart is the pointer. A drag has a button held
 //! down; an animation, a layout pass and a window being restored do not. So a
-//! width is written back only when it moved while the button was down and has
+//! size is written back only when it moved while the button was down and has
 //! since come to rest — which is also the convention the rest of the program
 //! follows, a change landing on the frame the gesture ends.
+//!
+//! A width and a height are the same problem seen from two sides, which is why
+//! this says size: the two side panels drag left and right and the filmstrip
+//! drags up and down, and the reading is the same arithmetic on whichever of
+//! the two numbers the panel's edge moves.
 
-/// The width a panel was last seen at, and whether a hand moved it there.
+/// The size a panel was last seen at, and whether a hand moved it there.
 #[derive(Debug, Default)]
 pub struct Dragged {
     was: Option<f32>,
-    /// Whether the width has moved while the pointer was down since it was
+    /// Whether the size has moved while the pointer was down since it was
     /// last reported. Nothing is written back without this.
     by_hand: bool,
-    /// Whether the width it came to rest at has already been reported.
+    /// Whether the size it came to rest at has already been reported.
     said: bool,
 }
 
-/// How far a width has to move to count as somebody having changed it.
+/// How far a size has to move to count as somebody having changed it.
 ///
-/// Panels land on fractional widths, and a point either way is not a decision.
+/// Panels land on fractional sizes, and a point either way is not a decision.
 const ENOUGH: f32 = 1.0;
 
 impl Dragged {
-    /// The width to write back, if a drag has finished at a new one.
+    /// The size to write back, if a drag has finished at a new one.
     ///
     /// `None` while the button is still down, `None` when nothing but a layout
     /// or an animation moved it, `None` when where it came to rest is where it
     /// was told to be, and `None` on every frame after the one that reported it.
-    pub fn settled(&mut self, width: f32, configured: f32, pointer_down: bool) -> Option<f32> {
+    pub fn settled(&mut self, size: f32, configured: f32, pointer_down: bool) -> Option<f32> {
         let moved = self
             .was
-            .replace(width)
-            .is_some_and(|was| (was - width).abs() >= f32::EPSILON);
+            .replace(size)
+            .is_some_and(|was| (was - size).abs() >= f32::EPSILON);
 
         if moved && pointer_down {
             self.by_hand = true;
@@ -58,7 +63,7 @@ impl Dragged {
             return None;
         }
 
-        if (width - configured).abs() <= ENOUGH {
+        if (size - configured).abs() <= ENOUGH {
             // It came back to where it was told to be. Nothing to write, and
             // nothing left to report about this drag.
             self.by_hand = false;
@@ -67,7 +72,7 @@ impl Dragged {
 
         self.said = true;
         self.by_hand = false;
-        Some(width)
+        Some(size)
     }
 
     /// Forgets where the panel was, for when it has been shut.
@@ -82,17 +87,17 @@ impl Dragged {
 mod tests {
     use super::*;
 
-    /// Drives a run of frames, each a width and whether the button was down,
+    /// Drives a run of frames, each a size and whether the button was down,
     /// and answers with everything reported.
     fn frames(dragged: &mut Dragged, run: &[(f32, bool)], configured: f32) -> Vec<f32> {
         run.iter()
-            .filter_map(|(width, down)| dragged.settled(*width, configured, *down))
+            .filter_map(|(size, down)| dragged.settled(*size, configured, *down))
             .collect()
     }
 
-    /// A run of widths with nobody touching anything.
-    fn alone(widths: &[f32]) -> Vec<(f32, bool)> {
-        widths.iter().map(|width| (*width, false)).collect()
+    /// A run of sizes with nobody touching anything.
+    fn alone(sizes: &[f32]) -> Vec<(f32, bool)> {
+        sizes.iter().map(|size| (*size, false)).collect()
     }
 
     /// The bug this exists for: a panel opening reports a different width on
@@ -151,11 +156,11 @@ mod tests {
         assert!(frames(&mut dragged, &run, 260.0).is_empty());
     }
 
-    /// Nothing is written from a width first seen with the button already
+    /// Nothing is written from a size first seen with the button already
     /// down: there is nothing to say it moved, and guessing would be a write
     /// nobody asked for.
     #[test]
-    fn a_width_first_seen_mid_drag_writes_nothing() {
+    fn a_size_first_seen_mid_drag_writes_nothing() {
         let mut dragged = Dragged::default();
 
         let mut run = vec![(300.0, true)];

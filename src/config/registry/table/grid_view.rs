@@ -84,10 +84,10 @@ pub fn rows() -> Vec<Row> {
             TheContactSheet / Filmstrip,
             "grid_view.filmstrip_height",
             "How tall the strip is",
-            "The band of thumbnails under the photograph. It stores a height and a \
-             visibility in one number today, which is why the key that shows it does \
-             nothing on a fresh install: the default height is zero.",
-            ["strip", "filmstrip", "thumbnails", "height"],
+            "The band of thumbnails under the photograph. The thumbnails are as \
+             large as the strip allows, so this is how big they are as much as it is \
+             how tall it is. Dragging the strip's top edge writes it here.",
+            ["strip", "filmstrip", "thumbnails", "height", "size"],
             Live,
             None,
             decimal!(0.0, 400.0, " pt", true, grid_view.filmstrip_height),

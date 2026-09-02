@@ -42,7 +42,7 @@ pub struct State {
     showing: Option<NodeId>,
     /// How wide the panel was on the frame before, so a drag is read back once
     /// it has finished rather than while it is happening.
-    width: crate::ui::width::Dragged,
+    width: crate::ui::dragged::Dragged,
 }
 
 /// Draws the panel and reports what was clicked.

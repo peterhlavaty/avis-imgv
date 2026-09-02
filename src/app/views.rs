@@ -182,20 +182,29 @@ impl App {
     fn show_filmstrip(&mut self, ctx: &egui::Context) {
         let height = self.settings.grid_view.filmstrip_height;
         if !self.filmstrip_visible || height <= 0.0 {
+            // Shut. Opening it again lays the panel out from nothing, and
+            // comparing across that would read a layout as a drag.
+            self.filmstrip_height.forget();
             return;
         }
 
         let cursor = self.image_view.selected_index();
-        let (opened, dragged) = self.grid_view.filmstrip(ctx, cursor, height);
+        let forced = std::mem::take(&mut self.forced_filmstrip_height);
+        let (opened, drawn) = self.grid_view.filmstrip(ctx, cursor, height, forced);
 
         if let Some(path) = opened {
             self.image_view.select_path(&path);
         }
 
         // Through the field the settings window reads, so dragging the strip's
-        // edge is a change that is still there on the next launch.
-        if let Some(height) = dragged {
-            self.settings.grid_view.filmstrip_height = height;
+        // edge is a change that is still there on the next launch — and only
+        // once the hand has come off it. Written on every frame the number
+        // differed, this rewrote the configuration sixty times a second during
+        // a drag and once more for every clamp and layout pass, each of them a
+        // row in the history nobody had asked for.
+        let held = ctx.input(|i| i.pointer.any_down());
+        if let Some(settled) = self.filmstrip_height.settled(drawn, height, held) {
+            self.settings.grid_view.filmstrip_height = settled;
             self.grid_view.set_config(self.settings.grid_view.clone());
             self.save_settings();
         }

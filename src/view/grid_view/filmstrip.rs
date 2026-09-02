@@ -37,46 +37,93 @@ const CURRENT: Color32 = Color32::from_rgb(232, 232, 232);
 /// Gap either side of a cell.
 const GAP: f32 = 3.0;
 
+/// The margin inside the panel, on each of the four sides.
+const MARGIN: f32 = 4.0;
+
+/// Room kept under the thumbnails for the horizontal scroll bar.
+///
+/// Reserved rather than overlaid: a bar drawn across the bottom of a row of
+/// thumbnails hides the part of a photograph that a cull is often about.
+const BAR: f32 = 14.0;
+
+/// The shortest and the tallest the strip may be dragged to.
+///
+/// The top matches the range the registry row declares, so the number typed
+/// into the settings window and the number the edge can reach are the same
+/// number.
+pub const SHORTEST: f32 = 48.0;
+pub const TALLEST: f32 = 400.0;
+
+/// The largest square cell a strip that many points tall can draw.
+///
+/// Split out and free of egui so the arithmetic that decides how big the
+/// thumbnails are can be tested without a window. `inner` is what the panel
+/// leaves after its own margins, which is what the strip actually has.
+pub fn cell_side(inner: f32) -> f32 {
+    (inner - BAR).max(16.0)
+}
+
 /// What the strip reports back.
 pub struct Picked {
     /// A store position the user clicked on.
     pub selected: Option<usize>,
-    /// The strip was dragged to this height.
+    /// How tall the panel is actually drawn, this frame.
     ///
-    /// Through the field the settings window reads, so a dragged edge survives
-    /// the session — which is the thing none of this program's in-view controls
-    /// used to do.
-    pub height: Option<f32>,
+    /// Reported every frame rather than only when it differs, because telling
+    /// a drag from a layout pass is [`crate::ui::dragged::Dragged`]'s job and
+    /// it needs to see the frames in between to do it.
+    pub height: f32,
 }
 
 /// Draws the strip, `height` points tall.
 ///
 /// `cursor` is the store position on screen, so the strip can mark it and
-/// scroll to keep it in view.
+/// scroll to keep it in view. `forced` states the height rather than
+/// suggesting it, for the one frame after something other than a drag has
+/// changed it — the settings window, or the history putting it back.
+///
+/// The contents are made to fill the panel, and that is not decoration. egui
+/// remembers a panel's size as the rectangle its *contents* came to, not the
+/// rectangle the drag asked for, so a strip whose thumbnails were sized from
+/// the configured height reported that height back however far the edge had
+/// been pulled — and the panel returned to where it started on the very next
+/// frame. Filling the height makes the two rectangles the same one.
 pub fn show(
     ctx: &egui::Context,
     store: &mut ImageStore,
     visible: &Visible,
     cursor: usize,
     height: f32,
+    forced: bool,
 ) -> Picked {
     let mut picked = Picked {
         selected: None,
-        height: None,
+        height,
     };
 
     if height <= 0.0 || visible.is_empty() {
         return picked;
     }
 
-    let panel = egui::TopBottomPanel::bottom("filmstrip")
+    let mut panel = egui::TopBottomPanel::bottom("filmstrip")
         .show_separator_line(false)
-        .frame(egui::Frame::NONE.fill(BACKGROUND).inner_margin(4.0))
+        .frame(egui::Frame::NONE.fill(BACKGROUND).inner_margin(MARGIN))
         .resizable(true)
         .default_height(height)
-        .min_height(48.0)
-        .max_height(400.0)
-        .show(ctx, |ui| {
+        .min_height(SHORTEST)
+        .max_height(TALLEST);
+
+    if forced {
+        panel = panel.exact_height(height);
+    }
+
+    let panel = panel.show(ctx, |ui| {
+            // Whatever the drag has just asked for, rather than what the
+            // configuration last said: the cells follow the edge in the same
+            // frame it moves, and the panel keeps the size it was given.
+            let inner = ui.available_height();
+            ui.set_min_height(inner);
+
             ui.interact(
                 ui.max_rect(),
                 ui.id().with("strip hover"),
@@ -88,7 +135,7 @@ pub fn show(
 
             ui.spacing_mut().item_spacing = Vec2::new(GAP, 0.0);
 
-            let cell = (height - 8.0).max(16.0);
+            let cell = cell_side(inner);
             let at = visible.position_of(cursor);
 
             let mut area =
@@ -120,11 +167,7 @@ pub fn show(
             });
         });
 
-    // The dragged height, reported so it reaches the configuration.
-    let dragged = panel.response.rect.height();
-    if (dragged - height).abs() > 1.0 {
-        picked.height = Some(dragged);
-    }
+    picked.height = panel.response.rect.height();
 
     picked
 }
@@ -232,5 +275,41 @@ mod tests {
     #[test]
     fn a_thumbnail_of_no_size_fills_the_cell() {
         assert_eq!(fit(Vec2::ZERO, 48.0), Vec2::splat(48.0));
+    }
+
+    /// The point of dragging the strip taller: the thumbnails grow with it.
+    /// They did not, because the cell was sized from the configured height
+    /// rather than from the height the panel had actually been given.
+    #[test]
+    fn a_taller_strip_draws_larger_thumbnails() {
+        let mut last = 0.0_f32;
+
+        for inner in [SHORTEST, 96.0, 200.0, TALLEST] {
+            let cell = cell_side(inner);
+            assert!(cell > last, "{inner} gave {cell}, no larger than {last}");
+            last = cell;
+        }
+    }
+
+    /// The scroll bar gets room of its own rather than being drawn across the
+    /// bottom of the photographs.
+    #[test]
+    fn the_scroll_bar_is_not_drawn_over_a_thumbnail() {
+        assert!(cell_side(200.0) <= 200.0 - BAR);
+    }
+
+    /// The shortest the edge can be dragged to still draws something worth
+    /// looking at rather than collapsing to the floor.
+    #[test]
+    fn the_shortest_strip_still_draws_a_thumbnail() {
+        assert!(cell_side(SHORTEST) >= 16.0);
+    }
+
+    /// A height below the floor is still answered with a cell rather than a
+    /// negative one: a hand-edited configuration reaches here.
+    #[test]
+    fn a_strip_of_no_height_still_answers_with_a_cell() {
+        assert_eq!(cell_side(0.0), 16.0);
+        assert_eq!(cell_side(-40.0), 16.0);
     }
 }

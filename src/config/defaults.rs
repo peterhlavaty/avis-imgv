@@ -372,9 +372,15 @@ pub fn default_gpu_resident_thumbnails() -> usize {
 /// Space is what every program with a contact sheet uses to pick a photograph
 /// out, and picking photographs out is worth more than a key for scrolling
 /// half a row when the arrows, the wheel and the scrollbar all already do it.
-/// Off. The strip takes room from the photograph, so it is asked for.
+/// Tall enough to read a thumbnail at, short enough not to take the
+/// photograph's room.
+///
+/// A height and nothing else. It used to be zero, carrying "the strip is off"
+/// in the same number as "the strip is this tall" — which is why the key that
+/// shows the strip did nothing at all on a fresh install. Whether the strip is
+/// up is `filmstrip_visible`, and that is what defaults to off.
 pub fn default_filmstrip_height() -> f32 {
-    0.0
+    96.0
 }
 
 /// The file name, which is what the sheet has always shown.

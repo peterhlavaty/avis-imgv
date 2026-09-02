@@ -61,7 +61,7 @@ pub struct State {
     pub search: String,
     /// How wide the panel was on the frame before, so a drag is read back once
     /// it has finished rather than while it is happening.
-    pub width: crate::ui::width::Dragged,
+    pub width: crate::ui::dragged::Dragged,
 }
 
 /// Draws the panel and reports what was clicked.

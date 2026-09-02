@@ -1109,7 +1109,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `thumbnail_resolution` | Longest edge of a decoded thumbnail | 512 |
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
 | `sc_cycle_badges` | Cycles what is drawn under each thumbnail: nothing, the marks, or the marks and the name | `Ctrl + I` |
-| `filmstrip_height` | How tall the strip of thumbnails under the image view is, in points. `0` turns it off. | 0 |
+| `filmstrip_height` | How tall the strip of thumbnails under the image view is, in points. The thumbnails are as large as the strip allows, so this is how big they are as much as it is how tall it is; dragging the strip's top edge writes it here. | 96 |
 | `sc_select` | Picks the photograph under the cursor out, or puts it back | `Space` |
 | `sc_select_all` | Picks out everything on show, or puts it all back | `Ctrl + A` |
 

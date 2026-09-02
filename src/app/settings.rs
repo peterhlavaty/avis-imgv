@@ -340,10 +340,13 @@ impl App {
         );
         crate::ui::surface::show_settings_rows(self.settings.menus.settings_rows);
         crate::ui::slider::travels(self.settings.mouse.slider_travel);
-        // Before the copy is replaced, because the question is whether the
-        // window moved it rather than what it now says.
+        // Before the copies are replaced, because the question is whether the
+        // window moved them rather than what they now say.
         self.forced_panel_width |=
             (self.tag_config.panel_width - self.settings.tags.panel_width).abs() > 0.5;
+        self.forced_filmstrip_height |=
+            (self.grid_view.filmstrip_height() - self.settings.grid_view.filmstrip_height).abs()
+                > 0.5;
 
         self.config = self.settings.general.clone();
         self.tag_config = self.settings.tags.clone();

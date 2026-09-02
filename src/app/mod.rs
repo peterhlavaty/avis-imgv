@@ -180,6 +180,15 @@ pub struct App {
     /// Starts on when the configured height says so, and the key toggles it
     /// for the session.
     filmstrip_visible: bool,
+    /// How tall the strip was last drawn, and whether a hand put it there.
+    filmstrip_height: crate::ui::dragged::Dragged,
+    /// Whether the strip's height has to be stated rather than suggested on
+    /// the next frame it draws.
+    ///
+    /// The same reason the keyword panel has one: egui owns a panel's size
+    /// from the second frame on, so a height typed into the settings window or
+    /// put back by the history has one frame in which to say so.
+    forced_filmstrip_height: bool,
     /// Whether the sheet of keys is up.
     ///
     /// Not the editor, which is a settings window: this is the glance-at list
@@ -389,6 +398,8 @@ impl App {
             pairs: Pairs::default(),
             session,
             filmstrip_visible: filmstrip,
+            filmstrip_height: crate::ui::dragged::Dragged::default(),
+            forced_filmstrip_height: false,
             cheat_sheet_visible: false,
             cheat_sheet_opened: false,
             cheat_sheet_query: String::new(),

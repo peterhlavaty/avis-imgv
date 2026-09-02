@@ -2,6 +2,7 @@
 
 pub mod cheat_sheet;
 pub mod destinations;
+pub mod dragged;
 pub mod empty;
 pub mod filter_bar;
 pub mod histogram;
@@ -19,4 +20,3 @@ pub mod surface;
 pub mod tag_panel;
 pub mod theme;
 pub mod tree;
-pub mod width;
