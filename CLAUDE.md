@@ -305,6 +305,37 @@ Leaving the seam for later means the next session pays for it with interest.
   accumulates over time is paid twice on those frames while anything read off
   an event is not paid at all. `ctx.current_pass_index() > 0` is the guard, and
   `interaction::keyboard_panning` is where it is.
+- **A resizable panel must fill the size it is given, or it snaps back.** egui
+  stores a panel's size as the rectangle its *contents* came to, not the one
+  the drag asked for (`PanelState { rect }` where `rect` is the frame's
+  response, `egui-0.33/src/containers/panel.rs`), so a panel whose content is
+  sized from the configured number reports that number back however far the
+  edge was pulled — and the next frame is drawn at it. `ui.set_min_height` (or
+  width) of `ui.available_*` at the top of the closure makes the two
+  rectangles one. The other two halves: the size is read back through
+  `ui::dragged::Dragged`, which lands on the frame the button comes up rather
+  than sixty times a drag, and a size changed by anything *but* a drag needs
+  one `exact_*` frame to reach the panel, because `default_*` is dead from the
+  second frame on — `forced_panel_width` and `forced_filmstrip_height` are
+  that flag.
+- **The set of picked-out photographs is empty, or it holds the one on
+  screen.** Empty is what every command already reads as "the one being looked
+  at" (`App::marked_paths`), so picking a second frame out has to bring the
+  first with it (`Selection::start_at`) and unpicking back to one has to put
+  the set down (`Selection::settle_on`), or a command meant for two would run
+  on one. Moving to a photograph that is not in the set lets the set go and
+  moving to one that is keeps it — watched once a frame in
+  `App::follow_the_photograph` rather than told, so all dozen routes to a
+  different photograph are covered by construction, and empty-to-empty is the
+  common case so an ordinary walk through a folder records nothing.
+- **The sheet extends a run from an anchor; the strip extends it from the
+  nearest.** Two shift-clicks, deliberately, both in `view/selection.rs`. A
+  list of files is walked one run at a time and remembers where the run began;
+  the strip is read with a photograph on screen, where the run wanted is the
+  gap between the set and the frame just pointed at, and after two runs the
+  anchor is somewhere nobody can still see. Nearest is measured in the shown
+  order, never wraps round the end of the collection, and settles a tie in
+  favour of the earlier frame.
 - **A gesture is a second route, never the only one.** The mouse is eight fields
   in `mouse`; the ones with a single meaning hold the name of a command from
   `config::mouse::VERBS`, and a test asserts every one of them also has a key.
