@@ -84,6 +84,9 @@ pub struct Undoes {
     /// The mode, the panels, the cursor, the zoom, the narrowing.
     #[serde(default = "yes")]
     pub view: bool,
+    /// Which photographs are picked out.
+    #[serde(default = "yes")]
+    pub selection: bool,
     /// A field of the configuration.
     #[serde(default = "yes")]
     pub settings: bool,
@@ -100,6 +103,7 @@ impl Default for Undoes {
     fn default() -> Self {
         Undoes {
             view: true,
+            selection: true,
             settings: true,
             content: true,
         }
@@ -109,11 +113,12 @@ impl Default for Undoes {
 impl Undoes {
     /// The names the flag row uses, which are what [`crate::history::Class`]
     /// answers to and what the configuration file carries.
-    pub const NAMES: &'static [&'static str] = &["view", "settings", "content"];
+    pub const NAMES: &'static [&'static str] = &["view", "selection", "settings", "content"];
 
     pub fn get(&self, name: &str) -> bool {
         match name {
             "view" => self.view,
+            "selection" => self.selection,
             "settings" => self.settings,
             "content" => self.content,
             _ => false,
@@ -123,6 +128,7 @@ impl Undoes {
     pub fn set(&mut self, name: &str, on: bool) {
         match name {
             "view" => self.view = on,
+            "selection" => self.selection = on,
             "settings" => self.settings = on,
             "content" => self.content = on,
             _ => {}

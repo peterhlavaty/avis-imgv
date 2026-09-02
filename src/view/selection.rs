@@ -109,16 +109,99 @@ impl Selection {
     /// does not replace.
     pub fn extend_to(&mut self, visible: &Visible, position: usize) {
         let from = *self.anchor.get_or_insert(position);
-        let (start, end) = if from <= position {
-            (from, position)
-        } else {
-            (position, from)
-        };
+        self.pick_the_run(visible, from, position);
+    }
+
+    /// Picks out the run between `position` and the nearest already-picked
+    /// frame, keeping everything that was picked before.
+    ///
+    /// The strip's shift-click rather than the sheet's. The sheet extends from
+    /// an anchor, which is what a list of files does and what somebody
+    /// building one run at a time wants; the strip is looked at while the
+    /// photograph is on screen, where the run being asked for is nearly always
+    /// the gap between what is already picked and the frame just pointed at —
+    /// and after two or three runs the anchor is somewhere the person has
+    /// forgotten. Both are defensible, so both are here rather than one being
+    /// bent into the other.
+    ///
+    /// Nearest is measured in the shown order and never wraps: a run from the
+    /// last frame of a folder to the first is not a run anybody meant. At an
+    /// equal distance either side the earlier one wins, because a tie has to
+    /// be settled somewhere and going back is the half a walk has already
+    /// seen.
+    pub fn extend_from_nearest(&mut self, visible: &Visible, position: usize) {
+        let from = self.nearest_picked(visible, position);
+        self.anchor = Some(position);
+
+        // Nothing picked out at all: the run is the one frame clicked.
+        let from = from.unwrap_or(position);
+        self.pick_the_run(visible, from, position);
+    }
+
+    /// Picks out every frame between two positions in the shown order, ends
+    /// included, leaving whatever else is picked alone.
+    ///
+    /// Positions off the end are stepped over rather than refused: a strip and
+    /// a filter can disagree for one frame.
+    fn pick_the_run(&mut self, visible: &Visible, from: usize, to: usize) {
+        let (start, end) = if from <= to { (from, to) } else { (to, from) };
 
         for step in start..=end {
             if let Some(index) = visible.at(step) {
                 self.chosen.insert(index);
             }
+        }
+    }
+
+    /// The picked-out frame closest to `position` in the shown order.
+    ///
+    /// Walked outwards rather than swept, so the answer costs the distance to
+    /// it rather than the size of the folder in the case that matters — the
+    /// run being asked for is usually a short one.
+    fn nearest_picked(&self, visible: &Visible, position: usize) -> Option<usize> {
+        let shown = visible.len();
+        if position >= shown {
+            return None;
+        }
+
+        let holds = |at: usize| {
+            visible
+                .at(at)
+                .is_some_and(|index| self.chosen.contains(&index))
+        };
+
+        (0..shown).find_map(|step| {
+            let left = position.checked_sub(step).filter(|&left| holds(left));
+            let right =
+                (position + step < shown && holds(position + step)).then(|| position + step);
+
+            left.or(right)
+        })
+    }
+
+    /// Puts the photograph on screen into an empty set, before something else
+    /// joins it.
+    ///
+    /// The set is either empty — which every command already reads as "the one
+    /// being looked at" — or it holds the photograph on screen along with the
+    /// rest of them. Without this, picking out a second frame would quietly
+    /// drop the first, and a command meant for two would run on one.
+    pub fn start_at(&mut self, index: usize, position: usize) {
+        if self.chosen.is_empty() {
+            self.chosen.insert(index);
+            self.anchor = Some(position);
+        }
+    }
+
+    /// Puts the set down once it has come back to being the photograph on
+    /// screen and nothing else.
+    ///
+    /// That is the state it started in, and leaving it as a set of one would
+    /// draw a picked-out colour round the frame somebody has just finished
+    /// unpicking.
+    pub fn settle_on(&mut self, index: usize) {
+        if self.chosen.len() == 1 && self.chosen.contains(&index) {
+            self.clear();
         }
     }
 
@@ -332,6 +415,189 @@ mod tests {
         selection.remove_shifting(0);
 
         assert_eq!(selection.iter().collect::<Vec<_>>(), vec![4]);
+    }
+
+    /// The strip's shift-click with only the photograph on screen picked out:
+    /// the run is from it to what was clicked, which is the ordinary case.
+    #[test]
+    fn a_run_reaches_back_to_the_only_frame_picked_out() {
+        let visible = everything(20);
+        let mut selection = Selection::default();
+        selection.start_at(5, 5);
+
+        selection.extend_from_nearest(&visible, 10);
+
+        assert_eq!(
+            selection.iter().collect::<Vec<_>>(),
+            vec![5, 6, 7, 8, 9, 10]
+        );
+    }
+
+    /// And the case the anchor gets wrong: a second run, asked for from the
+    /// end of the first. Everything picked before is kept.
+    #[test]
+    fn a_second_run_starts_from_the_end_of_the_first() {
+        let visible = everything(30);
+        let mut selection = Selection::default();
+        selection.start_at(5, 5);
+        selection.extend_from_nearest(&visible, 10);
+
+        selection.extend_from_nearest(&visible, 14);
+
+        assert_eq!(
+            selection.iter().collect::<Vec<_>>(),
+            (5..=14).collect::<Vec<_>>()
+        );
+    }
+
+    /// Nearest, with gaps: 15 is five away and 3 is seven, so the run goes up.
+    #[test]
+    fn a_run_reaches_the_nearest_of_several_picked_out() {
+        let visible = everything(30);
+        let mut selection = Selection::default();
+        selection.add(3);
+        selection.add(15);
+
+        selection.extend_from_nearest(&visible, 10);
+
+        assert_eq!(
+            selection.iter().collect::<Vec<_>>(),
+            vec![3, 10, 11, 12, 13, 14, 15]
+        );
+    }
+
+    /// Backwards is a run like any other.
+    #[test]
+    fn a_run_reaches_backwards_when_that_is_the_nearer_side() {
+        let visible = everything(30);
+        let mut selection = Selection::default();
+        selection.add(20);
+
+        selection.extend_from_nearest(&visible, 17);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![17, 18, 19, 20]);
+    }
+
+    /// The end of the strip is the end of it. A run from the last frame to the
+    /// first would pick out the whole folder, which nobody asked for.
+    #[test]
+    fn a_run_never_wraps_round_the_end() {
+        let visible = everything(30);
+        let mut selection = Selection::default();
+        selection.add(1);
+
+        selection.extend_from_nearest(&visible, 28);
+
+        assert_eq!(
+            selection.iter().collect::<Vec<_>>(),
+            (1..=28).collect::<Vec<_>>(),
+            "the run reaches back to 1 rather than forward over the end"
+        );
+    }
+
+    /// A tie has to be settled somewhere: the earlier frame wins.
+    #[test]
+    fn a_run_equally_far_either_way_goes_back() {
+        let visible = everything(30);
+        let mut selection = Selection::default();
+        selection.add(5);
+        selection.add(15);
+
+        selection.extend_from_nearest(&visible, 10);
+
+        assert_eq!(
+            selection.iter().collect::<Vec<_>>(),
+            vec![5, 6, 7, 8, 9, 10, 15]
+        );
+    }
+
+    /// The run follows what is on show, so a filtered strip runs over the
+    /// frames that are actually next to each other on it.
+    #[test]
+    fn a_run_follows_the_shown_order() {
+        let visible = Visible::of(vec![9, 4, 1, 6, 2], 10);
+        let mut selection = Selection::default();
+        selection.add(9);
+
+        selection.extend_from_nearest(&visible, 3);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![1, 4, 6, 9]);
+    }
+
+    /// Nothing picked out at all: the run is the one frame that was clicked.
+    #[test]
+    fn a_run_from_nothing_picks_out_the_one_frame() {
+        let visible = everything(10);
+        let mut selection = Selection::default();
+
+        selection.extend_from_nearest(&visible, 4);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![4]);
+    }
+
+    /// A position off the end of what is on show changes nothing rather than
+    /// panicking: a strip and a filter can disagree for one frame.
+    #[test]
+    fn a_run_past_the_end_of_the_strip_picks_out_nothing() {
+        let visible = everything(4);
+        let mut selection = Selection::default();
+        selection.add(1);
+
+        selection.extend_from_nearest(&visible, 9);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![1]);
+    }
+
+    /// The invariant every command depends on: an empty set means "the one
+    /// being looked at", so the second frame picked out has to bring the first
+    /// with it.
+    #[test]
+    fn picking_out_a_second_frame_keeps_the_one_on_screen() {
+        let mut selection = Selection::default();
+
+        selection.start_at(5, 5);
+        selection.toggle(9, 9);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![5, 9]);
+    }
+
+    /// And it only ever seeds an empty set: a set that has already been built
+    /// is not quietly given the photograph on screen.
+    #[test]
+    fn a_set_that_already_holds_something_is_left_alone() {
+        let mut selection = Selection::default();
+        selection.add(2);
+
+        selection.start_at(5, 5);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![2]);
+    }
+
+    /// Unpicking the way back to one frame comes back to no set at all, which
+    /// is where it started.
+    #[test]
+    fn coming_back_to_the_frame_on_screen_puts_the_set_down() {
+        let mut selection = Selection::default();
+        selection.start_at(5, 5);
+        selection.toggle(9, 9);
+
+        selection.toggle(9, 9);
+        selection.settle_on(5);
+
+        assert!(selection.is_empty());
+        assert_eq!(selection.anchor(), None);
+    }
+
+    /// A set of one that is *not* the photograph on screen is a real set and
+    /// stays.
+    #[test]
+    fn a_set_of_one_somewhere_else_is_left_standing() {
+        let mut selection = Selection::default();
+        selection.add(9);
+
+        selection.settle_on(5);
+
+        assert_eq!(selection.iter().collect::<Vec<_>>(), vec![9]);
     }
 
     #[test]

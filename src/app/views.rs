@@ -189,8 +189,14 @@ impl App {
         }
 
         let cursor = self.image_view.selected_index();
+        // What the panel is actually drawing, so the strip can mark all of it.
+        // Showing four photographs side by side and marking one of them is a
+        // strip that disagrees with the window in front of it.
+        let panes = self.image_view.panes();
         let forced = std::mem::take(&mut self.forced_filmstrip_height);
-        let (opened, drawn) = self.grid_view.filmstrip(ctx, cursor, height, forced);
+        let (opened, drawn) = self
+            .grid_view
+            .filmstrip(ctx, cursor, &panes, height, forced);
 
         if let Some(path) = opened {
             self.image_view.select_path(&path);
@@ -207,6 +213,34 @@ impl App {
             self.settings.grid_view.filmstrip_height = settled;
             self.grid_view.set_config(self.settings.grid_view.clone());
             self.save_settings();
+        }
+    }
+
+    /// Keeps the set of picked-out photographs about the one being looked at.
+    ///
+    /// The strip marks the photograph on screen whether or not anything has
+    /// been picked out, so arriving at a frame is a way of picking it out —
+    /// and arriving at a frame that is *not* in the set means letting go of
+    /// the set, the way a plain click in any list of files does. Arriving at
+    /// one that is in it leaves the set standing, which is what makes clicking
+    /// through a picked-out run possible at all.
+    ///
+    /// Watched rather than told, the same way the history is: there are a
+    /// dozen routes to a different photograph — the keys, the wheel, the
+    /// strip, the sheet, a slideshow, the history itself — and every one of
+    /// them is covered here by construction, including the ones not written
+    /// yet.
+    pub(super) fn follow_the_photograph(&mut self) {
+        let now = self.image_view.selected_index();
+        let was = self.following.replace(now);
+
+        if lets_go(
+            was,
+            now,
+            self.grid_view.selection().contains(now),
+            self.settings.grid_view.moving_on_clears_the_selection,
+        ) {
+            self.grid_view.clear_selection();
         }
     }
 
@@ -261,5 +295,57 @@ impl App {
         if let Some(opening) = &mut self.opening {
             opening.tell_organize = true;
         }
+    }
+}
+
+/// Whether arriving at `now` lets go of the photographs that were picked out.
+///
+/// Pure, because the rule has four inputs and three of them are easy to get
+/// wrong: the frame the viewer opened on is not somewhere anybody moved to,
+/// standing still is not moving, and arriving at a photograph that is already
+/// picked out is the case that makes clicking through a picked-out run work at
+/// all.
+fn lets_go(was: Option<usize>, now: usize, picked: bool, clearing: bool) -> bool {
+    let Some(was) = was else {
+        // The first frame drawn. There is nothing to have moved away from, and
+        // this is what stops the opening frame counting as a move.
+        return false;
+    };
+
+    clearing && was != now && !picked
+}
+
+#[cfg(test)]
+mod tests {
+    use super::lets_go;
+
+    #[test]
+    fn moving_to_a_photograph_that_is_not_picked_out_lets_the_set_go() {
+        assert!(lets_go(Some(4), 5, false, true));
+    }
+
+    /// The case the whole rule exists for: clicking from one picked-out frame
+    /// to another keeps the set, so a run can be looked through.
+    #[test]
+    fn moving_to_one_that_is_picked_out_keeps_the_set() {
+        assert!(!lets_go(Some(4), 5, true, true));
+    }
+
+    #[test]
+    fn standing_still_lets_go_of_nothing() {
+        assert!(!lets_go(Some(5), 5, false, true));
+    }
+
+    /// The frame the viewer opened on is not somewhere anybody moved to.
+    #[test]
+    fn the_first_frame_lets_go_of_nothing() {
+        assert!(!lets_go(None, 5, false, true));
+    }
+
+    /// Switched off, a set built in the contact sheet survives a walk through
+    /// the folder, which is what somebody who works that way asked for.
+    #[test]
+    fn the_set_is_kept_when_the_setting_says_so() {
+        assert!(!lets_go(Some(4), 5, false, false));
     }
 }

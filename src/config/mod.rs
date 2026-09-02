@@ -794,6 +794,23 @@ pub struct GridViewConfig {
     /// and Enter all at once.
     #[serde(default)]
     pub click_opens: bool,
+    /// The colour a picked-out photograph is marked in, as a hex string.
+    ///
+    /// One colour for both views, because a mark that means the same thing in
+    /// the sheet and in the strip has to look the same in both. It is a
+    /// setting because it has to be told apart from the white the strip draws
+    /// round what is on screen, and how far apart two colours are depends on
+    /// the screen, the room and the eyes.
+    #[serde(default = "default_selection_colour")]
+    pub selection_colour: String,
+    /// Whether moving to a photograph that is not picked out puts the set
+    /// down.
+    ///
+    /// On: the strip marks what is being looked at, and walking away from a
+    /// set means letting go of it. Off for somebody who builds a set in the
+    /// sheet and then walks through the folder looking at the frames in it.
+    #[serde(default = "default_moving_on_clears_the_selection")]
+    pub moving_on_clears_the_selection: bool,
     #[serde(default = "default_sc_select")]
     pub sc_select: Shortcut,
     #[serde(default = "default_sc_select_all")]
@@ -1007,6 +1024,8 @@ impl Default for GridViewConfig {
             filmstrip_visible: false,
             filmstrip_edge: default_filmstrip_edge(),
             click_opens: false,
+            selection_colour: default_selection_colour(),
+            moving_on_clears_the_selection: default_moving_on_clears_the_selection(),
             filmstrip_height: default_filmstrip_height(),
             sc_select: default_sc_select(),
             sc_select_all: default_sc_select_all(),

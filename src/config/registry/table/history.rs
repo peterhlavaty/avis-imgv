@@ -9,6 +9,11 @@ const CLASSES: &[Choice] = &[
         sentence: "The mode, the panels, the photograph you were on, the zoom, the narrowing.",
     },
     Choice {
+        value: "selection",
+        label: "What you picked out",
+        sentence: "Picking photographs out on the strip or the sheet, and letting them go.",
+    },
+    Choice {
         value: "settings",
         label: "Settings",
         sentence: "Anything changed in this window.",

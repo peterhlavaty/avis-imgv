@@ -439,7 +439,7 @@ impl ImageView {
         self.panes().is_empty()
     }
 
-    fn panes(&self) -> Vec<usize> {
+    pub fn panes(&self) -> Vec<usize> {
         if let Some(comparing) = &self.comparing {
             return comparing.clone();
         }

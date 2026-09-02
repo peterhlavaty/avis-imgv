@@ -101,8 +101,32 @@ const CURSOR: Color32 = Color32::from_rgb(126, 168, 224);
 /// A wash rather than a border, because the borders are spoken for: one says
 /// where the keyboard is and one says which photograph the other view is on,
 /// and a selection has to be legible at the same time as both.
-const SELECTED_TINT: Color32 = Color32::from_rgba_premultiplied(20, 44, 76, 90);
+///
+/// The colour itself is `grid_view.selection_colour`; this is what it falls
+/// back to when the configuration holds something that is not a colour.
 pub const SELECTED: Color32 = Color32::from_rgb(126, 168, 224);
+
+/// How much of a picked-out cell's wash is the selection colour.
+///
+/// A quarter of it, and darkened first: the wash goes over the photograph and
+/// has to leave it readable, which is the whole difference between marking a
+/// frame and covering it.
+const WASH: u8 = 90;
+
+/// The wash a selection colour makes.
+///
+/// A third of the colour, so a light blue and a strong red both come out as
+/// something the photograph can still be seen through.
+pub fn wash(colour: Color32) -> Color32 {
+    let third = |channel: u8| ((channel as u32 * WASH as u32) / (3 * 255)) as u8;
+
+    Color32::from_rgba_premultiplied(
+        third(colour.r()),
+        third(colour.g()),
+        third(colour.b()),
+        WASH,
+    )
+}
 
 const STAR: &str = "★";
 const REJECTED_TINT: Color32 = Color32::from_rgba_premultiplied(28, 6, 6, 150);
@@ -178,24 +202,28 @@ pub fn dim_if_rejected(ui: &egui::Ui, picture: Rect, marks: Option<&Marks>) {
     }
 }
 
-/// Marks a cell that has been picked out.
+/// Marks a cell that has been picked out, in `colour`.
 ///
 /// A wash over the whole picture and a tick in the corner: the wash is what
 /// makes a selection countable at a glance from across a sheet, and the tick
 /// is what makes a single selected cell unmistakable when the wash could be
 /// taken for a dark photograph.
-pub fn picked(ui: &egui::Ui, picture: Rect, selected: bool) {
+///
+/// The strip under the photograph draws the same two things for the same
+/// reason, so this is where both of them are: one mark, one meaning, and the
+/// tick shrinks to fit a cell a fifth the size.
+pub fn picked(ui: &egui::Ui, picture: Rect, selected: bool, colour: Color32) {
     if !selected || picture.width() <= 0.0 {
         return;
     }
 
     let painter = ui.painter();
-    painter.rect_filled(picture, 0.0, SELECTED_TINT);
+    painter.rect_filled(picture, 0.0, wash(colour));
 
-    let side = (picture.width() * 0.18).clamp(12.0, 22.0);
+    let side = (picture.width() * 0.18).clamp(10.0, 22.0);
     let badge = Rect::from_min_size(picture.min + Vec2::splat(3.0), Vec2::splat(side));
 
-    painter.rect_filled(badge, 3.0, SELECTED);
+    painter.rect_filled(badge, 3.0, colour);
     painter.text(
         badge.center(),
         Align2::CENTER_CENTER,
@@ -306,6 +334,37 @@ fn elided(painter: &egui::Painter, name: &str, width: f32, font: &FontId) -> Str
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The wash goes over the photograph, so whatever colour is chosen it has
+    /// to leave the photograph visible through it.
+    #[test]
+    fn a_wash_is_faint_whatever_colour_it_is_made_of() {
+        for colour in [
+            SELECTED,
+            Color32::WHITE,
+            Color32::from_rgb(255, 0, 0),
+            Color32::BLACK,
+        ] {
+            let washed = wash(colour);
+
+            assert_eq!(washed.a(), WASH, "{colour:?}");
+            // Premultiplied, so no channel may be brighter than the alpha or
+            // the colour is not one egui can draw.
+            for channel in [washed.r(), washed.g(), washed.b()] {
+                assert!(channel <= washed.a(), "{colour:?} gave {washed:?}");
+            }
+        }
+    }
+
+    /// The default is still the blue the sheet has always used, so a
+    /// configuration that says nothing looks as it did.
+    #[test]
+    fn the_default_selection_colour_is_the_one_the_sheet_had() {
+        let configured =
+            crate::ui::theme::colour(&crate::config::default_selection_colour(), Color32::BLACK);
+
+        assert_eq!(configured, SELECTED);
+    }
 
     #[test]
     fn the_badge_sets_cycle_back_round() {

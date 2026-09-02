@@ -372,6 +372,21 @@ pub fn default_gpu_resident_thumbnails() -> usize {
 /// Space is what every program with a contact sheet uses to pick a photograph
 /// out, and picking photographs out is worth more than a key for scrolling
 /// half a row when the arrows, the wheel and the scrollbar all already do it.
+/// The blue the contact sheet has always washed a picked-out cell in.
+///
+/// Cool and light: it has to read against a grey ground at a fortieth of the
+/// size, and it has to be told apart at a glance from the white the strip
+/// draws round the photograph on screen.
+pub fn default_selection_colour() -> String {
+    "#7EA8E0".to_string()
+}
+
+/// On. The strip marks what is being looked at, so walking away from a set of
+/// picked-out frames is letting go of it.
+pub fn default_moving_on_clears_the_selection() -> bool {
+    true
+}
+
 /// Tall enough to read a thumbnail at, short enough not to take the
 /// photograph's room.
 ///

@@ -105,6 +105,12 @@ pub struct GridView {
     selection: Selection,
     /// The ground behind a thumbnail, derived from `general.backdrop`.
     backdrop: Color32,
+    /// What a picked-out photograph is marked in, derived from
+    /// `grid_view.selection_colour`.
+    ///
+    /// Read from the hex once when the configuration changes rather than once
+    /// a cell a frame: a sheet of two hundred parses it two hundred times.
+    picked_colour: Color32,
 }
 
 impl GridView {
@@ -136,6 +142,7 @@ impl GridView {
             visible: Visible::default(),
             selection: Selection::default(),
             backdrop: CELL_BACKGROUND,
+            picked_colour: cell::SELECTED,
         }
     }
 
@@ -287,6 +294,7 @@ impl GridView {
     /// Takes a changed configuration, for when the keyboard map is edited.
     pub fn set_config(&mut self, config: GridViewConfig) {
         self.badges = Badges::of(&config.badges);
+        self.picked_colour = crate::ui::theme::colour(&config.selection_colour, cell::SELECTED);
 
         // The keys change the column count for the session and the
         // configuration is what a launch starts with — but a change made in
@@ -341,17 +349,68 @@ impl GridView {
         &mut self,
         ctx: &egui::Context,
         cursor: usize,
+        panes: &[usize],
         height: f32,
         forced: bool,
     ) -> (Option<PathBuf>, f32) {
-        let picked = filmstrip::show(ctx, &mut self.store, &self.visible, cursor, height, forced);
+        let on_screen = filmstrip::OnScreen {
+            cursor,
+            panes,
+            selection: &self.selection,
+            colour: self.picked_colour,
+        };
+
+        let picked = filmstrip::show(
+            ctx,
+            &mut self.store,
+            &self.visible,
+            &on_screen,
+            height,
+            forced,
+        );
 
         let opened = picked
-            .selected
-            .and_then(|index| self.store.path(index))
-            .map(Path::to_path_buf);
+            .click
+            .and_then(|click| self.strip_click(click, cursor));
 
         (opened, picked.height)
+    }
+
+    /// Carries out a click on the strip, and answers with a photograph to open.
+    ///
+    /// The set is either empty — which every command reads as the photograph
+    /// being looked at — or it holds that photograph along with the rest, so
+    /// picking a second frame out has to bring the first with it and unpicking
+    /// the way back to one has to put the set down again. A plain click asks
+    /// for a photograph and says nothing about the set: what happens to it is
+    /// decided by `App::follow_the_photograph`, so that arriving by a click
+    /// and arriving by the arrow keys mean the same thing.
+    fn strip_click(&mut self, click: filmstrip::Click, cursor: usize) -> Option<PathBuf> {
+        let index = click.index();
+        let at = self.visible.position_of(index)?;
+
+        match click {
+            filmstrip::Click::Open(_) => {
+                return self.store.path(index).map(Path::to_path_buf);
+            }
+            // The photograph on screen is picked out for as long as anything
+            // is, so there is nothing here to put back.
+            filmstrip::Click::Toggle(_) if index == cursor => {}
+            filmstrip::Click::Toggle(_) => {
+                self.selection
+                    .start_at(cursor, self.visible.position_of(cursor).unwrap_or(at));
+                self.selection.toggle(index, at);
+                self.selection.settle_on(cursor);
+            }
+            filmstrip::Click::Run(_) => {
+                self.selection
+                    .start_at(cursor, self.visible.position_of(cursor).unwrap_or(at));
+                self.selection.extend_from_nearest(&self.visible, at);
+                self.selection.settle_on(cursor);
+            }
+        }
+
+        None
     }
 
     /// Draws the grid.
@@ -614,7 +673,12 @@ impl GridView {
             })
             .inner;
 
-        cell::picked(ui, picture, self.selection.contains(index));
+        cell::picked(
+            ui,
+            picture,
+            self.selection.contains(index),
+            self.picked_colour,
+        );
         cell::dim_if_rejected(ui, picture, marks);
 
         if let Some(stack) = stacks.stack_of(index) {

@@ -17,6 +17,8 @@ pub fn rows() -> Vec<Row> {
             [
                 "colour",
                 "color",
+                "colour management",
+                "color management",
                 "icc",
                 "profile",
                 "srgb",

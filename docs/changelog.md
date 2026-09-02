@@ -2,6 +2,47 @@
 
 ## 2026-09-02
 
+- **The strip says what is on screen and what is picked out, and picks
+  photographs out itself.** It marked one thing: the photograph the keys were
+  about. Showing four side by side marked one of the four, and a set picked out
+  in the contact sheet was invisible on it — so the strip and the window above
+  it disagreed about what was being looked at, and the thing every command in
+  the program is aimed at could not be seen from the view it is aimed from.
+
+  Three marks now, because they are three different questions. A white border
+  three points wide is the photograph the keys are about; the same white,
+  fainter and half as wide, is every other photograph on screen beside it. Both
+  are drawn over a wash and a tick in `grid_view.selection_colour` — the mark
+  the contact sheet has always drawn on a picked-out cell, in a colour that is
+  now a setting and is used by both views, so that the one thing means one
+  thing.
+
+  `Ctrl` and a click picks a photograph out or puts it back; `Shift` and a
+  click picks out the run between what was clicked and the nearest frame
+  already picked, keeping everything picked before it. That is not the sheet's
+  shift-click, which runs from wherever the last run started, and the
+  difference is deliberate: the strip is used with a photograph on screen,
+  where the run wanted is nearly always the gap between the set and the frame
+  just pointed at. Neither modifier changes the photograph on screen. Nearest
+  never wraps round the end of the strip, and at an equal distance either side
+  the earlier frame wins.
+
+  The photograph being looked at is part of the set whenever there is one, so
+  picking out a second frame brings the first with it and a command meant for
+  two is about two. Unpicking back to one puts the set down again. Going to a
+  photograph that is not picked out lets the set go, however you got there —
+  the arrow keys, the wheel, the strip, the sheet, the history — and going to
+  one that is picked out keeps it, which is what makes clicking through a
+  picked-out run work at all. `grid_view.moving_on_clears_the_selection` turns
+  the first half off for somebody who picks a set out in the sheet and then
+  walks through it.
+
+  Picking photographs out is its own class in the history — *What you picked
+  out* — so `Ctrl + Z` can be told not to come to rest on it while still
+  recording every one, which is what the other three classes have always done.
+  A row that also moved the cursor stays a move: stepping back through a folder
+  should stop on it whatever the class says.
+
 - **The strip of thumbnails keeps the height it is dragged to, and its
   thumbnails grow with it.** Pulling the strip's top edge up moved it for one
   frame and then put it back where it started, every time. egui remembers a

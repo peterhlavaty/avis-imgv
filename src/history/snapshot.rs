@@ -288,6 +288,11 @@ impl Change {
         matches!(self.slot(), Slot::Settings)
     }
 
+    /// Whether this is a change to which photographs are picked out.
+    pub fn is_a_selection(&self) -> bool {
+        matches!(self.slot(), Slot::Selection)
+    }
+
     /// Whether this is the kind of thing a gesture produces a stream of.
     ///
     /// Zooming, panning and walking the folder arrive once a frame while the

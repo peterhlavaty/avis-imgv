@@ -19,8 +19,11 @@ use eframe::egui::{self, Color32, Rect, Sense};
 use eframe::epaint::Vec2;
 
 use crate::cache::{ImageState, ImageStore};
+use crate::view::selection::Selection;
 use crate::view::texture;
 use crate::view::visible::Visible;
+
+use super::cell;
 
 /// The thumbnail is never cropped, so it always shows all of itself.
 const WHOLE_IMAGE: Rect = Rect {
@@ -33,6 +36,21 @@ const CELL: Color32 = Color32::from_rgb(70, 70, 70);
 
 /// The border round the photograph the viewer is on.
 const CURRENT: Color32 = Color32::from_rgb(232, 232, 232);
+
+/// The border round the other photographs on screen beside it.
+///
+/// The same white at less than half the strength and half the width. Showing
+/// four photographs side by side means four frames on the strip are on screen
+/// and one of them is the one the keys are about, and the difference between
+/// those two has to be obvious without a second look — so it is the same
+/// colour said quietly rather than a colour of its own, which would read as a
+/// third kind of thing.
+const ALSO_SHOWN: Color32 = Color32::from_rgba_premultiplied(104, 104, 104, 115);
+
+/// How thick the border round the photograph on screen is, and round the
+/// others beside it.
+const CURRENT_STROKE: f32 = 3.0;
+const ALSO_SHOWN_STROKE: f32 = 1.5;
 
 /// Gap either side of a cell.
 const GAP: f32 = 3.0;
@@ -63,10 +81,82 @@ pub fn cell_side(inner: f32) -> f32 {
     (inner - BAR).max(16.0)
 }
 
+/// What the strip has to mark, and in what colour.
+///
+/// The three marks are three different questions and the strip answers all of
+/// them at once: which photograph the keys are about, which are on screen
+/// beside it — a comparison of four means four of these thumbnails are in
+/// front of the person — and which have been picked out for a command.
+pub struct OnScreen<'a> {
+    /// The store position the keys and every command are about.
+    pub cursor: usize,
+    /// Every store position drawn in the panel, the cursor included.
+    pub panes: &'a [usize],
+    /// The photographs picked out.
+    pub selection: &'a Selection,
+    /// What a picked-out photograph is marked in.
+    pub colour: Color32,
+}
+
+impl OnScreen<'_> {
+    /// What one cell stands for.
+    ///
+    /// Linear in the panes, which is at most eight and usually one: a set
+    /// would cost more to build every frame than it saves.
+    fn state(&self, index: usize) -> State {
+        State {
+            current: index == self.cursor,
+            shown: self.panes.contains(&index),
+            picked: self.selection.contains(index),
+        }
+    }
+}
+
+/// What a click on the strip was asking for.
+///
+/// Reported rather than acted on, because the strip is handed the collection
+/// and the set but not the right to change either: what a click means is the
+/// contact sheet's to say, since it is the one that owns the set both views
+/// draw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Click {
+    /// Show this one. Plain click.
+    Open(usize),
+    /// Pick this one out, or put it back, leaving the rest alone. Ctrl.
+    Toggle(usize),
+    /// Pick out the run between this one and the nearest already picked.
+    /// Shift.
+    Run(usize),
+}
+
+impl Click {
+    /// The store position the click landed on, whatever it was asking for.
+    pub fn index(self) -> usize {
+        match self {
+            Click::Open(index) | Click::Toggle(index) | Click::Run(index) => index,
+        }
+    }
+
+    /// What the modifiers held at the time mean.
+    ///
+    /// The two every file manager uses, and for once the layout quirk that
+    /// bedevils the digit keys does not apply: nobody reaches Ctrl or Shift by
+    /// accident with a mouse in their hand.
+    pub fn of(modifiers: egui::Modifiers, index: usize) -> Click {
+        if modifiers.command {
+            Click::Toggle(index)
+        } else if modifiers.shift {
+            Click::Run(index)
+        } else {
+            Click::Open(index)
+        }
+    }
+}
+
 /// What the strip reports back.
 pub struct Picked {
-    /// A store position the user clicked on.
-    pub selected: Option<usize>,
+    /// What was clicked, and what the click meant.
+    pub click: Option<Click>,
     /// How tall the panel is actually drawn, this frame.
     ///
     /// Reported every frame rather than only when it differs, because telling
@@ -92,12 +182,13 @@ pub fn show(
     ctx: &egui::Context,
     store: &mut ImageStore,
     visible: &Visible,
-    cursor: usize,
+    on_screen: &OnScreen<'_>,
     height: f32,
     forced: bool,
 ) -> Picked {
+    let cursor = on_screen.cursor;
     let mut picked = Picked {
-        selected: None,
+        click: None,
         height,
     };
 
@@ -136,6 +227,7 @@ pub fn show(
             ui.spacing_mut().item_spacing = Vec2::new(GAP, 0.0);
 
             let cell = cell_side(inner);
+            let colour = on_screen.colour;
             let at = visible.position_of(cursor);
 
             let mut area =
@@ -159,8 +251,11 @@ pub fn show(
                             .and_then(|path| path.file_name())
                             .map(|name| name.to_string_lossy().into_owned());
 
-                        if draw_cell(ui, store, index, index == cursor, cell, name.as_deref()) {
-                            picked.selected = Some(index);
+                        let state = on_screen.state(index);
+
+                        if draw_cell(ui, store, index, state, cell, colour, name.as_deref()) {
+                            let modifiers = ui.input(|i| i.modifiers);
+                            picked.click = Some(Click::of(modifiers, index));
                         }
                     }
                 });
@@ -172,13 +267,30 @@ pub fn show(
     picked
 }
 
+/// What one cell on the strip stands for, this frame.
+///
+/// Three states rather than one, and they are independent: the photograph the
+/// keys are about, the ones beside it in the panel, and the ones that have
+/// been picked out. A frame can be all three at once, which is the ordinary
+/// case once anything is picked out at all.
+#[derive(Clone, Copy)]
+pub struct State {
+    /// The photograph the keys and every command are about.
+    pub current: bool,
+    /// On screen in the panel, beside the current one.
+    pub shown: bool,
+    /// Picked out, so a command means it too.
+    pub picked: bool,
+}
+
 /// One thumbnail. Returns whether it was clicked.
 fn draw_cell(
     ui: &mut egui::Ui,
     store: &mut ImageStore,
     index: usize,
-    current: bool,
+    state: State,
     cell: f32,
+    colour: Color32,
     name: Option<&str>,
 ) -> bool {
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(cell), Sense::click());
@@ -214,11 +326,24 @@ fn draw_cell(
         }
     }
 
-    if current {
+    // The wash first and the borders over it, so a picked-out frame that is
+    // also the one on screen still reads as the one on screen. The same wash
+    // and the same tick the contact sheet draws: one mark, one meaning.
+    cell::picked(ui, rect, state.picked, colour);
+
+    // Both borders are drawn inside the cell and the current one is thicker,
+    // which is the whole of "which of these four am I actually on".
+    let border = match (state.current, state.shown) {
+        (true, _) => Some((CURRENT, CURRENT_STROKE)),
+        (false, true) => Some((ALSO_SHOWN, ALSO_SHOWN_STROKE)),
+        (false, false) => None,
+    };
+
+    if let Some((colour, width)) = border {
         ui.painter().rect_stroke(
-            rect.shrink(1.0),
+            rect.shrink(width / 2.0),
             0.0,
-            egui::Stroke::new(2.0_f32, CURRENT),
+            egui::Stroke::new(width, colour),
             egui::StrokeKind::Inside,
         );
     }
@@ -311,5 +436,88 @@ mod tests {
     fn a_strip_of_no_height_still_answers_with_a_cell() {
         assert_eq!(cell_side(0.0), 16.0);
         assert_eq!(cell_side(-40.0), 16.0);
+    }
+
+    #[test]
+    fn a_plain_click_opens_and_the_two_modifiers_pick_out() {
+        assert_eq!(Click::of(egui::Modifiers::NONE, 4), Click::Open(4));
+        assert_eq!(Click::of(egui::Modifiers::COMMAND, 4), Click::Toggle(4));
+        assert_eq!(Click::of(egui::Modifiers::SHIFT, 4), Click::Run(4));
+    }
+
+    /// Both at once is one gesture and has to mean one thing. Ctrl wins: it is
+    /// the one that says "this frame and nothing else about it".
+    #[test]
+    fn both_modifiers_together_mean_the_first_of_them() {
+        let both = egui::Modifiers::COMMAND | egui::Modifiers::SHIFT;
+
+        assert_eq!(Click::of(both, 4), Click::Toggle(4));
+    }
+
+    #[test]
+    fn a_click_says_which_frame_it_landed_on_whatever_it_meant() {
+        for click in [Click::Open(7), Click::Toggle(7), Click::Run(7)] {
+            assert_eq!(click.index(), 7);
+        }
+    }
+
+    fn on_screen<'a>(cursor: usize, panes: &'a [usize], selection: &'a Selection) -> OnScreen<'a> {
+        OnScreen {
+            cursor,
+            panes,
+            selection,
+            colour: Color32::WHITE,
+        }
+    }
+
+    /// The three marks are three questions, and a frame can answer all of them
+    /// at once — which is the ordinary case once anything is picked out.
+    #[test]
+    fn the_photograph_on_screen_is_marked_as_all_three() {
+        let mut selection = Selection::default();
+        selection.add(2);
+        selection.add(3);
+
+        let panes = [2, 3, 4];
+        let on_screen = on_screen(2, &panes, &selection);
+
+        let state = on_screen.state(2);
+        assert!(state.current && state.shown && state.picked);
+    }
+
+    /// A pane beside it is marked as on screen but not as the one the keys are
+    /// about, which is the whole point of the two borders.
+    #[test]
+    fn the_other_panes_are_marked_apart_from_the_current_one() {
+        let selection = Selection::default();
+        let panes = [2, 3, 4];
+        let on_screen = on_screen(2, &panes, &selection);
+
+        let state = on_screen.state(3);
+        assert!(!state.current && state.shown && !state.picked);
+    }
+
+    /// A frame picked out in the contact sheet and left behind is marked as
+    /// picked and nothing else.
+    #[test]
+    fn a_frame_picked_out_elsewhere_is_marked_as_picked_alone() {
+        let mut selection = Selection::default();
+        selection.add(40);
+
+        let panes = [2];
+        let on_screen = on_screen(2, &panes, &selection);
+
+        let state = on_screen.state(40);
+        assert!(!state.current && !state.shown && state.picked);
+    }
+
+    #[test]
+    fn a_frame_that_is_none_of_the_three_is_marked_as_none_of_them() {
+        let selection = Selection::default();
+        let panes = [2];
+        let on_screen = on_screen(2, &panes, &selection);
+
+        let state = on_screen.state(9);
+        assert!(!state.current && !state.shown && !state.picked);
     }
 }

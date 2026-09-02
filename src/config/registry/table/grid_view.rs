@@ -103,6 +103,45 @@ pub fn rows() -> Vec<Row> {
             None,
             template!(grid_view.caption_format),
         ),
+        row!(
+            TheContactSheet / Cells,
+            "grid_view.selection_colour",
+            "The colour of a picked-out photograph",
+            "What the wash over a picked-out cell and the border round a picked-out \
+             thumbnail in the strip are drawn in. One colour for both, because the \
+             mark means the same thing in each; it has to be told apart from the \
+             white the strip draws round the photograph on screen.",
+            [
+                "selection",
+                "picked",
+                "colour",
+                "color",
+                "highlight",
+                "blue"
+            ],
+            Live,
+            None,
+            Access::Colour(
+                |c| Some(c.grid_view.selection_colour.clone()),
+                |c, v| {
+                    c.grid_view.selection_colour =
+                        v.unwrap_or_else(crate::config::default_selection_colour)
+                },
+            ),
+        ),
+        row!(
+            TheContactSheet / Filmstrip,
+            "grid_view.moving_on_clears_the_selection",
+            "Moving on puts the selection down",
+            "Whether going to a photograph that is not picked out lets go of \
+             everything that is. On, the strip marks what is being looked at. Off \
+             for somebody who picks a set out in the sheet and then walks through \
+             the folder looking at the frames in it.",
+            ["selection", "picked", "clear", "keep", "navigate", "moving"],
+            Live,
+            None,
+            boolean!(grid_view.moving_on_clears_the_selection),
+        ),
     ];
 
     rows.extend(keys());

@@ -249,7 +249,7 @@ carries that one thing out where you are now and files it as the latest thing
 done, rather than jumping to it.
 
 One press of undo walks back until it has taken back something worth stopping
-on, and `history.undoes` says what counts. All three kinds are ticked to start
+on, and `history.undoes` says what counts. All four kinds are ticked to start
 with. Unticking *Where you were* does not stop the viewer remembering where you
 were — it stays in the panel and can still be clicked — it only stops `Ctrl + Z`
 coming to rest there, so that one press after twenty photographs walked past
@@ -1110,6 +1110,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `gpu_resident_thumbnails` | Thumbnails kept as GPU textures | 256 |
 | `sc_cycle_badges` | Cycles what is drawn under each thumbnail: nothing, the marks, or the marks and the name | `Ctrl + I` |
 | `filmstrip_height` | How tall the strip of thumbnails under the image view is, in points. The thumbnails are as large as the strip allows, so this is how big they are as much as it is how tall it is; dragging the strip's top edge writes it here. | 96 |
+| `selection_colour` | The colour a picked-out photograph is washed and ticked in, in the sheet and in the strip alike | `#7EA8E0` |
+| `moving_on_clears_the_selection` | Whether going to a photograph that is not picked out lets go of everything that is | true |
 | `sc_select` | Picks the photograph under the cursor out, or puts it back | `Space` |
 | `sc_select_all` | Picks out everything on show, or puts it all back | `Ctrl + A` |
 
@@ -1188,7 +1190,7 @@ break the pairing it depends on.
 | Key | Meaning | Default |
 |-----|---------|---------|
 | `remember` | How many of the things you have done are kept, or nought for all of them | `0` |
-| `undoes` | Which kinds one press of undo comes to rest on: `view`, `settings`, `content` | all on |
+| `undoes` | Which kinds one press of undo comes to rest on: `view`, `selection`, `settings`, `content` | all on |
 | `merge_within_ms` | How close two nudges have to be to count as one line. Nought lists every notch | `500` |
 | `panel_visible` | Whether the panel is up. Written whichever way it is changed | `false` |
 | `panel_width` | How wide the history panel is | `260` |
@@ -1354,6 +1356,27 @@ photograph.
 
 Zoom and pan belong to the image, not to the window: leaving a photograph
 half way into a corner and coming back to it later finds it exactly there.
+
+**The strip of thumbnails under the photograph says what is on screen and what
+is picked out.** `Ctrl + T` puts it up; dragging its top edge makes it taller
+and the thumbnails grow with it. A white border marks the photograph the keys
+are about and a fainter one marks the others beside it, so a comparison of four
+reads on the strip as four. Everything picked out is washed and ticked in
+`grid_view.selection_colour`, the same mark the contact sheet draws, and the
+white border sits over the wash so the one being looked at is never in doubt.
+
+A plain click opens a photograph, `Ctrl` and a click picks one out or puts it
+back, and `Shift` and a click picks out the run between what was clicked and
+the nearest thing already picked — which is not quite the sheet's shift-click,
+where the run comes from wherever the last one started. Neither modifier
+changes the photograph on screen: they are for building a set. The photograph
+being looked at is always part of that set, so picking out a second frame
+brings the first with it, and unpicking the way back to one puts the set down
+again. Going to a photograph that is not picked out lets the set go, the way a
+plain click in any list of files does; going to one that *is* picked out keeps
+it, which is what makes clicking through a picked-out run work.
+`grid_view.moving_on_clears_the_selection` turns the first half of that off for
+anyone who picks a set out in the sheet and then walks through it.
 
 ### Grid view
 

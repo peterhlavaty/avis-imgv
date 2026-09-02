@@ -18,8 +18,16 @@ use super::snapshot::Change;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Class {
     /// Where the program was pointed: the mode, the panels, the cursor, the
-    /// zoom, the selection, what the folder is narrowed to.
+    /// zoom, what the folder is narrowed to.
     View,
+    /// Which photographs are picked out.
+    ///
+    /// Its own class rather than part of the view, because picking a set out
+    /// is the one thing here that happens dozens of times while somebody is
+    /// building up to a single command — and it is worth taking back, because
+    /// a mis-aimed click can throw away a minute's work. Somebody who wants
+    /// the record without the stops switches this off.
+    Selection,
     /// A field of the configuration.
     Settings,
     /// The photographs themselves: their marks, and where they are on disk.
@@ -28,12 +36,18 @@ pub enum Class {
 
 impl Class {
     /// Every class, in the order they are drawn.
-    pub const ALL: &'static [Class] = &[Class::View, Class::Settings, Class::Content];
+    pub const ALL: &'static [Class] = &[
+        Class::View,
+        Class::Selection,
+        Class::Settings,
+        Class::Content,
+    ];
 
     /// The name the configuration knows this by.
     pub fn name(self) -> &'static str {
         match self {
             Class::View => "view",
+            Class::Selection => "selection",
             Class::Settings => "settings",
             Class::Content => "content",
         }
@@ -43,6 +57,7 @@ impl Class {
     pub fn label(self) -> &'static str {
         match self {
             Class::View => "Where you were",
+            Class::Selection => "What you picked out",
             Class::Settings => "Settings",
             Class::Content => "Photographs",
         }
@@ -78,11 +93,19 @@ impl Deed {
             Deed::Files(_) => Class::Content,
             // A row that carries a settings change is a settings row even if
             // something else moved with it, because that is the half somebody
-            // switching the class off is asking not to stop on.
-            Deed::Changed(changes) => match changes.iter().any(Change::is_a_setting) {
-                true => Class::Settings,
-                false => Class::View,
-            },
+            // switching the class off is asking not to stop on. A row that is
+            // *nothing but* a change to what is picked out is a selection row:
+            // one that also moved the cursor is a move, and stopping on it is
+            // what somebody stepping back through a folder expects.
+            Deed::Changed(changes) => {
+                if changes.iter().any(Change::is_a_setting) {
+                    Class::Settings
+                } else if !changes.is_empty() && changes.iter().all(Change::is_a_selection) {
+                    Class::Selection
+                } else {
+                    Class::View
+                }
+            }
         }
     }
 
@@ -188,9 +211,41 @@ mod tests {
             assert!(!class.label().is_empty());
         }
 
-        assert_eq!(Class::ALL.len(), 3);
+        assert_eq!(Class::ALL.len(), 4);
         assert_eq!(Class::View.name(), "view");
+        assert_eq!(Class::Selection.name(), "selection");
         assert_eq!(Class::Settings.name(), "settings");
         assert_eq!(Class::Content.name(), "content");
+    }
+
+    /// A row that is nothing but a change to what is picked out is filed under
+    /// picking out, so switching that class off stops undo resting on it.
+    #[test]
+    fn picking_photographs_out_is_its_own_class() {
+        let selection = Change::Selection(Box::default(), Box::default());
+
+        assert_eq!(Deed::Changed(vec![selection]).class(), Class::Selection);
+    }
+
+    /// One that also moved the cursor is a move: stepping back through a
+    /// folder should stop on it whatever the selection class says.
+    #[test]
+    fn moving_and_picking_out_together_is_a_move() {
+        let changes = vec![
+            Change::Cursor {
+                from: 1,
+                to: 2,
+                name: String::new(),
+            },
+            Change::Selection(Box::default(), Box::default()),
+        ];
+
+        assert_eq!(Deed::Changed(changes).class(), Class::View);
+    }
+
+    /// A row with nothing in it is not a selection row by vacuous truth.
+    #[test]
+    fn a_row_of_nothing_is_not_a_selection() {
+        assert_eq!(Deed::Changed(Vec::new()).class(), Class::View);
     }
 }

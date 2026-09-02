@@ -155,12 +155,17 @@ fn apply_light(ctx: &egui::Context) {
     );
 }
 
-/// The grey behind the photograph, from what the file holds.
+/// A colour the configuration spells out, or `fallback` when it does not.
 ///
-/// Falls back to the default rather than to something arbitrary, because a
-/// backdrop nobody can read the value of is a backdrop nobody can fix.
+/// Falls back to the setting's own default rather than to something arbitrary,
+/// because a colour nobody can read the value of is a colour nobody can fix.
+pub fn colour(hex: &str, fallback: Color32) -> Color32 {
+    Color32::from_hex(hex).unwrap_or(fallback)
+}
+
+/// The grey behind the photograph, from what the file holds.
 pub fn backdrop(hex: &str) -> Color32 {
-    Color32::from_hex(hex).unwrap_or(Color32::from_rgb(119, 119, 119))
+    colour(hex, Color32::from_rgb(119, 119, 119))
 }
 
 #[cfg(test)]
