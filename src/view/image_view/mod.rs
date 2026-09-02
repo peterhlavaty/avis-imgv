@@ -339,6 +339,10 @@ impl ImageView {
             // hand — `Fit` and `Fill` are the two that mean do it now. The
             // word in the status bar is what says the key did something.
             Command::CycleOpening => self.config.opening = self.config.opening.next(),
+            // Both take effect on the next photograph, so neither disturbs
+            // this one either.
+            Command::ToggleKeepZoom => self.config.keep_zoom = !self.config.keep_zoom,
+            Command::ToggleKeepPan => self.config.keep_pan = !self.config.keep_pan,
             Command::FitHorizontal => self.zooming(ctx, CENTRE, zoom::fit_horizontal),
             Command::FitVertical => self.zooming(ctx, CENTRE, zoom::fit_vertical),
             Command::ZoomStep => {
@@ -710,6 +714,7 @@ impl ImageView {
 
         // Read before the borrow the box needs.
         let opening = self.opening();
+        let keeping = self.keeping();
 
         let mut status = Status {
             jump_to: &mut self.jump_to,
@@ -726,6 +731,7 @@ impl ImageView {
             unread,
             flags: Flags {
                 opening,
+                keeping,
                 comparing,
                 marking: self.marking,
                 ..flags

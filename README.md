@@ -1084,6 +1084,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `marked_area_dim` | How far the rest of the photograph is darkened while part of it is marked out, out of a hundred. `0` leaves it alone, which is what somebody judging an exposure against its surroundings wants. | 45 |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
+| `keep_zoom` | Carry the magnification to the next photograph, whatever it opens at and whatever it was left at. The green and red magnifying glass in the status bar is the same switch. | false |
+| `keep_pan` | Carry where in the photograph you are looking to the next one, so the same corner of every frame comes up. The hand beside the magnifying glass. | false |
 | `opening` | What a photograph is drawn at on the frame it first appears: `fit`, `fill` or `actual`. Whatever the photograph was last left at wins over it, and `Ctrl + M` moves it round the three. | `fit` |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `zoom_out_past_fit` | Let the zoom go out past fitting the window, leaving a border on all four sides | false |
@@ -1256,6 +1258,8 @@ break the pairing it depends on.
 | F | Fit the image to the screen |
 | M | Fill the screen |
 | Ctrl + M | What every photograph opens at: fitted, filling the window, its own size |
+| Ctrl + R | Keep the magnification from one photograph to the next |
+| Ctrl + Shift + R | Keep where in the photograph you are |
 | H / V | Fit horizontal / vertical |
 | Alt + 1 | 100% magnification |
 | R | Put this picture where the last one was left |
@@ -1294,6 +1298,17 @@ gone through for sharpness. `Ctrl + M` moves it round the three and says so in
 the status bar, leaving the photograph on screen exactly as it is — `F` and `M`
 are the two that mean *do it to this one now*. A photograph that was zoomed and
 left comes back where it was left rather than opening again.
+
+**Two toggles in the status bar carry the view from one photograph to the
+next.** A magnifying glass and a hand, green when they are on and red when they
+are not, beside the zoom readout: with the first on, every photograph arrives at
+the magnification the last one was at, and with the second on it arrives showing
+the same part of itself. That is how a burst is gone through at a hundred per
+cent — the same eye in every frame — and it is why they are a click away rather
+than a page in the settings window. They override what a photograph opens at,
+and where each photograph was last left, for as long as they are on; turning
+them off puts every remembered place back in charge, none of them lost. `R`
+still does the same thing once.
 
 **Zooming out stops at fitting.** Past it the photograph has a border on all
 four sides and there is nothing more to see, so every notch spent getting there

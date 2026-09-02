@@ -16,7 +16,7 @@ use crate::metadata::Metadata;
 
 use super::opening::Opening;
 use super::slideshow::Slideshow;
-use super::viewports::{Place, Viewports};
+use super::viewports::{Keep, Place, Viewports};
 use super::{zoom, ImageView};
 use crate::view::visible::Visible;
 
@@ -207,9 +207,15 @@ impl ImageView {
         self.previous_place = Place::of(&self.viewport);
 
         self.viewport.reset_for_new_image();
-        if let Some(path) = self.active_path() {
-            self.viewports.restore(&path, &mut self.viewport);
-        }
+
+        let arrived = self.active_path();
+        let keeping = self.keeping();
+        self.viewports.arrive(
+            arrived.as_deref(),
+            &mut self.viewport,
+            keeping,
+            self.previous_place,
+        );
 
         if let Some(slideshow) = &mut self.slideshow {
             slideshow.restart();
@@ -349,6 +355,15 @@ impl ImageView {
             None => self.config.opening,
             Some(Motion::Still) => Opening::Fit,
             Some(_) => Opening::Fill,
+        }
+    }
+
+    /// Whether the magnification and the corner carry from one photograph to
+    /// the next, as the two toggles in the status bar have left them.
+    pub fn keeping(&self) -> Keep {
+        Keep {
+            zoom: self.config.keep_zoom,
+            pan: self.config.keep_pan,
         }
     }
 

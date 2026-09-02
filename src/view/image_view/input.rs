@@ -66,6 +66,10 @@ pub enum Command {
     Fill,
     /// Move what a new photograph opens at round the three answers.
     CycleOpening,
+    /// Carry the magnification, or where in the photograph the view is, from
+    /// one photograph to the next.
+    ToggleKeepZoom,
+    ToggleKeepPan,
     FitHorizontal,
     FitVertical,
     /// Double the magnification, wrapping back to fitted.
@@ -140,6 +144,8 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_fit, Command::Fit),
         (&config.sc_fit_maximize, Command::Fill),
         (&config.sc_cycle_opening, Command::CycleOpening),
+        (&config.sc_keep_zoom, Command::ToggleKeepZoom),
+        (&config.sc_keep_pan, Command::ToggleKeepPan),
         (&config.sc_fit_horizontal, Command::FitHorizontal),
         (&config.sc_fit_vertical, Command::FitVertical),
         (&config.sc_zoom, Command::ZoomStep),

@@ -7,9 +7,34 @@ use crate::decoder::overlays::Overlay;
 use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
 use crate::organize::pairs::Prefer;
 use crate::view::image_view::opening::Opening;
+use crate::view::image_view::viewports::Keep;
 use crate::view::stacks::Place;
 
 use super::input::{Anchor, Command};
+
+/// The two glyphs the toggles wear: a magnifying glass for the zoom, a raised
+/// hand for the pan, which are the two tools every editor draws for them.
+///
+/// Both are in a font the proportional family actually loads, and a test in
+/// `ui::theme` says so out loud — a glyph that is not draws an empty box, and
+/// nothing but looking at the window would ever find it. They are written as
+/// escapes because the fonts that have them are the emoji ones, and an emoji
+/// is four bytes that a great many things between here and the file will
+/// helpfully mangle: the rail beside them wore `ð` and three empty boxes for
+/// exactly that reason until this was written.
+pub const KEEPING_ZOOM: &str = "\u{1F50D}";
+pub const KEEPING_PAN: &str = "\u{270B}";
+
+/// Green for what is being carried from one photograph to the next, red for
+/// what is not.
+///
+/// The only place in the bar where *off* is worth drawing at all — everything
+/// else here appears when it is true and is absent when it is not — because
+/// the whole point of these two is that they are turned on for ten minutes and
+/// off again, and a control that vanishes when it is off is one nobody finds
+/// twice. The red is the one the rejected flag already wears.
+const KEPT: egui::Color32 = egui::Color32::from_rgb(122, 190, 130);
+const NOT_KEPT: egui::Color32 = egui::Color32::from_rgb(219, 96, 96);
 
 /// Zoom levels offered in the magnification context menu.
 const PERCENTAGES: &[f32] = &[200., 100., 75., 50., 25.];
@@ -62,6 +87,8 @@ pub struct Flags {
     pub watching: bool,
     /// What a photograph is drawn at on the frame it first appears.
     pub opening: crate::view::image_view::opening::Opening,
+    /// Whether the magnification and the corner carry to the next photograph.
+    pub keeping: Keep,
     /// Whether a mark moves on to the next photograph by itself.
     pub advancing: bool,
     /// Whether a set of photographs is pinned side by side.
@@ -149,6 +176,8 @@ pub enum BarAction {
     SetAdvancing(bool),
     /// What a photograph is drawn at when it comes up.
     SetOpening(crate::view::image_view::opening::Opening),
+    /// Whether the magnification and the corner carry to the next photograph.
+    SetKeeping(Keep),
     /// Which half of a raw+JPEG pair is the one browsed.
     SetPairing(Prefer),
     /// Go to the settings row behind this readout.
@@ -389,6 +418,120 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
     asked
 }
 
+/// One of the two toggles, and what its menu says.
+struct Toggle {
+    glyph: &'static str,
+    /// What a menu opened on it says it is about.
+    what: &'static str,
+    /// The verb, worded for the state it is in.
+    turn_on: &'static str,
+    turn_off: &'static str,
+    hint: &'static str,
+    /// The row that binds the key, and the row that holds the value.
+    key: &'static str,
+    setting: &'static str,
+}
+
+const KEEP_THE_ZOOM: Toggle = Toggle {
+    glyph: KEEPING_ZOOM,
+    what: "Keeping the magnification",
+    turn_on: "Keep the magnification from photograph to photograph",
+    turn_off: "Let each photograph open at what it opens at",
+    hint: "The magnification carries to the next photograph, instead of each one            opening at what the setting says.",
+    key: "image_view.sc_keep_zoom",
+    setting: "image_view.keep_zoom",
+};
+
+const KEEP_THE_PAN: Toggle = Toggle {
+    glyph: KEEPING_PAN,
+    what: "Keeping where you are",
+    turn_on: "Keep where you are in the photograph",
+    turn_off: "Let each photograph arrive centred",
+    hint: "Where in the photograph you are looking carries to the next one, so the            same corner of every frame of a burst comes up.",
+    key: "image_view.sc_keep_pan",
+    setting: "image_view.keep_pan",
+};
+
+/// The two toggles saying whether the magnification and the corner travel with
+/// the viewer from one photograph to the next.
+///
+/// Beside the zoom readout and the rail, which is what they are about.
+fn keeping(ui: &mut egui::Ui, keeping: Keep) -> Vec<BarAction> {
+    let mut asked = Vec::new();
+    let mut wanted = keeping;
+
+    // The pan first, because this end of the bar is laid out right to left and
+    // the first drawn is the rightmost: the magnifying glass reads before the
+    // hand, next to the percentage it is about.
+    if let Some(on) = toggle(ui, &KEEP_THE_PAN, keeping.pan, &mut asked) {
+        wanted.pan = on;
+    }
+
+    if let Some(on) = toggle(ui, &KEEP_THE_ZOOM, keeping.zoom, &mut asked) {
+        wanted.zoom = on;
+    }
+
+    if wanted != keeping {
+        asked.push(BarAction::SetKeeping(wanted));
+    }
+
+    asked
+}
+
+/// Draws one of them and says what it was asked to become.
+fn toggle(
+    ui: &mut egui::Ui,
+    toggle: &Toggle,
+    on: bool,
+    asked: &mut Vec<BarAction>,
+) -> Option<bool> {
+    use crate::config::registry::Page;
+    use crate::ui::surface;
+
+    let mut wanted = None;
+
+    let glyph = ui.add(
+        egui::Label::new(egui::RichText::new(toggle.glyph).color(if on { KEPT } else { NOT_KEPT }))
+            .sense(Sense::click()),
+    );
+
+    // The left button is the whole of what these are for: they exist to be
+    // turned on for ten minutes and off again. The menu carries the same verb
+    // written out, for somebody who has not worked out that a glyph is a
+    // button, and the two rows behind it.
+    if glyph.clicked() {
+        wanted = Some(!on);
+    }
+
+    surface::with_menu(
+        ui,
+        &glyph,
+        surface::Subject::of(toggle.what, if on { "on" } else { "off" }),
+        toggle.hint,
+        |ui| {
+            if ui
+                .button(if on { toggle.turn_off } else { toggle.turn_on })
+                .clicked()
+            {
+                wanted = Some(!on);
+                ui.close();
+            }
+
+            if surface::bind_a_key(ui, "this") {
+                asked.push(BarAction::BindKey(toggle.key));
+                ui.close();
+            }
+
+            if surface::more_settings(ui, Page::ThePhotograph) {
+                asked.push(BarAction::Settings(toggle.setting));
+                ui.close();
+            }
+        },
+    );
+
+    wanted
+}
+
 /// One clickable word in the flags row, and the menu it carries.
 ///
 /// The word is its own subject: it is the whole of what was clicked, and six
@@ -524,8 +667,9 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
 
                 outcome.bar.extend(marks(ui, &status.marks));
 
-                // Leave room for the zoom controls pinned to the right.
-                let name_width = (ui.available_width() - 245.).max(20.);
+                // Leave room for the zoom controls pinned to the right: the
+                // rail, the readout and the two keeping toggles.
+                let name_width = (ui.available_width() - 300.).max(20.);
                 let name = ui.add_sized(
                     Vec2::new(name_width, ui.available_height()),
                     egui::Label::new(status.name.clone())
@@ -587,6 +731,8 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                         outcome
                             .commands
                             .extend(zoom_label(ui, status.percentage_zoom));
+
+                        outcome.bar.extend(keeping(ui, status.flags.keeping));
                     },
                 );
             });
@@ -760,8 +906,7 @@ fn zoom_slider(ui: &mut egui::Ui, percentage_zoom: f32, least_zoom: f32) -> Vec<
             .logarithmic(true)
             .show_value(false)
             .about("Zoom")
-            .hint("How large the photograph is drawn.")
-            .text("ð"),
+            .hint("How large the photograph is drawn."),
     );
 
     if slider.changed() {

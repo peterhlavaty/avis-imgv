@@ -19,6 +19,28 @@
   alone for the same reason — `F` and `M` are the two that mean *do it to this
   one now*, and a setting that threw away a zoom chosen by hand would be a
   worse latch than the one it replaces.
+- **Two toggles in the status bar carry the view from one photograph to the
+  next.** A magnifying glass and a hand beside the zoom readout, green when
+  they are on and red when they are not: with the first on, every photograph
+  arrives at the magnification the last one was at, and with the second on it
+  arrives showing the same part of itself. Going through a burst at a hundred
+  per cent, looking at the same eye in every frame, is what they are for, and
+  it is a way of working for the next ten minutes rather than a preference —
+  hence a click in the bar, `Ctrl + R` and `Ctrl + Shift + R`, and not only a
+  page in the settings window. They are still `image_view.keep_zoom` and
+  `image_view.keep_pan` and are remembered like everything else.
+
+  They override what a photograph opens at, and where each photograph was
+  itself last left, for as long as they are on. Nothing is forgotten while they
+  are: turning them off puts every remembered place back in charge.
+- **The zoom rail said `ð` and three empty boxes.** A magnifying glass had been
+  written into the source as the four bytes of its own UTF-8, each read as a
+  character of its own, at some point between somebody typing it and the file
+  being saved. The rail is labelled by the percentage beside it, as every other
+  rail in the program is by what it sits next to, so the glyph is gone rather
+  than mended. Every glyph the interface *does* draw is now in a test that asks
+  the font chain whether it has them, which is what `◐` and `❏` needed when
+  they drew empty boxes in the contact sheet.
 - **A still slideshow no longer crops every photograph in it.** *Hold still*
   says the whole picture, fitted to the screen, and a slideshow started from
   the command line filled the screen regardless — the latch was set from

@@ -231,6 +231,15 @@ impl App {
             moved = true;
         }
 
+        let keeping = self.image_view.keeping();
+        if self.settings.image_view.keep_zoom != keeping.zoom
+            || self.settings.image_view.keep_pan != keeping.pan
+        {
+            self.settings.image_view.keep_zoom = keeping.zoom;
+            self.settings.image_view.keep_pan = keeping.pan;
+            moved = true;
+        }
+
         let shown = self.image_view.images_shown();
         if self.settings.image_view.nr_images_shown != shown {
             self.settings.image_view.nr_images_shown = shown;

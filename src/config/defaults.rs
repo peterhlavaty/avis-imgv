@@ -261,6 +261,16 @@ pub fn default_sc_cycle_opening() -> Shortcut {
     Shortcut::new("m", &[MOD_CTRL])
 }
 
+/// Beside `r`, which repeats the last view once: these are the same thing
+/// held down, so they are the same key with a modifier.
+pub fn default_sc_keep_zoom() -> Shortcut {
+    Shortcut::new("r", &[MOD_CTRL])
+}
+
+pub fn default_sc_keep_pan() -> Shortcut {
+    Shortcut::new("r", &[MOD_CTRL, MOD_SHIFT])
+}
+
 pub fn default_nr_images_shown() -> usize {
     1
 }

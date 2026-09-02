@@ -181,3 +181,54 @@ mod tests {
         assert_eq!(backdrop(""), Color32::from_rgb(119, 119, 119));
     }
 }
+#[cfg(test)]
+mod glyphs {
+    use epaint::text::{FontDefinitions, FontFamily, FontId, Fonts};
+    use epaint::AlphaFromCoverage;
+
+    /// Every glyph the interface draws, in one place, so that the font chain
+    /// can be asked whether it has them.
+    ///
+    /// `◐` and `❏` were once drawn in the contact sheet's corners and neither
+    /// was in a font the proportional family loads — `◐` is in Hack, which is
+    /// the *monospace* family — so both drew an empty box. Nothing catches
+    /// that but looking, and looking is what a test is for.
+    fn every_glyph() -> Vec<&'static str> {
+        use crate::organize::group::Kind;
+        use crate::view::stacks::glyph;
+
+        let mut glyphs = vec![
+            "★",
+            "■",
+            "✉",
+            crate::view::image_view::bottom_bar::KEEPING_ZOOM,
+            crate::view::image_view::bottom_bar::KEEPING_PAN,
+        ];
+
+        glyphs.extend(
+            [Kind::Hdr, Kind::FocusStack, Kind::Timelapse, Kind::Series]
+                .into_iter()
+                .map(glyph),
+        );
+
+        glyphs
+    }
+
+    #[test]
+    fn every_glyph_the_interface_draws_is_in_a_font_it_loads() {
+        let mut fonts = Fonts::new(
+            4096,
+            AlphaFromCoverage::default(),
+            FontDefinitions::default(),
+        );
+        let font = FontId::new(14.0, FontFamily::Proportional);
+
+        for glyph in every_glyph() {
+            assert!(
+                fonts.has_glyphs(&font, glyph),
+                "{glyph} is in none of the fonts the proportional family loads, \
+                 so it would draw as an empty box"
+            );
+        }
+    }
+}

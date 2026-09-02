@@ -231,6 +231,39 @@ pub fn rows() -> Vec<Row> {
             },
         ),
         row!(
+            ThePhotograph / Movement,
+            "image_view.keep_zoom",
+            "Keep the magnification from one photograph to the next",
+            "Off. On, every photograph arrives at the magnification the last one was \
+             at, whatever it opens at and whatever it was itself left at — which is \
+             how a burst is gone through at a hundred per cent. The green and red \
+             magnifying glass in the status bar is the same switch, where somebody \
+             turning it on for ten minutes can reach it.",
+            [
+                "keep zoom",
+                "lock zoom",
+                "same magnification",
+                "carry",
+                "burst"
+            ],
+            Live,
+            None,
+            boolean!(image_view.keep_zoom),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.keep_pan",
+            "Keep where you are in the photograph",
+            "Off. On, the next photograph arrives showing the same part of itself, \
+             so the same corner of every frame comes up. The other half of keeping \
+             the magnification, and separate from it because a hand-held sequence \
+             moves and following it is what panning is for.",
+            ["keep pan", "lock pan", "same corner", "position", "carry"],
+            Live,
+            None,
+            boolean!(image_view.keep_pan),
+        ),
+        row!(
             ThePhotograph / Framing,
             "image_view.enlarge_to_fit",
             "Enlarge a small photograph to fit",
@@ -360,6 +393,14 @@ fn keys() -> Vec<Row> {
              filling the window, its own size.",
             ["latch", "fill", "opening", "keep filling", "100%"],
             Live, ImageView, key!(image_view.sc_cycle_opening)),
+        row!(KeysAndMouse / Keys, "image_view.sc_keep_zoom", "Keep the magnification",
+            "Carry the magnification from one photograph to the next, or stop.",
+            ["keep zoom", "lock zoom", "burst"],
+            Live, ImageView, key!(image_view.sc_keep_zoom)),
+        row!(KeysAndMouse / Keys, "image_view.sc_keep_pan", "Keep where you are",
+            "Carry where in the photograph you are looking to the next one, or stop.",
+            ["keep pan", "lock pan", "position"],
+            Live, ImageView, key!(image_view.sc_keep_pan)),
         row!(KeysAndMouse / Keys, "image_view.sc_fit_horizontal", "Fit width",
             "Make the picture exactly as wide as the window.",
             ["width"], Live, ImageView, key!(image_view.sc_fit_horizontal)),

@@ -566,6 +566,23 @@ pub struct ImageViewConfig {
     /// the magnification focus is judged at.
     #[serde(default)]
     pub opening: crate::view::image_view::opening::Opening,
+    /// Whether the magnification carries from one photograph to the next.
+    ///
+    /// Off, and reached from the status bar rather than from here: it is a way
+    /// of working for the next ten minutes — a burst gone through at a hundred
+    /// per cent — rather than a preference. It overrides
+    /// [`Self::opening`] while it is on, and where each photograph was left
+    /// with it.
+    #[serde(default)]
+    pub keep_zoom: bool,
+    /// Whether where in the photograph the view is carries to the next one.
+    ///
+    /// The other half of [`Self::keep_zoom`], and separate from it because
+    /// the same eye in every frame of a burst and the same magnification are
+    /// two different asks: a hand-held sequence moves, and following it is
+    /// what panning is for.
+    #[serde(default)]
+    pub keep_pan: bool,
     /// Whether the zoom goes out past fitting the window.
     ///
     /// It does not, by default, and stops exactly at the fit. Below it the
@@ -624,6 +641,10 @@ pub struct ImageViewConfig {
     pub sc_fit_maximize: Shortcut,
     #[serde(default = "default_sc_cycle_opening")]
     pub sc_cycle_opening: Shortcut,
+    #[serde(default = "default_sc_keep_zoom")]
+    pub sc_keep_zoom: Shortcut,
+    #[serde(default = "default_sc_keep_pan")]
+    pub sc_keep_pan: Shortcut,
     #[serde(default = "default_sc_more_images_shown")]
     pub sc_more_images_shown: Shortcut,
     #[serde(default = "default_sc_less_images_shown")]
@@ -870,6 +891,8 @@ impl Default for ImageViewConfig {
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             enlarge_to_fit: default_enlarge_to_fit(),
             opening: crate::view::image_view::opening::Opening::default(),
+            keep_zoom: false,
+            keep_pan: false,
             zoom_out_past_fit: default_zoom_out_past_fit(),
             zoom_step: default_zoom_step(),
             zoom_step_factor: default_zoom_step_factor(),
@@ -898,6 +921,8 @@ impl Default for ImageViewConfig {
             sc_fit_horizontal: default_sc_fit_horizontal(),
             sc_fit_maximize: default_sc_fit_maximize(),
             sc_cycle_opening: default_sc_cycle_opening(),
+            sc_keep_zoom: default_sc_keep_zoom(),
+            sc_keep_pan: default_sc_keep_pan(),
             sc_more_images_shown: default_sc_more_images_shown(),
             sc_less_images_shown: default_sc_less_images_shown(),
             sc_compare: default_sc_compare(),

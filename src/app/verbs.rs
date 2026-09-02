@@ -225,6 +225,12 @@ impl App {
                 self.image_view.set_config(self.settings.image_view.clone());
                 self.save_settings();
             }
+            BarAction::SetKeeping(keeping) => {
+                self.settings.image_view.keep_zoom = keeping.zoom;
+                self.settings.image_view.keep_pan = keeping.pan;
+                self.image_view.set_config(self.settings.image_view.clone());
+                self.save_settings();
+            }
             BarAction::Settings(path) => self.open_settings_at(path),
             BarAction::ToggleStack => self.apply_command(Command::ToggleStack),
             BarAction::ShowEverything => self.apply_command(Command::SuspendFilter),
