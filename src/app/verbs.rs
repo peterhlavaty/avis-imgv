@@ -11,11 +11,14 @@ use eframe::egui;
 
 use crate::actions::reveal;
 use crate::decoder::{self, DecodeOptions};
+use crate::ui::destinations::Errand;
 use crate::ui::empty::{Asked, Nothing, OFFERED};
 use crate::ui::menus::Verb;
 use crate::view::image_view::bottom_bar::BarAction;
+use crate::view::image_view::{COMPARE_PANES, MAX_IMAGES_SHOWN};
 
 use super::input::Command;
+use super::mode::Mode;
 use super::panels::MenuAction;
 
 use super::App;
@@ -47,6 +50,39 @@ impl Default for Copying {
 
 impl App {
     /// Does whatever a menu asked for that the view could not.
+    /// Pins the picked-out photographs side by side, or this one and its
+    /// neighbours when nothing is picked out.
+    ///
+    /// The same rule the menus already use to decide what a verb is about:
+    /// somebody who has picked out four and asks to compare means the four.
+    /// Nothing picked out means the frame in hand, which is what the key and
+    /// the photograph's own menu have always meant.
+    fn compare_marked(&mut self) {
+        let picked: Vec<usize> = self.grid_view.selection().iter().collect();
+
+        if picked.len() < 2 {
+            self.image_view.start_comparing(COMPARE_PANES);
+            self.set_mode(Mode::Image);
+            return;
+        }
+
+        let taken = self.image_view.compare_these(&picked);
+        if taken == 0 {
+            self.notices
+                .say("Nothing to compare: the folder is not showing those photographs.");
+            return;
+        }
+
+        if taken < picked.len() {
+            self.notices.say(format!(
+                "Comparing {taken} of the {} picked out; the panel holds {MAX_IMAGES_SHOWN}.",
+                picked.len()
+            ));
+        }
+
+        self.set_mode(Mode::Image);
+    }
+
     pub(super) fn run_verb(&mut self, verb: Verb, path: PathBuf) {
         // The five turns differ only in what they compose with what is already
         // there, so they are one line rather than five.
@@ -70,8 +106,15 @@ impl App {
                         .say("Could not open the file manager. The log says why.");
                 }
             }
+            Verb::MoveTo => self.send_somewhere(Errand::Move),
+            Verb::CopyTo => self.send_somewhere(Errand::Copy),
+            // The photograph's own menu answers this one where it stands,
+            // because there it is about the frame under the pointer and its
+            // neighbours. From a cell or a thumbnail it is about the set, and
+            // the set is not something either view can pin.
+            Verb::Compare => self.compare_marked(),
             // The view answers for these; they never reach here.
-            Verb::Open | Verb::Fit | Verb::ActualPixels | Verb::Fill | Verb::Compare => {}
+            Verb::Open | Verb::Fit | Verb::ActualPixels | Verb::Fill => {}
             // Answered above, before the match.
             Verb::TurnRight
             | Verb::TurnLeft

@@ -202,6 +202,23 @@ impl App {
             self.image_view.select_path(&path);
         }
 
+        // The strip's menu leaves its answer on the contact sheet, which owns
+        // the thumbnails it drew — the same three fields a cell's menu uses,
+        // drained here because in this mode the sheet itself is not drawing.
+        // `Open` means the same thing from either surface; there is no mode to
+        // change, because the photograph is already the thing on screen.
+        if let Some(path) = self.grid_view.take_selected() {
+            self.image_view.select_path(&path);
+        }
+
+        if let Some(callback) = self.grid_view.take_callback() {
+            self.execute_callback(callback);
+        }
+
+        if let Some((verb, path)) = self.grid_view.take_verb() {
+            self.run_verb(verb, path);
+        }
+
         // Through the field the settings window reads, so dragging the strip's
         // edge is a change that is still there on the next launch — and only
         // once the hand has come off it. Written on every frame the number

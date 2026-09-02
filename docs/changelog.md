@@ -2,6 +2,32 @@
 
 ## 2026-09-02
 
+- **A thumbnail on the strip answers the second button.** The same menu a
+  contact sheet cell carries, about the set when the thumbnail is in it and
+  about the one photograph when it is not: open, compare, turn, move to the
+  bin, copy the path, copy the picture, show it in the file manager, and
+  whatever `grid_view.context_menu` adds. Every other surface in the program
+  answered that button and this one did not.
+
+  **Move… and Copy to…** are new rows, on a cell as well as a thumbnail. They
+  open the panel of numbered destinations — the nearest thing this program has
+  to a cut, in one gesture rather than two, and with nothing left hanging when
+  the paste never comes. A clipboard cut is not on offer: none of the three
+  platforms agrees on how to say "these files, to be moved", and the clipboard
+  crate used here carries text and pixels and nothing else. Both verbs already
+  had a key each; this puts them where the photographs are. The photograph's
+  own menu does not carry them, because its list is at nine of the ten rows
+  that fit, and they are verbs about a file — which is what a cell and a
+  thumbnail are.
+
+  **Compare** asked about a set now pins that set rather than the frames next
+  to the cursor: *Compare 4 photographs side by side*. A photograph the folder
+  is no longer showing is dropped, and a set larger than the eight panes the
+  view holds is trimmed to the first eight and says so. Asked about one
+  photograph it means what it always did. It also did nothing at all from a
+  contact sheet cell, because the row was drawn, sent to the application, and
+  matched by an arm that ignored it.
+
 - **The strip says what is on screen and what is picked out, and picks
   photographs out itself.** It marked one thing: the photograph the keys were
   about. Showing four side by side marked one of the four, and a set picked out

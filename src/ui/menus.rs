@@ -1,4 +1,4 @@
-//! What the second button offers on a photograph and on a cell.
+//! What the second button offers on a photograph, a cell and a thumbnail.
 //!
 //! One list of rows, drawn the same way in both views, with whatever the user
 //! configured appended under a separator in their own order. A fresh install
@@ -33,7 +33,8 @@ pub enum Verb {
     ActualPixels,
     /// Fill the panel, cropping the overflowing side.
     Fill,
-    /// Pin this photograph and its neighbours side by side.
+    /// Pin photographs side by side: the ones picked out, or this one and
+    /// its neighbours when nothing is.
     Compare,
     /// The turns, written to the sidecar rather than to the file. All five
     /// live behind one word; [`Verb::TURNS`] is what that word opens.
@@ -44,6 +45,17 @@ pub enum Verb {
     MirrorVertically,
     /// Send it to the bin.
     Bin,
+    /// Move it somewhere, through the panel that asks where.
+    ///
+    /// What a cut would be, if a clipboard could hold "these files, to be
+    /// moved". None of the three platforms agrees on how to say that and the
+    /// crate this program uses for the clipboard carries text and pixels and
+    /// nothing else — so the destination is asked for instead, which is one
+    /// gesture rather than two and does not leave a cut hanging when the paste
+    /// never comes.
+    MoveTo,
+    /// Copy it somewhere, through the same panel.
+    CopyTo,
     /// Take it out of the viewer's own bin and put it back where it came from.
     /// Offered only inside the bin, where [`Verb::Bin`] means nothing.
     PutBack,
@@ -109,7 +121,8 @@ impl Verb {
             Verb::Fit => "Fit in the window".to_string(),
             Verb::ActualPixels => "Actual pixels".to_string(),
             Verb::Fill => "Fill the window".to_string(),
-            Verb::Compare => "Compare".to_string(),
+            Verb::Compare if count == 1 => "Compare".to_string(),
+            Verb::Compare => format!("Compare {count} photographs side by side"),
             Verb::TurnRight => "Clockwise".to_string(),
             Verb::TurnLeft => "Anticlockwise".to_string(),
             Verb::TurnHalf => "Upside down".to_string(),
@@ -128,6 +141,8 @@ impl Verb {
                 "Delete {} for good",
                 these("this photograph", "photographs")
             ),
+            Verb::MoveTo => format!("Move {}…", these("this photograph", "photographs")),
+            Verb::CopyTo => format!("Copy {} to…", these("this photograph", "photographs")),
             Verb::CopyPath => format!("Copy the {}", these("path", "paths")),
             Verb::CopyPicture => "Copy the picture".to_string(),
             Verb::ShowInFolder => "Show it in the file manager".to_string(),
@@ -145,7 +160,9 @@ impl Verb {
             Verb::Fit => "The whole photograph, as large as the window allows",
             Verb::ActualPixels => "One screen pixel per pixel of the photograph",
             Verb::Fill => "Fill the window, cropping whichever side is longer",
-            Verb::Compare => "Pin this photograph and the ones beside it side by side",
+            Verb::Compare => {
+                "Side by side and pinned there. The photographs picked out, or this \n                 one and the ones beside it when none are"
+            }
             Verb::TurnRight => {
                 "A quarter turn clockwise, written to the sidecar. The photograph \
                  itself is never touched"
@@ -169,6 +186,14 @@ impl Verb {
                  which the bin wrote down when it took it"
             }
             Verb::DeleteForGood => "Off the disk. Nothing can take this one back",
+            Verb::MoveTo => {
+                "Off to one of the numbered destinations, which the panel asks for. \
+                 The nearest thing to a cut: the file goes, in one gesture"
+            }
+            Verb::CopyTo => {
+                "A copy to one of the numbered destinations, leaving the original \
+                 where it is"
+            }
             Verb::CopyPath => "The whole path, for pasting into something else",
             Verb::CopyPicture => "The pixels themselves, decoded at full size and turned upright",
             Verb::ShowInFolder => "Open the folder it is in, with it picked out",
@@ -232,10 +257,18 @@ impl Row {
 
     /// The rows a cell carries. `Open` leads, because that is what a cell is
     /// for, and the zoom verbs are not about anything the sheet draws.
+    ///
+    /// The two destinations are here and on the strip but not on the
+    /// photograph, whose list is at nine of the ten rows that fit. They are
+    /// verbs about a *file*, which is what a cell and a thumbnail are; the
+    /// photograph's own menu leads with what it is showing. Both have a key
+    /// each, so nothing is only reachable here.
     pub const ON_A_CELL: &'static [Row] = &[
         Row::Verb(Verb::Open),
         Row::Verb(Verb::Compare),
         Row::Group("Turn", Verb::TURNS),
+        Row::Verb(Verb::MoveTo),
+        Row::Verb(Verb::CopyTo),
         Row::Verb(Verb::Bin),
         Row::Verb(Verb::CopyPath),
         Row::Verb(Verb::CopyPicture),
@@ -247,12 +280,25 @@ impl Row {
         Row::Verb(Verb::Open),
         Row::Verb(Verb::Compare),
         Row::Group("Turn", Verb::TURNS),
+        Row::Verb(Verb::MoveTo),
+        Row::Verb(Verb::CopyTo),
         Row::Verb(Verb::PutBack),
         Row::Verb(Verb::DeleteForGood),
         Row::Verb(Verb::CopyPath),
         Row::Verb(Verb::CopyPicture),
         Row::Verb(Verb::ShowInFolder),
     ];
+
+    /// The rows a thumbnail on the strip carries.
+    ///
+    /// A cell's list, and for the same reasons — a thumbnail is a file, and
+    /// `Open` is what one is for. It is its own list rather than the cell's
+    /// because the two surfaces will diverge and sharing a name for two
+    /// meanings is how they diverge quietly.
+    pub const ON_THE_STRIP: &'static [Row] = Row::ON_A_CELL;
+
+    /// The same, standing inside the viewer's own bin.
+    pub const ON_THE_STRIP_IN_THE_BIN: &'static [Row] = Row::ON_A_CELL_IN_THE_BIN;
 
     /// Which of the two lists a photograph carries.
     ///
@@ -270,6 +316,14 @@ impl Row {
         match in_the_bin {
             true => Row::ON_A_CELL_IN_THE_BIN,
             false => Row::ON_A_CELL,
+        }
+    }
+
+    /// Which of the two lists a thumbnail on the strip carries.
+    pub fn on_the_strip(in_the_bin: bool) -> &'static [Row] {
+        match in_the_bin {
+            true => Row::ON_THE_STRIP_IN_THE_BIN,
+            false => Row::ON_THE_STRIP,
         }
     }
 
@@ -411,6 +465,62 @@ mod tests {
         // The list, plus the settings row that closes every menu.
         assert!(Row::ON_A_PHOTOGRAPH.len() < 11);
         assert!(Row::ON_A_CELL.len() < 11);
+        assert!(Row::ON_THE_STRIP.len() < 11);
+        assert!(Row::ON_A_PHOTOGRAPH_IN_THE_BIN.len() < 12);
+        assert!(Row::ON_A_CELL_IN_THE_BIN.len() < 12);
+        assert!(Row::ON_THE_STRIP_IN_THE_BIN.len() < 12);
+    }
+
+    /// Standing in the bin, the two verbs that mean nothing there are gone and
+    /// the two that only mean something there have taken their place.
+    #[test]
+    fn the_bin_swaps_the_verbs_that_apply() {
+        for list in [Row::on_a_cell(true), Row::on_the_strip(true)] {
+            let verbs: Vec<Verb> = list.iter().flat_map(|row| row.verbs()).collect();
+
+            assert!(verbs.contains(&Verb::PutBack));
+            assert!(verbs.contains(&Verb::DeleteForGood));
+            assert!(!verbs.contains(&Verb::Bin));
+        }
+
+        for list in [Row::on_a_cell(false), Row::on_the_strip(false)] {
+            let verbs: Vec<Verb> = list.iter().flat_map(|row| row.verbs()).collect();
+
+            assert!(verbs.contains(&Verb::Bin));
+            assert!(!verbs.contains(&Verb::PutBack));
+        }
+    }
+
+    /// A thumbnail on the strip is a file, so the verbs that move one are
+    /// there. This is the nearest thing the program has to a cut.
+    #[test]
+    fn a_thumbnail_can_be_sent_somewhere() {
+        let verbs: Vec<Verb> = Row::ON_THE_STRIP
+            .iter()
+            .flat_map(|row| row.verbs())
+            .collect();
+
+        assert!(verbs.contains(&Verb::MoveTo));
+        assert!(verbs.contains(&Verb::CopyTo));
+        assert!(verbs.contains(&Verb::Bin));
+        assert!(verbs.contains(&Verb::CopyPicture));
+        assert!(verbs.contains(&Verb::Compare));
+    }
+
+    /// Asked about a set, comparing says so: it is a different thing from
+    /// pinning this photograph and the ones beside it.
+    #[test]
+    fn comparing_a_set_says_how_many() {
+        assert_eq!(Verb::Compare.label(1), "Compare");
+        assert_eq!(Verb::Compare.label(4), "Compare 4 photographs side by side");
+    }
+
+    #[test]
+    fn sending_photographs_somewhere_says_how_many() {
+        assert_eq!(Verb::MoveTo.label(1), "Move this photograph…");
+        assert_eq!(Verb::MoveTo.label(12), "Move 12 photographs…");
+        assert_eq!(Verb::CopyTo.label(1), "Copy this photograph to…");
+        assert_eq!(Verb::CopyTo.label(12), "Copy 12 photographs to…");
     }
 
     /// Comparing two fits means two clicks, not four.

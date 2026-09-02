@@ -38,8 +38,6 @@ use input::Command;
 use slideshow::Slideshow;
 use viewports::{Place, Viewports};
 
-/// Most images the view will place side by side. Beyond a handful they are too
-/// small to read, and each one costs a texture.
 /// How many frames the "go to" box is asked for the keyboard.
 ///
 /// Two: `request_focus` takes effect on the frame after the one that asks, and
@@ -50,9 +48,11 @@ const ASKING_FRAMES: u8 = 2;
 ///
 /// Two, because a comparison is nearly always between two frames of the same
 /// thing; `Ctrl + Plus` widens it from there.
-const COMPARE_PANES: usize = 2;
+pub const COMPARE_PANES: usize = 2;
 
-const MAX_IMAGES_SHOWN: usize = 8;
+/// Most images the view will place side by side. Beyond a handful they are too
+/// small to read, and each one costs a texture.
+pub const MAX_IMAGES_SHOWN: usize = 8;
 
 use input::Anchor;
 use input::Anchor::Centre as CENTRE;
@@ -480,6 +480,36 @@ impl ImageView {
         self.comparing = Some(panes);
     }
 
+    /// Pins a named set of photographs side by side, and says how many it took.
+    ///
+    /// What "show these side by side" means when the set was picked out
+    /// somewhere else — on the strip, or in the contact sheet — rather than
+    /// being the frames next to this one. Anything the filter is holding back
+    /// is dropped, because a pane showing a photograph the folder is not
+    /// showing is a pane nobody asked for; the panel holds eight, and a set
+    /// larger than that is trimmed rather than refused.
+    ///
+    /// Answers with what was actually pinned, so the caller can say when it
+    /// took fewer than it was handed.
+    pub fn compare_these(&mut self, wanted: &[usize]) -> usize {
+        let panes = pinnable(&self.visible, wanted);
+
+        if panes.len() < 2 {
+            return 0;
+        }
+
+        // The keys have to be about one of the panes, or the photograph every
+        // command means is not one of the photographs on screen.
+        if !panes.contains(&self.cursor) {
+            self.select(panes[0]);
+        }
+
+        let taken = panes.len();
+        self.comparing = Some(panes);
+
+        taken
+    }
+
     /// Leaves the comparison, keeping the photograph the keys were about.
     pub fn stop_comparing(&mut self) {
         self.comparing = None;
@@ -880,5 +910,59 @@ impl ImageView {
                 );
             }
         }
+    }
+}
+
+/// Which of a wanted set of photographs can actually be pinned side by side.
+///
+/// Pure so the two rules can be tested without a window: a photograph the
+/// filter is holding back is dropped, because a pane showing something the
+/// folder is not showing is a pane nobody asked for, and the panel holds
+/// [`MAX_IMAGES_SHOWN`], so a larger set is trimmed rather than refused.
+fn pinnable(visible: &Visible, wanted: &[usize]) -> Vec<usize> {
+    wanted
+        .iter()
+        .copied()
+        .filter(|index| visible.position_of(*index).is_some())
+        .take(MAX_IMAGES_SHOWN)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{pinnable, MAX_IMAGES_SHOWN};
+    use crate::view::visible::Visible;
+
+    #[test]
+    fn a_picked_out_set_is_pinned_as_it_stands() {
+        let visible = Visible::everything(20);
+
+        assert_eq!(pinnable(&visible, &[3, 7, 9]), vec![3, 7, 9]);
+    }
+
+    /// A set picked out before the folder was narrowed can name photographs
+    /// the folder is no longer showing. They are dropped rather than drawn.
+    #[test]
+    fn a_photograph_the_filter_holds_back_is_not_pinned() {
+        let visible = Visible::of(vec![1, 4, 9], 20);
+
+        assert_eq!(pinnable(&visible, &[1, 5, 9]), vec![1, 9]);
+    }
+
+    /// The panel holds eight. A set of forty is the first eight of it, which
+    /// is better than refusing to compare at all.
+    #[test]
+    fn a_set_larger_than_the_panel_is_trimmed() {
+        let visible = Visible::everything(40);
+        let wanted: Vec<usize> = (0..40).collect();
+
+        assert_eq!(pinnable(&visible, &wanted).len(), MAX_IMAGES_SHOWN);
+    }
+
+    #[test]
+    fn nothing_wanted_pins_nothing() {
+        let visible = Visible::everything(20);
+
+        assert!(pinnable(&visible, &[]).is_empty());
     }
 }

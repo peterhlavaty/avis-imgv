@@ -358,6 +358,8 @@ impl GridView {
             panes,
             selection: &self.selection,
             colour: self.picked_colour,
+            in_the_bin: self.in_the_bin,
+            entries: &self.config.context_menu,
         };
 
         let picked = filmstrip::show(
@@ -369,11 +371,42 @@ impl GridView {
             forced,
         );
 
+        if let Some((chosen, index)) = picked.chosen {
+            self.strip_menu(chosen, index);
+        }
+
         let opened = picked
             .click
             .and_then(|click| self.strip_click(click, cursor));
 
         (opened, picked.height)
+    }
+
+    /// Carries out what a thumbnail's menu was asked for.
+    ///
+    /// The same three answers a cell's menu has, so a verb added to one list is
+    /// carried out the same way from either surface: `Open` is the sheet's own,
+    /// a user entry is a callback, and everything else goes up to the
+    /// application, which is the only thing that can move a file.
+    fn strip_menu(&mut self, chosen: Chosen, index: usize) {
+        let Some(path) = self.store.path(index).map(Path::to_path_buf) else {
+            return;
+        };
+
+        match chosen {
+            Chosen::Verb(Verb::Open) => self.selected = Some(path),
+            Chosen::Verb(verb) => self.verb = Some((verb, path)),
+            Chosen::Entry(i) => {
+                if let Some(callback) = self
+                    .config
+                    .context_menu
+                    .get(i)
+                    .and_then(|entry| entry.callback.clone())
+                {
+                    self.callback = Some(Callback::from_callback(callback, Some(path)));
+                }
+            }
+        }
     }
 
     /// Carries out a click on the strip, and answers with a photograph to open.

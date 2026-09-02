@@ -840,12 +840,27 @@ status bar.
 own entries and the copy group. It is the whole of the configurability offered
 for the built-in rows, and the reason there is no menu editor.
 
-Right-clicking a photograph or a cell offers what can be done to it: fit,
-actual pixels, fill, compare, turn, move to the bin, copy the
-path, copy the picture, and show it in the file manager. **Copy the picture** puts the file's own pixels
+Right-clicking a photograph, a cell or a thumbnail on the strip offers what can
+be done to it: fit, actual pixels, fill, compare, turn, move to the bin, copy
+the path, copy the picture, and show it in the file manager. **Copy the
+picture** puts the file's own pixels
 on the clipboard, decoded at full size and turned the right way up, on a thread
 of its own so a sixty megapixel raw does not stop the window. With part of the
 photograph marked out it copies that part, cut from the same full size decode.
+
+A cell and a thumbnail also offer **Move…** and **Copy to…**, which open the
+panel of numbered destinations — the nearest thing here to a cut, in one
+gesture rather than two, and without a cut left hanging when the paste never
+comes. There is no clipboard cut: none of the three platforms agrees on how to
+say "these files, to be moved", and the clipboard this program uses carries
+text and pixels and nothing else. The photograph's own menu does not carry the
+two, because its list is full; both have a key.
+
+**Compare** asked about a set is *Compare 4 photographs side by side*, and pins
+exactly those — which is how a run picked out on the strip is looked at
+together. Asked about one photograph it means what it always did: this one and
+the ones beside it. The panel holds eight, and a larger set is trimmed to the
+first eight rather than refused.
 
 **A marked area answers the second button for itself**, because a menu is drawn
 over the thing it belongs to and inside a marking that thing is the marking:

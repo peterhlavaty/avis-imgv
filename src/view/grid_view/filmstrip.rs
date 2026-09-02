@@ -19,6 +19,7 @@ use eframe::egui::{self, Color32, Rect, Sense};
 use eframe::epaint::Vec2;
 
 use crate::cache::{ImageState, ImageStore};
+use crate::ui::menus::Chosen;
 use crate::view::selection::Selection;
 use crate::view::texture;
 use crate::view::visible::Visible;
@@ -96,6 +97,11 @@ pub struct OnScreen<'a> {
     pub selection: &'a Selection,
     /// What a picked-out photograph is marked in.
     pub colour: Color32,
+    /// Whether the folder on show is the viewer's own bin, which changes two
+    /// rows of the menu a thumbnail carries.
+    pub in_the_bin: bool,
+    /// The user's own menu entries, appended to every one of them.
+    pub entries: &'a [crate::config::ContextMenuEntry],
 }
 
 impl OnScreen<'_> {
@@ -157,6 +163,8 @@ impl Click {
 pub struct Picked {
     /// What was clicked, and what the click meant.
     pub click: Option<Click>,
+    /// What a menu was asked for, and about which store position.
+    pub chosen: Option<(Chosen, usize)>,
     /// How tall the panel is actually drawn, this frame.
     ///
     /// Reported every frame rather than only when it differs, because telling
@@ -189,6 +197,7 @@ pub fn show(
     let cursor = on_screen.cursor;
     let mut picked = Picked {
         click: None,
+        chosen: None,
         height,
     };
 
@@ -246,16 +255,46 @@ pub fn show(
                     ui.spacing_mut().item_spacing = Vec2::new(GAP, 0.0);
 
                     for index in visible.iter() {
-                        let name = store
-                            .path(index)
+                        let path = store.path(index).map(std::path::Path::to_path_buf);
+                        let name = path
+                            .as_deref()
                             .and_then(|path| path.file_name())
                             .map(|name| name.to_string_lossy().into_owned());
 
                         let state = on_screen.state(index);
+                        let Some(response) =
+                            draw_cell(ui, store, index, state, cell, colour, name.as_deref())
+                        else {
+                            continue;
+                        };
 
-                        if draw_cell(ui, store, index, state, cell, colour, name.as_deref()) {
+                        if response.clicked() {
                             let modifiers = ui.input(|i| i.modifiers);
                             picked.click = Some(Click::of(modifiers, index));
+                        }
+
+                        // What the menu is about: the set where this thumbnail
+                        // is in it, and this one photograph where it is not.
+                        // The same rule the contact sheet's cells use, because
+                        // it is the same set.
+                        let Some(path) = path else { continue };
+                        let count = match on_screen.selection.contains(index) {
+                            true => on_screen.selection.len().max(1),
+                            false => 1,
+                        };
+
+                        let chosen = crate::actions::show_context_menu(
+                            ui,
+                            "strip",
+                            crate::ui::menus::Row::on_the_strip(on_screen.in_the_bin),
+                            on_screen.entries,
+                            &response,
+                            &path,
+                            count,
+                        );
+
+                        if let Some(chosen) = chosen {
+                            picked.chosen = Some((chosen, index));
                         }
                     }
                 });
@@ -283,7 +322,8 @@ pub struct State {
     pub picked: bool,
 }
 
-/// One thumbnail. Returns whether it was clicked.
+/// One thumbnail. Answers with its response, where it is worth interacting
+/// with — a cell scrolled out of sight, or one behind a window, is not.
 fn draw_cell(
     ui: &mut egui::Ui,
     store: &mut ImageStore,
@@ -292,14 +332,14 @@ fn draw_cell(
     cell: f32,
     colour: Color32,
     name: Option<&str>,
-) -> bool {
+) -> Option<egui::Response> {
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(cell), Sense::click());
 
     // Nothing is drawn for a cell that has scrolled past: a strip over a folder
     // of ten thousand would otherwise ask the store about every one of them
     // every frame.
     if !ui.is_rect_visible(rect) {
-        return false;
+        return None;
     }
 
     ui.painter().rect_filled(rect, 0.0, CELL);
@@ -348,8 +388,10 @@ fn draw_cell(
         );
     }
 
+    // A thumbnail behind a window is not a thumbnail: no cursor, no click, no
+    // menu.
     if crate::utils::is_a_window_in_front(ui.ctx()) {
-        return false;
+        return None;
     }
 
     if response.hovered() {
@@ -362,7 +404,7 @@ fn draw_cell(
         response.clone().on_hover_text(name);
     }
 
-    response.clicked()
+    Some(response)
 }
 
 /// Largest size with the thumbnail's shape that fits a square cell.
@@ -467,6 +509,8 @@ mod tests {
             panes,
             selection,
             colour: Color32::WHITE,
+            in_the_bin: false,
+            entries: &[],
         }
     }
 
