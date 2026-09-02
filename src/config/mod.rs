@@ -547,6 +547,15 @@ pub struct ImageViewConfig {
     pub max_image_edge: u32,
     #[serde(default = "default_nr_images_shown")]
     pub nr_images_shown: usize,
+    /// The colour a pinned comparison outlines and names itself in, as a hex
+    /// string.
+    ///
+    /// Its own colour rather than the selection's, because a comparison of two
+    /// neighbours has nothing picked out in it: a border in the selection's
+    /// colour round a panel showing no selection would be a sentence that is
+    /// sometimes false.
+    #[serde(default = "default_comparison_colour")]
+    pub comparison_colour: String,
     #[serde(default = "default_should_wait")]
     pub should_wait: bool,
     #[serde(default = "default_frame_size_relative_to_image")]
@@ -815,6 +824,14 @@ pub struct GridViewConfig {
     pub sc_select: Shortcut,
     #[serde(default = "default_sc_select_all")]
     pub sc_select_all: Shortcut,
+    /// Puts every picked-out photograph back.
+    ///
+    /// Read wherever the photographs are rather than in the contact sheet
+    /// alone, unlike the two above it: a set is built on the strip as readily
+    /// as on the sheet, and the key that lets go of it has to be reachable
+    /// from where it was built.
+    #[serde(default = "default_sc_select_none")]
+    pub sc_select_none: Shortcut,
 }
 
 /// What the slideshow does with a picture while it is up.
@@ -945,6 +962,7 @@ impl Default for ImageViewConfig {
             gpu_resident_images: default_gpu_resident_images(),
             max_image_edge: default_max_image_edge(),
             nr_images_shown: default_nr_images_shown(),
+            comparison_colour: default_comparison_colour(),
             should_wait: default_should_wait(),
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             enlarge_to_fit: default_enlarge_to_fit(),
@@ -1029,6 +1047,7 @@ impl Default for GridViewConfig {
             filmstrip_height: default_filmstrip_height(),
             sc_select: default_sc_select(),
             sc_select_all: default_sc_select_all(),
+            sc_select_none: default_sc_select_none(),
         }
     }
 }

@@ -862,6 +862,21 @@ together. Asked about one photograph it means what it always did: this one and
 the ones beside it. The panel holds eight, and a larger set is trimmed to the
 first eight rather than refused.
 
+**A comparison says that it is one.** The whole panel is outlined in
+`image_view.comparison_colour` and named in its top right corner — *Comparing 4
+picked out*, or *Comparing 2* for the kind the compare key pins — with the
+sentence explaining it on the hover and a cross beside it that goes back to the
+ordinary view. Four photographs side by side otherwise look exactly like four
+photographs side by side, and the only way out used to be a key. A comparison
+made from the picked-out photographs follows them: picking another out or
+putting one back changes what is shown, and putting them all back ends it. One
+pinned from this photograph and its neighbours stays as it was pinned.
+
+**Put them all back** is on a cell's menu and a thumbnail's whenever there is a
+set to put back, and on `Ctrl + D` wherever the photographs are — the other
+half of `Ctrl + A`, and reachable from the strip rather than from the contact
+sheet alone.
+
 **A marked area answers the second button for itself**, because a menu is drawn
 over the thing it belongs to and inside a marking that thing is the marking:
 *Zoom to it*, *Copy the marked area*, *Clear the marking*.
@@ -1092,6 +1107,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `gpu_resident_images` | Images kept as GPU textures | 8 |
 | `max_image_edge` | Cap on the longest edge of a decoded image. `0` means as large as the GPU allows. Unrelated to the screen sized copy, which is worked out from your monitor and needs no setting. | 0 |
 | `nr_images_shown` | Images displayed side by side | 1 |
+| `comparison_colour` | The colour a pinned comparison outlines the panel and names itself in | `#E2BA78` |
 | `sc_compare` | Pin this picture and the next side by side, sharing one zoom and one pan | `N` |
 | `sc_drop_pane` | Take the focused photograph out of a comparison. A binding rather than a bare key, because `/` on the Slovak, German and French layouts is Shift and a digit | `/` |
 | `sc_go_to` | Put the cursor in the "go to" box, which could be reached by clicking and by nothing else | `Ctrl + J` |
@@ -1129,6 +1145,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `moving_on_clears_the_selection` | Whether going to a photograph that is not picked out lets go of everything that is | true |
 | `sc_select` | Picks the photograph under the cursor out, or puts it back | `Space` |
 | `sc_select_all` | Picks out everything on show, or puts it all back | `Ctrl + A` |
+| `sc_select_none` | Puts every picked-out photograph back. Read wherever the photographs are, not in the contact sheet alone | `Ctrl + D` |
 
 ### Mouse
 

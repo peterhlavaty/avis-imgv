@@ -372,6 +372,15 @@ pub fn default_gpu_resident_thumbnails() -> usize {
 /// Space is what every program with a contact sheet uses to pick a photograph
 /// out, and picking photographs out is worth more than a key for scrolling
 /// half a row when the arrows, the wheel and the scrollbar all already do it.
+/// The amber a pinned comparison is outlined and named in.
+///
+/// Warm rather than blue, for the same reason a stack's plate is: the blue
+/// means picked out, and a comparison of two neighbours has nothing picked
+/// out in it.
+pub fn default_comparison_colour() -> String {
+    "#E2BA78".to_string()
+}
+
 /// The blue the contact sheet has always washed a picked-out cell in.
 ///
 /// Cool and light: it has to read against a grey ground at a fortieth of the
@@ -412,6 +421,11 @@ pub fn default_sc_select() -> Shortcut {
 }
 pub fn default_sc_select_all() -> Shortcut {
     Shortcut::new("a", &[MOD_CTRL])
+}
+/// The other half of `Ctrl + A`, and the letter every list of files uses for
+/// it. `d` alone pans right, so the modifier is doing real work here.
+pub fn default_sc_select_none() -> Shortcut {
+    Shortcut::new("d", &[MOD_CTRL])
 }
 pub fn default_sc_more_per_row() -> Shortcut {
     Shortcut::new("Plus", &[])

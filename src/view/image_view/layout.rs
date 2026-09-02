@@ -7,6 +7,7 @@ use crate::cache::{ImageState, ImageStore};
 use crate::ui::empty::{self, Asked, Nothing};
 
 use super::canvas::{self, Metrics, Style, Viewport};
+use super::comparison::{self, Banner};
 
 /// Backdrop behind the images, neutral enough not to shift how a photograph
 /// reads against it.
@@ -31,6 +32,10 @@ pub struct Painting<'a> {
     pub background: Color32,
     /// What to draw when there is no photograph to draw.
     pub nothing: &'a Nothing,
+    /// What a pinned comparison says it is about, when one is up.
+    pub comparison: Option<Banner>,
+    /// What that comparison is outlined and named in.
+    pub comparison_colour: Color32,
 }
 
 /// Draws `count` images starting at `cursor`, side by side.
@@ -49,8 +54,11 @@ pub fn show(
         style,
         background,
         nothing,
+        comparison,
+        comparison_colour,
     } = painting;
     let background = *background;
+    let comparison_colour = *comparison_colour;
 
     let mut metrics = Metrics::default();
     let mut asked = None;
@@ -98,6 +106,13 @@ pub fn show(
                     }
                 }
             });
+
+            // Last, over the photographs: the outline is about the panel
+            // rather than about anything in it. The name and the cross are
+            // drawn by the caller, in a layer of their own — see `comparison`.
+            if comparison.is_some() {
+                comparison::outline(ui, ui.max_rect(), comparison_colour);
+            }
         })
         .response
         .interact(Sense::click());

@@ -50,6 +50,26 @@ impl Default for Copying {
 
 impl App {
     /// Does whatever a menu asked for that the view could not.
+    /// Puts every picked-out photograph back.
+    ///
+    /// Says so, because with the strip shut and the contact sheet somewhere
+    /// else there may be nothing on screen that was drawing the set — and a
+    /// key that silently changes what every other key means is the worst kind
+    /// of silence. A comparison built from the set is ended by the same rule
+    /// that follows it, on the next frame.
+    pub(super) fn pick_none_out(&mut self) {
+        let held = self.grid_view.selected_count();
+        if held == 0 {
+            return;
+        }
+
+        self.grid_view.clear_selection();
+        self.notices.say(match held {
+            1 => "Put the picked-out photograph back.".to_string(),
+            held => format!("Put all {held} picked-out photographs back."),
+        });
+    }
+
     /// Pins the picked-out photographs side by side, or this one and its
     /// neighbours when nothing is picked out.
     ///
@@ -65,6 +85,10 @@ impl App {
             self.set_mode(Mode::Image);
             return;
         }
+
+        // What the comparison was built from, so the rule that keeps it on the
+        // set does not read the first frame as a change.
+        self.compared_from = self.grid_view.selection().clone();
 
         let taken = self.image_view.compare_these(&picked);
         if taken == 0 {
@@ -106,6 +130,7 @@ impl App {
                         .say("Could not open the file manager. The log says why.");
                 }
             }
+            Verb::PickNone => self.pick_none_out(),
             Verb::MoveTo => self.send_somewhere(Errand::Move),
             Verb::CopyTo => self.send_somewhere(Errand::Copy),
             // The photograph's own menu answers this one where it stands,

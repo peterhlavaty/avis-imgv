@@ -166,6 +166,33 @@ pub fn rows() -> Vec<Row> {
         ),
         row!(
             ThePhotograph / Framing,
+            "image_view.comparison_colour",
+            "The colour a comparison is marked in",
+            "A pinned comparison outlines the whole panel and names itself in the \
+             corner, because four photographs side by side otherwise look exactly \
+             like four photographs side by side. Warm rather than blue by default: \
+             the blue means picked out, and a comparison of two neighbours has \
+             nothing picked out in it.",
+            [
+                "compare",
+                "comparison",
+                "colour",
+                "color",
+                "border",
+                "outline"
+            ],
+            Live,
+            None,
+            Access::Colour(
+                |c| Some(c.image_view.comparison_colour.clone()),
+                |c, v| {
+                    c.image_view.comparison_colour =
+                        v.unwrap_or_else(crate::config::default_comparison_colour)
+                },
+            ),
+        ),
+        row!(
+            ThePhotograph / Framing,
             "image_view.marked_area_dim",
             "Darkening around a marked area",
             "How far the rest of the photograph is darkened while a part of it is \

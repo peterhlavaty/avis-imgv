@@ -2,6 +2,48 @@
 
 ## 2026-09-02
 
+- **A comparison says that it is one, and offers the way out of it.** The whole
+  panel is outlined in `image_view.comparison_colour` and named in its top
+  right corner — *Comparing 4 picked out*, or *Comparing 2* for the kind the
+  compare key pins — with the sentence explaining it on the hover and a cross
+  beside it that goes back to the ordinary view. Four photographs side by side
+  look exactly like four photographs side by side: `nr_images_shown` set to
+  four is the ordinary view, and a pinned set of four is a state the arrow keys
+  behave differently in that nothing on screen mentioned. The only ways out
+  were a key and a row in a menu on a figure in the status bar, neither of
+  which is where somebody looks when they are wondering what has happened to
+  their viewer.
+
+  **A comparison made from the picked-out photographs follows them.** Picking
+  another out or putting one back changes what is shown, and dropping below two
+  ends it. One pinned from this photograph and its neighbours stays as it was
+  pinned, which is the whole of what pinned means — a Ctrl-click on the strip
+  does not throw away a comparison somebody has just set up. The set is
+  compared borrowed and cloned only on the frames it moved, the same shape the
+  history's watch uses, so a comparison left up costs no allocation a frame.
+
+  The colour is warm rather than blue, and its own setting: the blue means
+  picked out, and a border in the selection's colour round a comparison of two
+  neighbours would be a sentence that is sometimes false.
+
+- **Put them all back**, on a cell's menu and a thumbnail's whenever there is a
+  set to put back, and on `Ctrl + D` wherever the photographs are. A set built
+  by twenty clicks on the strip could be undone only by `Escape` in the contact
+  sheet, which is not where it was built. `grid_view.sc_select_none` is the
+  binding, and it is read everywhere rather than in the sheet alone, unlike the
+  two keys beside it. The row is drawn only where there is a set: a row that
+  would do nothing is worse than one that is not there.
+
+- **Show it in the file manager opened Documents.** Explorer parses its own
+  command line and splits it on commas, so a photograph off a camera called
+  `2024-11-06 22-07-19 (C,S4).jpg` was cut in half at its own comma and the
+  half that was left was not a path. A space did as much harm on its own: the
+  runtime wraps an argument holding one in quotes, and quoting the whole of
+  `/select,PATH` rather than the path is a form Explorer does not understand
+  either. The line is now written out — the flag bare, the path in quotes of
+  its own, made absolute, with its separators turned round, because a forward
+  slash is where Explorer expects a switch to begin.
+
 - **A thumbnail on the strip answers the second button.** The same menu a
   contact sheet cell carries, about the set when the thumbnail is in it and
   about the one photograph when it is not: open, compare, turn, move to the

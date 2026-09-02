@@ -336,6 +336,20 @@ Leaving the seam for later means the next session pays for it with interest.
   anchor is somewhere nobody can still see. Nearest is measured in the shown
   order, never wraps round the end of the collection, and settles a tie in
   favour of the earlier frame.
+- **A state the window is in has to be visible from the window.** A pinned
+  comparison and four panes of the ordinary view are the same pixels, and the
+  only ways out of the first were a key and a row in a menu on a figure in the
+  status bar. `view/image_view/comparison.rs` outlines the panel, names the
+  state in the corner, explains it on the hover and puts a cross beside it.
+  The plate is drawn in an `Area` of its own rather than inside the panel,
+  because the panel registers itself as one click-sensing widget covering the
+  whole of itself *after* its contents — that is how a drag over the photograph
+  is read — and egui hands a press to the last such widget under it, so
+  anything inside the panel that wants a click is a thing the panel swallows.
+- **A glyph is only as available as the fonts actually loaded.** The program
+  ships Atkinson Hyperlegible Next and falls through to egui's emoji font;
+  `✕` (U+2715) is in neither and drew an empty box. `✔`, `✖` and `★` are used
+  elsewhere and are known to render. The way to find out is to look at it.
 - **A gesture is a second route, never the only one.** The mouse is eight fields
   in `mouse`; the ones with a single meaning hold the name of a command from
   `config::mouse::VERBS`, and a test asserts every one of them also has a key.

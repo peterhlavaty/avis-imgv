@@ -36,6 +36,14 @@ pub enum Verb {
     /// Pin photographs side by side: the ones picked out, or this one and
     /// its neighbours when nothing is.
     Compare,
+    /// Put every picked-out photograph back, leaving the set empty.
+    ///
+    /// The one verb here that is about the set rather than about a file, and
+    /// the one that needs a way out that is not a key: a set built by twenty
+    /// clicks is undone by one, and until now the only way to reach that was
+    /// `Escape` in the contact sheet — which is not where a set built on the
+    /// strip is being looked at.
+    PickNone,
     /// The turns, written to the sidecar rather than to the file. All five
     /// live behind one word; [`Verb::TURNS`] is what that word opens.
     TurnRight,
@@ -123,6 +131,7 @@ impl Verb {
             Verb::Fill => "Fill the window".to_string(),
             Verb::Compare if count == 1 => "Compare".to_string(),
             Verb::Compare => format!("Compare {count} photographs side by side"),
+            Verb::PickNone => format!("Put all {count} back"),
             Verb::TurnRight => "Clockwise".to_string(),
             Verb::TurnLeft => "Anticlockwise".to_string(),
             Verb::TurnHalf => "Upside down".to_string(),
@@ -186,6 +195,10 @@ impl Verb {
                  which the bin wrote down when it took it"
             }
             Verb::DeleteForGood => "Off the disk. Nothing can take this one back",
+            Verb::PickNone => {
+                "Put every picked-out photograph back, so the next command is \
+                 about the one being looked at again"
+            }
             Verb::MoveTo => {
                 "Off to one of the numbered destinations, which the panel asks for. \
                  The nearest thing to a cut: the file goes, in one gesture"
@@ -207,6 +220,22 @@ impl Verb {
     /// rather than two.
     fn closes(self) -> bool {
         !matches!(self, Verb::Fit | Verb::ActualPixels | Verb::Fill)
+    }
+
+    /// Whether this verb means anything in a menu about `count` photographs.
+    ///
+    /// One rule and one verb so far, and it belongs here rather than in a
+    /// second pair of row lists: putting them all back means nothing where
+    /// there is nothing to put back, and a menu about one photograph is a menu
+    /// where nothing has been picked out — or where what was picked out is
+    /// somewhere else, and offering to throw it away from here would be a
+    /// surprise. A row that would do nothing is worse than a row that is not
+    /// drawn.
+    pub fn applies(self, count: usize) -> bool {
+        match self {
+            Verb::PickNone => count > 1,
+            _ => true,
+        }
     }
 }
 
@@ -266,6 +295,7 @@ impl Row {
     pub const ON_A_CELL: &'static [Row] = &[
         Row::Verb(Verb::Open),
         Row::Verb(Verb::Compare),
+        Row::Verb(Verb::PickNone),
         Row::Group("Turn", Verb::TURNS),
         Row::Verb(Verb::MoveTo),
         Row::Verb(Verb::CopyTo),
@@ -279,6 +309,7 @@ impl Row {
     pub const ON_A_CELL_IN_THE_BIN: &'static [Row] = &[
         Row::Verb(Verb::Open),
         Row::Verb(Verb::Compare),
+        Row::Verb(Verb::PickNone),
         Row::Group("Turn", Verb::TURNS),
         Row::Verb(Verb::MoveTo),
         Row::Verb(Verb::CopyTo),
@@ -389,6 +420,13 @@ pub fn rows(
     ui.set_max_width(crate::ui::surface::WIDEST);
 
     for row in rows {
+        // A row that would do nothing where it stands is not drawn. The lists
+        // themselves stay static, which is what keeps them readable and free
+        // of an allocation per cell per frame.
+        if !row.verbs().any(|verb| verb.applies(count)) {
+            continue;
+        }
+
         match *row {
             Row::Verb(verb) => {
                 if verb_row(ui, verb, count) {
@@ -513,6 +551,45 @@ mod tests {
     fn comparing_a_set_says_how_many() {
         assert_eq!(Verb::Compare.label(1), "Compare");
         assert_eq!(Verb::Compare.label(4), "Compare 4 photographs side by side");
+    }
+
+    /// Putting them all back is drawn where there is a set to put back and
+    /// nowhere else: a row that would do nothing is worse than one that is not
+    /// there.
+    #[test]
+    fn putting_them_all_back_is_offered_only_where_there_is_a_set() {
+        assert!(!Verb::PickNone.applies(1));
+        assert!(Verb::PickNone.applies(2));
+        assert!(Verb::PickNone.applies(200));
+
+        assert_eq!(Verb::PickNone.label(4), "Put all 4 back");
+    }
+
+    /// And every other verb applies whatever the menu is about, so the rule
+    /// stays one rule about one verb.
+    #[test]
+    fn every_other_verb_applies_to_one_photograph() {
+        for row in Row::ON_THE_STRIP {
+            for verb in row.verbs() {
+                if verb == Verb::PickNone {
+                    continue;
+                }
+
+                assert!(verb.applies(1), "{verb:?}");
+                assert!(verb.applies(9), "{verb:?}");
+            }
+        }
+    }
+
+    /// The strip is where a set is built, so it is where the way out of one
+    /// has to be.
+    #[test]
+    fn the_strip_offers_a_way_out_of_a_set() {
+        for list in [Row::on_the_strip(false), Row::on_the_strip(true)] {
+            let verbs: Vec<Verb> = list.iter().flat_map(|row| row.verbs()).collect();
+
+            assert!(verbs.contains(&Verb::PickNone));
+        }
     }
 
     #[test]

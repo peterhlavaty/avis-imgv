@@ -168,5 +168,8 @@ fn keys() -> Vec<Row> {
         row!(KeysAndMouse / Keys, "grid_view.sc_select_all", "Pick out everything",
             "Pick out every photograph on show, or put them all back if they already are.",
             ["select all", "ctrl a"], Live, Gallery, key!(grid_view.sc_select_all)),
+        row!(KeysAndMouse / Keys, "grid_view.sc_select_none", "Put them all back",
+            "Put every picked-out photograph back, so the next command is about the one being looked at again. Read wherever the photographs are, because a set is built on the strip as readily as on the sheet.",
+            ["deselect", "select none", "clear selection", "ctrl d"], Live, Everywhere, key!(grid_view.sc_select_none)),
     ]
 }

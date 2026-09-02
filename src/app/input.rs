@@ -3,7 +3,9 @@
 use eframe::egui;
 
 use crate::app::mode::Mode;
-use crate::config::{shortcut, CullConfig, GeneralConfig, HistoryConfig, TagConfig};
+use crate::config::{
+    shortcut, CullConfig, GeneralConfig, GridViewConfig, HistoryConfig, TagConfig,
+};
 use crate::metadata::xmp::{Flag, Label};
 use crate::utils;
 
@@ -73,6 +75,8 @@ pub enum Command {
     ContextMenu,
     /// Show or hide the strip of thumbnails under the photograph.
     ToggleFilmstrip,
+    /// Put every picked-out photograph back.
+    PickNoneOut,
     /// Show the folder stacked, or put every frame back.
     ToggleStacking,
     /// Open or close the stack the cursor is in.
@@ -110,6 +114,7 @@ pub fn collect(
     tags: &TagConfig,
     cull: &CullConfig,
     history: &HistoryConfig,
+    grid: &GridViewConfig,
 ) -> Vec<Command> {
     let mut commands = Vec::new();
 
@@ -170,6 +175,7 @@ pub fn collect(
         (&history.sc_redo, Command::Redo),
         (&history.sc_panel, Command::ToggleHistoryPanel),
         (&config.sc_filmstrip, Command::ToggleFilmstrip),
+        (&grid.sc_select_none, Command::PickNoneOut),
         (&config.sc_stacks, Command::ToggleStacking),
         (&config.sc_toggle_stack, Command::ToggleStack),
         (&config.sc_standing_back, Command::StandingBack),
@@ -340,6 +346,7 @@ mod tests {
             &TagConfig::default(),
             &CullConfig::default(),
             &HistoryConfig::default(),
+            &GridViewConfig::default(),
         )
     }
 

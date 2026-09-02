@@ -3,6 +3,7 @@
 pub mod area;
 pub mod bottom_bar;
 pub mod canvas;
+pub mod comparison;
 pub mod input;
 pub mod interaction;
 pub mod layout;
@@ -78,6 +79,15 @@ pub struct ImageView {
     /// are while the eye moves between them, and every key is about the one
     /// with the focus.
     comparing: Option<Vec<usize>>,
+    /// Whether the pinned set was made from the photographs picked out.
+    ///
+    /// What decides whether it follows them: a comparison built from a set is
+    /// a view *of* that set and changes with it, and one pinned from this
+    /// photograph and its neighbours is pinned, which is the whole of what
+    /// "pinned" means. Meaningless while `comparing` is `None`, which is why
+    /// nothing outside [`ImageView::pin`] and [`ImageView::stop_comparing`]
+    /// writes it.
+    comparing_from_selection: bool,
     viewport: Viewport,
     /// The part of the photograph the user has marked out, if any.
     ///
@@ -159,6 +169,7 @@ impl ImageView {
             marking: crate::decoder::overlays::Overlay::default(),
             marks: marks::Marks::default(),
             comparing: None,
+            comparing_from_selection: false,
             viewport: Viewport::default(),
             area: area::Area::default(),
             frame: FrameStyle {
@@ -477,7 +488,7 @@ impl ImageView {
             return;
         }
 
-        self.comparing = Some(panes);
+        self.pin(panes, false);
     }
 
     /// Pins a named set of photographs side by side, and says how many it took.
@@ -505,14 +516,41 @@ impl ImageView {
         }
 
         let taken = panes.len();
-        self.comparing = Some(panes);
+        self.pin(panes, true);
 
         taken
+    }
+
+    /// Pins a set, remembering where it came from.
+    ///
+    /// The one place the provenance is written, so the two fields cannot come
+    /// apart: a comparison that had forgotten it was made from the set would
+    /// stop following it, and one that wrongly thought it was would be thrown
+    /// away by the first click on the strip.
+    fn pin(&mut self, panes: Vec<usize>, from_selection: bool) {
+        self.comparing = Some(panes);
+        self.comparing_from_selection = from_selection;
     }
 
     /// Leaves the comparison, keeping the photograph the keys were about.
     pub fn stop_comparing(&mut self) {
         self.comparing = None;
+        self.comparing_from_selection = false;
+    }
+
+    /// Whether the pinned set is the photographs picked out.
+    pub fn is_comparing_selection(&self) -> bool {
+        self.comparing.is_some() && self.comparing_from_selection
+    }
+
+    /// What the banner over a comparison says it is about, if one is up.
+    pub fn comparison(&self) -> Option<comparison::Banner> {
+        let panes = self.comparing.as_ref()?;
+
+        Some(comparison::Banner {
+            panes: panes.len(),
+            from_selection: self.comparing_from_selection,
+        })
     }
 
     /// Puts a different photograph in the focused pane.
@@ -643,7 +681,7 @@ impl ImageView {
             // Two is the fewest a comparison can be; dropping one of them ends
             // it on the other, which is the answer.
             let survivor = panes.iter().find(|index| **index != self.cursor).copied();
-            self.comparing = None;
+            self.stop_comparing();
 
             if let Some(index) = survivor {
                 self.select(index);
@@ -682,6 +720,11 @@ impl ImageView {
             past_fit: self.config.zoom_out_past_fit,
         };
 
+        // For the same reason: both read fields the drawing borrows.
+        let comparison = self.comparison();
+        let comparison_colour =
+            crate::ui::theme::colour(&self.config.comparison_colour, comparison::DEFAULT);
+
         let shown = layout::show(
             ctx,
             &mut self.store,
@@ -692,10 +735,27 @@ impl ImageView {
                 style: &style,
                 background,
                 nothing,
+                comparison,
+                comparison_colour,
             },
         );
 
         self.asked = shown.asked;
+
+        // After the panel, and in a layer of its own: the panel senses a click
+        // over the whole of itself and is registered last, so anything drawn
+        // inside it that wants a press has to be somewhere the panel is not.
+        if let Some(banner) = comparison {
+            let asked = comparison::banner(ctx, shown.response.rect, banner, comparison_colour);
+
+            match asked {
+                Some(comparison::Asked::Stop) => self.stop_comparing(),
+                Some(comparison::Asked::Settings) => self
+                    .bar_actions
+                    .push(BarAction::Settings("image_view.comparison_colour")),
+                None => {}
+            }
+        }
 
         // Zooming and the status bar both work from the geometry of the image
         // the user is looking at.

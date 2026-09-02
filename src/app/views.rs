@@ -247,6 +247,35 @@ impl App {
     /// strip, the sheet, a slideshow, the history itself — and every one of
     /// them is covered here by construction, including the ones not written
     /// yet.
+    /// Keeps a comparison of the picked-out photographs on the photographs
+    /// that are picked out.
+    ///
+    /// Only that kind: one pinned from this photograph and its neighbours is
+    /// pinned, which is the whole of what "pinned" means, and a Ctrl-click on
+    /// the strip should not throw away a comparison somebody has just set up
+    /// with a key.
+    ///
+    /// Compared borrowed and cloned only on the frames the set moved, the same
+    /// shape the history's watch uses: this runs every frame a comparison is
+    /// up, and building a vector of store positions on each of them would be
+    /// an allocation a frame for as long as somebody looked.
+    pub(super) fn follow_the_selection(&mut self) {
+        if !self.image_view.is_comparing_selection()
+            || self.grid_view.selection() == &self.compared_from
+        {
+            return;
+        }
+
+        self.compared_from = self.grid_view.selection().clone();
+        let picked: Vec<usize> = self.compared_from.iter().collect();
+
+        // Fewer than two is not a comparison. Ending it is what "putting them
+        // all back" has to mean when what it puts back is what is on screen.
+        if picked.len() < 2 || self.image_view.compare_these(&picked) == 0 {
+            self.image_view.stop_comparing();
+        }
+    }
+
     pub(super) fn follow_the_photograph(&mut self) {
         let now = self.image_view.selected_index();
         let was = self.following.replace(now);

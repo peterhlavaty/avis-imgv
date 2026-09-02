@@ -185,6 +185,10 @@ pub struct App {
     /// Which photograph the set of picked-out frames was last seen to be
     /// about. `None` until the first frame has been drawn.
     following: Option<usize>,
+    /// The set a pinned comparison of the picked-out photographs was built
+    /// from, so it can be told whether they have moved without allocating to
+    /// find out. The same shape the history's watch uses.
+    compared_from: crate::view::Selection,
     /// Whether the strip's height has to be stated rather than suggested on
     /// the next frame it draws.
     ///
@@ -403,6 +407,7 @@ impl App {
             filmstrip_visible: filmstrip,
             filmstrip_height: crate::ui::dragged::Dragged::default(),
             following: None,
+            compared_from: crate::view::Selection::default(),
             forced_filmstrip_height: false,
             cheat_sheet_visible: false,
             cheat_sheet_opened: false,
@@ -1132,6 +1137,7 @@ impl App {
             Command::Redo => self.redo(),
             Command::ToggleHistoryPanel => self.toggle_history_panel(),
             Command::ToggleFilmstrip => self.toggle_filmstrip(),
+            Command::PickNoneOut => self.pick_none_out(),
             Command::ToggleStacking => self.toggle_stacking(),
             Command::ToggleStack => self.toggle_stack(),
             Command::StandingBack => self.step_standing(false),
@@ -1287,6 +1293,7 @@ impl eframe::App for App {
             &self.tag_config,
             &self.settings.cull,
             &self.settings.history,
+            &self.settings.grid_view,
         ) {
             // Marking a selection never advances: the mark went to two
             // hundred photographs rather than to the one on screen, so there
@@ -1401,7 +1408,10 @@ impl eframe::App for App {
         self.run_benchmark(ctx);
 
         // Before the history looks, so that going to a photograph and letting
-        // go of a set are one row rather than two.
+        // go of a set are one row rather than two. The comparison first,
+        // because it may move the cursor into the set and the second of the
+        // two is the one that reads where the cursor ended up.
+        self.follow_the_selection();
         self.follow_the_photograph();
 
         // Last, when every command has been carried out and every view has
