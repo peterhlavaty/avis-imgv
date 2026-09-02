@@ -23,6 +23,14 @@ pub struct Shown {
     pub metrics: Metrics,
     /// What the screen with nothing on it was clicked to do.
     pub asked: Option<Asked>,
+    /// Where each pane was drawn, so a press can be told which photograph it
+    /// landed on and the controls over each of them have somewhere to go.
+    ///
+    /// Computed here already — it is what the focus outline is drawn round —
+    /// and thrown away until now, which is why the menu over a comparison of
+    /// four was about the focused photograph whichever of the four the button
+    /// came down on.
+    pub panes: Vec<(usize, egui::Rect)>,
 }
 
 /// How the panel is painted, as against what is in it.
@@ -46,7 +54,7 @@ pub fn show(
     ctx: &egui::Context,
     store: &mut ImageStore,
     panes: &[usize],
-    focused: usize,
+    focused: Option<usize>,
     viewport: &mut Viewport,
     painting: &Painting<'_>,
 ) -> Shown {
@@ -62,6 +70,7 @@ pub fn show(
 
     let mut metrics = Metrics::default();
     let mut asked = None;
+    let mut drawn: Vec<(usize, egui::Rect)> = Vec::new();
 
     let response = egui::CentralPanel::default()
         .frame(egui::Frame::NONE.fill(background))
@@ -80,7 +89,7 @@ pub fn show(
 
             ui.horizontal(|ui| {
                 for index in panes {
-                    let leading = *index == focused;
+                    let leading = Some(*index) == focused;
 
                     let allocated = ui.allocate_ui(cell, |ui| {
                         ui.centered_and_justified(|ui| {
@@ -92,6 +101,8 @@ pub fn show(
                             }
                         });
                     });
+
+                    drawn.push((*index, allocated.response.rect));
 
                     // Which pane the keys are about has to be unmistakable, or
                     // marking one of four is a guess. One pane needs no
@@ -121,6 +132,7 @@ pub fn show(
         response,
         metrics,
         asked,
+        panes: drawn,
     }
 }
 

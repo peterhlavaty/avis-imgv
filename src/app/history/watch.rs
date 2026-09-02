@@ -37,7 +37,11 @@ impl App {
             return;
         }
 
-        let showing = self.image_view.active_path();
+        // The photograph the cursor is on rather than the one the keys are
+        // about: with nothing current, `active_path` is rightly none, and a
+        // history row naming the folder because no photograph answered is a
+        // row that says nothing about the move it stands for.
+        let showing = self.image_view.path_at_cursor();
 
         let watched = Watched {
             folder: &self.base_path,

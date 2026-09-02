@@ -122,6 +122,8 @@ impl App {
         // under it.
         self.show_filmstrip(ctx);
 
+        self.note_pane_flags();
+
         let showing = self.image_view.active_path();
         let marks = showing
             .as_ref()
@@ -188,7 +190,7 @@ impl App {
             return;
         }
 
-        let cursor = self.image_view.selected_index();
+        let cursor = self.image_view.focused();
         // What the panel is actually drawing, so the strip can mark all of it.
         // Showing four photographs side by side and marking one of them is a
         // strip that disagrees with the window in front of it.
@@ -247,6 +249,31 @@ impl App {
     /// strip, the sheet, a slideshow, the history itself — and every one of
     /// them is covered here by construction, including the ones not written
     /// yet.
+    /// Reads what every photograph on screen carries, for the icons over the
+    /// panes.
+    ///
+    /// The view knows where the panes are and the application is the only
+    /// thing that has read the sidecars, so the two meet once a frame here.
+    /// At most eight, from a map already in memory: `peek` never touches the
+    /// disk, which is what makes doing it every frame affordable.
+    fn note_pane_flags(&mut self) {
+        let panes = self.image_view.panes();
+        self.pane_flags.clear();
+
+        for index in panes {
+            let flag = self
+                .paths
+                .get(index)
+                .and_then(|path| self.annotations.peek(path))
+                .map(|xmp| xmp.flag())
+                .unwrap_or_default();
+
+            self.pane_flags.push((index, flag));
+        }
+
+        self.image_view.set_pane_flags(&self.pane_flags);
+    }
+
     /// Keeps a comparison of the picked-out photographs on the photographs
     /// that are picked out.
     ///
@@ -268,6 +295,18 @@ impl App {
 
         self.compared_from = self.grid_view.selection().clone();
         let picked: Vec<usize> = self.compared_from.iter().collect();
+
+        // The photograph that was current has been taken out of the set. It
+        // leaves the panel, and nothing takes its place: the person said which
+        // one they were done with rather than which one they wanted next, and
+        // an arrow or a click is how they say the second thing.
+        if self
+            .image_view
+            .focused()
+            .is_some_and(|focused| !self.compared_from.contains(focused))
+        {
+            self.image_view.release_focus();
+        }
 
         // Fewer than two is not a comparison. Ending it is what "putting them
         // all back" has to mean when what it puts back is what is on screen.

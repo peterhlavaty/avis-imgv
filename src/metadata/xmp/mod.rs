@@ -116,6 +116,25 @@ impl Flag {
             Flag::Rejected => "Rejected",
         }
     }
+
+    /// What the glyph is drawn in, where a flag is drawn in colour at all.
+    ///
+    /// The soft red was written out in three places and the keep had no colour
+    /// of its own anywhere — it was the interface's own text colour, which is
+    /// what everything else is. That is fine in a status bar naming one
+    /// photograph and useless over a row of four, where the whole question is
+    /// which of them is in and which is out: two marks that differ only in
+    /// their glyph are two marks nobody reads at a glance.
+    ///
+    /// `None` for the unflagged, which is drawn in whatever the surface's own
+    /// text colour is.
+    pub fn colour(self) -> Option<(u8, u8, u8)> {
+        match self {
+            Flag::Unflagged => None,
+            Flag::Picked => Some((120, 196, 132)),
+            Flag::Rejected => Some((219, 96, 96)),
+        }
+    }
 }
 
 /// The colour labels every other program writes, in their conventional order.

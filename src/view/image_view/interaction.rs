@@ -186,6 +186,42 @@ impl ImageView {
             .moved(keys, pace, self.metrics.available_size, seconds)
     }
 
+    /// Which pane the pointer is over, where the pointer is anywhere at all.
+    ///
+    /// `None` with one pane as readily as with none: a single photograph needs
+    /// no telling apart, and every caller falls back to the cursor, which is
+    /// what it always was.
+    pub(super) fn pane_under_pointer(&self, ctx: &egui::Context) -> Option<usize> {
+        if self.drawn_panes.len() < 2 {
+            return None;
+        }
+
+        let at = ctx.input(|i| i.pointer.interact_pos())?;
+
+        super::panes::at(&self.pane_layout(), at)
+    }
+
+    /// Makes the pane that was clicked the one the keys are about.
+    ///
+    /// A plain click on the photograph did nothing at all until now, which is
+    /// what makes this affordable: it takes a gesture that was going spare
+    /// rather than one that meant something else. A drag still pans or marks
+    /// an area — `clicked` is a press and release in the same place — and with
+    /// one photograph on screen there is nothing to move the focus to.
+    pub(super) fn handle_pane_click(&mut self, ctx: &egui::Context, response: &Response) {
+        if !response.clicked() || self.drawn_panes.len() < 2 {
+            return;
+        }
+
+        if crate::utils::is_a_window_in_front(ctx) || self.pointer_is_on_the_marking(ctx) {
+            return;
+        }
+
+        if let Some(index) = self.pane_under_pointer(ctx) {
+            self.select(index);
+        }
+    }
+
     pub(super) fn handle_context_menu(&mut self, ctx: &egui::Context, response: &Response) {
         // The photograph has no menu while a window is over it.
         if crate::utils::is_a_window_in_front(ctx) {
@@ -199,7 +235,12 @@ impl ImageView {
             return;
         }
 
-        let Some(path) = self.active_path() else {
+        // The photograph under the *button*, not the one the keys are about.
+        // With four side by side those are different photographs three times
+        // out of four, and a menu that names one of them while sitting over
+        // another is a menu that will throw the wrong file away.
+        let index = self.pane_under_pointer(ctx).unwrap_or(self.cursor);
+        let Some(path) = self.store.path(index).map(std::path::Path::to_path_buf) else {
             return;
         };
 
@@ -229,6 +270,20 @@ impl ImageView {
                 ctx,
             ),
             Some(Chosen::Verb(Verb::Compare)) => self.apply(input::Command::Compare, ctx),
+            // About the pane the button came down on rather than the photograph
+            // the keys are about, which is the whole reason the menu asks
+            // which pane it is over.
+            Some(Chosen::Verb(verb @ (Verb::Keep | Verb::Reject))) => {
+                let flag = match verb {
+                    Verb::Keep => crate::metadata::xmp::Flag::Picked,
+                    _ => crate::metadata::xmp::Flag::Rejected,
+                };
+
+                self.bar_actions
+                    .push(crate::view::image_view::bottom_bar::BarAction::FlagOne(
+                        index, flag,
+                    ));
+            }
             Some(Chosen::Verb(verb)) => self.verb = Some((verb, path)),
             Some(Chosen::Entry(i)) => {
                 if let Some(callback) = self

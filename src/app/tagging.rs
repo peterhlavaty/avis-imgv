@@ -37,9 +37,93 @@ impl App {
             _ => flag,
         };
 
+        // Taken before the mark rather than after it, because carrying it out
+        // is what changes what the answer would be.
+        let marked = self.marked_paths();
+
         self.mark(move |store, path| {
             store.set_flag(path, wanted);
         });
+
+        self.rejected_leave_the_comparison(wanted, &marked);
+    }
+
+    /// Flags one named photograph, whatever the keys are about.
+    ///
+    /// The icons over a pane and the two verbs on its menu are the only things
+    /// in the program that mark a photograph other than the one being looked
+    /// at — which is the whole point of them, because with four side by side
+    /// the one being looked at is one in four.
+    pub(super) fn flag_one(&mut self, index: usize, flag: Flag) {
+        let Some(path) = self.paths.get(index).cloned() else {
+            return;
+        };
+
+        let carried = self
+            .annotations
+            .peek(&path)
+            .map(|xmp| xmp.flag())
+            .unwrap_or_default();
+
+        // The same toggle the key has: pressing the mark a photograph already
+        // carries takes it off.
+        let wanted = match carried == flag {
+            true => Flag::Unflagged,
+            false => flag,
+        };
+
+        let paths = [path];
+        let files = self.each(&paths, |store, path| {
+            store.set_flag(path, wanted);
+        });
+        self.as_photographs(files, &paths);
+        self.refresh_marks(&paths);
+
+        self.rejected_leave_the_comparison(wanted, &paths);
+    }
+
+    /// Takes every rejected photograph out of a comparison of the picked-out
+    /// ones.
+    ///
+    /// Judging a row of frames is deciding which of them to be rid of, so the
+    /// ones decided against should go rather than sit there being decided
+    /// again. Only rejection does this: keeping a photograph is a reason to go
+    /// on looking at it beside the others.
+    ///
+    /// Tied to the deed rather than watched as state, deliberately: a
+    /// photograph that was already rejected when it was picked out is one
+    /// somebody chose to look at again, and a rule reading the state would
+    /// throw it out of the comparison before they had seen it.
+    fn rejected_leave_the_comparison(&mut self, applied: Flag, rejected: &[PathBuf]) {
+        if applied != Flag::Rejected || !self.image_view.is_comparing_selection() {
+            return;
+        }
+
+        let going: Vec<usize> = rejected
+            .iter()
+            .filter_map(|path| self.paths.iter().position(|held| held == path))
+            .collect();
+
+        if going.is_empty() {
+            return;
+        }
+
+        // The focus moves on before the frame goes, so that judging a row is a
+        // run of keystrokes rather than a keystroke and a click each time.
+        // Taking a photograph out by hand is the other thing and leaves nothing
+        // current, because there the person said what they did not want rather
+        // than what they wanted next.
+        if self
+            .image_view
+            .focused()
+            .is_some_and(|focused| going.contains(&focused))
+        {
+            self.image_view.focus_next_pane();
+        }
+
+        for index in going {
+            self.grid_view.unpick(index);
+        }
     }
 
     /// Puts a colour label on what is being marked, or takes it off again.
@@ -355,6 +439,17 @@ impl App {
         // sheet, so opening one of two hundred picked-out photographs silently
         // reduced the selection to one — and putting the sheet back did not
         // bring it back, because the next command had already acted.
+        // While the picked-out photographs are side by side, a command is
+        // about the one being looked at rather than about all of them. That is
+        // the inversion of the rule below and it is what makes the comparison
+        // a place to work rather than only to look: rating one of five, tagging
+        // one of five, throwing one of five out. Everything else about the set
+        // is still there — it is on the strip — and closing the comparison
+        // puts the set back in charge.
+        if self.image_view.is_comparing_selection() {
+            return self.marked_path().into_iter().collect();
+        }
+
         if self.grid_view.selected_count() > 0 {
             return self.grid_view.selected_paths();
         }

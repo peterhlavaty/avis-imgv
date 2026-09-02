@@ -12,6 +12,7 @@ pub mod navigate;
 pub mod opening;
 pub mod overlay;
 pub mod pan;
+pub mod panes;
 pub mod slideshow;
 pub mod viewports;
 pub mod zoom;
@@ -88,6 +89,29 @@ pub struct ImageView {
     /// nothing outside [`ImageView::pin`] and [`ImageView::stop_comparing`]
     /// writes it.
     comparing_from_selection: bool,
+    /// Whether no pane at all is the one the keys are about.
+    ///
+    /// Reachable only while comparing, by taking the focused photograph out of
+    /// the picked-out set: the frame leaves the panel and the focus has
+    /// nowhere to go. `cursor` still points where it did, so the caches keep
+    /// their centre and nothing downstream has to learn that a store position
+    /// can be missing; what goes away is the *answer to "which photograph is
+    /// this about"*, which every reader of `active_path` already handles as
+    /// `None`.
+    focus_off: bool,
+    /// Where each pane was drawn on the frame just gone.
+    ///
+    /// Kept because three things need to know which photograph a press landed
+    /// on — the focus, the menu and the two icons — and the panel itself is
+    /// one rectangle that knows about none of them.
+    drawn_panes: Vec<(usize, egui::Rect)>,
+    /// What each pane on screen carries, handed in once a frame by the
+    /// application, which is the only thing that has read the sidecars.
+    ///
+    /// Held rather than passed so the drawing call does not grow a seventh
+    /// argument, and re-used in place so a comparison left up costs no
+    /// allocation a frame.
+    pane_flags: Vec<(usize, crate::metadata::xmp::Flag)>,
     viewport: Viewport,
     /// The part of the photograph the user has marked out, if any.
     ///
@@ -170,6 +194,9 @@ impl ImageView {
             marks: marks::Marks::default(),
             comparing: None,
             comparing_from_selection: false,
+            focus_off: false,
+            drawn_panes: Vec::new(),
+            pane_flags: Vec::new(),
             viewport: Viewport::default(),
             area: area::Area::default(),
             frame: FrameStyle {
@@ -245,6 +272,9 @@ impl ImageView {
         // inside a marking opens the marking's menu instead.
         self.handle_area(ctx, response.rect);
         self.handle_pointer(ctx, &response);
+        // After the pointer, which reads the drag, and before the menu, which
+        // asks the same question about which pane the button is over.
+        self.handle_pane_click(ctx, &response);
         self.handle_context_menu(ctx, &response);
         self.run_slideshow(ctx);
     }
@@ -315,16 +345,8 @@ impl ImageView {
 
     fn apply(&mut self, command: Command, ctx: &egui::Context) {
         match command {
-            Command::Next => {
-                if !self.swap_focused_pane(true) {
-                    self.next_image();
-                }
-            }
-            Command::Previous => {
-                if !self.swap_focused_pane(false) {
-                    self.previous_image();
-                }
-            }
+            Command::Next => self.walk(true),
+            Command::Previous => self.walk(false),
             Command::Compare => {
                 if self.is_comparing() {
                     self.stop_comparing();
@@ -510,8 +532,11 @@ impl ImageView {
         }
 
         // The keys have to be about one of the panes, or the photograph every
-        // command means is not one of the photographs on screen.
-        if !panes.contains(&self.cursor) {
+        // command means is not one of the photographs on screen. Unless
+        // nothing is current, which is a state somebody asked for by taking
+        // the focused frame out of the set: putting the focus on the first
+        // pane instead would be answering a question they did not ask.
+        if !panes.contains(&self.cursor) && !self.focus_off {
             self.select(panes[0]);
         }
 
@@ -532,10 +557,44 @@ impl ImageView {
         self.comparing_from_selection = from_selection;
     }
 
+    /// What each pane on screen is, for the controls drawn over it.
+    fn pane_layout(&self) -> Vec<panes::Pane> {
+        let focused = self.focused();
+
+        self.drawn_panes
+            .iter()
+            .map(|(index, rect)| panes::Pane {
+                index: *index,
+                rect: *rect,
+                flag: self
+                    .pane_flags
+                    .iter()
+                    .find(|(at, _)| at == index)
+                    .map(|(_, flag)| *flag)
+                    .unwrap_or_default(),
+                focused: Some(*index) == focused,
+            })
+            .collect()
+    }
+
+    /// Takes what every pane on screen carries, once a frame.
+    ///
+    /// The application is the only thing that has read the sidecars, and the
+    /// view is the only thing that knows where the panes were drawn; this is
+    /// where the two meet. Filled in place, so a comparison left on screen
+    /// costs no allocation a frame.
+    pub fn set_pane_flags(&mut self, flags: &[(usize, crate::metadata::xmp::Flag)]) {
+        self.pane_flags.clear();
+        self.pane_flags.extend_from_slice(flags);
+    }
+
     /// Leaves the comparison, keeping the photograph the keys were about.
     pub fn stop_comparing(&mut self) {
         self.comparing = None;
         self.comparing_from_selection = false;
+        // Whatever is left on screen is the photograph being looked at, so it
+        // is current again.
+        self.focus_off = false;
     }
 
     /// Whether the pinned set is the photographs picked out.
@@ -551,6 +610,52 @@ impl ImageView {
             panes: panes.len(),
             from_selection: self.comparing_from_selection,
         })
+    }
+
+    /// What an arrow key means, which depends on what is on screen.
+    ///
+    /// Three answers, and they are three different questions. A comparison of
+    /// the photographs picked out is a set somebody is working through, so the
+    /// arrows move between its panes and stop at the ends: going further means
+    /// leaving the set, and leaving it should be said rather than fallen out
+    /// of. A comparison pinned from this photograph and its neighbours is the
+    /// other thing — one frame to beat and the folder tried against it — so
+    /// the arrows go on putting a different photograph in the focused pane.
+    /// With one photograph on screen they walk the folder, as they always did.
+    fn walk(&mut self, forward: bool) {
+        if self.is_comparing_selection() {
+            self.step_between_panes(forward);
+            return;
+        }
+
+        if self.swap_focused_pane(forward) {
+            return;
+        }
+
+        match forward {
+            true => self.next_image(),
+            false => self.previous_image(),
+        }
+    }
+
+    /// Moves the focus one pane along, and stops at either end.
+    ///
+    /// Not wrapping, unlike `Tab`: an arrow is a direction and running off the
+    /// end of a row of four back to the beginning is not what a direction
+    /// means. `Tab` is "the next one" and cycles, which is what that word
+    /// means instead.
+    ///
+    /// From where the focus last was when there is none, so taking a
+    /// photograph out of the set and then pressing an arrow carries on from
+    /// the gap rather than from the beginning.
+    fn step_between_panes(&mut self, forward: bool) {
+        let Some(panes) = self.comparing.clone() else {
+            return;
+        };
+
+        if let Some(index) = stepping(&panes, self.cursor, forward).and_then(|at| panes.get(at)) {
+            self.select(*index);
+        }
     }
 
     /// Puts a different photograph in the focused pane.
@@ -722,6 +827,7 @@ impl ImageView {
 
         // For the same reason: both read fields the drawing borrows.
         let comparison = self.comparison();
+        let focused = self.focused();
         let comparison_colour =
             crate::ui::theme::colour(&self.config.comparison_colour, comparison::DEFAULT);
 
@@ -729,7 +835,7 @@ impl ImageView {
             ctx,
             &mut self.store,
             &panes,
-            self.cursor,
+            focused,
             &mut self.viewport,
             &layout::Painting {
                 style: &style,
@@ -741,6 +847,19 @@ impl ImageView {
         );
 
         self.asked = shown.asked;
+        self.drawn_panes = shown.panes;
+
+        // The two verbs a pane carries, in a layer of their own for the same
+        // reason the banner is — and drawn before it, so a banner in the
+        // corner is over them rather than under.
+        if let Some(asked) = panes::show(ctx, shown.response.rect, &self.pane_layout()) {
+            match asked {
+                panes::Asked::Focus(index) => self.select(index),
+                panes::Asked::Flag(index, flag) => {
+                    self.bar_actions.push(BarAction::FlagOne(index, flag))
+                }
+            }
+        }
 
         // After the panel, and in a layer of its own: the panel senses a click
         // over the whole of itself and is registered last, so anything drawn
@@ -973,6 +1092,31 @@ impl ImageView {
     }
 }
 
+/// Which pane an arrow moves the focus to, as a position in `panes`.
+///
+/// Pure, because the interesting half is the arithmetic and the ends of it are
+/// where it goes wrong: the first pane going back, the last going forward, and
+/// the case where the cursor is in no pane at all — which is what taking the
+/// focused photograph out of the set leaves behind, and where the answer is
+/// the pane nearest to where it used to be on the side the arrow points.
+///
+/// `panes` is in ascending store order, which is the order a set is pinned in;
+/// a comparison pinned from the keys never comes here, because there an arrow
+/// means "try the next photograph against this one" instead.
+fn stepping(panes: &[usize], cursor: usize, forward: bool) -> Option<usize> {
+    let at = panes.iter().position(|index| *index == cursor);
+
+    match (at, forward) {
+        (None, true) => panes.iter().position(|index| *index > cursor),
+        (None, false) => panes.iter().rposition(|index| *index < cursor),
+        // No wrapping: an arrow is a direction, and running off the end of a
+        // row back to its beginning is not what a direction means. Going
+        // further than the set means leaving it, and leaving it is said.
+        (Some(at), true) => (at + 1 < panes.len()).then_some(at + 1),
+        (Some(at), false) => at.checked_sub(1),
+    }
+}
+
 /// Which of a wanted set of photographs can actually be pinned side by side.
 ///
 /// Pure so the two rules can be tested without a window: a photograph the
@@ -990,8 +1134,56 @@ fn pinnable(visible: &Visible, wanted: &[usize]) -> Vec<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{pinnable, MAX_IMAGES_SHOWN};
+    use super::{pinnable, stepping, MAX_IMAGES_SHOWN};
     use crate::view::visible::Visible;
+
+    #[test]
+    fn an_arrow_moves_the_focus_one_pane_along() {
+        let panes = [2, 5, 9];
+
+        assert_eq!(stepping(&panes, 2, true), Some(1));
+        assert_eq!(stepping(&panes, 5, true), Some(2));
+        assert_eq!(stepping(&panes, 9, false), Some(1));
+        assert_eq!(stepping(&panes, 5, false), Some(0));
+    }
+
+    /// The ends are ends. Going further than the set is leaving it, and that
+    /// is said by putting the set down rather than by walking off the edge.
+    #[test]
+    fn an_arrow_stops_at_either_end_rather_than_wrapping() {
+        let panes = [2, 5, 9];
+
+        assert_eq!(stepping(&panes, 9, true), None);
+        assert_eq!(stepping(&panes, 2, false), None);
+    }
+
+    /// Nothing is current: the arrow carries on from the gap the photograph
+    /// left rather than from the beginning of the row.
+    #[test]
+    fn an_arrow_carries_on_from_where_the_focus_was() {
+        let panes = [2, 9, 14];
+
+        // The frame that was at 5 has gone; forward is 9, back is 2.
+        assert_eq!(stepping(&panes, 5, true), Some(1));
+        assert_eq!(stepping(&panes, 5, false), Some(0));
+    }
+
+    /// And stops when the gap was past the end of what is left.
+    #[test]
+    fn an_arrow_from_outside_the_row_stops_at_its_edge() {
+        let panes = [2, 9];
+
+        assert_eq!(stepping(&panes, 40, true), None);
+        assert_eq!(stepping(&panes, 0, false), None);
+        assert_eq!(stepping(&panes, 40, false), Some(1));
+        assert_eq!(stepping(&panes, 0, true), Some(0));
+    }
+
+    #[test]
+    fn an_arrow_over_no_panes_moves_nowhere() {
+        assert_eq!(stepping(&[], 3, true), None);
+        assert_eq!(stepping(&[], 3, false), None);
+    }
 
     #[test]
     fn a_picked_out_set_is_pinned_as_it_stands() {

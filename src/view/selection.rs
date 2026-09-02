@@ -87,6 +87,15 @@ impl Selection {
         self.chosen.insert(index);
     }
 
+    /// Puts one photograph back, leaving the rest picked.
+    ///
+    /// The other half of [`Selection::add`]. `toggle` would put it back *or*
+    /// pick it out, and a caller that means "this one is out" has to say so
+    /// rather than depend on what the set happens to hold.
+    pub fn unpick(&mut self, index: usize) {
+        self.chosen.remove(&index);
+    }
+
     /// Everything on show, or nothing if that is already what is picked.
     ///
     /// One key doing both is how every file manager behaves, and it saves the

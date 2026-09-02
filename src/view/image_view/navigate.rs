@@ -145,22 +145,63 @@ impl ImageView {
         self.cursor
     }
 
-    pub fn active_path(&self) -> Option<PathBuf> {
+    /// The store position the keys are about, if any is.
+    ///
+    /// The same as `selected_index` except while a comparison has had its
+    /// focused photograph taken out of the picked-out set, when nothing on
+    /// screen is the one being marked and the honest answer is none. Every
+    /// accessor below is this one and a lookup, so "no current photograph"
+    /// reaches the status bar, the keyword panel, the side panel and every
+    /// command through the `None` they all already handle.
+    pub fn focused(&self) -> Option<usize> {
+        // Nothing being current is only reachable inside a comparison, and the
+        // rule is here rather than in the flag so that it cannot be got wrong
+        // by forgetting to clear one: with a single photograph on screen it is
+        // the one being looked at, and there is nothing else it could be.
+        (!self.focus_off || self.comparing.is_none()).then_some(self.cursor)
+    }
+
+    /// The photograph the cursor sits on, whether or not it is current.
+    ///
+    /// For the two readers that want a place rather than a subject: the
+    /// history, which names the move it recorded, and the session, which
+    /// remembers where the folder was left.
+    pub fn path_at_cursor(&self) -> Option<PathBuf> {
         self.store.path(self.cursor).map(Path::to_path_buf)
+    }
+
+    pub fn active_path(&self) -> Option<PathBuf> {
+        self.store.path(self.focused()?).map(Path::to_path_buf)
     }
 
     /// The tones of the photograph on screen, for the side panel.
     pub fn active_histogram(&self) -> Option<&crate::decoder::histogram::Histogram> {
-        self.store.histogram(self.cursor)
+        self.store.histogram(self.focused()?)
     }
 
     pub fn active_metadata(&self) -> Option<&Metadata> {
-        self.store.metadata(self.cursor)
+        self.store.metadata(self.focused()?)
     }
 
     /// Metadata read from the whole of the active file, once it is decoded.
     pub fn active_decoded_metadata(&self) -> Option<&Metadata> {
-        self.store.decoded_metadata(self.cursor)
+        self.store.decoded_metadata(self.focused()?)
+    }
+
+    /// Leaves no photograph current, keeping where the last one was.
+    ///
+    /// What taking the focused frame out of the picked-out set comes to: the
+    /// frame goes from the panel and nothing takes its place, because the
+    /// person said which one they no longer wanted rather than which one they
+    /// wanted next. The arrow keys carry on from where it was, which is why
+    /// the cursor is left where it is rather than moved.
+    pub fn release_focus(&mut self) {
+        self.focus_off = true;
+    }
+
+    /// Whether no photograph is current.
+    pub fn nothing_is_current(&self) -> bool {
+        self.focus_off
     }
 
     pub fn stats(&self) -> StoreStats {
@@ -178,15 +219,22 @@ impl ImageView {
     /// the place found in each picture.
     pub fn select(&mut self, index: usize) {
         let previous = self.cursor;
+        let was_off = self.focus_off;
+
         self.cursor = if self.store.is_empty() {
             0
         } else {
             index.min(self.store.len() - 1)
         };
 
+        // Going to a photograph is what makes one current again: every route
+        // to here — a key, a thumbnail, a click on a pane — is somebody
+        // pointing at one, and the only way to have none is to say so.
+        self.focus_off = false;
+
         self.store.set_cursor(self.cursor);
 
-        if self.cursor == previous {
+        if self.cursor == previous && !was_off {
             return;
         }
 

@@ -226,6 +226,15 @@ impl GridView {
         &self.selection
     }
 
+    /// Takes one photograph out of the picked-out set, leaving the rest.
+    ///
+    /// For the rule that drops a rejected frame from a comparison: it is one
+    /// photograph leaving rather than a whole set being replaced, and going
+    /// through `set_selection` would mean building the set again to say so.
+    pub fn unpick(&mut self, index: usize) {
+        self.selection.unpick(index);
+    }
+
     pub fn set_selection(&mut self, selection: Selection) {
         self.selection = selection;
     }
@@ -348,7 +357,7 @@ impl GridView {
     pub fn filmstrip(
         &mut self,
         ctx: &egui::Context,
-        cursor: usize,
+        cursor: Option<usize>,
         panes: &[usize],
         height: f32,
         forced: bool,
@@ -418,29 +427,42 @@ impl GridView {
     /// for a photograph and says nothing about the set: what happens to it is
     /// decided by `App::follow_the_photograph`, so that arriving by a click
     /// and arriving by the arrow keys mean the same thing.
-    fn strip_click(&mut self, click: filmstrip::Click, cursor: usize) -> Option<PathBuf> {
+    fn strip_click(&mut self, click: filmstrip::Click, cursor: Option<usize>) -> Option<PathBuf> {
         let index = click.index();
         let at = self.visible.position_of(index)?;
+
+        // An empty set starts at the photograph being looked at, so that
+        // picking a second one out brings the first with it. Nothing to start
+        // from where nothing is current, which is a state the set itself put
+        // the viewer in.
+        let start = |selection: &mut Selection| {
+            if let Some(cursor) = cursor {
+                selection.start_at(cursor, self.visible.position_of(cursor).unwrap_or(at));
+            }
+        };
 
         match click {
             filmstrip::Click::Open(_) => {
                 return self.store.path(index).map(Path::to_path_buf);
             }
-            // The photograph on screen is picked out for as long as anything
-            // is, so there is nothing here to put back.
-            filmstrip::Click::Toggle(_) if index == cursor => {}
+            // Including the photograph being looked at, which this used to
+            // refuse. Taking it out is how somebody says they are done with
+            // it without saying which one they want instead — and then nothing
+            // is current until they say.
             filmstrip::Click::Toggle(_) => {
-                self.selection
-                    .start_at(cursor, self.visible.position_of(cursor).unwrap_or(at));
+                start(&mut self.selection);
                 self.selection.toggle(index, at);
-                self.selection.settle_on(cursor);
             }
             filmstrip::Click::Run(_) => {
-                self.selection
-                    .start_at(cursor, self.visible.position_of(cursor).unwrap_or(at));
+                start(&mut self.selection);
                 self.selection.extend_from_nearest(&self.visible, at);
-                self.selection.settle_on(cursor);
             }
+        }
+
+        // Back to being the one photograph on screen and nothing else is back
+        // to where it started, which is no set at all.
+        if let Some(cursor) = cursor {
+            self.selection.settle_on(cursor);
         }
 
         None

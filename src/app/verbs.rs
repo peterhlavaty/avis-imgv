@@ -138,8 +138,15 @@ impl App {
             // neighbours. From a cell or a thumbnail it is about the set, and
             // the set is not something either view can pin.
             Verb::Compare => self.compare_marked(),
-            // The view answers for these; they never reach here.
-            Verb::Open | Verb::Fit | Verb::ActualPixels | Verb::Fill => {}
+            // The view answers for these; they never reach here. The two
+            // marks go the same way, through `BarAction::FlagOne`, because
+            // only the view knows which pane the button came down on.
+            Verb::Open
+            | Verb::Fit
+            | Verb::ActualPixels
+            | Verb::Fill
+            | Verb::Keep
+            | Verb::Reject => {}
             // Answered above, before the match.
             Verb::TurnRight
             | Verb::TurnLeft
@@ -278,6 +285,7 @@ impl App {
             // the configuration directly for now; when the registry exists
             // they go through their rows, so that a menu row and a settings
             // page row are one declaration rendered twice.
+            BarAction::FlagOne(index, flag) => self.flag_one(index, flag),
             BarAction::SetAdvancing(on) => {
                 self.advancing = on;
                 self.settings.tags.advance_after_marking = on;

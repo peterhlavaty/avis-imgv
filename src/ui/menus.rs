@@ -36,6 +36,16 @@ pub enum Verb {
     /// Pin photographs side by side: the ones picked out, or this one and
     /// its neighbours when nothing is.
     Compare,
+    /// Keep this one, or take the mark off if it already carries it.
+    ///
+    /// The two verbs a cull is made of, and the only ones here that are about
+    /// the *photograph* rather than the file or the view. They are on the
+    /// photograph's own menu because that is what a pane carries, and a
+    /// comparison of four is exactly where "which of these" has to be
+    /// answerable without counting keys.
+    Keep,
+    /// Throw this one out, or take the mark off again.
+    Reject,
     /// Put every picked-out photograph back, leaving the set empty.
     ///
     /// The one verb here that is about the set rather than about a file, and
@@ -131,6 +141,8 @@ impl Verb {
             Verb::Fill => "Fill the window".to_string(),
             Verb::Compare if count == 1 => "Compare".to_string(),
             Verb::Compare => format!("Compare {count} photographs side by side"),
+            Verb::Keep => "Keep".to_string(),
+            Verb::Reject => "Throw out".to_string(),
             Verb::PickNone => format!("Put all {count} back"),
             Verb::TurnRight => "Clockwise".to_string(),
             Verb::TurnLeft => "Anticlockwise".to_string(),
@@ -166,6 +178,12 @@ impl Verb {
     pub fn hint(self) -> &'static str {
         match self {
             Verb::Open => "Show this photograph on its own",
+            Verb::Keep => {
+                "Mark it kept, or take the mark off if it is already kept. The                  same as the keep key, about the photograph under the pointer"
+            }
+            Verb::Reject => {
+                "Mark it rejected, or take the mark off again. A rejected                  photograph leaves a comparison of the ones picked out"
+            }
             Verb::Fit => "The whole photograph, as large as the window allows",
             Verb::ActualPixels => "One screen pixel per pixel of the photograph",
             Verb::Fill => "Fill the window, cropping whichever side is longer",
@@ -222,6 +240,15 @@ impl Verb {
         !matches!(self, Verb::Fit | Verb::ActualPixels | Verb::Fill)
     }
 
+    /// Which flag this verb sets, for the two that are marks.
+    pub fn flag(self) -> Option<crate::metadata::xmp::Flag> {
+        match self {
+            Verb::Keep => Some(crate::metadata::xmp::Flag::Picked),
+            Verb::Reject => Some(crate::metadata::xmp::Flag::Rejected),
+            _ => None,
+        }
+    }
+
     /// Whether this verb means anything in a menu about `count` photographs.
     ///
     /// One rule and one verb so far, and it belongs here rather than in a
@@ -254,6 +281,8 @@ impl Row {
     /// Verbs first and most used first, then copy and show because the object
     /// is a file on disk.
     pub const ON_A_PHOTOGRAPH: &'static [Row] = &[
+        Row::Verb(Verb::Keep),
+        Row::Verb(Verb::Reject),
         Row::Verb(Verb::Fit),
         Row::Verb(Verb::ActualPixels),
         Row::Verb(Verb::Fill),
@@ -495,18 +524,56 @@ mod tests {
     /// Twelve rows including the last is the ceiling, and the user's own
     /// entries are appended to whatever is here.
     ///
-    /// Nine on the photograph and one settings row is ten, which leaves two.
-    /// The five turns take one of those rows between them, which is what the
-    /// second level bought.
+    /// The five turns take one row between them, which is what the second
+    /// level bought and what keeps every one of these under it. The
+    /// photograph's list is the longest at eleven, which with the settings row
+    /// is exactly the twelve: keep and throw out went to the top of it when
+    /// panes learned to carry them, and it has no room for a thirteenth.
     #[test]
     fn no_built_in_list_uses_up_the_menu() {
         // The list, plus the settings row that closes every menu.
-        assert!(Row::ON_A_PHOTOGRAPH.len() < 11);
-        assert!(Row::ON_A_CELL.len() < 11);
-        assert!(Row::ON_THE_STRIP.len() < 11);
-        assert!(Row::ON_A_PHOTOGRAPH_IN_THE_BIN.len() < 12);
-        assert!(Row::ON_A_CELL_IN_THE_BIN.len() < 12);
-        assert!(Row::ON_THE_STRIP_IN_THE_BIN.len() < 12);
+        for list in [
+            Row::ON_A_PHOTOGRAPH,
+            Row::ON_A_PHOTOGRAPH_IN_THE_BIN,
+            Row::ON_A_CELL,
+            Row::ON_A_CELL_IN_THE_BIN,
+            Row::ON_THE_STRIP,
+            Row::ON_THE_STRIP_IN_THE_BIN,
+        ] {
+            assert!(list.len() < 12, "{} rows", list.len());
+        }
+    }
+
+    /// The two verbs a cull is made of are on the photograph, which is what a
+    /// pane carries — and not inside the bin, where a frame has already been
+    /// thrown out and keeping it means nothing.
+    #[test]
+    fn the_marks_are_on_the_photograph_and_not_in_the_bin() {
+        let on_a_photograph: Vec<Verb> = Row::ON_A_PHOTOGRAPH
+            .iter()
+            .flat_map(|row| row.verbs())
+            .collect();
+
+        assert!(on_a_photograph.contains(&Verb::Keep));
+        assert!(on_a_photograph.contains(&Verb::Reject));
+
+        let in_the_bin: Vec<Verb> = Row::ON_A_PHOTOGRAPH_IN_THE_BIN
+            .iter()
+            .flat_map(|row| row.verbs())
+            .collect();
+
+        assert!(!in_the_bin.contains(&Verb::Keep));
+        assert!(!in_the_bin.contains(&Verb::Reject));
+    }
+
+    /// Which flag each of the two sets, so the view does not have to know.
+    #[test]
+    fn the_two_marks_say_which_flag_they_are() {
+        use crate::metadata::xmp::Flag;
+
+        assert_eq!(Verb::Keep.flag(), Some(Flag::Picked));
+        assert_eq!(Verb::Reject.flag(), Some(Flag::Rejected));
+        assert_eq!(Verb::Bin.flag(), None);
     }
 
     /// Standing in the bin, the two verbs that mean nothing there are gone and

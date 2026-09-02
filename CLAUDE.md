@@ -346,6 +346,20 @@ Leaving the seam for later means the next session pays for it with interest.
   whole of itself *after* its contents — that is how a drag over the photograph
   is read — and egui hands a press to the last such widget under it, so
   anything inside the panel that wants a click is a thing the panel swallows.
+- **A pane is a photograph, and the panel is one rectangle.** `layout::show`
+  returns where each pane was drawn (`Shown::panes`); the icons over them, the
+  click that focuses one and the menu opened on one all hit-test that list
+  rather than asking which photograph the keys are about. The menu was about
+  the focused photograph whichever pane the button came down on, which with
+  four side by side is the wrong one three times in four.
+- **While the picked-out photographs are side by side, a command is about the
+  one being looked at.** The inversion of `marked_paths`' rule, and the whole
+  reason a comparison is usable: rating one of five, tagging one of five,
+  throwing one of five out. The set is still on the strip and closing the
+  comparison puts it back in charge. Nothing being *current* — no pane focused
+  — is reachable only inside a comparison, and `ImageView::focused` says so by
+  construction rather than by a flag somebody has to remember to clear; it
+  reaches every reader through the `None` that `active_path` already returns.
 - **A glyph is only as available as the fonts actually loaded.** The program
   ships Atkinson Hyperlegible Next and falls through to egui's emoji font;
   `✕` (U+2715) is in neither and drew an empty box. `✔`, `✖` and `★` are used

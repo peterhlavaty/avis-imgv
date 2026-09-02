@@ -2,6 +2,53 @@
 
 ## 2026-09-02
 
+- **A pane is a surface of its own.** Photographs side by side were four
+  pictures and one photograph: the keys, the menu and the keyword panel were
+  all about whichever of them the keys happened to be on, and there was no way
+  to say "that one" except to make it the one first. Each pane now carries a
+  keep and a throw-out icon over the picture, filled in the flag's own colour
+  when it is set, and a left click on a pane makes it the one being looked at
+  — a plain click on the photograph did nothing at all until now, which is what
+  makes that affordable. **Keep** and **Throw out** are on the photograph's
+  menu too, and both the icons and the menu are about the pane the button came
+  down on rather than the pane the keys are about. The menu was about the
+  wrong photograph three times out of four before, which is a menu that will
+  throw the wrong file away.
+
+  The two flags have a colour each — `Flag::colour` — where the red was
+  written out in three places and the keep had none at all. The status bar and
+  the contact sheet read the same one, so a kept photograph is green wherever
+  it is drawn.
+
+- **A comparison of the picked-out photographs is a place to work.** While one
+  is up, a rating, a flag, a colour label and a keyword from the panel are
+  about the *focused pane* rather than about the whole set — the inversion of
+  the rule everywhere else, and what makes it possible to tag one of five and
+  throw out another without closing the comparison first. Everything about the
+  set is still there on the strip, and putting the comparison down puts the
+  set back in charge.
+
+  The **arrow keys move between the panes** and stop at either end: going
+  further means leaving the set, and leaving it is said rather than fallen out
+  of. A comparison pinned from this photograph and its neighbours is unchanged
+  — there an arrow still tries the next photograph against the one in front,
+  which is what that comparison is for. `Tab` still cycles.
+
+  **A rejected photograph leaves.** Thrown out by any route — the key, the
+  icon, the menu — a frame in the picked-out set goes from the set and so from
+  the panel, and the focus moves on to the next pane first, so judging a row is
+  a run of keystrokes rather than a keystroke and a click each time. The set
+  falling below two ends the comparison on what is left.
+
+  **Ctrl and a click on the photograph being looked at now takes it out of the
+  set**, which it used to refuse. Nothing is current afterwards: the person
+  said which one they were done with rather than which one they wanted next,
+  so no pane wears the border and no photograph is what a mark would land on.
+  A click on a pane, a click on a picked-out thumbnail, or an arrow — which
+  carries on from the gap the photograph left — says the second thing. It is a
+  state only a comparison can be in; leaving one makes whatever is left on
+  screen current again.
+
 - **A comparison says that it is one, and offers the way out of it.** The whole
   panel is outlined in `image_view.comparison_colour` and named in its top
   right corner — *Comparing 4 picked out*, or *Comparing 2* for the kind the

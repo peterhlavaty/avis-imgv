@@ -862,6 +862,26 @@ together. Asked about one photograph it means what it always did: this one and
 the ones beside it. The panel holds eight, and a larger set is trimmed to the
 first eight rather than refused.
 
+**Each pane carries keep and throw out.** Photographs side by side are a
+question about which of them, so every pane has the two verbs over the picture:
+green for kept, red for thrown out, filled when the mark is on and clicked
+again to take it off. A left click on a pane makes it the one being looked at,
+and the second button offers the same two — about the pane the button came down
+on, not about whichever pane the keys were on.
+
+**A comparison of the picked-out photographs is a place to work.** While one is
+up, a rating, a flag, a label and a keyword from the panel are about the pane
+being looked at rather than about the whole set, which is what makes it possible
+to tag one of five and throw out another without closing the comparison. The
+arrow keys move between the panes and stop at either end — going further means
+putting the set down first — while a comparison pinned from this photograph and
+its neighbours still tries the folder against the frame in front. A photograph
+thrown out leaves the set and so the panel, whichever way it was thrown out,
+and the focus moves on to the next pane first. `Ctrl` and a click on the one
+being looked at takes it out of the set as readily as any other, and then
+nothing is current: no pane is outlined and a mark has nothing to land on until
+a click or an arrow says which one.
+
 **A comparison says that it is one.** The whole panel is outlined in
 `image_view.comparison_colour` and named in its top right corner — *Comparing 4
 picked out*, or *Comparing 2* for the kind the compare key pins — with the

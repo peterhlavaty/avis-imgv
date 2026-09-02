@@ -174,6 +174,12 @@ pub enum BarAction {
     ToggleWatching,
     /// Whether a mark moves on to the next photograph by itself.
     SetAdvancing(bool),
+    /// Set this flag on this one photograph, or take it off again.
+    ///
+    /// Named rather than implied, because it comes from an icon over one pane
+    /// of several and every other way of flagging a photograph means whichever
+    /// one the keys are about.
+    FlagOne(usize, crate::metadata::xmp::Flag),
     /// What a photograph is drawn at when it comes up.
     SetOpening(crate::view::image_view::opening::Opening),
     /// Whether the magnification and the corner carry to the next photograph.
@@ -778,9 +784,11 @@ fn marks(ui: &mut egui::Ui, marks: &Marks) -> Vec<BarAction> {
     let mut asked = Vec::new();
 
     if marks.flag != Flag::Unflagged {
-        let colour = match marks.flag {
-            Flag::Rejected => egui::Color32::from_rgb(219, 96, 96),
-            _ => ui.visuals().text_color(),
+        // The flag's own colour, which is where the red used to be written
+        // out for the third time and where the keep had none at all.
+        let colour = match marks.flag.colour() {
+            Some((r, g, b)) => egui::Color32::from_rgb(r, g, b),
+            None => ui.visuals().text_color(),
         };
 
         let glyph = ui.add(

@@ -89,8 +89,12 @@ pub fn cell_side(inner: f32) -> f32 {
 /// beside it — a comparison of four means four of these thumbnails are in
 /// front of the person — and which have been picked out for a command.
 pub struct OnScreen<'a> {
-    /// The store position the keys and every command are about.
-    pub cursor: usize,
+    /// The store position the keys and every command are about, where one is.
+    ///
+    /// None while a comparison has had its focused photograph taken out of the
+    /// set: nothing on screen is the one being marked, so nothing on the strip
+    /// wears the border that says so.
+    pub cursor: Option<usize>,
     /// Every store position drawn in the panel, the cursor included.
     pub panes: &'a [usize],
     /// The photographs picked out.
@@ -111,7 +115,7 @@ impl OnScreen<'_> {
     /// would cost more to build every frame than it saves.
     fn state(&self, index: usize) -> State {
         State {
-            current: index == self.cursor,
+            current: Some(index) == self.cursor,
             shown: self.panes.contains(&index),
             picked: self.selection.contains(index),
         }
@@ -237,7 +241,7 @@ pub fn show(
 
             let cell = cell_side(inner);
             let colour = on_screen.colour;
-            let at = visible.position_of(cursor);
+            let at = cursor.and_then(|cursor| visible.position_of(cursor));
 
             let mut area =
                 egui::ScrollArea::horizontal().scroll_source(egui::scroll_area::ScrollSource::ALL);
@@ -505,7 +509,7 @@ mod tests {
 
     fn on_screen<'a>(cursor: usize, panes: &'a [usize], selection: &'a Selection) -> OnScreen<'a> {
         OnScreen {
-            cursor,
+            cursor: Some(cursor),
             panes,
             selection,
             colour: Color32::WHITE,

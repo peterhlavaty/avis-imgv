@@ -185,6 +185,9 @@ pub struct App {
     /// Which photograph the set of picked-out frames was last seen to be
     /// about. `None` until the first frame has been drawn.
     following: Option<usize>,
+    /// What each photograph on screen carries, for the icons drawn over the
+    /// panes. Refilled in place once a frame rather than built again.
+    pane_flags: Vec<(usize, crate::metadata::xmp::Flag)>,
     /// The set a pinned comparison of the picked-out photographs was built
     /// from, so it can be told whether they have moved without allocating to
     /// find out. The same shape the history's watch uses.
@@ -407,6 +410,7 @@ impl App {
             filmstrip_visible: filmstrip,
             filmstrip_height: crate::ui::dragged::Dragged::default(),
             following: None,
+            pane_flags: Vec::new(),
             compared_from: crate::view::Selection::default(),
             forced_filmstrip_height: false,
             cheat_sheet_visible: false,

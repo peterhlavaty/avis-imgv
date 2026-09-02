@@ -158,9 +158,9 @@ pub fn caption(ui: &egui::Ui, strip: Rect, badges: Badges, marks: Option<&Marks>
         }
 
         if marks.flag != Flag::Unflagged {
-            let tint = match marks.flag {
-                Flag::Rejected => Color32::from_rgb(219, 96, 96),
-                _ => colour,
+            let tint = match marks.flag.colour() {
+                Some((r, g, b)) => Color32::from_rgb(r, g, b),
+                None => colour,
             };
 
             let drawn = painter.text(
