@@ -505,12 +505,33 @@ mod tests {
     fn the_modifier_is_read_alongside_the_key() {
         let config = ImageViewConfig::default();
         let keys = asked(
-            &context_with(vec![key_press(Key::D, Modifiers::COMMAND)]),
+            &context_with(vec![key_press(Key::D, Modifiers::ALT)]),
             &config,
         );
 
         assert!(keys.pressed[RIGHT]);
         assert!(keys.fine);
+    }
+
+    /// Alt by default, and the other two are legal answers.
+    #[test]
+    fn the_modifier_is_the_one_the_configuration_names() {
+        let config = ImageViewConfig {
+            pan_fine_modifier: crate::config::FineModifier::Ctrl,
+            ..ImageViewConfig::default()
+        };
+
+        let alt = asked(
+            &context_with(vec![key_press(Key::D, Modifiers::ALT)]),
+            &config,
+        );
+        let ctrl = asked(
+            &context_with(vec![key_press(Key::D, Modifiers::COMMAND)]),
+            &config,
+        );
+
+        assert!(!alt.fine);
+        assert!(ctrl.fine);
     }
 
     #[test]

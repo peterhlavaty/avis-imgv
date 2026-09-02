@@ -19,12 +19,12 @@
 
 use serde_json::{Map, Value};
 
-use super::{defaults, Config, Shortcut};
+use super::{defaults, Config, FineModifier, Shortcut};
 
 /// What this build writes.
 ///
 /// Bumped whenever a step is added below, and never otherwise.
-pub const CURRENT: u32 = 6;
+pub const CURRENT: u32 = 7;
 
 /// One thing that has to be put right in an older file.
 struct Step {
@@ -50,8 +50,13 @@ const STEPS: &[Step] = &[
     },
     Step {
         until: 6,
-        said: "Watching the folder moved from Ctrl + W to Ctrl + Shift + W,                because Ctrl and a pan key now pans by a pixel",
+        said: "Watching the folder moved from Ctrl + W to Ctrl + Shift + W,                because Ctrl with a pan key is one of the three ways to ask                for a fine pan",
         apply: the_watcher_off_the_pan_key,
+    },
+    Step {
+        until: 7,
+        said: "The modifier that pans finely moved from Ctrl to Alt, which is                where the fine zoom keys are and where no binding sits with a                letter",
+        apply: the_fine_pan_onto_alt,
     },
 ];
 
@@ -287,12 +292,12 @@ fn scroll_off_the_space_bar(config: &mut Config) -> bool {
     true
 }
 
-/// `Ctrl + W` became the fine pan up.
+/// `Ctrl + W` is the fine pan up for anybody who asks for it.
 ///
-/// Ctrl with a pan key moves the picture by a pixel a press, and the pan keys
-/// are `W A S D`, so the folder watcher shared a chord with pan up — and it is
-/// the binding that wins, once for every repeat the platform sends while the
-/// key is held. The default moved to `Ctrl + Shift + W`; a file written before
+/// The modifier that pans finely is Alt by default and Ctrl is one of the
+/// three answers to it; the pan keys are `W A S D`, so the folder watcher
+/// shared a chord with pan up — and a binding fires as well as the pan, once
+/// for every repeat the platform sends while the key is held. The default moved to `Ctrl + Shift + W`; a file written before
 /// that keeps the old one for ever, because `serde` fills in the keys that are
 /// missing rather than the ones that have since moved. Anybody who had already
 /// put the watcher somewhere of their own keeps it there.
@@ -303,6 +308,23 @@ fn the_watcher_off_the_pan_key(config: &mut Config) -> bool {
     }
 
     config.general.sc_watch_directory = defaults::default_sc_watch_directory();
+    true
+}
+
+/// The fine pan was Ctrl for a day.
+///
+/// Long enough to be written into a file, and `serde` fills in the keys that
+/// are missing rather than the ones that have since moved — so a file written
+/// in that day would keep Ctrl while the viewer's own answer, the fine zoom
+/// keys and everything said about it are Alt. Anybody who has since chosen
+/// Ctrl deliberately is moved too, which is the cost of not being able to tell
+/// a choice from a default; it is one radio button back.
+fn the_fine_pan_onto_alt(config: &mut Config) -> bool {
+    if config.image_view.pan_fine_modifier != FineModifier::Ctrl {
+        return false;
+    }
+
+    config.image_view.pan_fine_modifier = defaults::default_pan_fine_modifier();
     true
 }
 
@@ -587,6 +609,25 @@ mod tests {
             defaults::default_sc_watch_directory()
         );
         assert!(config.check().is_empty(), "{:?}", config.check());
+    }
+
+    /// A file written on the day the fine pan was Ctrl keeps Ctrl, because
+    /// `serde` fills in what is missing rather than what has moved.
+    #[test]
+    fn a_file_from_the_day_the_fine_pan_was_ctrl_is_moved_to_alt() {
+        let mut config = Config {
+            version: 6,
+            image_view: super::super::ImageViewConfig {
+                pan_fine_modifier: FineModifier::Ctrl,
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+
+        let said = apply(&mut config);
+
+        assert_eq!(said.len(), 1);
+        assert_eq!(config.image_view.pan_fine_modifier, FineModifier::Alt);
     }
 
     /// The rule that makes migrations safe: a key the user chose is theirs.

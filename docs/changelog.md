@@ -13,18 +13,22 @@
   where a keyboard's own repeat delay sits. Holding a key to cross a magnified
   photograph is unchanged; tapping one is a nudge that lands where it is aimed.
 
-  **Ctrl held with a pan key moves it by a pixel.** `image_view.pan_fine_step`
-  and `image_view.pan_fine_speed` are the same two figures for the fine
-  gesture — one screen pixel a press and a tenth of the speed — and
-  `image_view.pan_fine_modifier` puts that on Shift or Alt instead for whoever
-  has Ctrl and a pan key spoken for. A binding sharing the chord is a
-  complaint at startup naming both, because both still happen.
+  **Alt held with a pan key moves it by a pixel, and Alt with the zoom keys
+  magnifies by five per cent.** `image_view.pan_fine_step` and
+  `image_view.pan_fine_speed` are the same two figures for the fine gesture —
+  one screen pixel a press and a tenth of the speed — and
+  `image_view.pan_fine_modifier` puts that on Ctrl or Shift instead. `Alt + +`
+  and `Alt + -` are the zoom's half of it, `image_view.zoom_fine_step` against
+  the ordinary key's twenty-five per cent, and are bindings like every other
+  zoom key. A binding sharing the fine pan's chord is a complaint at startup
+  naming both, because both still happen.
 
-  Watching the folder moved from `Ctrl + W` to `Ctrl + Shift + W` for exactly
-  that reason: the pan keys are `W A S D`, so holding Ctrl and W to move the
-  picture up a pixel would have toggled the watcher once for every repeat the
-  platform sent. A file that had it somewhere of its own keeps it there; one
-  still on the old default is brought forward.
+  Watching the folder moved from `Ctrl + W` to `Ctrl + Shift + W` for that
+  reason: the pan keys are `W A S D` and Ctrl is one of the three answers to
+  the modifier, so holding Ctrl and W to move the picture up a pixel would
+  have toggled the watcher once for every repeat the platform sent. A file
+  that had it somewhere of its own keeps it there; one still on the old
+  default is brought forward.
 
   The pan is also decided once a frame rather than once a pass. egui runs the
   frame again whenever something in it asks for another look, and the second

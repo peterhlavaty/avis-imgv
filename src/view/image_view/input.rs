@@ -18,6 +18,24 @@ use crate::utils;
 /// something to say when there is no configuration in hand.
 const ZOOM_STEP: f32 = 1.25;
 
+/// How much one press of the *fine* zoom keys changes it.
+///
+/// The default of `image_view.zoom_fine_step`, kept here for the same reason.
+const ZOOM_FINE_STEP: f32 = 1.05;
+
+/// A magnification worth applying, or the fallback.
+///
+/// One and below is a figure the rails cannot produce and a hand-edited file
+/// can: it would leave the key doing nothing, or turn it round so that zoom in
+/// zooms out.
+fn magnifies(asked: f32, fallback: f32) -> f32 {
+    if asked > 1.0 {
+        asked
+    } else {
+        fallback
+    }
+}
+
 /// What a zoom holds still.
 ///
 /// Magnifying is about a point in the picture, so it holds whatever is under
@@ -130,12 +148,11 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
     }
 
     // From the configuration rather than a constant: how far one press moves
-    // is a judgement about the photographs somebody looks at.
-    let step = if config.zoom_step > 1.0 {
-        config.zoom_step
-    } else {
-        ZOOM_STEP
-    };
+    // is a judgement about the photographs somebody looks at. A step at or
+    // below one would magnify by nothing or turn the key round, which is a
+    // value the window cannot produce and a file can.
+    let step = magnifies(config.zoom_step, ZOOM_STEP);
+    let fine = magnifies(config.zoom_fine_step, ZOOM_FINE_STEP);
 
     let bindings = [
         (&config.sc_next, Command::Next),
@@ -150,6 +167,8 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_zoom, Command::ZoomStep),
         (&config.sc_zoom_in, Command::ZoomBy(step)),
         (&config.sc_zoom_out, Command::ZoomBy(1.0 / step)),
+        (&config.sc_zoom_in_fine, Command::ZoomBy(fine)),
+        (&config.sc_zoom_out_fine, Command::ZoomBy(1.0 / fine)),
         (
             &config.sc_one_to_one,
             Command::ZoomToPercent(100.0, Anchor::Pointer),
@@ -250,6 +269,16 @@ mod tests {
             pressed: true,
             repeat: false,
             modifiers: Modifiers::NONE,
+        }
+    }
+
+    fn with_alt(key: Key) -> Event {
+        Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::ALT,
         }
     }
 
@@ -398,6 +427,54 @@ mod tests {
         assert_eq!(
             collect(&context_with(vec![key_press(Key::Minus)]), &config),
             vec![Command::ZoomBy(1.0 / ZOOM_STEP)]
+        );
+    }
+
+    /// The same two keys with Alt, which is the modifier a fine pan is asked
+    /// for with: one gesture, two ways of asking how carefully.
+    #[test]
+    fn alt_and_the_zoom_keys_magnify_by_the_smaller_step() {
+        let config = ImageViewConfig::default();
+
+        assert_eq!(
+            collect(&context_with(vec![with_alt(Key::Plus)]), &config),
+            vec![Command::ZoomBy(ZOOM_FINE_STEP)]
+        );
+        assert_eq!(
+            collect(&context_with(vec![with_alt(Key::Minus)]), &config),
+            vec![Command::ZoomBy(1.0 / ZOOM_FINE_STEP)]
+        );
+    }
+
+    /// Alt has to match exactly, or the fine keys would fire on the ordinary
+    /// ones as well and the photograph would jump by both steps at once.
+    #[test]
+    fn the_ordinary_zoom_keys_are_not_the_fine_ones() {
+        let config = ImageViewConfig::default();
+
+        assert_eq!(
+            collect(&context_with(vec![key_press(Key::Plus)]), &config),
+            vec![Command::ZoomBy(ZOOM_STEP)]
+        );
+    }
+
+    /// A file can say what a rail cannot: a step at or below one would leave
+    /// the key doing nothing, or turn it round.
+    #[test]
+    fn a_step_that_does_not_magnify_falls_back() {
+        let config = ImageViewConfig {
+            zoom_step: 1.0,
+            zoom_fine_step: 0.5,
+            ..ImageViewConfig::default()
+        };
+
+        assert_eq!(
+            collect(&context_with(vec![key_press(Key::Plus)]), &config),
+            vec![Command::ZoomBy(ZOOM_STEP)]
+        );
+        assert_eq!(
+            collect(&context_with(vec![with_alt(Key::Plus)]), &config),
+            vec![Command::ZoomBy(ZOOM_FINE_STEP)]
         );
     }
 }

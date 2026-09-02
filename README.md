@@ -1090,10 +1090,11 @@ set aside for the full resolution copies, which are 96 MB each.
 | `opening_percent` | What `percent` above means, against the photograph's own pixels. Kept whatever the choice beside it says. | 100 |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `zoom_out_past_fit` | Let the zoom go out past fitting the window, leaving a border on all four sides | false |
+| `zoom_fine_step` | How much one press of the fine zoom keys magnifies by | 1.05 |
 | `pan_step` | How far one press of a pan key moves, in screen pixels | 40 |
 | `pan_speed` | How fast a held pan key moves, in screenfuls a second | 1.5 |
 | `pan_glide_delay` | How long a pan key is held before it starts to glide, in seconds. `0` glides from the first frame | 0.25 |
-| `pan_fine_modifier` | The modifier that means finer: `ctrl`, `shift` or `alt` | `ctrl` |
+| `pan_fine_modifier` | The modifier that means finer: `alt`, `ctrl` or `shift` | `alt` |
 | `pan_fine_step` | How far one press moves with that modifier held, in screen pixels | 1 |
 | `pan_fine_speed` | How fast a held pan key moves with it held, in screenfuls a second | 0.15 |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
@@ -1272,9 +1273,10 @@ break the pairing it depends on.
 | R | Put this picture where the last one was left |
 | Space | Zoom step |
 | + / - | Zoom in or out |
+| Alt + + / Alt + - | The same, five per cent a press |
 | Ctrl + Scroll | Zoom |
 | W A S D | Pan: one step a press, gliding while the key is held |
-| Ctrl + W A S D | The same, a pixel a press |
+| Alt + W A S D | The same, a pixel a press |
 | Drag | Pan |
 | G | Toggle the white frame |
 | O | Move what it says about itself round the corners, and off |
@@ -1292,11 +1294,14 @@ forty screen pixels, `pan_step` — and holding the key past a quarter of a
 second glides it at `pan_speed` screenfuls a second, which is the shape of a
 keyboard's own repeat and the reason the shortest press anybody can make is
 worth exactly one step rather than however many frames a finger stayed down.
-Ctrl held with a pan key swaps both figures for `pan_fine_step` and
+Alt held with a pan key swaps both figures for `pan_fine_step` and
 `pan_fine_speed`: a pixel a press by default, for putting an eyelash in the
-middle of the window at 400%. `pan_fine_modifier` moves that to Shift or Alt
-for whoever has Ctrl and a pan key spoken for, and the viewer says so at
-startup if the modifier and a pan key are a binding somewhere else.
+middle of the window at 400%. `pan_fine_modifier` moves that to Ctrl or Shift,
+and the viewer says so at startup if the modifier and a pan key are a binding
+somewhere else — which is why watching the folder is `Ctrl + Shift + W` rather
+than `Ctrl + W`. Alt with the zoom keys is the same idea: `Alt + +` and
+`Alt + -` magnify by `zoom_fine_step`, five per cent against the ordinary
+key's twenty-five, for arriving at a framing rather than crossing a range.
 
 Zooming keeps the point under the pointer, so magnifying an eye near the edge
 of the frame brings the eye closer rather than pushing it off screen. The keys

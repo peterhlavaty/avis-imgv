@@ -603,6 +603,12 @@ pub struct ImageViewConfig {
     /// How much one press of the zoom keys changes the magnification.
     #[serde(default = "default_zoom_step")]
     pub zoom_step: f32,
+    /// How much one press of the fine zoom keys changes the magnification.
+    ///
+    /// The same gesture as the fine pan and on the same modifier by default:
+    /// the careful version of a key that is otherwise about crossing a range.
+    #[serde(default = "default_zoom_fine_step")]
+    pub zoom_fine_step: f32,
     /// How much one press of the step-zoom key changes it.
     ///
     /// Doubling, by default: that key exists to get from fitted to something
@@ -702,6 +708,11 @@ pub struct ImageViewConfig {
     pub sc_zoom_in: Shortcut,
     #[serde(default = "default_sc_zoom_out")]
     pub sc_zoom_out: Shortcut,
+    /// The same two by [`ImageViewConfig::zoom_fine_step`].
+    #[serde(default = "default_sc_zoom_in_fine")]
+    pub sc_zoom_in_fine: Shortcut,
+    #[serde(default = "default_sc_zoom_out_fine")]
+    pub sc_zoom_out_fine: Shortcut,
     /// Held rather than tapped: panning follows the key for as long as it is
     /// down, which is why these are read separately from the shortcuts.
     #[serde(default = "default_sc_pan_up")]
@@ -926,6 +937,7 @@ impl Default for ImageViewConfig {
             keep_pan: false,
             zoom_out_past_fit: default_zoom_out_past_fit(),
             zoom_step: default_zoom_step(),
+            zoom_fine_step: default_zoom_fine_step(),
             zoom_step_factor: default_zoom_step_factor(),
             zoom_step_max: default_zoom_step_max(),
             pan_speed: default_pan_speed(),
@@ -966,6 +978,8 @@ impl Default for ImageViewConfig {
             sc_go_to: default_sc_go_to(),
             sc_zoom_in: default_sc_zoom_in(),
             sc_zoom_out: default_sc_zoom_out(),
+            sc_zoom_in_fine: default_sc_zoom_in_fine(),
+            sc_zoom_out_fine: default_sc_zoom_out_fine(),
             sc_pan_up: default_sc_pan_up(),
             sc_pan_down: default_sc_pan_down(),
             sc_pan_left: default_sc_pan_left(),

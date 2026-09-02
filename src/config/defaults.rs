@@ -83,9 +83,12 @@ pub fn default_sc_flatten_dir() -> Shortcut {
 
 /// `Ctrl + Shift + W`, one modifier away from where it was.
 ///
-/// It moved off `Ctrl + W` when Ctrl became the modifier that pans finely: the
-/// pan keys are `W A S D`, so holding Ctrl and W to move the picture up by a
-/// pixel also toggled the watcher, once for every repeat the platform sent.
+/// It moved off `Ctrl + W` when the fine pan arrived. The pan keys are
+/// `W A S D` and Ctrl is one of the three answers to
+/// `image_view.pan_fine_modifier`, so holding Ctrl and W to move the picture
+/// up by a pixel would also have toggled the watcher, once for every repeat
+/// the platform sent — a legal choice of modifier is not one that should need
+/// a binding moved before it can be made.
 pub fn default_sc_watch_directory() -> Shortcut {
     Shortcut::new("w", &[MOD_CTRL, MOD_SHIFT])
 }
@@ -299,6 +302,15 @@ pub fn default_sc_zoom_in() -> Shortcut {
 }
 pub fn default_sc_zoom_out() -> Shortcut {
     Shortcut::new("Minus", &[])
+}
+
+/// The zoom keys with Alt, which is what the pan keys with Alt already mean:
+/// the careful version of the same gesture.
+pub fn default_sc_zoom_in_fine() -> Shortcut {
+    Shortcut::new("Plus", &[MOD_ALT])
+}
+pub fn default_sc_zoom_out_fine() -> Shortcut {
+    Shortcut::new("Minus", &[MOD_ALT])
 }
 
 /// Lightroom's Survey key, which is what everybody who has used one expects.
@@ -684,6 +696,15 @@ pub fn default_zoom_out_past_fit() -> bool {
     false
 }
 
+/// How much one press of the fine zoom keys changes the magnification.
+///
+/// Five per cent: fourteen presses to double, against the ordinary key's
+/// four. What it is for is arriving at a particular framing — or at a
+/// particular percentage — rather than crossing a range.
+pub fn default_zoom_fine_step() -> f32 {
+    1.05
+}
+
 /// How fast a held pan key moves the view, in screens a second.
 pub fn default_pan_speed() -> f32 {
     1.5
@@ -723,7 +744,8 @@ pub fn default_pan_fine_speed() -> f32 {
     0.15
 }
 
-/// Which modifier means "finer".
+/// Which modifier means "finer": Alt, which no binding in the viewer uses
+/// with a letter.
 pub fn default_pan_fine_modifier() -> FineModifier {
     FineModifier::default()
 }

@@ -200,16 +200,20 @@ pub fn build_keyboard_shortcut(mods: &[String], key: &str) -> KeyboardShortcut {
 /// The modifier that means "finer", held while a pan key is down.
 ///
 /// A held modifier rather than a binding of its own: it says how far the key
-/// beside it moves, and there is nothing for it to do on its own. Ctrl by
-/// default, which is where every other program puts "the careful version of
-/// this gesture" — and read as egui reads a binding asking for control, so it
-/// is Command on a Mac.
+/// beside it moves, and there is nothing for it to do on its own. Alt by
+/// default, because it is the one modifier no binding in the viewer uses with
+/// a letter — Ctrl is legal and is what most programs use for the careful
+/// version of a gesture, but Ctrl with a pan key is a chord a binding can
+/// already be sitting on, which is what [`Config::check`] is for.
+///
+/// Ctrl is read as egui reads a binding asking for control, so it is Command
+/// on a Mac.
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FineModifier {
-    #[default]
     Ctrl,
     Shift,
+    #[default]
     Alt,
 }
 

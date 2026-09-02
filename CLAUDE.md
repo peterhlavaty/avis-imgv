@@ -292,10 +292,12 @@ Leaving the seam for later means the next session pays for it with interest.
   been down longer than `pan_glide_delay`, which is the shape of a keyboard's
   own repeat; the press is read off the events with `repeat: false`, because
   the platform's repeat is not a press and `key_pressed` counts it as one. A
-  modifier held with it swaps both figures for the fine pair — and a held
-  modifier is not a binding, so the clash check cannot see it: `check.rs`
-  compares the chord against every binding read where the photograph is, which
-  is what moved the folder watcher off `Ctrl + W`.
+  modifier held with it swaps both figures for the fine pair — Alt by default,
+  which is also where the fine zoom keys are. A held modifier is not a binding,
+  so the clash check cannot see it: `check.rs` compares the chord against every
+  binding read where the photograph is, which is what moved the folder watcher
+  off `Ctrl + W`, a chord anybody choosing Ctrl would otherwise have to clear
+  first.
 - **Anything read per frame is read on the first pass.** egui runs the frame
   again whenever something in it calls `request_discard`, and the second pass
   arrives with no events but with a clock that has moved on

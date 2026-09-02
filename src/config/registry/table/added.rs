@@ -26,23 +26,24 @@ const MODES: &[Choice] = &[
     },
 ];
 
-/// The three modifiers a fine pan can be asked for with. Ctrl by default,
-/// which is where every other program puts the careful version of a gesture.
+/// The three modifiers a fine pan can be asked for with. Alt by default,
+/// which is where the fine zoom keys are and where nothing else in the viewer
+/// sits with a letter.
 const FINE_MODIFIERS: &[Choice] = &[
+    Choice {
+        value: "alt",
+        label: "Alt",
+        sentence: "The one no binding in the viewer uses with a letter, and where the                    fine zoom keys are.",
+    },
     Choice {
         value: "ctrl",
         label: "Ctrl",
-        sentence: "Command on a Mac, as everywhere else in the viewer.",
+        sentence: "Where most programs put the careful version of a gesture. Command                    on a Mac, as everywhere else in the viewer.",
     },
     Choice {
         value: "shift",
         label: "Shift",
-        sentence: "For whoever has Ctrl and a pan key spoken for.",
-    },
-    Choice {
-        value: "alt",
-        label: "Alt",
-        sentence: "The one no binding in the viewer uses with a letter.",
+        sentence: "For whoever has the other two spoken for.",
     },
 ];
 
@@ -309,6 +310,16 @@ pub fn rows() -> Vec<Row> {
             Live,
             None,
             decimal!(1.01, 4.0, "×", true, image_view.zoom_step),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.zoom_fine_step",
+            "How much the fine zoom keys change it",
+            "Five per cent, so fourteen presses double the magnification against the              ordinary key's four. What they are for is arriving at a framing, or at a              particular percentage, rather than crossing a range.",
+            ["zoom", "fine", "precise", "step", "alt"],
+            Live,
+            None,
+            decimal!(1.001, 2.0, "×", true, image_view.zoom_fine_step),
         ),
         row!(
             ThePhotograph / Movement,

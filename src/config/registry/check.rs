@@ -224,7 +224,8 @@ fn keys(config: &Config, found: &mut Vec<Complaint>) {
 /// the registry holds it and the clash check cannot see it — but a binding on
 /// the same chord is read on the same frame, and the platform repeats it for
 /// as long as the key is held. `Ctrl + W` was that case on the day the
-/// modifier arrived: the folder watcher, sharing a letter with pan up.
+/// modifier arrived — the folder watcher, sharing a letter with pan up — and
+/// is why it is now `Ctrl + Shift + W`.
 fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
     let fine = config.image_view.pan_fine_modifier;
 
