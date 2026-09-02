@@ -235,7 +235,8 @@ rather than a list.
 `Ctrl + H` shows and hides the panel down the right-hand side listing
 everything done this run, in the order it happened. The key is
 `history.sc_panel` and can be rebound like any other; the second button
-anywhere in the panel offers *Hide this panel* and a route to its settings, and
+anywhere in the panel — the heading and the blank below the list included —
+offers *Hide this panel*, a key to bind to it and a route to its settings, and
 *Show the history panel* in the settings does the same. However it is changed
 it is written down, so the next launch opens with it as it was left. The row you are on is picked out; anything
 taken back, or on a branch you left, is still in the list and drawn in italics
@@ -835,6 +836,20 @@ is what the verbs are about. The menu is drawn over the thing it belongs to,
 often a glyph a few pixels wide with a neighbour that looks much like it, and
 *Show only these* means something different on each of the three badges in the
 status bar.
+
+**A panel answers it anywhere in itself.** The menu bar, the filter bar, the
+metadata panel, the stars and keywords panel, the history, the strip of
+thumbnails, the status bar and the performance readout each carry one menu over
+the whole of themselves: it says which panel was clicked, offers *Hide this
+panel* and *Bind a key to showing and hiding it*, and ends on the settings page
+that governs it. Anything in the panel with a menu of its own answers first — a
+history row still offers *Do only this again*, a keyword still offers *Show
+only this* — and the panel's menu is what the heading, the separators, the gap
+beside a short row and the empty half below the last one answer with. Which is
+what changed: a button that works in some of a panel and not the rest is worse
+than one that never works, because it teaches you the panel has no menu. The
+status bar is the one panel with no *Hide this panel*, deliberately: it is
+where the photograph's name, its marks and the magnification are.
 
 `menus.settings_rows` turns the settings rows off, which leaves the verbs, your
 own entries and the copy group. It is the whole of the configurability offered

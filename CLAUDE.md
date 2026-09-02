@@ -108,7 +108,7 @@ one piece of the work each.
 | `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping, `bin/` for the viewer's own bin |
 | `src/config/` | the configuration file, its defaults, migrations between versions, and `registry/` — one row per field, which the settings window, the search and the key editor are all views over |
 | `src/session.rs` | what is remembered between runs: window, folder, position |
-| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `slider/` for the rails, `progress.rs` |
+| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `panel.rs` for what every panel does about them, `slider/` for the rails, `progress.rs` |
 
 **Keep files short.** Aim for 300 lines; the median here is 264. Past that,
 split along the seam the file already has — a `mod.rs` plus siblings — rather
@@ -251,6 +251,23 @@ Leaving the seam for later means the next session pays for it with interest.
   being worth pressing the moment only some things answer. `Shift + F10` is
   the keyboard's way in, which is why a menu it can reach is a `named_menu`.
   Nothing, though, is reachable *only* by right-click.
+- **A panel is a surface, and it answers anywhere in itself.** `ui::panel` is
+  the one definition: what a panel says for itself is five things — what it is,
+  what puts it away, the key row for that, and the settings page and row its
+  menu ends on — and the rows, their wording and their order are not the
+  panel's to choose. A `Chrome` per panel, `EVERY_PANEL` naming all eight, and
+  a test that each settings row and key row named is a row that exists. Doing
+  it panel by panel does not work: most of a panel is painted rather than
+  sensed, so there is no response to hang a menu on, and a click-sensing
+  rectangle over the whole of one is hidden by the scroll area's drag-to-scroll
+  surface if it is registered first and swallows every button in the panel if
+  it is registered last. So the panel reads the press itself —
+  `rect_contains_pointer` on its own rectangle, which is the one reading that
+  knows about layers and egui's modal one — and `surface::menu_when` takes the
+  answer. It is drawn last, after everything the panel holds, and stands down
+  when one of them has taken the press: `surface::taken`, a pass number in
+  egui's memory rather than a static of this program's, because a pass number
+  counts from nought in every context.
 - **Every menu opens on the press**, through `ui::surface`, and ends with the
   settings page that owns it. `Response::context_menu` opens on the release and
   loses the menu to a six-point drag, so it is not used.

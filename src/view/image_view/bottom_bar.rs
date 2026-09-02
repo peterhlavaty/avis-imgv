@@ -581,6 +581,22 @@ fn word<R>(
 }
 
 /// Draws the bar and reports the interactions it produced.
+/// What the bar says for itself, for the menu every panel carries.
+///
+/// The one panel with no way to put it away, and deliberately: it is where the
+/// photograph's name, its marks and the magnification are, and a viewer with
+/// none of those on screen is a viewer that has stopped saying what it is
+/// doing. The menu still opens on it, still says what was clicked, and still
+/// leads to the page that governs what is drawn there — a surface that answers
+/// nothing is what teaches a person to stop pressing.
+pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
+    subject: crate::ui::surface::Subject::the("The status bar"),
+    hide: None,
+    key: None,
+    page: crate::config::registry::Page::ThePhotograph,
+    setting: "image_view.name_format",
+};
+
 pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
     let mut outcome = Outcome::default();
 
@@ -766,6 +782,8 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     },
                 );
             });
+
+            crate::ui::panel::menu(ui, &CHROME, |_| {});
         });
 
     outcome

@@ -1316,7 +1316,9 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("performance_metrics")
             .show_separator_line(false)
             .show_animated(ctx, self.metrics_visible, |ui| {
-                self.perf_metrics.display_metrics(ui)
+                self.perf_metrics.display_metrics(ui);
+
+                crate::ui::panel::menu(ui, &crate::ui::perf_metrics::CHROME, |_| {});
             });
 
         let menu_keys = panels::MenuKeys {
@@ -1392,6 +1394,7 @@ impl eframe::App for App {
             apply_text_scaling(ctx, self.config.text_scaling);
         }
 
+        self.take_panel_ask(ctx);
         self.take_slider_ask();
         self.remember_runtime();
         self.handle_pending_commands(ctx);

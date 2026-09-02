@@ -1,5 +1,37 @@
 # Change Log
 
+## 2026-09-03
+
+- **A panel answers the second button anywhere in itself.** The rows in the
+  history answered; the heading above them did not, nor the strip of blank to
+  the right of a short row, nor the half of the panel below the last one, nor
+  anything at all in the metadata panel, the keyword panel, the strip, the
+  filter bar, the menu bar, the status bar or the performance readout. A button
+  that works in some of a panel and not the rest is worse than one that never
+  works: it teaches a person the panel has no menu, and they stop pressing.
+
+  All eight panels now carry one menu over the whole of themselves, which says
+  which panel was clicked, offers **Hide this panel** and **Bind a key to
+  showing and hiding it**, and ends on the settings page that governs it.
+  Anything drawn in a panel with a menu of its own answers first, so a history
+  row still offers *Do only this again* and a keyword still offers *Show only
+  this*, each of them followed by the same three rows. The status bar has no
+  *Hide this panel*, deliberately, and the performance readout no key to bind:
+  its `F10` is the one binding in the program that is not a setting.
+
+  Written once, in `src/ui/panel.rs`, because doing it panel by panel is
+  harder than it looks. Most of a panel is not a widget — a heading, a
+  separator and the gaps between rows are painted rather than sensed — and
+  laying a click-sensing rectangle over the whole of one does not answer it
+  either: registered before the contents it is hidden by the drag-to-scroll
+  rectangle every scroll area lays over itself once its content has outgrown
+  it, and registered after them it takes the press away from every button in
+  the panel. So a panel reads the press for itself, from the pointer and its
+  own rectangle, and stands down when something inside it has taken it. What
+  each panel says for itself is five things and nothing else, and a test walks
+  all eight checking that the settings row and the key row each menu names are
+  rows that exist.
+
 ## 2026-09-02
 
 - **A pane is a surface of its own.** Photographs side by side were four

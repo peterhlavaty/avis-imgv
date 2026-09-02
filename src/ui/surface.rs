@@ -49,13 +49,13 @@ pub struct Subject<'a> {
 
 impl<'a> Subject<'a> {
     /// A thing of a kind, and which one it is: a keyword, and the word.
-    pub fn of(kind: &'a str, which: &'a str) -> Self {
+    pub const fn of(kind: &'a str, which: &'a str) -> Self {
         Subject { kind, which }
     }
 
     /// A thing there is only one of on the screen: a panel, a heading, a word
     /// in the bar that is either itself or absent.
-    pub fn the(kind: &'a str) -> Self {
+    pub const fn the(kind: &'a str) -> Self {
         Subject { kind, which: "" }
     }
 
@@ -154,6 +154,36 @@ fn claimed(surface: &str) -> bool {
     false
 }
 
+/// Where the pass on which a surface took the press is written down.
+///
+/// A panel is not a widget: the space between the things drawn in it is not
+/// something egui hit-tests, so a panel decides for itself whether a press
+/// landed on it (see [`crate::ui::panel`]) and is drawn last, over everything
+/// it holds. It therefore has to know whether one of those things answered
+/// first, or a right-click on a row would open two menus at once.
+///
+/// A pass number rather than a flag, because nothing clears it: the answer
+/// wanted is always "on this pass", and egui runs a pass twice whenever
+/// something in it asks for another look. And in egui's memory rather than in
+/// a static of this program's, because a pass number counts from nought in
+/// every context — one held beside the program would read a number from one
+/// window as an answer about another.
+fn taken_id() -> egui::Id {
+    egui::Id::new("the press a surface took")
+}
+
+/// Records that a surface has opened its menu on this pass's press.
+fn take(ctx: &egui::Context) {
+    let pass = ctx.cumulative_pass_nr();
+    ctx.memory_mut(|memory| memory.data.insert_temp(taken_id(), pass));
+}
+
+/// Whether some surface has already answered this pass's press.
+pub fn taken(ctx: &egui::Context) -> bool {
+    let pass = ctx.cumulative_pass_nr();
+    ctx.memory_mut(|memory| memory.data.get_temp::<u64>(taken_id())) == Some(pass)
+}
+
 /// The menu alone, for a surface whose hover text is drawn elsewhere.
 pub fn menu<R>(
     ui: &egui::Ui,
@@ -194,6 +224,28 @@ pub fn named_menu<R>(
             .ctx()
             .input(|i| i.pointer.button_pressed(PointerButton::Secondary)))
         || (!surface.is_empty() && claimed(surface));
+
+    menu_when(ui, response, subject, pressed, contents)
+}
+
+/// The same, for a surface that has read the press for itself.
+///
+/// A panel: the whole of one is a surface, and most of that surface is not a
+/// widget — a heading, a separator, the gap beside a short row and the blank
+/// half of an empty panel are painted rather than sensed, and the scroll area
+/// most panels hold lays a drag-to-scroll rectangle over the whole of itself
+/// which takes the click hit away from anything behind it. There is no
+/// response to ask, so the caller answers.
+pub fn menu_when<R>(
+    ui: &egui::Ui,
+    response: &Response,
+    subject: Subject<'_>,
+    pressed: bool,
+    contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> Option<R> {
+    if pressed {
+        take(ui.ctx());
+    }
 
     let open = if pressed {
         Some(egui::SetOpenCommand::Bool(true))

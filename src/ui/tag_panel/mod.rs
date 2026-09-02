@@ -68,6 +68,18 @@ pub struct State {
 ///
 /// Nothing is drawn while `visible` is false, and the panel animates in and
 /// out with it.
+/// What this panel says for itself, for the menu every panel carries.
+///
+/// Named as the settings window names it, so a person reading the menu and a
+/// person reading the tick in the settings are reading about the same panel.
+pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
+    subject: crate::ui::surface::Subject::the("The stars and keywords panel"),
+    hide: Some(crate::app::input::Command::ToggleTagPanel),
+    key: Some("tags.sc_toggle_tag_panel"),
+    page: crate::config::registry::Page::Keywords,
+    setting: "tags.categories",
+};
+
 /// Draws the panel greyed, for when there is no photograph to talk about.
 ///
 /// The panel used to return before drawing anything, so pressing its key on an
@@ -83,6 +95,8 @@ pub fn nothing_open(ctx: &egui::Context, visible: bool, width: f32) {
             ui.label(RichText::new("Rating & Tags").heading());
             ui.add_space(10.);
             ui.weak("No photograph open. Stars, flags, colours and keywords go on one.");
+
+            crate::ui::panel::menu(ui, &CHROME, |_| {});
         });
 }
 
@@ -144,6 +158,8 @@ pub fn ui(
 
             actions.extend(offered(ui, &sections));
         });
+
+        crate::ui::panel::menu(ui, &CHROME, |_| {});
     });
 
     // The width it came to rest at, reported back so it can be written to the

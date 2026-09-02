@@ -13,23 +13,23 @@ impl App {
 
         // The toggle has to change a pixel whatever the state, or the key
         // looks broken on a fresh start.
-        let actions = match self.history.is_empty() {
-            true => panel::nothing_yet(ctx, self.history_panel_visible, width),
-            false => panel::ui(
-                ctx,
-                self.history_panel_visible,
-                width,
-                &mut self.history_panel,
-                &self.history,
-            ),
-        };
+        if self.history.is_empty() {
+            panel::nothing_yet(ctx, self.history_panel_visible, width);
+            return;
+        }
+
+        let actions = panel::ui(
+            ctx,
+            self.history_panel_visible,
+            width,
+            &mut self.history_panel,
+            &self.history,
+        );
 
         for action in actions {
             match action {
                 Action::GoTo(id) => self.go_to_in_history(id),
                 Action::Repeat(id) => self.repeat_in_history(id),
-                Action::Hide => self.toggle_history_panel(),
-                Action::Settings(path) => self.open_settings_at(path),
                 Action::Width(width) => {
                     self.settings.history.panel_width = width;
                     self.save_settings();

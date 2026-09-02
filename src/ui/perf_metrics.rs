@@ -8,6 +8,20 @@ use eframe::egui;
 /// healthy frame rate, which is long enough to read and short enough to react.
 const RECENT_FRAMES: usize = 60;
 
+/// What the readout says for itself, for the menu every panel carries.
+///
+/// No key row: the readout is on `F10` and nothing else, which is the one
+/// binding in the program that is not a setting, so there is nothing for the
+/// keyboard editor to arm. What its figures are about is the memory and the
+/// threads, so that is the page its menu ends on.
+pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
+    subject: crate::ui::surface::Subject::the("The performance readout"),
+    hide: Some(crate::app::input::Command::ToggleMetrics),
+    key: None,
+    page: crate::config::registry::Page::SpeedAndMemory,
+    setting: "cache.ram_budget_mb",
+};
+
 pub struct PerfMetrics {
     frame_started: Instant,
     last: Duration,

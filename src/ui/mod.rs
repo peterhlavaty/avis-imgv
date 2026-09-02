@@ -11,6 +11,7 @@ pub mod legend;
 pub mod menus;
 pub mod navigator;
 pub mod notice;
+pub mod panel;
 pub mod perf_metrics;
 pub mod placeholders;
 pub mod progress;

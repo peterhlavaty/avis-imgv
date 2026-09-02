@@ -166,6 +166,8 @@ pub fn top_menu(
 
                 help_menu(ui, keys, &mut action);
             });
+
+            crate::ui::panel::menu(ui, &MENU_BAR, |_| {});
         });
 
     action
@@ -253,6 +255,28 @@ fn help_menu(ui: &mut egui::Ui, keys: &MenuKeys, action: &mut Option<MenuAction>
     });
 }
 
+/// What the metadata panel says for itself.
+///
+/// Here rather than beside the `SidePanel` that carries it, because the rows
+/// drawn in it are this file's and the settings row the menu ends on is the
+/// list of which tags they are.
+pub const METADATA_PANEL: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
+    subject: crate::ui::surface::Subject::the("The metadata panel"),
+    hide: Some(crate::app::input::Command::ToggleSidePanel),
+    key: Some("general.sc_toggle_side_panel"),
+    page: crate::config::registry::Page::ThePhotograph,
+    setting: "general.metadata_tags",
+};
+
+/// And what the menu bar says for itself.
+pub const MENU_BAR: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
+    subject: crate::ui::surface::Subject::the("The menu bar"),
+    hide: Some(crate::app::input::Command::ToggleMenu),
+    key: Some("general.sc_menu"),
+    page: crate::config::registry::Page::TheWindow,
+    setting: "general.panels_at_start",
+};
+
 /// Draws the metadata of the open image, in the order the configuration lists.
 ///
 /// `open` says whether there is a photograph at all: with no folder the panel
@@ -269,23 +293,6 @@ pub fn metadata_panel(
     ui.add_space(20.);
     ui.label(RichText::new("Image Metadata").heading());
     ui.add_space(10.);
-
-    let heading = ui.interact(
-        ui.min_rect(),
-        ui.id().with("metadata heading"),
-        egui::Sense::click(),
-    );
-    crate::ui::surface::menu(
-        ui,
-        &heading,
-        crate::ui::surface::Subject::the("The metadata panel"),
-        |ui| {
-            if crate::ui::surface::more_settings(ui, crate::config::registry::Page::ThePhotograph) {
-                asked = Some("general.metadata_tags");
-                ui.close();
-            }
-        },
-    );
 
     let Some(metadata) = metadata else {
         if open {

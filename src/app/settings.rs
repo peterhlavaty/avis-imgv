@@ -450,6 +450,23 @@ impl App {
     /// so a travel picked from a menu and a travel typed into the window are
     /// the same deed — including in the history, which watches the registry
     /// whenever `save_settings` says something moved.
+    /// Carries out whatever a panel's own menu asked for.
+    ///
+    /// The mirror of [`Self::take_slider_ask`], and for the same reason: a
+    /// panel is drawn from a subsystem that has neither the command dispatcher
+    /// nor the configuration in hand, so it leaves its ask in a mailbox rather
+    /// than growing a return value along four call chains. Everything it can
+    /// ask for goes through a route that already exists, which is what puts a
+    /// panel put away from its own menu in the history without a word here.
+    pub(super) fn take_panel_ask(&mut self, ctx: &egui::Context) {
+        match crate::ui::panel::asked() {
+            Some(crate::ui::panel::Ask::Hide(command)) => self.apply(command, ctx),
+            Some(crate::ui::panel::Ask::Settings(path)) => self.open_settings_at(path),
+            Some(crate::ui::panel::Ask::BindAKey(path)) => self.arm_key(path),
+            None => {}
+        }
+    }
+
     pub(super) fn take_slider_ask(&mut self) {
         match crate::ui::slider::asked() {
             Some(crate::ui::slider::Ask::Travel(travel)) => {

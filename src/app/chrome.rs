@@ -144,6 +144,8 @@ impl App {
                         panels::cache_stats(ui, &self.image_view.stats(), &self.grid_view.stats())
                             .or(asked);
                 });
+
+                crate::ui::panel::menu(ui, &panels::METADATA_PANEL, |_| {});
             });
 
         // The dragged width, written back to the field the window reads. It
