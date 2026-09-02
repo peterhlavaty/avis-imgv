@@ -32,6 +32,30 @@ const CORNERS: &[Choice] = &[
     },
 ];
 
+/// What a photograph is drawn at on the frame it first appears.
+///
+/// The words are `Opening`'s own, and a test at the foot of this file says so:
+/// a choice worded twice is a choice that drifts.
+const OPENINGS: &[Choice] = &[
+    Choice {
+        value: "fit",
+        label: "Fitted to the window",
+        sentence: "The whole photograph, as large as the window will take it.",
+    },
+    Choice {
+        value: "fill",
+        label: "Filling the window",
+        sentence: "Covers the window, cropping whichever side is longer. Nothing is \
+                   lost — the rest is a pan away.",
+    },
+    Choice {
+        value: "actual",
+        label: "Its own size",
+        sentence: "A hundred per cent: one screen pixel to one of the photograph's \
+                   own, which is the magnification focus is judged at.",
+    },
+];
+
 pub fn rows() -> Vec<Row> {
     let mut rows = vec![
         row!(
@@ -178,6 +202,35 @@ pub fn rows() -> Vec<Row> {
             },
         ),
         row!(
+            ThePhotograph / Movement,
+            "image_view.opening",
+            "What a photograph opens at",
+            "Fitted, which is what a viewer has always done — or filling the window, \
+             or its own size, which is the magnification focus is judged at. \
+             Whatever a photograph was last left at wins over this, and so do \
+             the two toggles in the status bar.",
+            [
+                "opening",
+                "default zoom",
+                "starts at",
+                "fit",
+                "fill",
+                "100%",
+                "actual size"
+            ],
+            Live,
+            None,
+            Access::Enum {
+                get: |c| c.image_view.opening.value(),
+                set: |c, v| {
+                    if let Some(opening) = crate::view::image_view::opening::Opening::of(v) {
+                        c.image_view.opening = opening;
+                    }
+                },
+                choices: OPENINGS,
+            },
+        ),
+        row!(
             ThePhotograph / Framing,
             "image_view.enlarge_to_fit",
             "Enlarge a small photograph to fit",
@@ -302,9 +355,11 @@ fn keys() -> Vec<Row> {
         row!(KeysAndMouse / Keys, "image_view.sc_fit_maximize", "Fill",
             "Fill the window, cropping whichever side overflows.",
             ["fill", "crop"], Live, ImageView, key!(image_view.sc_fit_maximize)),
-        row!(KeysAndMouse / Keys, "image_view.sc_latch_fit_maximize", "Keep filling",
-            "Carry on filling the window as you move through the folder.",
-            ["latch", "fill"], Live, ImageView, key!(image_view.sc_latch_fit_maximize)),
+        row!(KeysAndMouse / Keys, "image_view.sc_cycle_opening", "How a photograph opens",
+            "Move what a new photograph is drawn at round the three answers: fitted, \
+             filling the window, its own size.",
+            ["latch", "fill", "opening", "keep filling", "100%"],
+            Live, ImageView, key!(image_view.sc_cycle_opening)),
         row!(KeysAndMouse / Keys, "image_view.sc_fit_horizontal", "Fit width",
             "Make the picture exactly as wide as the window.",
             ["width"], Live, ImageView, key!(image_view.sc_fit_horizontal)),
@@ -367,4 +422,23 @@ fn keys() -> Vec<Row> {
             ["crop", "marquee", "selection", "marked", "zoom to selection"],
             Live, ImageView, key!(image_view.sc_zoom_to_area)),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::view::image_view::opening::Opening;
+
+    /// The window offers exactly the three the program has, in the words the
+    /// enum uses for them.
+    #[test]
+    fn the_openings_offered_are_the_openings_there_are() {
+        assert_eq!(OPENINGS.len(), Opening::ALL.len());
+
+        for (choice, opening) in OPENINGS.iter().zip(Opening::ALL) {
+            assert_eq!(choice.value, opening.value());
+            assert_eq!(choice.label, opening.label());
+            assert_eq!(choice.sentence, opening.description());
+        }
+    }
 }

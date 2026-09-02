@@ -85,10 +85,28 @@ pub fn step(viewport: &mut Viewport, factor: f32, ceiling: f32) {
 /// before the two can be divided. On a screen at 125% this used to leave the
 /// photograph a quarter larger than it claimed.
 pub fn to_percent(viewport: &mut Viewport, metrics: &Metrics, percent: f32) {
-    let wanted = metrics.image_size.x * percent / 100.0;
-    let fitted = metrics.fit_size.x * metrics.pixels_per_point;
+    set(
+        viewport,
+        at_percent(
+            metrics.image_size,
+            metrics.fit_size,
+            metrics.pixels_per_point,
+            percent,
+        ),
+    );
+}
 
-    set(viewport, ratio(wanted, fitted));
+/// The magnification that draws a photograph at `percent` of its own pixels.
+///
+/// Split out of [`to_percent`] because what a photograph *opens* at is decided
+/// from inside the canvas, in the middle of measuring the frame that will
+/// produce the metrics: there is nothing to hand it yet but the four numbers
+/// it needs.
+pub fn at_percent(image_size: Vec2, fit_size: Vec2, pixels_per_point: f32, percent: f32) -> f32 {
+    ratio(
+        image_size.x * percent / 100.0,
+        fit_size.x * pixels_per_point,
+    )
 }
 
 /// What the reading says when the whole photograph fits the panel.
@@ -157,7 +175,7 @@ pub fn by(viewport: &mut Viewport, factor: f32) {
 ///
 /// Before the first frame is drawn the metrics are all zero, so the commands
 /// must be safe to issue against them.
-fn set(viewport: &mut Viewport, zoom: f32) {
+pub(super) fn set(viewport: &mut Viewport, zoom: f32) {
     if zoom.is_finite() && zoom > 0.0 {
         viewport.zoom = zoom;
     }

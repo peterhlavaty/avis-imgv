@@ -1084,6 +1084,7 @@ set aside for the full resolution copies, which are 96 MB each.
 | `marked_area_dim` | How far the rest of the photograph is darkened while part of it is marked out, out of a hundred. `0` leaves it alone, which is what somebody judging an exposure against its surroundings wants. | 45 |
 | `should_wait` | Wait for the next image to finish decoding before advancing to it | true |
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
+| `opening` | What a photograph is drawn at on the frame it first appears: `fit`, `fill` or `actual`. Whatever the photograph was last left at wins over it, and `Ctrl + M` moves it round the three. | `fit` |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `zoom_out_past_fit` | Let the zoom go out past fitting the window, leaving a border on all four sides | false |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
@@ -1254,7 +1255,7 @@ break the pairing it depends on.
 | Page Up / Page Down | Ten at a time |
 | F | Fit the image to the screen |
 | M | Fill the screen |
-| Ctrl + M | Toggle: keep filling the screen while navigating |
+| Ctrl + M | What every photograph opens at: fitted, filling the window, its own size |
 | H / V | Fit horizontal / vertical |
 | Alt + 1 | 100% magnification |
 | R | Put this picture where the last one was left |
@@ -1285,6 +1286,14 @@ out in. The readout beside the slider says the same number, and the slider runs
 logarithmically up to 1600%: it used to run from a tenth to ten times the
 *fitted* size, which on a twenty-four megapixel photograph could not reach
 actual size at all.
+
+**What a photograph opens at is a setting.** Fitted, which is what a viewer
+usually does — or filling the window, or its own size, which is the
+magnification focus is judged at and the one worth having when a shoot is being
+gone through for sharpness. `Ctrl + M` moves it round the three and says so in
+the status bar, leaving the photograph on screen exactly as it is — `F` and `M`
+are the two that mean *do it to this one now*. A photograph that was zoomed and
+left comes back where it was left rather than opening again.
 
 **Zooming out stops at fitting.** Past it the photograph has a border on all
 four sides and there is nothing more to see, so every notch spent getting there

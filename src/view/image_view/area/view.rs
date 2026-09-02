@@ -77,9 +77,9 @@ impl ImageView {
 
         self.viewport.zoom = zoom;
         self.viewport.pan = pan;
-        // The latch that fills the panel once per photograph would otherwise
-        // undo this on the very next frame.
-        self.viewport.maximized = true;
+        // What a photograph opens at is applied once per photograph and would
+        // otherwise undo this on the very next frame.
+        self.viewport.opened = true;
     }
 
     /// Asks whoever has a decoder to put it on the clipboard.

@@ -24,7 +24,7 @@ use super::{defaults, Config, Shortcut};
 /// What this build writes.
 ///
 /// Bumped whenever a step is added below, and never otherwise.
-pub const CURRENT: u32 = 3;
+pub const CURRENT: u32 = 4;
 
 /// One thing that has to be put right in an older file.
 struct Step {
@@ -76,6 +76,11 @@ const DOCUMENT_STEPS: &[DocumentStep] = &[
         until: 3,
         said: "Undo moved from cull.sc_undo to history.sc_undo, because it now takes back settings and where you were looking as well as what was done to a file",
         apply: undo_into_the_history_section,
+    },
+    DocumentStep {
+        until: 4,
+        said: "Keeping the window filled moved from image_view.sc_latch_fit_maximize to image_view.sc_cycle_opening, which now goes round all three answers to what a photograph opens at rather than only the one",
+        apply: the_latch_becomes_the_opening,
     },
 ];
 
@@ -178,6 +183,34 @@ fn undo_into_the_history_section(map: &mut Map<String, Value>) -> bool {
     }
 
     history.insert("sc_undo".to_string(), bound);
+    true
+}
+
+/// The latch that kept the window filled is now one of three openings.
+///
+/// The key kept its binding and its place on the keyboard and lost only its
+/// name, so the value is carried across rather than dropped: somebody who
+/// moved it off `Ctrl + M` would otherwise find it back there.
+///
+/// A file that already says something about the new key is left alone, on the
+/// same rule as every other step here: what the newer build wrote is the
+/// deliberate one.
+fn the_latch_becomes_the_opening(map: &mut Map<String, Value>) -> bool {
+    let Some(section) = map.get_mut("image_view").and_then(Value::as_object_mut) else {
+        return false;
+    };
+
+    let Some(bound) = section.remove("sc_latch_fit_maximize") else {
+        return false;
+    };
+
+    if section.contains_key("sc_cycle_opening") {
+        // The old key is still gone: it means nothing to this build, and
+        // leaving it would put it back on the next save.
+        return true;
+    }
+
+    section.insert("sc_cycle_opening".to_string(), bound);
     true
 }
 
@@ -326,6 +359,46 @@ mod tests {
 
         assert_eq!(map["history"]["sc_undo"]["key"], serde_json::json!("z"));
         assert!(map["cull"].get("sc_undo").is_none());
+    }
+
+    /// The key kept its binding and its place and lost only its name, so what
+    /// somebody bound it to has to come across with it.
+    #[test]
+    fn a_rebound_filling_latch_becomes_the_opening_key() {
+        let mut map = document(
+            r#"{"image_view": {"sc_latch_fit_maximize": {"key": "k", "modifiers": ["alt"]}}}"#,
+        );
+        let said = super::document(&mut map);
+
+        assert_eq!(said.len(), 1);
+        assert_eq!(
+            map["image_view"]["sc_cycle_opening"]["key"],
+            serde_json::json!("k")
+        );
+        assert_eq!(
+            map["image_view"]["sc_cycle_opening"]["modifiers"],
+            serde_json::json!(["alt"])
+        );
+        assert!(
+            map["image_view"].get("sc_latch_fit_maximize").is_none(),
+            "and the old key is gone, or the next save would put it back"
+        );
+    }
+
+    /// The same rule as the other two: what a newer build wrote wins.
+    #[test]
+    fn an_opening_key_already_written_is_left_alone() {
+        let mut map = document(
+            r#"{"image_view": {"sc_latch_fit_maximize": {"key": "k", "modifiers": []},
+                               "sc_cycle_opening": {"key": "m", "modifiers": ["ctrl"]}}}"#,
+        );
+        super::document(&mut map);
+
+        assert_eq!(
+            map["image_view"]["sc_cycle_opening"]["key"],
+            serde_json::json!("m")
+        );
+        assert!(map["image_view"].get("sc_latch_fit_maximize").is_none());
     }
 
     /// The rule that makes every migration safe: a newer key that has been

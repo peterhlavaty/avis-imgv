@@ -14,6 +14,7 @@ use crate::cache::{StoreConfig, StoreStats};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
+use super::opening::Opening;
 use super::slideshow::Slideshow;
 use super::viewports::{Place, Viewports};
 use super::{zoom, ImageView};
@@ -82,8 +83,9 @@ impl ImageView {
 
         self.slideshow_config = config.clone();
         self.slideshow = running.then(|| Slideshow::new(config));
-        self.viewport.maximize = running && config.motion != Motion::Still;
-        self.viewport.maximized = false;
+        // The photograph on screen opens again under whichever of the two
+        // answers now applies.
+        self.viewport.opened = false;
         self.frame.enabled = running && config.start_with_frame_enabled;
 
         if !running {
@@ -323,6 +325,31 @@ impl ImageView {
     /// cycling it has left them.
     pub fn overlay_corner(&self) -> crate::view::image_view::overlay::Corner {
         self.config.overlay_corner
+    }
+
+    /// What a photograph opens at, as the setting says and the key has left
+    /// it.
+    ///
+    /// The setting itself rather than what the canvas will do: this is the
+    /// half of the mirror that writes the file, and a slideshow's answer is
+    /// not a preference anybody expressed.
+    pub fn opening(&self) -> Opening {
+        self.config.opening
+    }
+
+    /// What the photograph on screen actually opens at.
+    ///
+    /// A slideshow answers for itself. Filling the screen is what all but one
+    /// of its motions start from, and `Motion::Still` is the one that says
+    /// *the whole picture, fitted to the screen* — which the latch the
+    /// constructor used to set quietly contradicted, so a still slideshow
+    /// started by the `--slideshow` switch cropped every photograph in it.
+    pub(super) fn opens_at(&self) -> Opening {
+        match self.slideshow.as_ref().map(Slideshow::motion) {
+            None => self.config.opening,
+            Some(Motion::Still) => Opening::Fit,
+            Some(_) => Opening::Fill,
+        }
     }
 
     /// How many photographs are drawn side by side, as the keys have left it.

@@ -558,6 +558,14 @@ pub struct ImageViewConfig {
     /// its own size it is a postage stamp in the middle of the screen.
     #[serde(default = "default_enlarge_to_fit")]
     pub enlarge_to_fit: bool,
+    /// What a photograph is drawn at on the frame it first appears.
+    ///
+    /// Fitted, by default, which is what a viewer has always done. The other
+    /// two are for the two ways a shoot is actually gone through: filling the
+    /// window judges a composition on the whole screen, and its own size is
+    /// the magnification focus is judged at.
+    #[serde(default)]
+    pub opening: crate::view::image_view::opening::Opening,
     /// Whether the zoom goes out past fitting the window.
     ///
     /// It does not, by default, and stops exactly at the fit. Below it the
@@ -614,8 +622,8 @@ pub struct ImageViewConfig {
     pub sc_fit_vertical: Shortcut,
     #[serde(default = "default_sc_fit_maximize")]
     pub sc_fit_maximize: Shortcut,
-    #[serde(default = "default_sc_latch_fit_maximize")]
-    pub sc_latch_fit_maximize: Shortcut,
+    #[serde(default = "default_sc_cycle_opening")]
+    pub sc_cycle_opening: Shortcut,
     #[serde(default = "default_sc_more_images_shown")]
     pub sc_more_images_shown: Shortcut,
     #[serde(default = "default_sc_less_images_shown")]
@@ -861,6 +869,7 @@ impl Default for ImageViewConfig {
             should_wait: default_should_wait(),
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             enlarge_to_fit: default_enlarge_to_fit(),
+            opening: crate::view::image_view::opening::Opening::default(),
             zoom_out_past_fit: default_zoom_out_past_fit(),
             zoom_step: default_zoom_step(),
             zoom_step_factor: default_zoom_step_factor(),
@@ -888,7 +897,7 @@ impl Default for ImageViewConfig {
             sc_fit_vertical: default_sc_fit_vertical(),
             sc_fit_horizontal: default_sc_fit_horizontal(),
             sc_fit_maximize: default_sc_fit_maximize(),
-            sc_latch_fit_maximize: default_sc_latch_fit_maximize(),
+            sc_cycle_opening: default_sc_cycle_opening(),
             sc_more_images_shown: default_sc_more_images_shown(),
             sc_less_images_shown: default_sc_less_images_shown(),
             sc_compare: default_sc_compare(),

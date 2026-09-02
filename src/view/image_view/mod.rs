@@ -8,6 +8,7 @@ pub mod interaction;
 pub mod layout;
 pub mod marks;
 pub mod navigate;
+pub mod opening;
 pub mod overlay;
 pub mod slideshow;
 pub mod viewports;
@@ -154,11 +155,7 @@ impl ImageView {
             marking: crate::decoder::overlays::Overlay::default(),
             marks: marks::Marks::default(),
             comparing: None,
-            viewport: Viewport {
-                // A slideshow always fills the screen.
-                maximize: start_slideshow,
-                ..Default::default()
-            },
+            viewport: Viewport::default(),
             area: area::Area::default(),
             frame: FrameStyle {
                 enabled: start_slideshow && slideshow_config.start_with_frame_enabled,
@@ -336,10 +333,12 @@ impl ImageView {
             // magnifies holds whatever is under the pointer.
             Command::Fit => self.zooming(ctx, CENTRE, |viewport, _| zoom::fit(viewport)),
             Command::Fill => self.zooming(ctx, CENTRE, zoom::fill),
-            Command::ToggleFillLatch => {
-                self.viewport.maximize = !self.viewport.maximize;
-                self.viewport.maximized = false;
-            }
+            // The photograph on screen is left exactly as it is. This says
+            // what a photograph *arrives* at, and re-opening the one being
+            // looked at would throw away a zoom and a pan somebody chose by
+            // hand — `Fit` and `Fill` are the two that mean do it now. The
+            // word in the status bar is what says the key did something.
+            Command::CycleOpening => self.config.opening = self.config.opening.next(),
             Command::FitHorizontal => self.zooming(ctx, CENTRE, zoom::fit_horizontal),
             Command::FitVertical => self.zooming(ctx, CENTRE, zoom::fit_vertical),
             Command::ZoomStep => {
@@ -640,6 +639,8 @@ impl ImageView {
             mask: self.marks.texture_id(),
             frame: self.frame,
             enlarge: self.config.enlarge_to_fit,
+            opening: self.opens_at(),
+            past_fit: self.config.zoom_out_past_fit,
         };
 
         let shown = layout::show(
@@ -707,6 +708,9 @@ impl ImageView {
             ctx.request_repaint();
         }
 
+        // Read before the borrow the box needs.
+        let opening = self.opening();
+
         let mut status = Status {
             jump_to: &mut self.jump_to,
             asking_to_go_to,
@@ -721,7 +725,7 @@ impl ImageView {
             mode,
             unread,
             flags: Flags {
-                filling: self.viewport.maximize,
+                opening,
                 comparing,
                 marking: self.marking,
                 ..flags

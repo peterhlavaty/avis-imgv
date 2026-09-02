@@ -255,7 +255,9 @@ pub fn default_sc_fit_horizontal() -> Shortcut {
 pub fn default_sc_fit_maximize() -> Shortcut {
     Shortcut::new("m", &[])
 }
-pub fn default_sc_latch_fit_maximize() -> Shortcut {
+/// `Ctrl + M`, which is where the key that latched the filling already was.
+/// It now moves what a photograph opens at round the three answers.
+pub fn default_sc_cycle_opening() -> Shortcut {
     Shortcut::new("m", &[MOD_CTRL])
 }
 

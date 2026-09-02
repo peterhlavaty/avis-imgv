@@ -64,8 +64,8 @@ pub enum Command {
     Fit,
     /// Fill the panel, cropping the overflowing side.
     Fill,
-    /// Keep filling the panel as the user navigates.
-    ToggleFillLatch,
+    /// Move what a new photograph opens at round the three answers.
+    CycleOpening,
     FitHorizontal,
     FitVertical,
     /// Double the magnification, wrapping back to fitted.
@@ -139,7 +139,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
         (&config.sc_prev, Command::Previous),
         (&config.sc_fit, Command::Fit),
         (&config.sc_fit_maximize, Command::Fill),
-        (&config.sc_latch_fit_maximize, Command::ToggleFillLatch),
+        (&config.sc_cycle_opening, Command::CycleOpening),
         (&config.sc_fit_horizontal, Command::FitHorizontal),
         (&config.sc_fit_vertical, Command::FitVertical),
         (&config.sc_zoom, Command::ZoomStep),

@@ -1,5 +1,30 @@
 # Change Log
 
+## 2026-09-02
+
+- **What a photograph opens at is now a setting.** Fitted, filling the window,
+  or its own size — one screen pixel to one of the photograph's own, which is
+  the magnification focus is judged at and what somebody going through a shoot
+  for sharpness wants every frame to arrive at. *What a photograph opens at* on
+  the photograph page holds it, the status bar says which of the two unusual
+  answers is in force and offers the other two, and `Ctrl + M` moves round all
+  three. That key used to be a latch that only kept the window filled, held for
+  the session and forgotten at exit; a file that bound it somewhere else keeps
+  the binding, which the migration carries from
+  `image_view.sc_latch_fit_maximize` to `image_view.sc_cycle_opening`.
+
+  A photograph that was zoomed and left still comes back exactly where it was
+  left: the opening decides what a photograph the viewer has not been into
+  before is drawn at, and nothing more. The key leaves the photograph on screen
+  alone for the same reason — `F` and `M` are the two that mean *do it to this
+  one now*, and a setting that threw away a zoom chosen by hand would be a
+  worse latch than the one it replaces.
+- **A still slideshow no longer crops every photograph in it.** *Hold still*
+  says the whole picture, fitted to the screen, and a slideshow started from
+  the command line filled the screen regardless — the latch was set from
+  "is this a slideshow" at startup while the setting was read only when one was
+  switched on later. Both go through the same answer now.
+
 ## 2026-09-01
 
 - **A bin of the viewer's own, which can be opened and looked in.** The

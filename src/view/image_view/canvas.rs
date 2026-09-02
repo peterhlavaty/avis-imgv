@@ -31,6 +31,15 @@ pub struct Style {
     /// The one that needs it is a raw file's embedded copy: some DNGs carry a
     /// 256 pixel preview and nothing else.
     pub enlarge: bool,
+    /// What a photograph is drawn at on the frame it first appears.
+    pub opening: super::opening::Opening,
+    /// Whether the zoom may go out past fitting the panel.
+    ///
+    /// Here because the opening is a change to the magnification like any
+    /// other, and the floor is applied after each of them rather than inside
+    /// them: a photograph small enough that its own size is smaller than the
+    /// fitted size opens fitted, which is the same answer `enlarge` gives.
+    pub past_fit: bool,
 }
 
 /// What is written over the photograph, already expanded.
@@ -54,11 +63,13 @@ pub struct Viewport {
     pub pan: Vec2,
     /// Scroll or drag applied this frame.
     pub scroll_delta: Vec2,
-    /// Whether newly shown images should fill the panel rather than fit in it.
-    pub maximize: bool,
-    /// Set once the current image has been maximised, so it happens exactly
-    /// once per image and never mid-interaction.
-    pub maximized: bool,
+    /// Set once the photograph on screen has been opened, so what it opens at
+    /// is decided exactly once per photograph and never mid-interaction.
+    ///
+    /// Set by whoever decided the magnification first: the canvas, when it is
+    /// the setting that decides, and `select` when the viewer is carrying a
+    /// zoom over or putting a photograph back where it was left.
+    pub opened: bool,
 }
 
 impl Default for Viewport {
@@ -67,8 +78,7 @@ impl Default for Viewport {
             zoom: 1.0,
             pan: Vec2::ZERO,
             scroll_delta: Vec2::ZERO,
-            maximize: false,
-            maximized: false,
+            opened: false,
         }
     }
 }
@@ -77,7 +87,7 @@ impl Viewport {
     /// Called when a different image is shown.
     pub fn reset_for_new_image(&mut self) {
         self.pan = Vec2::ZERO;
-        self.maximized = false;
+        self.opened = false;
     }
 }
 
@@ -175,9 +185,24 @@ pub fn draw(
         fit(texture.size, available)
     };
 
-    if leading && viewport.maximize && !viewport.maximized {
-        viewport.maximized = true;
-        viewport.zoom = fill_zoom(fit_size, available);
+    // Once per photograph, on the first frame it is drawn: what a hundred per
+    // cent or a filled window is worth as a magnification is a function of the
+    // window, and there is nowhere earlier than this that the window has been
+    // measured.
+    if leading && !viewport.opened {
+        viewport.opened = true;
+        super::zoom::set(
+            viewport,
+            super::zoom::floored(
+                style.opening.zoom(
+                    texture.size,
+                    fit_size,
+                    available,
+                    ui.ctx().pixels_per_point(),
+                ),
+                style.past_fit,
+            ),
+        );
     }
 
     let scaled = fit_size * viewport.zoom;
@@ -525,12 +550,12 @@ mod tests {
     fn a_new_image_starts_centred() {
         let mut viewport = Viewport {
             pan: Vec2::new(10.0, 10.0),
-            maximized: true,
+            opened: true,
             ..Default::default()
         };
         viewport.reset_for_new_image();
 
         assert_eq!(viewport.pan, Vec2::ZERO);
-        assert!(!viewport.maximized);
+        assert!(!viewport.opened);
     }
 }

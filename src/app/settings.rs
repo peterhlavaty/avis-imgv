@@ -225,6 +225,12 @@ impl App {
             moved = true;
         }
 
+        let opening = self.image_view.opening();
+        if self.settings.image_view.opening != opening {
+            self.settings.image_view.opening = opening;
+            moved = true;
+        }
+
         let shown = self.image_view.images_shown();
         if self.settings.image_view.nr_images_shown != shown {
             self.settings.image_view.nr_images_shown = shown;

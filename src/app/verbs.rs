@@ -216,6 +216,15 @@ impl App {
                 self.tag_config.advance_after_marking = on;
                 self.save_settings();
             }
+            // Written to the file rather than only to the view, on the same
+            // rule as every other value a key or a word in the bar nudges: a
+            // preference that dies with the session is one somebody sets twice
+            // a day.
+            BarAction::SetOpening(opening) => {
+                self.settings.image_view.opening = opening;
+                self.image_view.set_config(self.settings.image_view.clone());
+                self.save_settings();
+            }
             BarAction::Settings(path) => self.open_settings_at(path),
             BarAction::ToggleStack => self.apply_command(Command::ToggleStack),
             BarAction::ShowEverything => self.apply_command(Command::SuspendFilter),

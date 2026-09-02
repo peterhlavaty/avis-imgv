@@ -6,6 +6,7 @@ use eframe::epaint::Vec2;
 use crate::decoder::overlays::Overlay;
 use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
 use crate::organize::pairs::Prefer;
+use crate::view::image_view::opening::Opening;
 use crate::view::stacks::Place;
 
 use super::input::{Anchor, Command};
@@ -59,7 +60,8 @@ impl Marks {
 pub struct Flags {
     pub flattened: bool,
     pub watching: bool,
-    pub filling: bool,
+    /// What a photograph is drawn at on the frame it first appears.
+    pub opening: crate::view::image_view::opening::Opening,
     /// Whether a mark moves on to the next photograph by itself.
     pub advancing: bool,
     /// Whether a set of photographs is pinned side by side.
@@ -145,6 +147,8 @@ pub enum BarAction {
     ToggleWatching,
     /// Whether a mark moves on to the next photograph by itself.
     SetAdvancing(bool),
+    /// What a photograph is drawn at when it comes up.
+    SetOpening(crate::view::image_view::opening::Opening),
     /// Which half of a raw+JPEG pair is the one browsed.
     SetPairing(Prefer),
     /// Go to the settings row behind this readout.
@@ -268,18 +272,28 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
         );
     }
 
-    if flags.filling {
+    if let Some(said) = flags.opening.word() {
         word(
             ui,
-            "Filling",
-            "Every photograph fills the window, cropping whichever side is longer.",
+            said,
+            "What every photograph is drawn at when it comes up. Fitted says \
+             nothing here, being what a viewer usually does.",
             |ui| {
-                if ui.button("Fit the whole photograph instead").clicked() {
-                    commands.push(Command::Fit);
+                for wanted in Opening::ALL {
+                    // Radios rather than buttons: the word says which of the
+                    // three is in force, and the menu is where the other two
+                    // are, so it may as well say it twice.
+                    if ui.radio(flags.opening == *wanted, wanted.label()).clicked() {
+                        asked.push(BarAction::SetOpening(*wanted));
+                        ui.close();
+                    }
+                }
+                if surface::bind_a_key(ui, "how a photograph opens") {
+                    asked.push(BarAction::BindKey("image_view.sc_cycle_opening"));
                     ui.close();
                 }
                 if surface::more_settings(ui, Page::ThePhotograph) {
-                    asked.push(BarAction::Settings("image_view.enlarge_to_fit"));
+                    asked.push(BarAction::Settings("image_view.opening"));
                     ui.close();
                 }
             },
@@ -439,10 +453,10 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     crate::ui::surface::Subject::of("Position", &counted),
                     &says,
                     |ui| {
-                    if status.hidden > 0 && ui.button("Show everything").clicked() {
-                        outcome.bar.push(BarAction::ShowEverything);
-                        ui.close();
-                    }
+                        if status.hidden > 0 && ui.button("Show everything").clicked() {
+                            outcome.bar.push(BarAction::ShowEverything);
+                            ui.close();
+                        }
 
                         if crate::ui::surface::more_settings(
                             ui,
@@ -555,7 +569,8 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
 
                             if count
                                 .on_hover_text(
-                                    "Messages you have not read. The band holds four for six                                      seconds; this does not.",
+                                    "Messages you have not read. The band holds four for \
+                                     six seconds; this does not.",
                                 )
                                 .clicked()
                             {
@@ -563,9 +578,11 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                             }
                         }
 
-                        outcome
-                            .commands
-                            .extend(zoom_slider(ui, status.percentage_zoom, status.least_zoom));
+                        outcome.commands.extend(zoom_slider(
+                            ui,
+                            status.percentage_zoom,
+                            status.least_zoom,
+                        ));
 
                         outcome
                             .commands
