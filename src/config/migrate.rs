@@ -24,7 +24,7 @@ use super::{defaults, Config, Shortcut};
 /// What this build writes.
 ///
 /// Bumped whenever a step is added below, and never otherwise.
-pub const CURRENT: u32 = 5;
+pub const CURRENT: u32 = 6;
 
 /// One thing that has to be put right in an older file.
 struct Step {
@@ -47,6 +47,11 @@ const STEPS: &[Step] = &[
         said: "Showing more or fewer images side by side moved to Ctrl with \
                Plus and Minus, which is where it stopped fighting with zoom",
         apply: side_by_side_onto_ctrl,
+    },
+    Step {
+        until: 6,
+        said: "Watching the folder moved from Ctrl + W to Ctrl + Shift + W,                because Ctrl and a pan key now pans by a pixel",
+        apply: the_watcher_off_the_pan_key,
     },
 ];
 
@@ -279,6 +284,25 @@ fn scroll_off_the_space_bar(config: &mut Config) -> bool {
     }
 
     config.grid_view.sc_scroll = defaults::default_sc_scroll();
+    true
+}
+
+/// `Ctrl + W` became the fine pan up.
+///
+/// Ctrl with a pan key moves the picture by a pixel a press, and the pan keys
+/// are `W A S D`, so the folder watcher shared a chord with pan up — and it is
+/// the binding that wins, once for every repeat the platform sends while the
+/// key is held. The default moved to `Ctrl + Shift + W`; a file written before
+/// that keeps the old one for ever, because `serde` fills in the keys that are
+/// missing rather than the ones that have since moved. Anybody who had already
+/// put the watcher somewhere of their own keeps it there.
+fn the_watcher_off_the_pan_key(config: &mut Config) -> bool {
+    let was = Shortcut::new("w", &[crate::config::shortcut::MOD_CTRL]);
+    if config.general.sc_watch_directory != was {
+        return false;
+    }
+
+    config.general.sc_watch_directory = defaults::default_sc_watch_directory();
     true
 }
 
@@ -540,6 +564,29 @@ mod tests {
 
         // And the clash it was for is gone.
         assert!(crate::ui::keys::clashes(&config).is_empty());
+    }
+
+    /// The watcher shared `Ctrl + W` with the fine pan up from the day the
+    /// modifier arrived, and a file written before that keeps it for ever.
+    #[test]
+    fn an_old_file_has_the_watcher_moved_off_the_pan_key() {
+        let mut config = Config {
+            version: 5,
+            general: super::super::GeneralConfig {
+                sc_watch_directory: Shortcut::new("w", &[crate::config::shortcut::MOD_CTRL]),
+                ..Default::default()
+            },
+            ..Config::default()
+        };
+
+        let said = apply(&mut config);
+
+        assert_eq!(said.len(), 1);
+        assert_eq!(
+            config.general.sc_watch_directory,
+            defaults::default_sc_watch_directory()
+        );
+        assert!(config.check().is_empty(), "{:?}", config.check());
     }
 
     /// The rule that makes migrations safe: a key the user chose is theirs.

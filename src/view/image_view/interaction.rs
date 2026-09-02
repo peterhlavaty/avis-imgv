@@ -14,7 +14,7 @@ use crate::config::{DragButton, WheelJob};
 use crate::ui::menus::{Chosen, Row, Verb};
 use crate::view::wheel::{self, Job, Notch};
 
-use super::{input, ImageView};
+use super::{input, pan, ImageView};
 
 impl ImageView {
     pub(super) fn handle_pointer(&mut self, ctx: &egui::Context, response: &Response) {
@@ -158,26 +158,32 @@ impl ImageView {
         })
     }
 
-    /// The pan asked for by the keys held this frame.
-    ///
-    /// Nothing is asked for while the whole image is on screen, so the keys
-    /// stay free for whatever else they are bound to until there is somewhere
-    /// to move to.
-    fn keyboard_panning(&self, ctx: &egui::Context) -> Vec2 {
-        if self.metrics.available_size == Vec2::ZERO {
+    /// The pan asked for by the keys this frame: one step for a press, and a
+    /// glide for a key held longer than the delay. [`pan`] decides both.
+    fn keyboard_panning(&mut self, ctx: &egui::Context) -> Vec2 {
+        // egui runs the frame again whenever something in it asks for another
+        // look, and the second pass arrives with no events but with a clock
+        // that has moved on — so the keys would be paid twice for one frame,
+        // and `canvas::metrics` applies the delta once a pass. The pan is
+        // decided on the first pass and carried by the ones after it.
+        if ctx.current_pass_index() > 0 || self.metrics.available_size == Vec2::ZERO {
             return Vec2::ZERO;
         }
 
-        let seconds = ctx.input(|input| input.stable_dt);
-        let pan = input::panning(ctx, &self.config, self.metrics.available_size, seconds);
+        let keys = pan::asked(ctx, &self.config);
 
-        if pan != Vec2::ZERO {
+        if keys.anything() {
             // Held keys produce no events, so nothing else would ask for the
-            // next frame and the image would move one step and stop.
+            // next frame: the image would move one step and stop, and a glide
+            // waiting on the delay would never start at all.
             ctx.request_repaint();
         }
 
-        pan
+        let pace = pan::Pace::of(&self.config, keys.fine);
+        let seconds = ctx.input(|input| input.stable_dt);
+
+        self.glide
+            .moved(keys, pace, self.metrics.available_size, seconds)
     }
 
     pub(super) fn handle_context_menu(&mut self, ctx: &egui::Context, response: &Response) {

@@ -18,7 +18,7 @@ pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, MenuConfig, Panel
 pub use defaults::*;
 pub use history::{HistoryConfig, Undoes};
 pub use mouse::{DragButton, MouseConfig, WheelJob};
-pub use shortcut::{build_keyboard_shortcut, Shortcut, ShortcutData};
+pub use shortcut::{build_keyboard_shortcut, FineModifier, Shortcut, ShortcutData};
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(default)]
@@ -615,6 +615,28 @@ pub struct ImageViewConfig {
     /// How fast a held pan key moves the view, in screens a second.
     #[serde(default = "default_pan_speed")]
     pub pan_speed: f32,
+    /// How far one press of a pan key moves the view, in points.
+    ///
+    /// A press and a hold are two gestures: the tap is exactly this far and
+    /// the hold glides at `pan_speed`. Time alone decided both until the
+    /// smallest movement anybody could ask for was however long a finger stays
+    /// on a key.
+    #[serde(default = "default_pan_step")]
+    pub pan_step: f32,
+    /// How long a pan key is held before it starts to glide, in seconds.
+    ///
+    /// Nought glides from the first frame, which is what the keys did before
+    /// there was a step at all.
+    #[serde(default = "default_pan_glide_delay")]
+    pub pan_glide_delay: f32,
+    /// The same two with [`ImageViewConfig::pan_fine_modifier`] held.
+    #[serde(default = "default_pan_fine_step")]
+    pub pan_fine_step: f32,
+    #[serde(default = "default_pan_fine_speed")]
+    pub pan_fine_speed: f32,
+    /// The modifier that means "finer", held while a pan key is down.
+    #[serde(default = "default_pan_fine_modifier")]
+    pub pan_fine_modifier: FineModifier,
     /// How many photographs a screenful is, for the keys that walk a long
     /// folder quickly.
     #[serde(default = "default_page")]
@@ -907,6 +929,11 @@ impl Default for ImageViewConfig {
             zoom_step_factor: default_zoom_step_factor(),
             zoom_step_max: default_zoom_step_max(),
             pan_speed: default_pan_speed(),
+            pan_step: default_pan_step(),
+            pan_glide_delay: default_pan_glide_delay(),
+            pan_fine_step: default_pan_fine_step(),
+            pan_fine_speed: default_pan_fine_speed(),
+            pan_fine_modifier: default_pan_fine_modifier(),
             page: default_page(),
             user_actions: default_user_actions(),
             context_menu: default_ctx_menu(),

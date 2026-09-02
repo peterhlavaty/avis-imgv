@@ -197,6 +197,50 @@ pub fn build_keyboard_shortcut(mods: &[String], key: &str) -> KeyboardShortcut {
     }
 }
 
+/// The modifier that means "finer", held while a pan key is down.
+///
+/// A held modifier rather than a binding of its own: it says how far the key
+/// beside it moves, and there is nothing for it to do on its own. Ctrl by
+/// default, which is where every other program puts "the careful version of
+/// this gesture" — and read as egui reads a binding asking for control, so it
+/// is Command on a Mac.
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FineModifier {
+    #[default]
+    Ctrl,
+    Shift,
+    Alt,
+}
+
+impl FineModifier {
+    pub fn value(self) -> &'static str {
+        match self {
+            FineModifier::Ctrl => MOD_CTRL,
+            FineModifier::Shift => MOD_SHIFT,
+            FineModifier::Alt => MOD_ALT,
+        }
+    }
+
+    /// The modifier of that name, or nothing where this build has never heard
+    /// of it: a name it cannot read leaves the caller's default in place
+    /// rather than turning the fine pan off altogether.
+    pub fn of(name: &str) -> Option<FineModifier> {
+        [FineModifier::Ctrl, FineModifier::Shift, FineModifier::Alt]
+            .into_iter()
+            .find(|modifier| modifier.value() == name)
+    }
+
+    /// Whether it is down.
+    pub fn held(self, modifiers: &Modifiers) -> bool {
+        match self {
+            FineModifier::Ctrl => modifiers.command,
+            FineModifier::Shift => modifiers.shift,
+            FineModifier::Alt => modifiers.alt,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

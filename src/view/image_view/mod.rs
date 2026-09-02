@@ -10,6 +10,7 @@ pub mod marks;
 pub mod navigate;
 pub mod opening;
 pub mod overlay;
+pub mod pan;
 pub mod slideshow;
 pub mod viewports;
 pub mod zoom;
@@ -85,6 +86,9 @@ pub struct ImageView {
     area: area::Area,
     frame: FrameStyle,
     metrics: Metrics,
+    /// How long each pan key has been down, which is what tells a press from a
+    /// hold.
+    glide: pan::Glide,
     /// Where the user got to in each image they zoomed, so coming back to one
     /// shows the same corner at the same magnification.
     viewports: Viewports,
@@ -162,6 +166,7 @@ impl ImageView {
                 relative_size: config.frame_size_relative_to_image,
             },
             metrics: Metrics::default(),
+            glide: pan::Glide::default(),
             viewports: Viewports::default(),
             previous_place: Place::UNTOUCHED,
             images_shown: config.nr_images_shown.clamp(1, MAX_IMAGES_SHOWN),

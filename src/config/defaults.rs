@@ -3,7 +3,7 @@
 //! Kept apart from the structs so serde's `default = "..."` attributes stay
 //! readable and the shape of the configuration is visible at a glance.
 
-use super::shortcut::{Shortcut, MOD_ALT, MOD_CTRL, MOD_SHIFT};
+use super::shortcut::{FineModifier, Shortcut, MOD_ALT, MOD_CTRL, MOD_SHIFT};
 use super::{ContextMenuEntry, Destination, RawQuality, RawSource, TagCategory, UserAction};
 
 /// Four gigabytes of decoded pixels: generous on a modern machine and still
@@ -81,8 +81,13 @@ pub fn default_sc_flatten_dir() -> Shortcut {
     Shortcut::new("f", &[MOD_CTRL])
 }
 
+/// `Ctrl + Shift + W`, one modifier away from where it was.
+///
+/// It moved off `Ctrl + W` when Ctrl became the modifier that pans finely: the
+/// pan keys are `W A S D`, so holding Ctrl and W to move the picture up by a
+/// pixel also toggled the watcher, once for every repeat the platform sent.
 pub fn default_sc_watch_directory() -> Shortcut {
-    Shortcut::new("w", &[MOD_CTRL])
+    Shortcut::new("w", &[MOD_CTRL, MOD_SHIFT])
 }
 
 //Image view
@@ -682,6 +687,45 @@ pub fn default_zoom_out_past_fit() -> bool {
 /// How fast a held pan key moves the view, in screens a second.
 pub fn default_pan_speed() -> f32 {
     1.5
+}
+
+/// How far one press of a pan key moves the view, in points.
+///
+/// Forty: enough to see that something moved, small enough to arrive at a
+/// particular corner in a few presses. It is the whole of what a tap does —
+/// the glide below is what a hold does — because a tap used to be worth
+/// however long a finger stayed down, which is two or three frames however
+/// carefully it is pressed.
+pub fn default_pan_step() -> f32 {
+    40.0
+}
+
+/// How long a pan key is held before the view starts to glide, in seconds.
+///
+/// A quarter of a second, which is where a keyboard's own repeat delay sits:
+/// long enough that no tap ever reaches it, short enough that holding the key
+/// to travel does not feel stuck.
+pub fn default_pan_glide_delay() -> f32 {
+    0.25
+}
+
+/// How far one press moves with the fine modifier held, in points.
+///
+/// One point, which is the finest a screen has: the reason the modifier
+/// exists is putting an eyelash in the middle of the window at 400%.
+pub fn default_pan_fine_step() -> f32 {
+    1.0
+}
+
+/// How fast a held pan key moves with the fine modifier down, in screens a
+/// second.
+pub fn default_pan_fine_speed() -> f32 {
+    0.15
+}
+
+/// Which modifier means "finer".
+pub fn default_pan_fine_modifier() -> FineModifier {
+    FineModifier::default()
 }
 
 /// How many photographs a screenful is.

@@ -284,6 +284,25 @@ Leaving the seam for later means the next session pays for it with interest.
   drawn as an inline row. egui 0.33 folds a submenu that will not fit to the far
   side of its parent rather than over it, which is what makes even the one
   affordable against a panel on the screen edge.
+- **A key that moves something is a step and a glide, not a stopwatch.** The
+  pan keys were read as held keys and multiplied by the frame time, so the
+  smallest movement anybody could ask for was however long a finger stays on a
+  key — two or three frames, whatever care is taken. `view/image_view/pan.rs`
+  pays a press exactly `pan_step` and starts the glide only once the key has
+  been down longer than `pan_glide_delay`, which is the shape of a keyboard's
+  own repeat; the press is read off the events with `repeat: false`, because
+  the platform's repeat is not a press and `key_pressed` counts it as one. A
+  modifier held with it swaps both figures for the fine pair — and a held
+  modifier is not a binding, so the clash check cannot see it: `check.rs`
+  compares the chord against every binding read where the photograph is, which
+  is what moved the folder watcher off `Ctrl + W`.
+- **Anything read per frame is read on the first pass.** egui runs the frame
+  again whenever something in it calls `request_discard`, and the second pass
+  arrives with no events but with a clock that has moved on
+  (`predicted_dt` is added to `input.time` for it), so anything that
+  accumulates over time is paid twice on those frames while anything read off
+  an event is not paid at all. `ctx.current_pass_index() > 0` is the guard, and
+  `interaction::keyboard_panning` is where it is.
 - **A gesture is a second route, never the only one.** The mouse is eight fields
   in `mouse`; the ones with a single meaning hold the name of a command from
   `config::mouse::VERBS`, and a test asserts every one of them also has a key.

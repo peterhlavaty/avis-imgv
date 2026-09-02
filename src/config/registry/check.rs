@@ -5,7 +5,8 @@
 //! draw a band across its top with a row per complaint and a button that goes
 //! to the control.
 
-use crate::config::Config;
+use super::effect::Scope;
+use crate::config::{Config, Shortcut};
 
 /// One thing wrong with the file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +39,7 @@ impl Config {
         destinations(self, &mut found);
         actions(self, &mut found);
         keys(self, &mut found);
+        the_fine_pan(self, &mut found);
         ranges(self, &mut found);
 
         found
@@ -213,6 +215,62 @@ fn keys(config: &Config, found: &mut Vec<Complaint>) {
                       the viewer accepts."
                 .to_string(),
         });
+    }
+}
+
+/// A binding sitting on the chord a fine pan is asked for with.
+///
+/// The fine pan is a modifier and the four keys that already pan, so no row in
+/// the registry holds it and the clash check cannot see it — but a binding on
+/// the same chord is read on the same frame, and the platform repeats it for
+/// as long as the key is held. `Ctrl + W` was that case on the day the
+/// modifier arrived: the folder watcher, sharing a letter with pan up.
+fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
+    let fine = config.image_view.pan_fine_modifier;
+
+    let ways = [
+        ("up", &config.image_view.sc_pan_up),
+        ("down", &config.image_view.sc_pan_down),
+        ("left", &config.image_view.sc_pan_left),
+        ("right", &config.image_view.sc_pan_right),
+    ];
+
+    for (way, pan) in ways {
+        if pan.key.trim().is_empty() {
+            continue;
+        }
+
+        let chord = Shortcut::new(
+            &crate::utils::capitalize_first_char(&pan.key),
+            &[fine.value()],
+        );
+
+        for row in super::rows() {
+            // Only where the photograph is: a key the contact sheet reads is
+            // never read on a frame this one is.
+            if !row.scope.overlaps(Scope::ImageView) {
+                continue;
+            }
+
+            let Some(bound) = row.access.shortcut(config) else {
+                continue;
+            };
+
+            if bound.kbd_shortcut != chord.kbd_shortcut {
+                continue;
+            }
+
+            found.push(Complaint {
+                path: "image_view.pan_fine_modifier",
+                says: format!(
+                    "{} is both \"{}\" and the fine pan {way}.",
+                    crate::ui::keys::describe(&chord),
+                    row.label
+                ),
+                instead: "Both happen on every press, and the platform repeats the key                           for as long as it is held. Another modifier here, or another                           key for the command, settles it."
+                    .to_string(),
+            });
+        }
     }
 }
 

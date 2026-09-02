@@ -6,6 +6,7 @@
 //! own file so that what was added is visible as a list.
 
 use super::*;
+use crate::config::FineModifier;
 
 const MODES: &[Choice] = &[
     Choice {
@@ -22,6 +23,26 @@ const MODES: &[Choice] = &[
         value: "slideshow",
         label: "Slideshow",
         sentence: "Fullscreen, changing itself.",
+    },
+];
+
+/// The three modifiers a fine pan can be asked for with. Ctrl by default,
+/// which is where every other program puts the careful version of a gesture.
+const FINE_MODIFIERS: &[Choice] = &[
+    Choice {
+        value: "ctrl",
+        label: "Ctrl",
+        sentence: "Command on a Mac, as everywhere else in the viewer.",
+    },
+    Choice {
+        value: "shift",
+        label: "Shift",
+        sentence: "For whoever has Ctrl and a pan key spoken for.",
+    },
+    Choice {
+        value: "alt",
+        label: "Alt",
+        sentence: "The one no binding in the viewer uses with a letter.",
     },
 ];
 
@@ -321,6 +342,63 @@ pub fn rows() -> Vec<Row> {
             Live,
             None,
             decimal!(0.1, 8.0, " screens/s", true, image_view.pan_speed),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.pan_step",
+            "How far one press of a pan key moves",
+            "A press and a hold are two gestures: this is the tap, in screen pixels,              and the speed above is the hold. Time alone used to decide both, which              made the smallest movement anybody could ask for however long a finger              stays on a key — two or three frames, however carefully it is pressed.",
+            ["pan", "step", "nudge", "press", "tap"],
+            Live,
+            None,
+            decimal!(1.0, 500.0, " px", true, image_view.pan_step),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.pan_glide_delay",
+            "How long a pan key is held before it glides",
+            "A quarter of a second, which is where a keyboard's own repeat delay              sits: long enough that no tap reaches it, short enough that holding the              key to travel does not feel stuck. Nought glides from the first frame.",
+            ["pan", "delay", "repeat", "hold", "glide"],
+            Live,
+            None,
+            decimal!(0.0, 2.0, " s", true, image_view.pan_glide_delay),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.pan_fine_modifier",
+            "The key that means finer",
+            "Held with a pan key, it swaps the two figures above for the two below.              A binding on the same modifier and the same pan key still fires as well,              once for every repeat the platform sends, and the viewer says so at              startup.",
+            ["pan", "fine", "modifier", "ctrl", "precise", "slow"],
+            Live,
+            None,
+            Access::Enum {
+                get: |c| c.image_view.pan_fine_modifier.value(),
+                set: |c, v| {
+                    c.image_view.pan_fine_modifier =
+                        FineModifier::of(v).unwrap_or(c.image_view.pan_fine_modifier)
+                },
+                choices: FINE_MODIFIERS,
+            },
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.pan_fine_step",
+            "How far one press moves with it held",
+            "One screen pixel, which is the finest there is: putting an eyelash in              the middle of the window at four hundred per cent is what the modifier              is for.",
+            ["pan", "fine", "step", "pixel", "precise"],
+            Live,
+            None,
+            decimal!(0.1, 100.0, " px", true, image_view.pan_fine_step),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.pan_fine_speed",
+            "How fast a held pan key moves with it held",
+            "In screenfuls a second, like the ordinary speed above. A tenth of it,              so a held key crosses a magnified photograph slowly enough to read.",
+            ["pan", "fine", "speed", "slow", "precise"],
+            Live,
+            None,
+            decimal!(0.01, 8.0, " screens/s", true, image_view.pan_fine_speed),
         ),
         row!(
             ThePhotograph / Movement,

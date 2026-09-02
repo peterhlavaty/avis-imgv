@@ -2,6 +2,35 @@
 
 ## 2026-09-02
 
+- **A pan key is a step, and holding it is a glide.** The four pan keys were
+  read as held keys and nothing else: the picture moved for as long as the key
+  was down, so the smallest movement anybody could ask for was however long a
+  finger stays on a key — two or three frames however carefully it is pressed,
+  and several times the smallest movement worth asking for. A press now moves
+  the view exactly `image_view.pan_step`, forty screen pixels by default, and
+  the glide at `image_view.pan_speed` starts only once the key has been held
+  longer than `image_view.pan_glide_delay`, a quarter of a second, which is
+  where a keyboard's own repeat delay sits. Holding a key to cross a magnified
+  photograph is unchanged; tapping one is a nudge that lands where it is aimed.
+
+  **Ctrl held with a pan key moves it by a pixel.** `image_view.pan_fine_step`
+  and `image_view.pan_fine_speed` are the same two figures for the fine
+  gesture — one screen pixel a press and a tenth of the speed — and
+  `image_view.pan_fine_modifier` puts that on Shift or Alt instead for whoever
+  has Ctrl and a pan key spoken for. A binding sharing the chord is a
+  complaint at startup naming both, because both still happen.
+
+  Watching the folder moved from `Ctrl + W` to `Ctrl + Shift + W` for exactly
+  that reason: the pan keys are `W A S D`, so holding Ctrl and W to move the
+  picture up a pixel would have toggled the watcher once for every repeat the
+  platform sent. A file that had it somewhere of its own keeps it there; one
+  still on the old default is brought forward.
+
+  The pan is also decided once a frame rather than once a pass. egui runs the
+  frame again whenever something in it asks for another look, and the second
+  pass arrives with no events but a clock that has moved on, so a held key was
+  paid for twice on those frames.
+
 - **What a photograph opens at is now a setting.** Fitted, filling the window,
   exactly as wide or as tall as it, or at a magnification you name — a hundred
   per cent being one screen pixel to one of the photograph's own, which is what
