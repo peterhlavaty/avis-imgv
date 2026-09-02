@@ -643,7 +643,7 @@ impl ImageView {
             mask: self.marks.texture_id(),
             frame: self.frame,
             enlarge: self.config.enlarge_to_fit,
-            opening: self.opens_at(),
+            opens: self.opens_at(),
             past_fit: self.config.zoom_out_past_fit,
         };
 
@@ -713,7 +713,7 @@ impl ImageView {
         }
 
         // Read before the borrow the box needs.
-        let opening = self.opening();
+        let opens = self.opens();
         let keeping = self.keeping();
 
         let mut status = Status {
@@ -730,7 +730,7 @@ impl ImageView {
             mode,
             unread,
             flags: Flags {
-                opening,
+                opens,
                 keeping,
                 comparing,
                 marking: self.marking,

@@ -24,7 +24,7 @@ use super::{defaults, Config, Shortcut};
 /// What this build writes.
 ///
 /// Bumped whenever a step is added below, and never otherwise.
-pub const CURRENT: u32 = 4;
+pub const CURRENT: u32 = 5;
 
 /// One thing that has to be put right in an older file.
 struct Step {
@@ -76,6 +76,11 @@ const DOCUMENT_STEPS: &[DocumentStep] = &[
         until: 3,
         said: "Undo moved from cull.sc_undo to history.sc_undo, because it now takes back settings and where you were looking as well as what was done to a file",
         apply: undo_into_the_history_section,
+    },
+    DocumentStep {
+        until: 5,
+        said: "What a photograph opens at can now be any magnification rather than only its own size, so image_view.opening says percent where it said actual and image_view.opening_percent holds the number",
+        apply: its_own_size_becomes_a_magnification,
     },
     DocumentStep {
         until: 4,
@@ -211,6 +216,29 @@ fn the_latch_becomes_the_opening(map: &mut Map<String, Value>) -> bool {
     }
 
     section.insert("sc_cycle_opening".to_string(), bound);
+    true
+}
+
+/// `image_view.opening: "actual"` becomes `"percent"`.
+///
+/// *Its own size* was one of three answers and is now one of five, with the
+/// magnification a number beside it rather than a hundred written in the code.
+/// The word has to move with it: an opening this build cannot read is not a
+/// field falling back to its default but a *section* failing to parse, and the
+/// whole of `image_view` would go with it.
+///
+/// The number is left to `serde`, whose default is the hundred per cent the
+/// old word meant.
+fn its_own_size_becomes_a_magnification(map: &mut Map<String, Value>) -> bool {
+    let Some(section) = map.get_mut("image_view").and_then(Value::as_object_mut) else {
+        return false;
+    };
+
+    if section.get("opening").and_then(Value::as_str) != Some("actual") {
+        return false;
+    }
+
+    section.insert("opening".to_string(), Value::String("percent".to_string()));
     true
 }
 
@@ -359,6 +387,27 @@ mod tests {
 
         assert_eq!(map["history"]["sc_undo"]["key"], serde_json::json!("z"));
         assert!(map["cull"].get("sc_undo").is_none());
+    }
+
+    /// An opening this build cannot read costs the whole `image_view` section
+    /// rather than one field, so the word moves with the meaning.
+    #[test]
+    fn its_own_size_becomes_a_magnification() {
+        let mut map = document(r#"{"image_view": {"opening": "actual"}}"#);
+        let said = super::document(&mut map);
+
+        assert_eq!(said.len(), 1);
+        assert_eq!(map["image_view"]["opening"], serde_json::json!("percent"));
+    }
+
+    /// Every other answer is left exactly as written.
+    #[test]
+    fn an_opening_this_build_still_understands_is_left_alone() {
+        let mut map = document(r#"{"image_view": {"opening": "fill"}}"#);
+        let said = super::document(&mut map);
+
+        assert!(said.is_empty());
+        assert_eq!(map["image_view"]["opening"], serde_json::json!("fill"));
     }
 
     /// The key kept its binding and its place and lost only its name, so what

@@ -1086,7 +1086,8 @@ set aside for the full resolution copies, which are 96 MB each.
 | `frame_size_relative_to_image` | White frame width, as a fraction of the shortest side | 0.2 |
 | `keep_zoom` | Carry the magnification to the next photograph, whatever it opens at and whatever it was left at. The green and red magnifying glass in the status bar is the same switch. | false |
 | `keep_pan` | Carry where in the photograph you are looking to the next one, so the same corner of every frame comes up. The hand beside the magnifying glass. | false |
-| `opening` | What a photograph is drawn at on the frame it first appears: `fit`, `fill` or `actual`. Whatever the photograph was last left at wins over it, and `Ctrl + M` moves it round the three. | `fit` |
+| `opening` | What a photograph is drawn at on the frame it first appears: `fit`, `fill`, `width`, `height` or `percent`. Whatever the photograph was last left at wins over it, and `Ctrl + M` moves it round the five. | `fit` |
+| `opening_percent` | What `percent` above means, against the photograph's own pixels. Kept whatever the choice beside it says. | 100 |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `zoom_out_past_fit` | Let the zoom go out past fitting the window, leaving a border on all four sides | false |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
@@ -1257,7 +1258,7 @@ break the pairing it depends on.
 | Page Up / Page Down | Ten at a time |
 | F | Fit the image to the screen |
 | M | Fill the screen |
-| Ctrl + M | What every photograph opens at: fitted, filling the window, its own size |
+| Ctrl + M | What every photograph opens at: fitted, filling, full width, full height, a magnification |
 | Ctrl + R | Keep the magnification from one photograph to the next |
 | Ctrl + Shift + R | Keep where in the photograph you are |
 | H / V | Fit horizontal / vertical |
@@ -1292,12 +1293,17 @@ logarithmically up to 1600%: it used to run from a tenth to ten times the
 actual size at all.
 
 **What a photograph opens at is a setting.** Fitted, which is what a viewer
-usually does — or filling the window, or its own size, which is the
-magnification focus is judged at and the one worth having when a shoot is being
-gone through for sharpness. `Ctrl + M` moves it round the three and says so in
-the status bar, leaving the photograph on screen exactly as it is — `F` and `M`
-are the two that mean *do it to this one now*. A photograph that was zoomed and
-left comes back where it was left rather than opening again.
+usually does — or filling the window, or exactly as wide or as tall as it, or at
+a magnification you name: `image_view.opening_percent` is a hundred by default,
+which is the magnification focus is judged at and the one worth having when a
+shoot is being gone through for sharpness, and anything from 1 to 1600 is a
+number somebody's photographs might want. The width is what a folder of
+panoramas wants; the height is what a folder of portraits wants.
+
+`Ctrl + M` moves round the five and says which in the status bar, leaving the
+photograph on screen exactly as it is — `F` and `M` are the two that mean *do it
+to this one now*. A photograph that was zoomed and left comes back where it was
+left rather than opening again.
 
 **Two toggles in the status bar carry the view from one photograph to the
 next.** A magnifying glass and a hand, green when they are on and red when they

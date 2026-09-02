@@ -6,7 +6,7 @@ use eframe::epaint::Vec2;
 use crate::decoder::overlays::Overlay;
 use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
 use crate::organize::pairs::Prefer;
-use crate::view::image_view::opening::Opening;
+use crate::view::image_view::opening::{Opening, Opens};
 use crate::view::image_view::viewports::Keep;
 use crate::view::stacks::Place;
 
@@ -86,7 +86,7 @@ pub struct Flags {
     pub flattened: bool,
     pub watching: bool,
     /// What a photograph is drawn at on the frame it first appears.
-    pub opening: crate::view::image_view::opening::Opening,
+    pub opens: crate::view::image_view::opening::Opens,
     /// Whether the magnification and the corner carry to the next photograph.
     pub keeping: Keep,
     /// Whether a mark moves on to the next photograph by itself.
@@ -301,18 +301,34 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
         );
     }
 
-    if let Some(said) = flags.opening.word() {
+    if let Some(said) = flags.opens.word() {
+        // The magnification is part of the reading rather than only of the
+        // menu: "At a magnification you choose" without the number is not a
+        // statement about anything.
+        let chosen = Opens {
+            at: Opening::Percent,
+            ..flags.opens
+        }
+        .word()
+        .unwrap_or_default();
+
         word(
             ui,
-            said,
+            &said,
             "What every photograph is drawn at when it comes up. Fitted says \
              nothing here, being what a viewer usually does.",
             |ui| {
                 for wanted in Opening::ALL {
                     // Radios rather than buttons: the word says which of the
-                    // three is in force, and the menu is where the other two
+                    // five is in force, and the menu is where the other four
                     // are, so it may as well say it twice.
-                    if ui.radio(flags.opening == *wanted, wanted.label()).clicked() {
+                    let label = if wanted.reads_the_percentage() {
+                        format!("{} — {chosen}", wanted.label())
+                    } else {
+                        wanted.label().to_string()
+                    };
+
+                    if ui.radio(flags.opens.at == *wanted, label).clicked() {
                         asked.push(BarAction::SetOpening(*wanted));
                         ui.close();
                     }
@@ -321,8 +337,16 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
                     asked.push(BarAction::BindKey("image_view.sc_cycle_opening"));
                     ui.close();
                 }
+                // Onto the magnification itself when that is what is being
+                // read, which is the row somebody looking at "250%" wants.
                 if surface::more_settings(ui, Page::ThePhotograph) {
-                    asked.push(BarAction::Settings("image_view.opening"));
+                    asked.push(BarAction::Settings(
+                        if flags.opens.at.reads_the_percentage() {
+                            "image_view.opening_percent"
+                        } else {
+                            "image_view.opening"
+                        },
+                    ));
                     ui.close();
                 }
             },

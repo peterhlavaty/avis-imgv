@@ -566,6 +566,14 @@ pub struct ImageViewConfig {
     /// the magnification focus is judged at.
     #[serde(default)]
     pub opening: crate::view::image_view::opening::Opening,
+    /// The magnification *at a magnification you choose* means, in per cent of
+    /// the photograph's own pixels.
+    ///
+    /// A hundred, which is one screen pixel to one of the photograph's own and
+    /// what focus is judged at. Kept whatever the choice beside it says, so
+    /// switching to fitting and back does not lose the number.
+    #[serde(default = "default_opening_percent")]
+    pub opening_percent: f32,
     /// Whether the magnification carries from one photograph to the next.
     ///
     /// Off, and reached from the status bar rather than from here: it is a way
@@ -891,6 +899,7 @@ impl Default for ImageViewConfig {
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             enlarge_to_fit: default_enlarge_to_fit(),
             opening: crate::view::image_view::opening::Opening::default(),
+            opening_percent: default_opening_percent(),
             keep_zoom: false,
             keep_pan: false,
             zoom_out_past_fit: default_zoom_out_past_fit(),

@@ -255,6 +255,13 @@ pub fn default_sc_fit_horizontal() -> Shortcut {
 pub fn default_sc_fit_maximize() -> Shortcut {
     Shortcut::new("m", &[])
 }
+/// A hundred per cent: one screen pixel to one of the photograph's own, which
+/// is the magnification focus is judged at and the reason anybody asks for a
+/// number here at all.
+pub fn default_opening_percent() -> f32 {
+    100.0
+}
+
 /// `Ctrl + M`, which is where the key that latched the filling already was.
 /// It now moves what a photograph opens at round the three answers.
 pub fn default_sc_cycle_opening() -> Shortcut {

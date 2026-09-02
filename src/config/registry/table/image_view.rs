@@ -49,10 +49,23 @@ const OPENINGS: &[Choice] = &[
                    lost — the rest is a pan away.",
     },
     Choice {
-        value: "actual",
-        label: "Its own size",
-        sentence: "A hundred per cent: one screen pixel to one of the photograph's \
-                   own, which is the magnification focus is judged at.",
+        value: "width",
+        label: "As wide as the window",
+        sentence: "As wide as the window, with the top and the bottom cropped if the \
+                   photograph is taller than it is wide.",
+    },
+    Choice {
+        value: "height",
+        label: "As tall as the window",
+        sentence: "As tall as the window, with the sides cropped. What a folder of \
+                   panoramas wants.",
+    },
+    Choice {
+        value: "percent",
+        label: "At a magnification you choose",
+        sentence: "At the magnification below, against the photograph's own pixels: a \
+                   hundred per cent is one screen pixel to one of theirs, which is what \
+                   focus is judged at.",
     },
 ];
 
@@ -215,6 +228,8 @@ pub fn rows() -> Vec<Row> {
                 "starts at",
                 "fit",
                 "fill",
+                "fit width",
+                "fit height",
                 "100%",
                 "actual size"
             ],
@@ -229,6 +244,25 @@ pub fn rows() -> Vec<Row> {
                 },
                 choices: OPENINGS,
             },
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.opening_percent",
+            "The magnification it opens at",
+            "What *at a magnification you choose* means, in per cent of the \
+             photograph's own pixels. A hundred is one screen pixel to one of theirs. \
+             Kept whatever the choice above says, so switching away and back does not \
+             lose the number.",
+            [
+                "opening",
+                "percent",
+                "magnification",
+                "100%",
+                "default zoom"
+            ],
+            Live,
+            None,
+            decimal!(1.0, 1600.0, " %", true, image_view.opening_percent),
         ),
         row!(
             ThePhotograph / Movement,

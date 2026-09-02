@@ -181,7 +181,12 @@ pub(super) fn set(viewport: &mut Viewport, zoom: f32) {
     }
 }
 
-fn ratio(numerator: f32, denominator: f32) -> f32 {
+/// One length against another, without dividing by nought.
+///
+/// The magnification that makes something of `denominator` points measure
+/// `numerator`, which is what fitting a width, fitting a height and asking for
+/// a percentage all come down to.
+pub(super) fn ratio(numerator: f32, denominator: f32) -> f32 {
     if denominator == 0.0 {
         f32::NAN
     } else {

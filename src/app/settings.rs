@@ -225,9 +225,9 @@ impl App {
             moved = true;
         }
 
-        let opening = self.image_view.opening();
-        if self.settings.image_view.opening != opening {
-            self.settings.image_view.opening = opening;
+        let opens = self.image_view.opens();
+        if self.settings.image_view.opening != opens.at {
+            self.settings.image_view.opening = opens.at;
             moved = true;
         }
 

@@ -32,7 +32,7 @@ pub struct Style {
     /// 256 pixel preview and nothing else.
     pub enlarge: bool,
     /// What a photograph is drawn at on the frame it first appears.
-    pub opening: super::opening::Opening,
+    pub opens: super::opening::Opens,
     /// Whether the zoom may go out past fitting the panel.
     ///
     /// Here because the opening is a change to the magnification like any
@@ -194,7 +194,7 @@ pub fn draw(
         super::zoom::set(
             viewport,
             super::zoom::floored(
-                style.opening.zoom(
+                style.opens.zoom(
                     texture.size,
                     fit_size,
                     available,

@@ -3,15 +3,22 @@
 ## 2026-09-02
 
 - **What a photograph opens at is now a setting.** Fitted, filling the window,
-  or its own size — one screen pixel to one of the photograph's own, which is
-  the magnification focus is judged at and what somebody going through a shoot
-  for sharpness wants every frame to arrive at. *What a photograph opens at* on
-  the photograph page holds it, the status bar says which of the two unusual
-  answers is in force and offers the other two, and `Ctrl + M` moves round all
-  three. That key used to be a latch that only kept the window filled, held for
+  exactly as wide or as tall as it, or at a magnification you name — a hundred
+  per cent being one screen pixel to one of the photograph's own, which is what
+  focus is judged at and what somebody going through a shoot for sharpness
+  wants every frame to arrive at, while `image_view.opening_percent` takes
+  anything from 1 to 1600 for somebody whose photographs want something else.
+  The width is what a folder of panoramas wants and the height what a folder of
+  portraits wants. *What a photograph opens at* on the photograph page holds
+  it, the status bar says which of the four unusual answers is in force —
+  naming the magnification when that is the one — and offers the others, and
+  `Ctrl + M` moves round all five. That key used to be a latch that only kept the window filled, held for
   the session and forgotten at exit; a file that bound it somewhere else keeps
   the binding, which the migration carries from
-  `image_view.sc_latch_fit_maximize` to `image_view.sc_cycle_opening`.
+  `image_view.sc_latch_fit_maximize` to `image_view.sc_cycle_opening`. A file
+  already written by this build's first day says `actual` where the choice is
+  now `percent`, and is brought forward too: an opening the program cannot read
+  costs the whole `image_view` section rather than one field.
 
   A photograph that was zoomed and left still comes back exactly where it was
   left: the opening decides what a photograph the viewer has not been into

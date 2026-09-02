@@ -14,7 +14,7 @@ use crate::cache::{StoreConfig, StoreStats};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
-use super::opening::Opening;
+use super::opening::{Opening, Opens};
 use super::slideshow::Slideshow;
 use super::viewports::{Keep, Place, Viewports};
 use super::{zoom, ImageView};
@@ -333,14 +333,17 @@ impl ImageView {
         self.config.overlay_corner
     }
 
-    /// What a photograph opens at, as the setting says and the key has left
-    /// it.
+    /// What a photograph opens at, as the settings say and the key has left
+    /// them.
     ///
-    /// The setting itself rather than what the canvas will do: this is the
-    /// half of the mirror that writes the file, and a slideshow's answer is
-    /// not a preference anybody expressed.
-    pub fn opening(&self) -> Opening {
-        self.config.opening
+    /// The settings themselves rather than what the canvas will do: this is
+    /// the half of the mirror that writes the file, and a slideshow's answer
+    /// is not a preference anybody expressed.
+    pub fn opens(&self) -> Opens {
+        Opens {
+            at: self.config.opening,
+            percent: self.config.opening_percent,
+        }
     }
 
     /// What the photograph on screen actually opens at.
@@ -350,12 +353,14 @@ impl ImageView {
     /// *the whole picture, fitted to the screen* — which the latch the
     /// constructor used to set quietly contradicted, so a still slideshow
     /// started by the `--slideshow` switch cropped every photograph in it.
-    pub(super) fn opens_at(&self) -> Opening {
-        match self.slideshow.as_ref().map(Slideshow::motion) {
-            None => self.config.opening,
+    pub(super) fn opens_at(&self) -> Opens {
+        let at = match self.slideshow.as_ref().map(Slideshow::motion) {
+            None => return self.opens(),
             Some(Motion::Still) => Opening::Fit,
             Some(_) => Opening::Fill,
-        }
+        };
+
+        Opens { at, ..self.opens() }
     }
 
     /// Whether the magnification and the corner carry from one photograph to
