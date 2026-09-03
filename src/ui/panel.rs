@@ -215,7 +215,7 @@ static SHOWING: Mutex<Vec<Showing>> = Mutex::new(Vec::new());
 /// Says which panels are on screen.
 ///
 /// Written once a frame by `App::publish_panels`, the way
-/// `utils::set_window_in_front` writes whether a window is up, and for the same
+/// `utils::set_in_front` writes whether a card is up, and for the same
 /// reason: the two menus that list the panels are drawn where neither the
 /// program's fields nor its configuration are in hand — the View menu on the
 /// bar and the Show submenu on the photograph — and threading seven booleans

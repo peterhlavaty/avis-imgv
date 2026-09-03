@@ -310,7 +310,7 @@ impl App {
             BarAction::Settings(path) => self.open_settings_at(path),
             BarAction::ToggleStack => self.apply_command(Command::ToggleStack),
             BarAction::ShowEverything => self.apply_command(Command::SuspendFilter),
-            BarAction::ShowMessages => self.messages_visible = true,
+            BarAction::ShowMessages => self.open_card(crate::app::cards::Card::Messages),
             // One verb, offered wherever a mark is drawn. It closes every dead
             // end of its kind at once: a true statement on screen that cannot
             // be acted on.
@@ -420,7 +420,7 @@ impl App {
 
         // Dismissed by doing the thing rather than by a close button: the
         // hint's whole job is to get those two keys pressed once.
-        if self.menu_visible || self.cheat_sheet_visible {
+        if self.menu_visible || self.deck.holds(crate::app::cards::Card::CheatSheet) {
             self.hint_visible = false;
             return;
         }
@@ -446,6 +446,7 @@ impl App {
     /// **All keys…** in that window is the way on to the list.
     pub(super) fn arm_key(&mut self, path: &'static str) {
         self.keys.arm(path);
+        self.open_card(crate::app::cards::Card::OneKey);
     }
 }
 

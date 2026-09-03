@@ -1,6 +1,11 @@
-//! Chrome around the images: overlays, panels and the theme.
+//! Chrome around the images: the cards, the panels, the overlays and the theme.
+//!
+//! [`deck`] is the one everything else is drawn on. The program opens no
+//! windows of its own — a card fills the viewer, one is on screen at a time,
+//! and `app::cards` says which this program has.
 
 pub mod cheat_sheet;
+pub mod deck;
 pub mod destinations;
 pub mod dragged;
 #[cfg(test)]

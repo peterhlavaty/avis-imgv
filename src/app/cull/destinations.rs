@@ -8,11 +8,9 @@
 
 use std::path::PathBuf;
 
-use eframe::egui;
-
 use crate::history::{Deed, Step};
 use crate::organize::files;
-use crate::ui::destinations::{self, Answer, Asking, Errand, Slot};
+use crate::ui::destinations::{Answer, Asking, Errand, Slot};
 
 use crate::app::App;
 
@@ -62,16 +60,8 @@ impl App {
         self.carry_errand(Errand::Move, &slot);
     }
 
-    /// Draws the panel, if it is open, and does what it was told.
-    pub(in crate::app) fn show_destinations(&mut self, ctx: &egui::Context) {
-        let Some(asking) = self.asking.clone() else {
-            return;
-        };
-
-        let Some(answer) = destinations::ui(ctx, &asking) else {
-            return;
-        };
-
+    /// Does what the card was told.
+    pub(in crate::app) fn carry_destination(&mut self, asking: &Asking, answer: Answer) {
         self.close_modal();
 
         match answer {

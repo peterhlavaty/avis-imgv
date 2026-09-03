@@ -18,31 +18,28 @@ pub fn textedit_move_cursor_to_end(resp: &Response, ui: &mut egui::Ui, len: usiz
     }
 }
 
-/// Says that one of the viewer's own windows is up, and so owns the keyboard.
+/// Says that something of the viewer's own is in front of the photograph, and
+/// so owns the keyboard: a card of the deck, or one of the two overlays.
 ///
-/// Written once a frame by [`crate::app::App`] rather than by each window,
+/// Written once a frame by [`crate::app::App`] rather than by each of them,
 /// because the answer is "is any of them up" and a flag that several owners
 /// set and clear is a flag one of them clears while another still needs it.
-pub fn set_window_in_front(ctx: &egui::Context, in_front: bool) {
+pub fn set_in_front(ctx: &egui::Context, in_front: bool) {
     ctx.memory_mut(|mem| {
-        mem.data.insert_temp::<bool>(window_in_front_id(), in_front);
+        mem.data.insert_temp::<bool>(in_front_id(), in_front);
     })
 }
 
-/// Whether one of the viewer's own windows is up.
+/// Whether something of the viewer's own is in front of the photograph.
 ///
 /// Not the same question as [`are_inputs_muted`], which a focused text field
 /// also answers yes to: typing in the filter bar takes the keys and leaves the
-/// mouse alone, while a window in front takes both.
-pub fn is_a_window_in_front(ctx: &egui::Context) -> bool {
-    ctx.memory_mut(|mem| {
-        mem.data
-            .get_temp::<bool>(window_in_front_id())
-            .unwrap_or(false)
-    })
+/// mouse alone, while a card in front takes both.
+pub fn is_in_front(ctx: &egui::Context) -> bool {
+    ctx.memory_mut(|mem| mem.data.get_temp::<bool>(in_front_id()).unwrap_or(false))
 }
 
-/// Puts a window in front of the viewer: while it is drawn, the layer behind
+/// Puts a layer in front of the viewer: while it is drawn, everything behind
 /// it stops answering the pointer.
 ///
 /// `Memory::set_modal_layer` is egui's own way of saying it, and it reaches
@@ -53,11 +50,15 @@ pub fn is_a_window_in_front(ctx: &egui::Context) -> bool {
 ///
 /// It does not reach `Response::contains_pointer`, which is decided by a hit
 /// test that knows nothing about modal layers, so the few places that read the
-/// pointer for themselves ask [`is_a_window_in_front`] instead — the wheel and
+/// pointer for themselves ask [`is_in_front`] instead — the wheel and
 /// the drag on the photograph, a cell in the contact sheet, the strip.
 ///
-/// Called on every frame the window is drawn, because the flag egui keeps is
+/// Called on every frame the layer is drawn, because the flag egui keeps is
 /// this frame's and is promoted at the end of it.
+///
+/// The deck has its own copy of this that raises the layer as well —
+/// `ui::deck::draw` — because two cards can be on screen at once and the one
+/// drawn last is the one being answered. This one is what the overlays use.
 pub fn in_front<R>(ctx: &egui::Context, shown: Option<&egui::InnerResponse<R>>) {
     let Some(shown) = shown else {
         return;
@@ -82,14 +83,14 @@ pub fn surrender_focus(ctx: &eframe::egui::Context) {
 
 /// Whether the viewer should keep its keys to itself this frame.
 ///
-/// Two reasons, and they are different sizes: a window in front owns the mouse
+/// Two reasons, and they are different sizes: a card in front owns the mouse
 /// and the keyboard both, while a focused text field owns only the keyboard.
 pub fn are_inputs_muted(ctx: &egui::Context) -> bool {
-    is_a_window_in_front(ctx) || ctx.memory(|mem| mem.focused().is_some())
+    is_in_front(ctx) || ctx.memory(|mem| mem.focused().is_some())
 }
 
-fn window_in_front_id() -> Id {
-    Id::new("a window is in front")
+fn in_front_id() -> Id {
+    Id::new("something is in front")
 }
 
 /// Returns true if path contains any images we can open
@@ -129,13 +130,16 @@ pub fn capitalize_first_char(str: &str) -> String {
 mod tests {
     use super::*;
 
-    /// One frame with a window over part of the screen and the viewer's own
-    /// panel under all of it, and the pointer beside the window rather than on
+    /// One frame with a layer over part of the screen and the viewer's own
+    /// panel under all of it, and the pointer beside that layer rather than on
     /// it.
     ///
+    /// A `Window` here because it is the shortest thing to draw that covers
+    /// part of the screen; the program's own cards cover all of it, and what
+    /// is being tested is what `in_front` does to the layer beneath either.
     /// Returns whether the layer the photograph is drawn in still answers the
     /// pointer, which is the question every scroll area and every hover in the
-    /// program below the window asks.
+    /// program below it asks.
     fn the_layer_behind_answers(ctx: &egui::Context, claim: bool) -> bool {
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1000.0, 800.0));
         let input = egui::RawInput {
@@ -163,11 +167,11 @@ mod tests {
         answered
     }
 
-    /// The fault this is about. A wheel notch spent on the settings window
-    /// used to reach whatever was behind it, because the window covers part of
+    /// The fault this is about. A wheel notch spent on the settings used to
+    /// reach whatever was behind it, because what was in front covered part of
     /// the screen and the pointer is often on the other part.
     #[test]
-    fn a_window_in_front_takes_the_pointer_from_the_layer_behind_it() {
+    fn a_card_in_front_takes_the_pointer_from_the_layer_behind_it() {
         let ctx = egui::Context::default();
 
         // Twice: egui promotes the flag at the end of the frame it is written
@@ -185,17 +189,17 @@ mod tests {
         assert!(the_layer_behind_answers(&ctx, false));
     }
 
-    /// A window in front mutes the keys; nothing in front does not.
+    /// Something in front mutes the keys; nothing in front does not.
     #[test]
-    fn a_window_in_front_mutes_the_keys() {
+    fn a_card_in_front_mutes_the_keys() {
         let ctx = egui::Context::default();
         assert!(!are_inputs_muted(&ctx));
 
-        set_window_in_front(&ctx, true);
-        assert!(is_a_window_in_front(&ctx));
+        set_in_front(&ctx, true);
+        assert!(is_in_front(&ctx));
         assert!(are_inputs_muted(&ctx));
 
-        set_window_in_front(&ctx, false);
+        set_in_front(&ctx, false);
         assert!(!are_inputs_muted(&ctx));
     }
 }

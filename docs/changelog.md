@@ -2,6 +2,33 @@
 
 ## 2026-09-03
 
+- **The viewer opens no windows of its own.** The thirteen it had are cards of
+  one deck: a card fills the viewer under the menu bar, one is on screen at a
+  time, and there is no title bar to drag, no corner to pull, no second one
+  behind the first and no position to remember. The settings, the keyboard, the
+  keys of one command, the sheet of keys, the legend, the placeholders, the
+  recent messages and what this build is are the seven a person opens, plus the
+  one about a single command; the bar at the top of whichever is up says where
+  you are — **Settings › Keyboard › Keys for Next mode**, each crumb a button
+  back to it — carries **Go to…** with all seven and a tick against the ones
+  already open, and ends in a `✖` that goes back to the photographs.
+
+  The five questions keep the shape a question needs: a plate over the rest of
+  the window *dimmed* rather than covered, because "send these three to the
+  bin" cannot be answered by somebody who can no longer see them. A question
+  carries no cross — its own answers are the way out of it — and is not put on
+  the deck at all: it is read once a frame off the state that asked it, so
+  there is no flag saying a question is up that could disagree with whether
+  there is one.
+
+  What this replaces is eight `bool` fields that had to be listed in three
+  places and were, a `Window` builder repeated thirteen times with a different
+  guess at a default size each, and a rule about which of them egui would draw
+  in front of which — the card for one command had to ask for
+  `Order::Foreground` and say why. `Escape` takes one card off wherever you
+  are, and the settings, which had no key that closed them at all, close like
+  everything else.
+
 - **A category in the settings window is the whole row.** The eleven pages down
   the left answered a press only on the letters of their own names, so a click
   an inch to the right of **Keywords** — well inside the list, and over nothing

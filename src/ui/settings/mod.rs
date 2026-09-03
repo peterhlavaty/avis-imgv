@@ -1,8 +1,9 @@
-//! The settings window.
+//! The settings, as a card of the deck.
 //!
-//! `App::show_keyboard` with a longer body: a window with the configuration in
-//! hand, a fan-out when something changed, and a save. No new file format, no
-//! second viewport, no shadow state.
+//! The configuration in hand, a fan-out when something changed, and a save. No
+//! new file format, no second viewport, no shadow state, and — since the deck —
+//! no window either: the card fills the viewer, because what is behind a
+//! settings page is no part of what is being set.
 //!
 //! Every page is a filter over the registry, so nothing here decides what a
 //! field is called, what it means, what control it wants or when it takes
@@ -20,14 +21,14 @@ use crate::config::Config;
 
 pub use footer::Run;
 
-/// The window's own state.
+/// The card's own state.
 #[derive(Debug, Default)]
 pub struct State {
     /// Which page is on screen.
     pub page: Option<Page>,
     /// What is being searched for.
     pub query: String,
-    /// Set on the frame the window opens, so the search box takes the cursor.
+    /// Set on the frame the card opens, so the search box takes the cursor.
     pub just_opened: bool,
     /// A row to scroll to and flash, from a **[Fix]** button or a link.
     pub reveal: Option<&'static str>,
@@ -56,7 +57,7 @@ pub enum Reset {
     Everything,
 }
 
-/// What the window did this frame.
+/// What the card did this frame.
 #[derive(Debug, Default)]
 pub struct Outcome {
     /// A value moved.
@@ -65,39 +66,6 @@ pub struct Outcome {
     pub committed: bool,
     /// A button was pressed.
     pub run: Option<Run>,
-}
-
-/// Draws the window.
-pub fn show(
-    ctx: &egui::Context,
-    open: &mut bool,
-    state: &mut State,
-    config: &mut Config,
-) -> Outcome {
-    let mut outcome = Outcome::default();
-
-    if !*open {
-        state.just_opened = true;
-        return outcome;
-    }
-
-    // 900 by 600 comfortable and 720 by 480 the floor, which fits the 1092 by
-    // 614 logical space of a 1366 by 768 laptop at 125 per cent. darktable's
-    // preferences window put its Close button below the bottom of a 14-inch
-    // screen, where it could not be reached at all.
-    let shown = egui::Window::new("Settings")
-        .open(open)
-        .default_size([900.0, 600.0])
-        .min_size([720.0, 480.0])
-        .resizable(true)
-        .show(ctx, |ui| {
-            outcome = contents(ui, state, config);
-        });
-
-    // Nothing behind it is clicked, dragged or scrolled while it is up.
-    crate::utils::in_front(ctx, shown.as_ref());
-
-    outcome
 }
 
 /// The band that says something is waiting for a restart, and offers one.
@@ -137,7 +105,13 @@ fn restart_band(ui: &mut egui::Ui, state: &State) -> Option<Run> {
     asked
 }
 
-fn contents(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> Outcome {
+/// Draws the card: the page on screen, and whatever it changed.
+///
+/// The window it used to be sized itself 900 by 600 with a 720 by 480 floor,
+/// which was the smallest a page could be read at. A card takes the window,
+/// so the floor is now whatever the window is — and the pages that were built
+/// against that floor are the reason the columns still wrap rather than clip.
+pub fn contents(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> Outcome {
     let mut outcome = Outcome::default();
 
     if let Some(run) = restart_band(ui, state) {

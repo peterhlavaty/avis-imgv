@@ -254,11 +254,11 @@ pub fn advances(command: Command, advancing: bool) -> bool {
 /// this program is called, so by the time the key can be read nothing is
 /// focused and the question has no answer left in the context.
 ///
-/// The first press leaves the field and the second shuts the window, which is
-/// the two-step the rest of the program uses. Consumed rather than read, so
-/// the window being shut does not also mean whatever else Escape means that
-/// frame — leaving a comparison, or clearing the selection in the sheet.
-pub fn escape_shuts_a_window(ctx: &egui::Context, typing: bool) -> bool {
+/// The first press leaves the field and the second takes the card on screen
+/// off, which is the two-step the rest of the program uses. Consumed rather
+/// than read, so the card going does not also mean whatever else Escape means
+/// that frame — leaving a comparison, or clearing the selection in the sheet.
+pub fn escape_takes_a_card_off(ctx: &egui::Context, typing: bool) -> bool {
     if typing {
         return false;
     }
@@ -270,7 +270,7 @@ pub fn escape_shuts_a_window(ctx: &egui::Context, typing: bool) -> bool {
 ///
 /// While one is open every other shortcut is muted, so that typing a path
 /// cannot trigger an action; the muting itself is decided once a frame by the
-/// application, which counts an open overlay as a window in front. Escape
+/// application, which counts an open overlay as a card in front. Escape
 /// always closes.
 pub fn update_overlay(ctx: &egui::Context, open: &mut Option<Overlay>, config: &GeneralConfig) {
     let toggles = [
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn quitting_works_even_while_something_else_has_the_input() {
         let ctx = context_with(vec![key_press(Key::Q, Modifiers::ALT)]);
-        utils::set_window_in_front(&ctx, true);
+        utils::set_in_front(&ctx, true);
 
         assert_eq!(collected(&ctx), vec![Command::Exit]);
     }
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn other_shortcuts_are_muted_while_something_else_has_the_input() {
         let ctx = context_with(vec![key_press(Key::Backspace, Modifiers::NONE)]);
-        utils::set_window_in_front(&ctx, true);
+        utils::set_in_front(&ctx, true);
 
         assert!(collected(&ctx).is_empty());
     }
@@ -385,7 +385,7 @@ mod tests {
     #[test]
     fn typing_a_digit_in_the_search_box_does_not_rate_the_image() {
         let ctx = context_with(vec![key_press(Key::Num3, Modifiers::NONE)]);
-        utils::set_window_in_front(&ctx, true);
+        utils::set_in_front(&ctx, true);
 
         assert!(collected(&ctx).is_empty());
     }
@@ -403,7 +403,7 @@ mod tests {
         assert_eq!(open, Some(Overlay::DirectoryTree));
 
         let ctx = context_with(vec![key_press(Key::T, Modifiers::NONE)]);
-        utils::set_window_in_front(&ctx, true);
+        utils::set_in_front(&ctx, true);
         update_overlay(&ctx, &mut open, &config);
         assert_eq!(open, None);
     }
@@ -472,7 +472,7 @@ mod tests {
         let mut open = Some(Overlay::Navigator);
 
         let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
-        utils::set_window_in_front(&ctx, true);
+        utils::set_in_front(&ctx, true);
         update_overlay(&ctx, &mut open, &config);
 
         assert_eq!(open, None);
@@ -482,11 +482,11 @@ mod tests {
     /// into: the first press leaves the search box, the second shuts the
     /// window.
     #[test]
-    fn escape_shuts_a_window_only_when_nothing_had_the_keyboard() {
+    fn escape_is_taken_only_when_nothing_had_the_keyboard() {
         let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
 
-        assert!(!escape_shuts_a_window(&ctx, true));
-        assert!(escape_shuts_a_window(&ctx, false));
+        assert!(!escape_takes_a_card_off(&ctx, true));
+        assert!(escape_takes_a_card_off(&ctx, false));
     }
 
     /// And it takes the key with it, so shutting the window does not also
@@ -495,7 +495,7 @@ mod tests {
     fn shutting_a_window_spends_the_key() {
         let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
 
-        assert!(escape_shuts_a_window(&ctx, false));
-        assert!(!escape_shuts_a_window(&ctx, false));
+        assert!(escape_takes_a_card_off(&ctx, false));
+        assert!(!escape_takes_a_card_off(&ctx, false));
     }
 }

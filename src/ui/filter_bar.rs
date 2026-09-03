@@ -39,7 +39,7 @@ pub fn ui(
         .show_animated(ctx, visible, |ui| {
             // The bar narrows the folder, which is a change to what is on
             // screen behind the window that is being read.
-            if crate::utils::is_a_window_in_front(ui.ctx()) {
+            if crate::utils::is_in_front(ui.ctx()) {
                 ui.disable();
             }
 

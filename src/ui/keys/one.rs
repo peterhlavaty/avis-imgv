@@ -1,4 +1,4 @@
-//! Every key that does one thing, in a window about that one thing.
+//! Every key that does one thing, on a card about that one thing.
 //!
 //! The list of ninety bindings is an index: it is where somebody goes who
 //! wants to see what the keyboard looks like. It is the wrong place to *change*
@@ -48,72 +48,45 @@ impl Editing {
     }
 }
 
-/// What the window is asking of the program, beyond a changed configuration.
+/// What the card is asking of the program, beyond a changed configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Asked {
-    /// The list of every key, which this window is one command out of.
+    /// The list of every key, which this card is one command out of.
     EveryKey,
 }
 
-/// Draws the window, if a command is being edited.
+/// Draws the card, if a command is being edited.
 ///
-/// Returns whether the configuration changed and whatever the window asked
-/// for. Drawn *after* the list, so `set_modal_layer` leaves this one in front:
-/// it is opened from the list as often as from anywhere else, and a window
-/// that opens behind the one that opened it reads as nothing happening.
-pub fn show(ctx: &egui::Context, state: &mut State, config: &mut Config) -> (bool, Option<Asked>) {
+/// Returns whether the configuration changed and whatever the card asked for.
+/// A path the registry no longer has draws nothing and says nothing: the card
+/// is put down rather than left up and empty.
+pub fn card(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> (bool, Option<Asked>) {
     let Some(editing) = &state.one else {
         return (false, None);
     };
 
     let bindings = bindings::all();
     let Some(index) = bindings.iter().position(|b| b.path() == editing.path) else {
-        // A path the registry no longer has. Nothing to draw and nothing to
-        // say: shut the window rather than leave an empty one up.
         state.one = None;
         return (false, None);
     };
 
-    let mut changed = false;
-    let mut asked = None;
-    let mut open = true;
-
-    let shown = egui::Window::new(RichText::new(title(&bindings[index])).heading())
-        .id(egui::Id::new("keys-for-one-command"))
-        // Above the windows rather than among them. An `Area` keeps the
-        // position it had in its order, and egui raises one only when it is
-        // *new* — so the second time this window was opened from the list it
-        // was drawn underneath it, which with a list nine hundred pixels tall
-        // and opaque reads as the button having stopped working. It is a modal
-        // over whatever opened it, and `Order::Foreground` is that in one word
-        // rather than a "was it just opened" flag and a `move_to_top`.
-        .order(egui::Order::Foreground)
-        .open(&mut open)
-        .default_width(420.0)
-        .resizable(false)
-        .collapsible(false)
-        .show(ctx, |ui| {
-            let (touched, wanted) = contents(ui, state, config, &bindings, index);
-            changed = touched;
-            asked = wanted;
-        });
-
-    crate::utils::in_front(ctx, shown.as_ref());
-
-    if !open || asked.is_some() {
-        state.one = None;
-    }
-
-    (changed, asked)
+    contents(ui, state, config, &bindings, index)
 }
 
-/// The window's own name, which says which command it is about.
+/// Which command the card is about, for the deck's own bar.
 ///
-/// The same rule as a menu's first row: a window drawn over the thing it
-/// belongs to still has to say what it was asked about, because it is opened
-/// from eleven surfaces and the answer is different from each.
-fn title(binding: &Binding) -> String {
-    format!("Keys — {}", binding.name())
+/// The same rule as a menu's first row: a card is opened from eleven surfaces
+/// and the answer is different from each, so it says what it was asked about
+/// rather than leaving it to be worked out.
+pub fn about(state: &State) -> Option<String> {
+    let editing = state.one.as_ref()?;
+    let bindings = bindings::all();
+
+    bindings
+        .iter()
+        .find(|binding| binding.path() == editing.path)
+        .map(|binding| binding.name().to_string())
 }
 
 fn contents(
@@ -127,8 +100,8 @@ fn contents(
     let mut changed = false;
     let mut asked = None;
 
-    // Before anything is drawn, so the key that arms the window on one frame
-    // is not also read as the key being bound on the same one.
+    // Before anything is drawn, so the key that arms the card on one frame is
+    // not also read as the key being bound on the same one.
     if state.is_listening() {
         changed |= take_a_key(ui.ctx(), state, config, binding);
     }
@@ -147,7 +120,7 @@ fn contents(
     ui.add_space(10.0);
     ui.separator();
 
-    // The way out to the index, which is where this window ends for the same
+    // The way out to the index, which is where this card ends for the same
     // reason every menu ends on the settings page that owns it.
     if ui
         .button("All keys…")
@@ -166,7 +139,7 @@ fn contents(
 }
 
 /// A key the program reads for itself: drawn so the clash checker's findings
-/// can be understood, and plainly not something this window can move.
+/// can be understood, and plainly not something this card can move.
 fn fixed(ui: &mut egui::Ui, key: &'static str) {
     ui.horizontal(|ui| {
         ui.add_enabled(false, egui::Button::new(RichText::new(key).monospace()));
@@ -327,11 +300,7 @@ mod tests {
     use super::*;
     use crate::config::Shortcut;
 
-    /// Every word the window paints.
-    ///
-    /// Two passes and a screen to draw on: a `Window` is laid out from the
-    /// size its contents came to on the frame before, so the first one places
-    /// it off screen and paints nothing that survives the clip.
+    /// Every word the card paints.
     fn drawn(state: &mut State, config: &mut Config) -> Vec<String> {
         let ctx = egui::Context::default();
         let input = egui::RawInput {
@@ -342,34 +311,19 @@ mod tests {
             ..Default::default()
         };
 
-        let _ = ctx.run(input.clone(), |ctx| {
-            show(ctx, state, config);
-        });
-
         let output = ctx.run(input, |ctx| {
-            show(ctx, state, config);
+            egui::CentralPanel::default().show(ctx, |ui| {
+                card(ui, state, config);
+            });
         });
 
-        output
-            .shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
-                _ => None,
-            })
-            .collect()
+        crate::ui::drawn::text(&output)
     }
 
     /// Every key it holds is drawn, with the cross that takes it away and the
     /// button that adds another.
-    ///
-    /// Written after the window drew nothing on the second opening: an `Area`
-    /// keeps the place it had in its order and egui raises one only when it is
-    /// *new*, so it went behind the list that opened it. Nothing here can see a
-    /// z-order, but a window that has stopped being drawn at all fails this,
-    /// and that is the shape the fault took from the outside.
     #[test]
-    fn the_window_draws_every_key_and_the_way_to_add_one() {
+    fn the_card_draws_every_key_and_the_way_to_add_one() {
         let mut config = Config::default();
         let mut state = State::default();
         let bindings = bindings::all();
@@ -385,14 +339,14 @@ mod tests {
 
         let drawn = drawn(&mut state, &mut config);
 
-        for wanted in ["Keys — Quit", "F13", "Ctrl + F14", "✖", "Add a key…"] {
+        for wanted in ["F13", "Ctrl + F14", "✖", "Add a key…"] {
             assert!(
                 drawn.iter().any(|text| text.contains(wanted)),
                 "{wanted} is not drawn: {drawn:?}"
             );
         }
 
-        // And the window is still up: nothing about drawing it shuts it.
+        // And the card is still up: nothing about drawing it puts it down.
         assert!(state.editing_one());
     }
 
@@ -417,17 +371,21 @@ mod tests {
         assert!(drawn.iter().any(|text| text.contains("Add a key…")));
     }
 
-    /// The window is about one command and says which, the way every menu in
+    /// The card is about one command and says which, the way every menu in
     /// the program does.
     #[test]
-    fn the_window_is_named_for_the_command_it_is_about() {
+    fn the_card_is_named_for_the_command_it_is_about() {
         let bindings = bindings::all();
         let quit = bindings
             .iter()
             .find(|b| b.name() == "Quit")
             .expect("it is there");
 
-        assert_eq!(title(quit), "Keys — Quit");
+        let mut state = State::default();
+        state.arm(quit.path());
+
+        assert_eq!(about(&state), Some("Quit".to_string()));
+        assert_eq!(about(&State::default()), None);
     }
 
     /// A second key is added and the first is left where it was, which is the

@@ -27,7 +27,7 @@ impl ImageView {
         // While a window of the viewer's own is up the photograph is a picture
         // rather than a surface, which is the same rule the wheel and the drag
         // already follow.
-        if crate::utils::is_a_window_in_front(ctx) {
+        if crate::utils::is_in_front(ctx) {
             return;
         }
 

@@ -1,11 +1,11 @@
 //! Changing what the keys do, from inside the viewer.
 //!
-//! Two windows, and they are an index and a page. [`show`] lists every
-//! shortcut the viewer listens for with a sentence saying what it does, which
-//! is what somebody reads who wants to know what the keyboard looks like;
-//! [`one`] holds a single command and every key bound to it, which is where a
-//! key is added or taken away. The list used to be both, and being both is
-//! what limited a command to one key: a row there is one button, so binding a
+//! Two cards, and they are an index and a page. [`list`] draws every shortcut
+//! the viewer listens for with a sentence saying what it does, which is what
+//! somebody reads who wants to know what the keyboard looks like; [`one`]
+//! holds a single command and every key bound to it, which is where a key is
+//! added or taken away. The list used to be both, and being both is what
+//! limited a command to one key: a row there is one button, so binding a
 //! second key meant losing the first.
 //!
 //! A key already spoken for is not refused — two things on one key is
@@ -38,14 +38,14 @@ pub enum Outcome {
     Changed,
 }
 
-/// The editor's own state, which both windows share.
+/// The editor's own state, which both cards share.
 ///
-/// One state rather than two because the small window is opened from the list
-/// as often as from anywhere else, and a person who has just changed a key in
-/// it should find the list saying so.
+/// One state rather than two because the card for one command is opened from
+/// the list as often as from anywhere else, and a person who has just changed a
+/// key in it should find the list saying so.
 #[derive(Debug, Default)]
 pub struct State {
-    /// The command whose keys are being edited in a window of its own.
+    /// The command whose keys are being edited on a card of its own.
     pub(super) one: Option<Editing>,
     /// What the last change did, shown under the list. It was declared and read
     /// and never assigned, so a successful save said nothing at all.
@@ -59,7 +59,7 @@ pub struct State {
 }
 
 impl State {
-    /// Opens the window holding every key bound to the command at `path`.
+    /// Arms the card holding every key bound to the command at `path`.
     ///
     /// Everything that offers to change a key comes through here: the row in
     /// the list, the key on the settings page, that row's own menu, the cheat
@@ -73,17 +73,17 @@ impl State {
     ///
     /// Arming a row and pressing Delete used to send the photograph on screen
     /// to the bin *and* fail to capture, because `input::collect` runs before
-    /// the window is drawn and nothing told it to stop.
+    /// the card is drawn and nothing told it to stop.
     pub fn is_listening(&self) -> bool {
         self.one.as_ref().is_some_and(Editing::is_listening)
     }
 
-    /// Whether one command's keys are being edited, which is a window in front.
+    /// Whether one command's keys are being edited, which is a card in front.
     pub fn editing_one(&self) -> bool {
         self.one.is_some()
     }
 
-    /// Shuts that window, for the Escape that reaches it before anything else.
+    /// Puts that card down, when the deck says it is no longer on screen.
     pub fn close_one(&mut self) {
         self.one = None;
     }
@@ -95,14 +95,14 @@ impl State {
         }
     }
 
-    /// What the window says under its list about the last thing done there.
+    /// What the card says under its list about the last thing done there.
     pub(super) fn said(&mut self, status: String) {
         if let Some(editing) = &mut self.one {
             editing.status = status;
         }
     }
 
-    /// That sentence, for the window that draws it.
+    /// That sentence, for the card that draws it.
     pub(super) fn status_of_one(&self) -> &str {
         self.one
             .as_ref()
@@ -111,42 +111,23 @@ impl State {
     }
 }
 
-/// Draws the list as a window, returning whether anything changed.
-pub fn show(
-    ctx: &egui::Context,
-    open: &mut bool,
-    state: &mut State,
-    config: &mut Config,
-) -> Option<Outcome> {
-    let mut outcome = None;
+/// Draws the list of every command.
+///
+/// Two answers: whether anything changed, and whether a row asked for the card
+/// that holds one command's keys. A row arms the editor itself — [`State::arm`]
+/// is the one door into that and the row is inside a grid inside a scrolling
+/// area, four call frames from anything holding the deck — so the ask is
+/// noticed here rather than threaded back through `row`.
+pub fn list(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> (Option<Outcome>, Armed) {
+    let was_editing = state.editing_one();
+    let outcome = list::contents(ui, state, config);
 
-    if *open {
-        let shown = egui::Window::new("Keyboard")
-            .open(open)
-            .default_width(640.0)
-            .resizable(true)
-            .show(ctx, |ui| {
-                outcome = list::contents(ui, state, config);
-            });
-
-        crate::utils::in_front(ctx, shown.as_ref());
-    }
-
-    // After the list, so `set_modal_layer` leaves the small window in front of
-    // it — and drawn whether or not the list is up, because eleven surfaces
-    // open it without the list ever being shown.
-    let (changed, asked) = one::show(ctx, state, config);
-
-    if changed {
-        outcome = Some(Outcome::Changed);
-    }
-
-    if asked == Some(one::Asked::EveryKey) {
-        *open = true;
-    }
-
-    outcome
+    (outcome, Armed(state.editing_one() && !was_editing))
 }
+
+/// Whether a row asked for one command's keys on this frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Armed(pub bool);
 
 /// The colour of the note saying two things share a key.
 const CLASH: Color32 = Color32::from_rgb(215, 175, 110);
@@ -373,5 +354,73 @@ mod tests {
             .iter()
             .filter(|b| b.name() == "Fit")
             .all(|b| b.scope() == Scope::ImageView));
+    }
+
+    /// The row that opens one command's keys asks for the card, so the deck
+    /// puts it up.
+    ///
+    /// A row arms the editor itself, four call frames deep, and nothing said
+    /// so: clicking a key in the list armed the editor, the deck did not hear
+    /// about it, and the reconciliation at the foot of the frame put the
+    /// editor straight back down again. From the outside the key was a button
+    /// that did nothing at all.
+    #[test]
+    fn a_key_in_the_list_asks_for_the_card_that_holds_it() {
+        let mut config = Config::default();
+        let mut state = State::default();
+
+        let ctx = egui::Context::default();
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 1000.0));
+        let frame = |input: egui::RawInput, state: &mut State, config: &mut Config| {
+            let mut armed = Armed(false);
+            let output = ctx.run(input, |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    let (_, asked) = list(ui, state, config);
+                    armed = asked;
+                });
+            });
+
+            (output, armed)
+        };
+
+        let quiet = egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        };
+
+        // Drawn once to find where the key landed, and nothing is asked for on
+        // a frame nobody clicked anything.
+        let (output, armed) = frame(quiet.clone(), &mut state, &mut config);
+        assert_eq!(armed, Armed(false));
+
+        let bindings = bindings::all();
+        let quit = bindings.iter().find(|b| b.name() == "Quit").unwrap();
+        let key = describe(quit.get(&config).unwrap());
+        let at = crate::ui::drawn::text_at(&output, &key).expect("the key is drawn");
+
+        let clicked = egui::RawInput {
+            screen_rect: Some(screen),
+            events: vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::PointerButton {
+                    pos: at,
+                    button: egui::PointerButton::Primary,
+                    pressed: true,
+                    modifiers: egui::Modifiers::NONE,
+                },
+                egui::Event::PointerButton {
+                    pos: at,
+                    button: egui::PointerButton::Primary,
+                    pressed: false,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            ..Default::default()
+        };
+
+        let (_, armed) = frame(clicked, &mut state, &mut config);
+
+        assert_eq!(armed, Armed(true));
+        assert!(state.editing_one());
     }
 }

@@ -108,7 +108,7 @@ one piece of the work each.
 | `src/organize/` | work on the folder rather than the image: renaming, timeshift, grouping, `bin/` for the viewer's own bin |
 | `src/config/` | the configuration file, its defaults, migrations between versions, and `registry/` — one row per field, which the settings window, the search and the key editor are all views over |
 | `src/session.rs` | what is remembered between runs: window, folder, position |
-| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `settings/`, `surface.rs` for the menus, `panel.rs` for what every panel does about them, `slider/` for the rails, `progress.rs` |
+| `src/ui/` | shared widgets, the notice bar, the key binding clash check, `deck/` for the cards everything is drawn on, `settings/`, `surface.rs` for the menus, `panel.rs` for what every panel does about them, `slider/` for the rails, `progress.rs` |
 
 **Keep files short.** Aim for 300 lines; the median here is 264. Past that,
 split along the seam the file already has — a `mod.rs` plus siblings — rather
@@ -294,7 +294,7 @@ Leaving the seam for later means the next session pays for it with interest.
   the foot of the photograph's. The photograph, because with the bar itself put
   away it is the whole window and the only surface left to ask. What is on
   screen and what each key is are published once a frame by
-  `App::publish_panels`, the shape `utils::set_window_in_front` already has and
+  `App::publish_panels`, the shape `utils::set_in_front` already has and
   for the same reason: neither drawing site holds the program's fields or its
   configuration, and both would otherwise take fourteen arguments to say one
   thing. Both routes leave `panel::Ask::Toggle` in the mailbox
@@ -485,20 +485,46 @@ Leaving the seam for later means the next session pays for it with interest.
   itself, so `wheel::Tail` latches that magnification shut from the notch
   until the first frame it comes back to exactly one. A pinch arrives as
   `Event::Zoom`, is neither folded nor smoothed, and is what is left.
-- **A window in front owns the mouse and the keyboard.** Whether one is up is
-  decided once a frame, in `App::a_window_is_in_front`, and written to the
-  context with `utils::set_window_in_front`; a window that sets and clears a
-  flag of its own is a window that clears it while another still needs it.
-  `are_inputs_muted` is that flag *or* a focused text field, and gates the keys;
-  the pointer takes two more things. Every window calls `utils::in_front`, which
-  is egui's modal layer and stops the scroll areas and the focus behind it — and
-  the few places that read the pointer for themselves ask
-  `utils::is_a_window_in_front`, because `Response::contains_pointer` comes from
-  a hit test that knows nothing about modal layers and is true wherever the
-  window is not actually drawn. `Escape` shuts the window in front, and
-  `App::was_typing` is why it takes two presses to do it from a search box:
-  egui clears the focus itself before the program is called, so "was anything
-  being typed into" has to be remembered from the frame before.
+- **The program opens no windows of its own; everything is a card.**
+  `ui::deck` is the whole of it, and it is written to be lifted out: `Deck<C>`
+  is a stack of whatever identifier the caller uses and keeps three rules — one
+  card on screen, a card opened twice is *raised* rather than stacked twice,
+  and taking a card off takes what was put on top of it. `deck::draw` is the
+  other half: an opaque page over `ctx.available_rect()` with a bar saying
+  where you are, or a plate over the rest dimmed. `app/cards.rs` is this
+  program's thirteen, and nothing else knows they exist.
+
+  A **page** is about itself and takes the window; a **question** is about the
+  photographs and is a plate over them dimmed, because "send these three to the
+  bin" cannot be answered by somebody who can no longer see them. A question is
+  never *put* on the deck — `App::asked` derives it once a frame from the state
+  that asked it, so there is no flag about a question that could disagree with
+  whether there is one — and it carries no cross, because its own answers are
+  the way out. `App::showing` is the question or the deck's card, in that
+  order, and the two are drawn in that order too: `deck::show` raises the card
+  it draws, so the one drawn last is the one being answered.
+
+  A card that carries state of its own is reconciled once at the foot of
+  `show_deck`: the deck says what is on screen and `keys::State` follows it. A
+  route that arms the editor without going through the deck — the row in the
+  list of every key, which is four call frames from anything holding one — is
+  noticed by `keys::list` comparing before with after, the same answer as the
+  mailboxes in `ui::panel` and `ui::slider`.
+
+- **A card in front owns the mouse and the keyboard.** Whether something is up
+  is decided once a frame, in `App::something_is_in_front`, and written to the
+  context with `utils::set_in_front`; a card that sets and clears a flag of its
+  own is a card that clears it while another still needs it. `are_inputs_muted`
+  is that flag *or* a focused text field, and gates the keys; the pointer takes
+  two more things. `deck::draw` and the two overlays call egui's modal layer,
+  which stops the scroll areas and the focus behind them — and the few places
+  that read the pointer for themselves ask `utils::is_in_front`, because
+  `Response::contains_pointer` comes from a hit test that knows nothing about
+  modal layers and is true wherever the card is not actually drawn. `Escape`
+  takes the card in front off, and `App::was_typing` is why it takes two
+  presses to do it from a search box: egui clears the focus itself before the
+  program is called, so "was anything being typed into" has to be remembered
+  from the frame before.
 - **A turn is written to the sidecar and never to the photograph.** The eight
   orientations compose (`Orientation::then`), so the camera's and the user's are
   one orientation by the time anything draws. The same rule as the ratings: this

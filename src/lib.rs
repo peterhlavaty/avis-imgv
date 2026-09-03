@@ -9,7 +9,8 @@
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
 //! - [`cache`] decides what lives in RAM and what lives on the GPU,
-//! - [`view`] draws it, [`app`] wires it together,
+//! - [`view`] draws it, [`ui`] is the chrome round it — the cards, the
+//!   panels and the menus — and [`app`] wires it all together,
 //! - [`organize`] works on the folder rather than the image: bulk renaming,
 //!   correcting a camera clock, and the bin the viewer keeps of its own,
 //! - [`history`] remembers what was done and how to get back to any of it,

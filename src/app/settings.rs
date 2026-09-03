@@ -1,9 +1,11 @@
-//! The menu, and the windows it opens.
+//! The menu, and what a changed setting sets off.
 //!
-//! Everything here is the same shape: draw a window, take what it changed, and
-//! hand it to whichever part of the viewer holds a copy. The configuration is
-//! written out as soon as anything in it moves, so a key changed in the middle
-//! of a session survives the end of it.
+//! The menu opens cards — see `app::cards`, which holds the drawing of every
+//! one of them. What is here is the other half: the fan-out when a value
+//! moves. The views hold their own copies of the configuration, so a changed
+//! setting has to be handed to each of them, and the file is written as soon
+//! as anything in it moves, so a key changed in the middle of a session
+//! survives the end of it.
 
 use eframe::egui::{self, ViewportCommand};
 
@@ -11,10 +13,9 @@ use crate::actions::reveal;
 use crate::config::load::Save;
 use crate::config::Config;
 use crate::formats;
-use crate::ui::{keys, legend, notice, placeholders, settings};
+use crate::ui::settings;
 
-use super::about;
-use super::conflict;
+use super::cards::Card;
 use super::panels::MenuAction;
 use super::stores;
 use super::App;
@@ -50,19 +51,16 @@ impl App {
             MenuAction::EmptyBin => self.ask_to_empty_the_bin(),
             MenuAction::Mode(mode) => self.set_mode(mode),
             MenuAction::AllSettings => self.open_settings(),
-            MenuAction::Keyboard => self.keys_visible = true,
-            // A deep link to one of the eleven pages rather than a window of
-            // its own. The window drew three of the five slideshow fields and
-            // omitted the other two; the page draws all five.
+            MenuAction::Keyboard => self.open_card(Card::Keyboard),
+            // A deep link to one of the eleven pages rather than a card of its
+            // own. The window this was drew three of the five slideshow fields
+            // and omitted the other two; the page draws all five.
             MenuAction::Slideshow => self.open_settings_at("slideshow.seconds_per_image"),
-            MenuAction::CheatSheet => {
-                self.cheat_sheet_visible = true;
-                self.cheat_sheet_opened = true;
-            }
-            MenuAction::MarksLegend => self.legend_visible = true,
-            MenuAction::Placeholders => self.placeholders_visible = true,
-            MenuAction::Messages => self.messages_visible = true,
-            MenuAction::About => self.about_visible = true,
+            MenuAction::CheatSheet => self.open_card(Card::CheatSheet),
+            MenuAction::MarksLegend => self.open_card(Card::Legend),
+            MenuAction::Placeholders => self.open_card(Card::Placeholders),
+            MenuAction::Messages => self.open_card(Card::Messages),
+            MenuAction::About => self.open_card(Card::About),
             MenuAction::OpenConfigFile => self.open_named_file(Config::path(), "configuration"),
             MenuAction::OpenLogFile => self.open_named_file(crate::logging::path(), "log"),
             MenuAction::OpenManual => {
@@ -74,7 +72,7 @@ impl App {
     }
 
     /// Opens one of the viewer's own files with whatever the system uses.
-    fn open_named_file(&mut self, path: Option<std::path::PathBuf>, name: &str) {
+    pub(super) fn open_named_file(&mut self, path: Option<std::path::PathBuf>, name: &str) {
         let Some(path) = path else {
             self.notices.fail(format!(
                 "There is no configuration directory, so no {name} file."
@@ -90,61 +88,11 @@ impl App {
         }
     }
 
-    /// Draws the keyboard editor and applies whatever it changed.
-    ///
-    /// The views hold their own copies of the configuration, so a changed key
-    /// has to be handed to each of them; writing the file is what makes it
-    /// survive the session.
-    /// Draws the windows the Help menu opens.
-    pub(super) fn show_help_windows(&mut self, ctx: &egui::Context) {
-        if self.about_visible {
-            about::ui(ctx, &mut self.about_visible, &self.about);
-        }
-
-        if self.legend_visible {
-            legend::ui(ctx, &mut self.legend_visible);
-        }
-
-        if self.placeholders_visible {
-            placeholders::ui(ctx, &mut self.placeholders_visible);
-        }
-
-        if self.messages_visible {
-            match notice::history_window(ctx, &mut self.messages_visible, &mut self.notices) {
-                Some(notice::Asked::OpenLog) => self.open_named_file(crate::logging::path(), "log"),
-                Some(notice::Asked::Keys) => {
-                    self.messages_visible = false;
-                    self.keys_visible = true;
-                }
-                None => {}
-            }
-        }
-    }
-
     /// Sends whatever fullscreen change a mode asked for.
     pub(super) fn apply_fullscreen(&mut self, ctx: &egui::Context) {
         if let Some(wanted) = self.pending_fullscreen.take() {
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(wanted));
         }
-    }
-
-    /// Draws the keyboard editor and applies whatever it changed.
-    ///
-    /// The whole editor takes the keyboard, not only an armed row: a key
-    /// pressed here is a key being bound, and one the viewer also read would
-    /// both rebind and fire. Arming a row and pressing Delete used to send the
-    /// photograph on screen to the bin, and the capture failed as well.
-    pub(super) fn show_keyboard(&mut self, ctx: &egui::Context) {
-        let mut open = self.keys_visible;
-        let outcome = keys::show(ctx, &mut open, &mut self.keys, &mut self.settings);
-        self.keys_visible = open;
-
-        if outcome.is_none() {
-            return;
-        }
-
-        self.apply_settings();
-        self.save_settings();
     }
 
     /// Writes the configuration out, telling the user when it could not be.
@@ -173,34 +121,6 @@ impl App {
                     .say(format!("Could not write the configuration: {e}"));
             }
         }
-    }
-
-    /// Draws the question about an edited file and does what it was told.
-    pub(super) fn show_conflict(&mut self, ctx: &egui::Context) {
-        if !self.conflict_visible {
-            return;
-        }
-
-        let mut open = true;
-        match conflict::ask(ctx, &mut open) {
-            conflict::Answer::Waiting => {}
-            conflict::Answer::Reread => {
-                self.settings = Config::new();
-                self.commit_settings();
-                self.notices.say("Read the configuration file again.");
-            }
-            conflict::Answer::Overwrite => {
-                if let Err(e) = self.settings.save_over() {
-                    tracing::error!("Could not write the configuration: {e}");
-                    self.notices
-                        .say(format!("Could not write the configuration: {e}"));
-                } else {
-                    self.notices.say("Wrote over the configuration file.");
-                }
-            }
-        }
-
-        self.conflict_visible = open;
     }
 
     /// Writes back what the keys have nudged.
@@ -387,61 +307,6 @@ impl App {
 }
 
 impl App {
-    /// Draws the settings window and applies whatever it changed.
-    ///
-    /// One commit model across every row: no OK, no Cancel, no Apply, which is
-    /// what the program already does and what Microsoft carves out for a
-    /// property inspector. The one qualification is arithmetic — the stores are
-    /// pure functions of the configuration, so a rail on true per-frame apply
-    /// would rebuild the cache sixty times a second. A row whose effect is a
-    /// rebuild waits for the gesture to end.
-    pub(super) fn show_settings(&mut self, ctx: &egui::Context) {
-        // The one field in the whole window that cannot take effect while the
-        // window is open. The pool is spawned once, each thread is expected to
-        // exist, and one loader is shared by both views; draining a running
-        // pool mid-session is a larger job than this deserves, and pretending
-        // otherwise would be worse than saying so.
-        self.settings_state.waiting_on_a_restart = (self.settings.cache.decode_threads
-            != self.threads_at_start)
-            .then_some("decode threads");
-
-        let mut open = self.settings_visible;
-        let outcome = settings::show(ctx, &mut open, &mut self.settings_state, &mut self.settings);
-        self.settings_visible = open;
-
-        if let Some(page) = self.settings_state.page {
-            // Through the registry into `config.json`, not into the session
-            // file: `on_exit` returns early when `restore_session` is off, so a
-            // preference kept there is one some people silently do not have.
-            let remembered = format!("{page:?}");
-            if self.settings.general.last_settings_page != remembered {
-                self.settings.general.last_settings_page = remembered;
-            }
-        }
-
-        if let Some(path) = self.settings_state.arm_key.take() {
-            self.arm_key(path);
-        }
-
-        if let Some(run) = outcome.run {
-            self.run_settings_button(run, ctx);
-        }
-
-        if outcome.committed {
-            self.rebuild_stores();
-        }
-
-        if !outcome.changed {
-            return;
-        }
-
-        self.apply_settings();
-
-        // Written on every gesture, which is what makes the window the thing
-        // that decides rather than a form to be submitted.
-        self.save_settings();
-    }
-
     /// What a slider's own menu asked for, taken on the frame it was asked.
     ///
     /// A rail is drawn in four subsystems and not one of them has the
@@ -495,7 +360,7 @@ impl App {
         }
     }
 
-    /// Opens the settings window on the page it was last left on.
+    /// Opens the settings card on the page it was last left on.
     pub(super) fn open_settings(&mut self) {
         if self.settings_state.page.is_none() {
             self.settings_state.page = Some(page_named(&self.settings.general.last_settings_page));
@@ -507,7 +372,7 @@ impl App {
         // back; here they have a home that does not fade.
         self.settings_state.at_startup = self.startup_notices.clone();
         self.settings_state.just_opened = true;
-        self.settings_visible = true;
+        self.open_card(Card::Settings);
     }
 
     /// Opens it on a named row, from a link or a **[Fix]** button.
@@ -521,7 +386,7 @@ impl App {
         }
     }
 
-    fn run_settings_button(&mut self, run: settings::Run, ctx: &egui::Context) {
+    pub(super) fn run_settings_button(&mut self, run: settings::Run, ctx: &egui::Context) {
         if run == settings::Run::Restart {
             self.session.save();
             restart();

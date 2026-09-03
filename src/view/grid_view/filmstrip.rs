@@ -405,7 +405,7 @@ fn draw_cell(
 
     // A thumbnail behind a window is not a thumbnail: no cursor, no click, no
     // menu.
-    if crate::utils::is_a_window_in_front(ui.ctx()) {
+    if crate::utils::is_in_front(ui.ctx()) {
         return None;
     }
 

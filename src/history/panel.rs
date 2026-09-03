@@ -59,7 +59,7 @@ pub fn ui(
         .show_animated(ctx, visible, |ui| {
             // A window in front owns the pointer, and a hit test knows nothing
             // about modal layers.
-            if crate::utils::is_a_window_in_front(ui.ctx()) {
+            if crate::utils::is_in_front(ui.ctx()) {
                 ui.disable();
             }
 
@@ -254,7 +254,7 @@ pub fn nothing_yet(ctx: &egui::Context, visible: bool, width: f32) {
         .show_separator_line(false)
         .default_width(width)
         .show_animated(ctx, visible, |ui| {
-            if crate::utils::is_a_window_in_front(ui.ctx()) {
+            if crate::utils::is_in_front(ui.ctx()) {
                 ui.disable();
             }
 

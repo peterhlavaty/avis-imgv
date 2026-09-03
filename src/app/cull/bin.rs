@@ -202,7 +202,7 @@ impl App {
         }
     }
 
-    /// Holds the window open long enough to ask about a bin with something in
+    /// Holds the viewer open long enough to ask about a bin with something in
     /// it, once.
     ///
     /// The close is cancelled rather than deferred, and sent again from the
@@ -223,8 +223,6 @@ impl App {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.leaving = Leaving::Asking(waiting.0, waiting.1);
         }
-
-        self.show_leaving(ctx);
     }
 
     /// The bin and what is in it, where that is worth stopping for.
@@ -245,7 +243,10 @@ impl App {
     }
 
     /// Draws that question, and obeys it.
-    fn show_leaving(&mut self, ctx: &egui::Context) {
+    pub(in crate::app) fn ask_about_leaving(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
+        let ctx = &ctx;
+
         let Leaving::Asking(root, held) = self.leaving.clone() else {
             return;
         };
@@ -255,41 +256,34 @@ impl App {
         // the thing it should undo here is the closing.
         let mut empty_it = None;
 
-        let shown = egui::Window::new("The bin is not empty")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(format!(
-                    "{} still in {}. Empty it before closing?",
-                    match held {
-                        1 => "There is 1 photograph".to_string(),
-                        many => format!("There are {many} photographs"),
-                    },
-                    root.display()
-                ));
-                ui.add_space(10.0);
+        {
+            ui.label(format!(
+                "{} still in {}. Empty it before closing?",
+                match held {
+                    1 => "There is 1 photograph".to_string(),
+                    many => format!("There are {many} photographs"),
+                },
+                root.display()
+            ));
+            ui.add_space(10.0);
 
-                ui.horizontal(|ui| {
-                    if ui.button("Empty it and close").clicked() {
-                        empty_it = Some(true);
-                    }
-                    if ui.button("Keep it and close").clicked() {
-                        empty_it = Some(false);
-                    }
-                    if ui.button("Do not close").clicked() {
-                        self.leaving = Leaving::No;
-                    }
-                });
-
-                ui.add_space(6.0);
-                ui.label(
-                    egui::RichText::new("Y to empty it · N to keep it · Escape to stay open")
-                        .weak(),
-                );
+            ui.horizontal(|ui| {
+                if ui.button("Empty it and close").clicked() {
+                    empty_it = Some(true);
+                }
+                if ui.button("Keep it and close").clicked() {
+                    empty_it = Some(false);
+                }
+                if ui.button("Do not close").clicked() {
+                    self.leaving = Leaving::No;
+                }
             });
 
-        crate::utils::in_front(ctx, shown.as_ref());
+            ui.add_space(6.0);
+            ui.label(
+                egui::RichText::new("Y to empty it · N to keep it · Escape to stay open").weak(),
+            );
+        }
 
         // Consumed rather than read, for the reason the deletion question
         // consumes its keys: the views draw after this and would go on to mean

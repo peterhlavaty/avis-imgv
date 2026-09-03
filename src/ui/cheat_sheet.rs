@@ -196,24 +196,29 @@ fn mouse_rows(config: &Config, mode: Mode, needle: &str) -> Vec<Row> {
 ///
 /// It used to close on *any* key, which was right while it was a thing you
 /// only glanced at and wrong the moment it had a search box: the first
-/// character typed would have dismissed it. Escape, a click outside, or any key
-/// while the box does not hold the cursor.
-pub fn ui(
-    ctx: &egui::Context,
+/// character typed would have dismissed it. Escape, or any key while the box
+/// does not hold the cursor. A click no longer closes it: as a window there was
+/// an outside to click on, and as a card filling the window there is not — a
+/// click anywhere in it would be a click on the sheet itself.
+pub fn contents(
+    ui: &mut egui::Ui,
     config: &Config,
     mode: Mode,
     just_opened: bool,
     query: &mut String,
     change: &mut Option<&'static str>,
 ) -> bool {
+    let ctx = ui.ctx().clone();
+    let ctx = &ctx;
     let mut open = true;
     let bindings = bindings::all();
     let needle = query.trim().to_lowercase();
 
-    // Gathered before anything is drawn, because the height has to be known
-    // before the window is: a scrolling area has no natural height of its own
-    // — it is happy to be one line tall — so a window sized to its contents
-    // ends up sized to nothing, and the list is clipped after a dozen rows.
+    // Which keys are live where the user is. The sheet used to have to measure
+    // its own height from this before it could be drawn — a window sized to a
+    // scrolling area is sized to nothing, because a scrolling area is happy to
+    // be one line tall. A card is the height of the window and has nothing to
+    // work out.
     let live = scopes_for(mode);
 
     let mut sections: Vec<(&'static str, Vec<Row>)> = bindings::SECTIONS
@@ -265,91 +270,89 @@ pub fn ui(
         sections.push(("The mouse", pointer));
     }
 
-    let tallest = ctx.content_rect().height() * 0.75;
-    let mut box_has_focus = false;
+    let box_has_focus;
 
-    let shown = egui::Window::new(format!("Keys — {}", mode.label()))
-        .collapsible(false)
-        .resizable(false)
-        .default_width(620.0)
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(ctx, |ui| {
-            let field = ui.add(
-                egui::TextEdit::singleline(query)
-                    .hint_text("Search the keys")
-                    .desired_width(f32::INFINITY),
-            );
-            box_has_focus = field.has_focus();
+    {
+        let field = ui.add(
+            egui::TextEdit::singleline(query)
+                .hint_text("Search the keys")
+                .desired_width(f32::INFINITY),
+        );
+        box_has_focus = field.has_focus();
 
-            ui.set_height(needed_height(ui, &sections).min(tallest));
-
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                if sections.is_empty() {
-                    ui.add_space(10.0);
-                    ui.weak(format!("No key here matches \"{}\".", query.trim()));
-                    return;
-                }
-
-                for (section, rows) in &sections {
-                    ui.add_space(6.0);
-                    ui.label(RichText::new(*section).heading());
-                    ui.add_space(4.0);
-
-                    egui::Grid::new(("cheat-sheet", section))
-                        .num_columns(2)
-                        .spacing([18.0, 4.0])
-                        .show(ui, |ui| {
-                            for row in rows {
-                                // A route out, not only a statement. Every row
-                                // opens the page that owns it, with its own
-                                // binding armed.
-                                let key = ui.add(
-                                    egui::Label::new(RichText::new(&row.key).monospace().strong())
-                                        .sense(egui::Sense::click()),
-                                );
-
-                                if row.editable {
-                                    if key.on_hover_text("Click to change this").clicked() {
-                                        *change = Some(row.path);
-                                    }
-                                } else {
-                                    key.on_hover_text("The viewer reads this key itself");
-                                }
-
-                                // The sentence goes on the row rather than in a
-                                // tooltip: this is the reference. It has been on
-                                // every binding all along and was read only by
-                                // the keyboard editor.
-                                ui.vertical(|ui| {
-                                    ui.label(row.name);
-                                    ui.weak(RichText::new(row.description).small());
-                                });
-                                ui.end_row();
-                            }
-                        });
-                }
-
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            if sections.is_empty() {
                 ui.add_space(10.0);
-                ui.separator();
+                ui.weak(format!("No key here matches \"{}\".", query.trim()));
+                return;
+            }
 
-                // The footer was a statement; it is the route out. This sheet
-                // is the best documentation in the program and it led nowhere.
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new("These are the keys as configured. Escape closes this.")
-                            .weak(),
-                    );
+            for (section, rows) in &sections {
+                ui.add_space(6.0);
+                ui.label(RichText::new(*section).heading());
+                ui.add_space(4.0);
 
-                    if ui.button("Change them…").clicked() {
-                        *change = Some("");
-                    }
-                });
+                egui::Grid::new(("cheat-sheet", section))
+                    .num_columns(2)
+                    .spacing([18.0, 4.0])
+                    .show(ui, |ui| {
+                        for row in rows {
+                            // A route out, not only a statement. Every row
+                            // opens the page that owns it, with its own
+                            // binding armed.
+                            let key = ui.add(
+                                egui::Label::new(RichText::new(&row.key).monospace().strong())
+                                    .sense(egui::Sense::click()),
+                            );
+
+                            if row.editable {
+                                if key.on_hover_text("Click to change this").clicked() {
+                                    *change = Some(row.path);
+                                }
+                            } else {
+                                key.on_hover_text("The viewer reads this key itself");
+                            }
+
+                            // The sentence goes on the row rather than in a
+                            // tooltip: this is the reference. It has been on
+                            // every binding all along and was read only by
+                            // the keyboard editor.
+                            ui.vertical(|ui| {
+                                ui.label(row.name);
+                                ui.weak(RichText::new(row.description).small());
+                            });
+                            ui.end_row();
+                        }
+                    });
+            }
+
+            ui.add_space(10.0);
+            ui.separator();
+
+            // The footer was a statement; it is the route out. This sheet
+            // is the best documentation in the program and it led nowhere.
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new("These are the keys as configured. Escape closes this.").weak(),
+                );
+
+                if ui.button("Change them…").clicked() {
+                    *change = Some("");
+                }
             });
         });
-
-    crate::utils::in_front(ctx, shown.as_ref());
+    }
 
     if just_opened {
+        return open;
+    }
+
+    // egui runs the frame again whenever something in it asks for another
+    // look — a card whose size it does not yet know is one such — and the
+    // second pass arrives with no events at all. Reading the keys there would
+    // find none, and the answer of the pass that did read them would be thrown
+    // away.
+    if ctx.current_pass_index() > 0 {
         return open;
     }
 
@@ -363,7 +366,7 @@ pub fn ui(
             .iter()
             .any(|event| matches!(event, egui::Event::Key { pressed: true, .. }));
 
-        escaped || (!box_has_focus && any_key) || i.pointer.any_click()
+        escaped || (!box_has_focus && any_key)
     });
 
     if dismissed {
@@ -373,52 +376,58 @@ pub fn ui(
     open
 }
 
-/// How tall the sheet wants to be, from the fonts actually in use.
-///
-/// Measured rather than guessed at, so it is right whatever the configured
-/// text scaling is: a sheet sized for the default font and drawn at 150% would
-/// clip the last rows, which is precisely the failure it exists to avoid.
-fn needed_height(ui: &egui::Ui, sections: &[(&str, Vec<Row>)]) -> f32 {
-    let row = ui.text_style_height(&egui::TextStyle::Body) + 4.0;
-    let small = ui.text_style_height(&egui::TextStyle::Small) + 2.0;
-    let heading = ui.text_style_height(&egui::TextStyle::Heading) + 10.0;
-
-    let rows: usize = sections.iter().map(|(_, rows)| rows.len()).sum();
-    let footer = row * 2.0 + 16.0;
-
-    sections.len() as f32 * heading + rows as f32 * (row + small) + footer
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// One frame with the sheet in it, saying whether it stayed up.
+    fn sheet(pressed: Option<egui::Key>, just_opened: bool, query: &str) -> bool {
+        let ctx = egui::Context::default();
+        let input = egui::RawInput {
+            events: pressed
+                .map(|key| egui::Event::Key {
+                    key,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                })
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        let mut query = query.to_string();
+        let mut change = None;
+        let mut open = true;
+
+        let _ = ctx.run(input, |ctx| {
+            // As the program does it: a frame egui runs twice does not draw
+            // the card again once the first pass has put it down.
+            if !open {
+                return;
+            }
+
+            egui::CentralPanel::default().show(ctx, |ui| {
+                open = contents(
+                    ui,
+                    &Config::default(),
+                    Mode::Image,
+                    just_opened,
+                    &mut query,
+                    &mut change,
+                );
+            });
+        });
+
+        open
+    }
+
     /// The frame it opens on must not also close it, or nothing is ever seen.
     #[test]
     fn the_key_that_opens_it_does_not_also_close_it() {
-        let ctx = egui::Context::default();
-        ctx.begin_pass(egui::RawInput {
-            events: vec![egui::Event::Key {
-                key: egui::Key::F1,
-                physical_key: None,
-                pressed: true,
-                repeat: false,
-                modifiers: egui::Modifiers::NONE,
-            }],
-            ..Default::default()
-        });
-
-        let mut query = String::new();
-        let mut change = None;
         assert!(
-            ui(
-                &ctx,
-                &Config::default(),
-                Mode::Image,
-                true,
-                &mut query,
-                &mut change
-            ),
+            sheet(Some(egui::Key::F1), true, ""),
             "it closed on the frame it opened"
         );
     }
@@ -426,46 +435,14 @@ mod tests {
     /// And the next key does close it, while nobody is typing.
     #[test]
     fn the_next_key_closes_it() {
-        let ctx = egui::Context::default();
-        ctx.begin_pass(egui::RawInput {
-            events: vec![egui::Event::Key {
-                key: egui::Key::A,
-                physical_key: None,
-                pressed: true,
-                repeat: false,
-                modifiers: egui::Modifiers::NONE,
-            }],
-            ..Default::default()
-        });
-
-        let mut query = String::new();
-        let mut change = None;
-        assert!(!ui(
-            &ctx,
-            &Config::default(),
-            Mode::Image,
-            false,
-            &mut query,
-            &mut change
-        ));
+        assert!(!sheet(Some(egui::Key::A), false, ""));
     }
 
-    /// A quiet frame leaves it up.
+    /// A quiet frame leaves it up. A click is a quiet frame now: as a card
+    /// filling the window there is no outside to click on.
     #[test]
     fn nothing_happening_leaves_it_open() {
-        let ctx = egui::Context::default();
-        ctx.begin_pass(egui::RawInput::default());
-
-        let mut query = String::new();
-        let mut change = None;
-        assert!(ui(
-            &ctx,
-            &Config::default(),
-            Mode::Image,
-            false,
-            &mut query,
-            &mut change
-        ));
+        assert!(sheet(None, false, ""));
     }
 
     /// The sheet reads the configuration rather than a fixed list, so a
@@ -486,21 +463,9 @@ mod tests {
     }
 
     /// A search that matches nothing says so rather than drawing an empty
-    /// window, and the sheet stays up so the query can be corrected.
+    /// card, and the sheet stays up so the query can be corrected.
     #[test]
     fn a_search_that_matches_nothing_leaves_the_sheet_up() {
-        let ctx = egui::Context::default();
-        ctx.begin_pass(egui::RawInput::default());
-
-        let mut query = "zzzznothing".to_string();
-        let mut change = None;
-        assert!(ui(
-            &ctx,
-            &Config::default(),
-            Mode::Image,
-            false,
-            &mut query,
-            &mut change
-        ));
+        assert!(sheet(None, false, "zzzznothing"));
     }
 }

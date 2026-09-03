@@ -3,6 +3,7 @@
 
 mod about;
 pub mod benchmark;
+pub mod cards;
 mod chrome;
 mod conflict;
 mod cull;
@@ -33,17 +34,17 @@ use crate::crawler;
 use crate::history::{History, Watcher};
 use crate::organize::pairs::Pairs;
 use crate::session::{Geometry, Session};
+use crate::ui::deck::Deck;
 use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
-use crate::ui::{
-    cheat_sheet, filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, progress, theme,
-};
+use crate::ui::{filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, progress, theme};
 use crate::view::image_view::bottom_bar::Marks;
 use crate::view::narrow::Narrowing;
 use crate::view::organize::OrganizeView;
 use crate::view::{GridView, ImageView};
 
 use benchmark::Benchmark;
+use cards::Card;
 use input::{Command, Overlay};
 use mode::Mode;
 
@@ -114,11 +115,14 @@ pub struct App {
     /// The whole configuration, kept so the keyboard editor can write to it.
     settings: Config,
     keys: keys::State,
-    keys_visible: bool,
-    /// The settings window's own state: which page, what is searched for,
-    /// what the file complained about.
+    /// The settings card's own state: which page, what is searched for, what
+    /// the file complained about.
     settings_state: crate::ui::settings::State,
-    settings_visible: bool,
+    /// Which cards are open, the last of them on screen.
+    ///
+    /// The one answer to "is anything of the viewer's own up", which used to
+    /// be eight flags that had to be listed in three places and were.
+    deck: Deck<Card>,
     /// A fullscreen change asked for by a mode, sent on the next frame.
     pending_fullscreen: Option<bool>,
     /// Whether the window was already fullscreen before a mode asked for it,
@@ -199,12 +203,8 @@ pub struct App {
     /// from the second frame on, so a height typed into the settings window or
     /// put back by the history has one frame in which to say so.
     forced_filmstrip_height: bool,
-    /// Whether the sheet of keys is up.
-    ///
-    /// Not the editor, which is a settings window: this is the glance-at list
-    /// of what the keys currently are.
-    cheat_sheet_visible: bool,
-    /// Set on the frame it was opened, so that frame's key does not close it.
+    /// Set on the frame the sheet of keys was opened, so that frame's key does
+    /// not close it again.
     cheat_sheet_opened: bool,
     /// What is being searched for in the cheat sheet.
     cheat_sheet_query: String,
@@ -215,8 +215,12 @@ pub struct App {
     /// answer — most folders have no keywords in them — so "not read yet" has
     /// to be something other than "read, and empty".
     seen_tags: (Option<u64>, Vec<String>),
-    /// Whether the question about a configuration file edited underneath the
-    /// viewer is on screen.
+    /// Whether the configuration file has been edited under the viewer and
+    /// nobody has said what to do about it.
+    ///
+    /// A question rather than a card: `Card::TheConfiguration` is derived from
+    /// this, the way every other question is derived from the state that asked
+    /// it.
     conflict_visible: bool,
     /// What the viewer said at startup, kept for the settings window.
     ///
@@ -235,10 +239,6 @@ pub struct App {
     first_session: bool,
     /// What this build is, read once when the window is made.
     about: about::About,
-    about_visible: bool,
-    legend_visible: bool,
-    placeholders_visible: bool,
-    messages_visible: bool,
     /// A theme change asked for by the settings window, applied on the next
     /// frame: `set_theme` inside a frame that has already begun is a frame
     /// drawn half in each.
@@ -383,9 +383,8 @@ impl App {
             benchmark: benchmark.then(|| Benchmark::new(BENCHMARK_IMAGES)),
             settings,
             keys: keys::State::default(),
-            keys_visible: false,
+            deck: Deck::default(),
             settings_state: crate::ui::settings::State::default(),
-            settings_visible: false,
             pending_fullscreen: None,
             was_fullscreen: fullscreen,
             notices: Notices::default(),
@@ -413,7 +412,6 @@ impl App {
             pane_flags: Vec::new(),
             compared_from: crate::view::Selection::default(),
             forced_filmstrip_height: false,
-            cheat_sheet_visible: false,
             cheat_sheet_opened: false,
             cheat_sheet_query: String::new(),
             seen_tags: (None, Vec::new()),
@@ -422,10 +420,6 @@ impl App {
             hint_visible: first_session,
             startup_notices: Vec::new(),
             about,
-            about_visible: false,
-            legend_visible: false,
-            placeholders_visible: false,
-            messages_visible: false,
             opening: None,
             busy_since: None,
             pending_theme: None,
@@ -1005,77 +999,16 @@ impl App {
         }
     }
 
-    /// Whether one of the viewer's own windows is up.
+    /// Whether one of the viewer's own cards is up.
     ///
-    /// Every window the program opens over itself is here, and while any of
-    /// them is up the viewer behind it is neither clicked nor typed at. The
-    /// panels are not: the filter bar, the information panel and the keyword
-    /// panel sit beside the photograph rather than over it, and are used while
-    /// it is being looked at.
-    fn a_window_is_in_front(&self) -> bool {
-        self.settings_visible
-            || self.keys_visible
-            || self.keys.editing_one()
-            || self.cheat_sheet_visible
-            || self.about_visible
-            || self.legend_visible
-            || self.placeholders_visible
-            || self.messages_visible
-            || self.conflict_visible
-            || self.pending_delete.is_some()
-            || matches!(self.leaving, cull::Leaving::Asking(..))
-            || self.pending_history.is_some()
-            || self.asking.is_some()
-            || self.overlay.is_some()
-    }
-
-    /// Shuts the window in front when Escape asks for it.
-    ///
-    /// The window that owns the keyboard has to be answerable from it, and the
-    /// settings window has no other key that reaches it: it is opened from a
-    /// key and was closed only with the mouse.
-    ///
-    /// The questions are not in this list. Escape is an *answer* there — leave
-    /// them alone — and the window that asked reads it itself; so do the
-    /// overlays, and the sheet of keys, which any key closes. An armed row in
-    /// the keyboard editor owns it too, where Escape means "leave the binding
-    /// as it was" rather than "shut the editor".
-    fn escape_shuts_a_window(&mut self, ctx: &egui::Context) {
-        if self.keys.is_listening() {
-            return;
-        }
-
-        let typing = self.was_typing;
-
-        // The keys of one command are drawn over everything below, so Escape
-        // reaches that window first. It is not in the list because it is not a
-        // flag: what it holds is which command it is about.
-        if self.keys.editing_one() {
-            if input::escape_shuts_a_window(ctx, typing) {
-                self.keys.close_one();
-            }
-
-            return;
-        }
-
-        let mut plain = [
-            &mut self.settings_visible,
-            &mut self.keys_visible,
-            &mut self.messages_visible,
-            &mut self.about_visible,
-            &mut self.legend_visible,
-            &mut self.placeholders_visible,
-        ];
-
-        // Which one is in front, asked before the key is taken so that Escape
-        // still reaches everything else when none of these is up.
-        let Some(open) = plain.iter_mut().find(|open| ***open) else {
-            return;
-        };
-
-        if input::escape_shuts_a_window(ctx, typing) {
-            **open = false;
-        }
+    /// One question now that there is one deck, where it used to be eight
+    /// flags that had to be kept in step by hand. While a card is up the
+    /// viewer behind it is neither clicked nor typed at. The panels are not
+    /// cards: the filter bar, the information panel and the keyword panel sit
+    /// beside the photograph rather than over it, and are used while it is
+    /// being looked at.
+    fn something_is_in_front(&self) -> bool {
+        self.showing().is_some() || self.overlay.is_some()
     }
 
     /// What the viewer is busy with, if anything worth saying.
@@ -1166,10 +1099,13 @@ impl App {
             // its own rect rather than at the pointer.
             Command::ContextMenu => self.open_context_for_focus(ctx),
             Command::ShowKeys => {
-                self.cheat_sheet_visible = !self.cheat_sheet_visible;
-                // The key that opened it is still going down this frame, and
-                // any key closes it.
-                self.cheat_sheet_opened = self.cheat_sheet_visible;
+                if self.deck.holds(Card::CheatSheet) {
+                    self.deck.close(Card::CheatSheet);
+                } else {
+                    // `open_card` sets the flag that says the key which opened
+                    // it is still going down this frame, and any key closes it.
+                    self.open_card(Card::CheatSheet);
+                }
             }
             Command::ToggleFilter => {
                 self.filter_visible = !self.filter_visible;
@@ -1274,11 +1210,11 @@ impl eframe::App for App {
             .set_display_edge(longest_edge_in_pixels(ctx));
 
         // Escape, in the order the presses come. The first leaves whatever
-        // text field has the keyboard, the second shuts the window in front:
-        // surrendering the focus first would spend both on one press, because
-        // the question the second asks is whether anything is being typed
-        // into.
-        self.escape_shuts_a_window(ctx);
+        // text field has the keyboard, the second takes the card on screen
+        // off: surrendering the focus first would spend both on one press,
+        // because the question the second asks is whether anything is being
+        // typed into.
+        self.escape_goes_back(ctx);
 
         // Wherever the keyboard has wandered off to, Escape brings it back.
         // A text field with focus mutes every shortcut in the viewer, and
@@ -1290,6 +1226,11 @@ impl eframe::App for App {
         self.continue_opening(ctx);
         input::update_overlay(ctx, &mut self.overlay, &self.config);
 
+        // Before the deck is asked what is up: a close request that finds
+        // something still in the bin asks about it, and the question is a card
+        // like any other.
+        self.consider_leaving(ctx);
+
         // One place decides who is listening. A window of the viewer's own
         // owns the mouse and the keyboard while it is up, and everything
         // behind it goes quiet: the shortcuts, the gestures, and the wheel
@@ -1300,7 +1241,7 @@ impl eframe::App for App {
         // whether *any* of them is up, and a flag several owners set and clear
         // is a flag one of them clears while another still needs it. After the
         // overlays, so the frame one opens on is already quiet.
-        crate::utils::set_window_in_front(ctx, self.a_window_is_in_front());
+        crate::utils::set_in_front(ctx, self.something_is_in_front());
 
         self.handle_gestures(ctx);
         self.handle_dropped_files(ctx);
@@ -1345,47 +1286,14 @@ impl eframe::App for App {
             self.handle_menu(action);
         }
 
-        if self.cheat_sheet_visible {
-            let just_opened = std::mem::take(&mut self.cheat_sheet_opened);
-            let mut change = None;
-            self.cheat_sheet_visible = cheat_sheet::ui(
-                ctx,
-                &self.settings,
-                self.mode,
-                just_opened,
-                &mut self.cheat_sheet_query,
-                &mut change,
-            );
-
-            // The route out. A row opens the keys of the command it names; the
-            // footer opens the list of every one of them.
-            if let Some(path) = change {
-                self.cheat_sheet_visible = false;
-
-                // A key row opens that command's keys; a gesture row opens the
-                // page that owns it. The sheet lists both now, and the row
-                // itself says which it is.
-                if path.is_empty() {
-                    self.keys_visible = true;
-                } else if crate::config::bindings::is_a_key(path) {
-                    self.arm_key(path);
-                } else {
-                    self.open_settings_at(path);
-                }
-            }
-        }
+        // Everything that used to be a window. One card at a time, over the
+        // whole window under the menu bar, with the question of the moment on
+        // a plate over it.
+        self.show_deck(ctx);
 
         self.show_first_run_hint(ctx);
         panels::typing_notice(ctx);
         self.show_filter_bar(ctx);
-        self.show_destinations(ctx);
-        self.show_pending_delete(ctx);
-        self.consider_leaving(ctx);
-        self.show_pending_history(ctx);
-        self.show_keyboard(ctx);
-        self.show_settings(ctx);
-        self.show_conflict(ctx);
-        self.show_help_windows(ctx);
         self.apply_fullscreen(ctx);
         self.show_side_panel(ctx);
         // After the metadata panel, so the one that was already against the

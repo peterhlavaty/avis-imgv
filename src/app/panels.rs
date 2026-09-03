@@ -20,7 +20,7 @@ pub enum MenuAction {
     OpenBin,
     /// Delete everything in it, folder and all. Asked about first.
     EmptyBin,
-    /// Open the whole settings window.
+    /// Open the whole settings card.
     AllSettings,
     /// Open the editor for the keyboard map.
     Keyboard,
@@ -51,10 +51,12 @@ pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAc
     egui::TopBottomPanel::top("menu")
         .show_separator_line(false)
         .show_animated(ctx, visible, |ui| {
-            // Nothing on the bar while a window is in front. Opening a folder
-            // or changing the mode from behind a settings window is a click
-            // aimed past the window it was meant for.
-            if crate::utils::is_a_window_in_front(ui.ctx()) {
+            // Nothing on the bar while a card is in front. The bar stays on
+            // screen — a card takes the window under it and no more — but it
+            // is not the way between cards: the card's own bar carries that,
+            // and opening a folder or changing the mode from behind the
+            // settings is a click aimed past the thing it was meant for.
+            if crate::utils::is_in_front(ui.ctx()) {
                 ui.disable();
             }
 
@@ -536,16 +538,16 @@ fn format_mib(bytes: usize) -> String {
 
 /// One line saying the keyboard has been taken, and which key gets it back.
 ///
-/// `are_inputs_muted` is `a window in front || memory.focused().is_some()`, so
+/// `are_inputs_muted` is `something in front || memory.focused().is_some()`, so
 /// the whole viewer goes deaf while any text field holds focus — the filter bar's
 /// three, the tag panel's one, the folder jobs' eight — with `Escape` the only
 /// way out and `Alt+Q` the only shortcut that survives. Nothing on screen said
 /// any of it, so the symptom was a viewer that had stopped answering its keys.
 pub fn typing_notice(ctx: &egui::Context) {
-    // Not while a window is in front. The viewer being deaf is the point
+    // Not while a card is in front. The viewer being deaf is the point
     // there, not a surprise to be explained, and the line would be drawn at
     // the foot of a window nobody is typing into.
-    if crate::utils::is_a_window_in_front(ctx) {
+    if crate::utils::is_in_front(ctx) {
         return;
     }
 

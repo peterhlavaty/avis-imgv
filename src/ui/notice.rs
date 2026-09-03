@@ -238,84 +238,68 @@ pub enum Asked {
     Keys,
 }
 
-pub fn history_window(
-    ctx: &egui::Context,
-    open: &mut bool,
-    notices: &mut Notices,
-) -> Option<Asked> {
-    let mut showing = *open;
+/// Everything the viewer has said lately, whether or not it was seen.
+pub fn contents(ui: &mut egui::Ui, notices: &mut Notices) -> Option<Asked> {
     let mut asked = None;
 
-    let shown = egui::Window::new("Recent messages")
-        .open(&mut showing)
-        .default_width(620.0)
-        .default_height(420.0)
-        .show(ctx, |ui| {
-            if notices.history.is_empty() {
-                ui.weak("Nothing has been said yet.");
-                return;
-            }
+    // Read while it is being read: the badge in the bar is about what has been
+    // said since anybody last looked, and this is looking.
+    notices.mark_seen();
 
-            ui.horizontal(|ui| {
-                ui.label(format!("{} messages", notices.history.len()));
-                if ui.button("Copy them all").clicked() {
-                    let text = notices
-                        .history()
-                        .map(|line| line.text.clone())
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    ui.ctx().copy_text(text);
-                }
-            });
-
-            ui.separator();
-
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for line in notices.history() {
-                    ui.horizontal_wrapped(|ui| {
-                        let mark = line.severity.label();
-                        if !mark.is_empty() {
-                            ui.label(
-                                RichText::new(mark)
-                                    .color(line.severity.fill().to_opaque().gamma_multiply(2.4))
-                                    .strong(),
-                            );
-                        }
-
-                        let text = if line.repeats > 1 {
-                            format!("{} ({}×)", line.text, line.repeats)
-                        } else {
-                            line.text.clone()
-                        };
-
-                        ui.label(text);
-
-                        // A failure that ends in the log offers the log; a
-                        // clash offers the keys. A message about something that
-                        // went wrong and no way to reach what went wrong is
-                        // the shape of dead end this whole stage is about.
-                        if line.severity != Severity::Said
-                            && ui.small_button("Open the log").clicked()
-                        {
-                            asked = Some(Asked::OpenLog);
-                        }
-
-                        if line.text.contains("are both on") && ui.small_button("Fix it").clicked()
-                        {
-                            asked = Some(Asked::Keys);
-                        }
-                    });
-                }
-            });
-        });
-
-    crate::utils::in_front(ctx, shown.as_ref());
-
-    if showing {
-        notices.mark_seen();
+    if notices.history.is_empty() {
+        ui.weak("Nothing has been said yet.");
+        return None;
     }
 
-    *open = showing;
+    ui.horizontal(|ui| {
+        ui.label(format!("{} messages", notices.history.len()));
+        if ui.button("Copy them all").clicked() {
+            let text = notices
+                .history()
+                .map(|line| line.text.clone())
+                .collect::<Vec<_>>()
+                .join("\n");
+            ui.ctx().copy_text(text);
+        }
+    });
+
+    ui.separator();
+
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        for line in notices.history() {
+            ui.horizontal_wrapped(|ui| {
+                let mark = line.severity.label();
+                if !mark.is_empty() {
+                    ui.label(
+                        RichText::new(mark)
+                            .color(line.severity.fill().to_opaque().gamma_multiply(2.4))
+                            .strong(),
+                    );
+                }
+
+                let text = if line.repeats > 1 {
+                    format!("{} ({}×)", line.text, line.repeats)
+                } else {
+                    line.text.clone()
+                };
+
+                ui.label(text);
+
+                // A failure that ends in the log offers the log; a
+                // clash offers the keys. A message about something that
+                // went wrong and no way to reach what went wrong is
+                // the shape of dead end this whole stage is about.
+                if line.severity != Severity::Said && ui.small_button("Open the log").clicked() {
+                    asked = Some(Asked::OpenLog);
+                }
+
+                if line.text.contains("are both on") && ui.small_button("Fix it").clicked() {
+                    asked = Some(Asked::Keys);
+                }
+            });
+        }
+    });
+
     asked
 }
 

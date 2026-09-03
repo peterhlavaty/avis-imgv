@@ -557,7 +557,7 @@ impl GridView {
         // Nothing is picked out or pushed about while a window is over the
         // sheet: the middle drag that pans it is a pointer gesture like any
         // other.
-        if utils::is_a_window_in_front(ctx) {
+        if utils::is_in_front(ctx) {
             self.band_from = None;
             self.band = None;
             return;
@@ -790,7 +790,7 @@ impl GridView {
         response: &egui::Response,
     ) {
         // A cell behind a window is not a cell: no cursor, no click, no menu.
-        if utils::is_a_window_in_front(ui.ctx()) {
+        if utils::is_in_front(ui.ctx()) {
             return;
         }
 

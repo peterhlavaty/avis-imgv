@@ -102,7 +102,7 @@ impl App {
     /// Show submenu on the photograph — are drawn where neither these fields
     /// nor the configuration are in hand, so the answer is published once a
     /// frame rather than threaded through them. The same shape as
-    /// `utils::set_window_in_front`, and for the same reason.
+    /// `utils::set_in_front`, and for the same reason.
     ///
     /// It said which key shows and hides each of them too, until every menu in
     /// the program began naming its keys and the answer moved to the one table

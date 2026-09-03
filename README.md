@@ -670,7 +670,7 @@ A mode of its own: the window goes fullscreen, the status bar goes away, and
 the pictures change themselves. The arrow keys still work — moving by hand just
 restarts the clock — and leaving the mode puts the window back the way it was.
 
-The **Slideshow** page of the settings window sets how long each picture is held
+The **Slideshow** page of the settings sets how long each picture is held
 and what happens while it is up:
 
 | | |
@@ -686,7 +686,7 @@ the far edge exactly as the picture's turn ends.
 
 ## Settings
 
-`Ctrl + ,` opens the settings window on the page it was last left on;
+`Ctrl + ,` opens the settings on the page it was last left on;
 **Settings → All settings…** does the same. Eleven pages, named for what you are
 doing rather than for what the field is made of:
 
@@ -725,7 +725,7 @@ Key bindings and machine-specific paths are left out unless asked for.
 
 If something in the configuration file cannot be acted on — a screen profile
 that matches nothing, a keyword file that is not there, a rejects folder with no
-name — the window says so across the top, with a button that goes to the
+name — the card says so across the top, with a button that goes to the
 control. A value outside what a control can produce is shown, marked, and left
 exactly as it was written: hand-editing always wins.
 
@@ -750,28 +750,46 @@ count. The cache readout cannot give one at all: what is in RAM is the length
 of a list trimmed to a budget, so it is permanently less than the folder and a
 bar driven by it would never fill.
 
-### While a window is open
+### Cards, not windows
 
-A window the viewer opens over itself owns the mouse and the keyboard while it
-is up. The wheel scrolls the page of settings rather than walking the folder
-behind it, a click lands on the window rather than on a thumbnail behind it,
-and the keys mean what the window says they mean — a digit typed into the
-search box is a digit and not a star. The bar at the top, the bar at the
-bottom, the filter bar and the keyword panel grey out to say so; the
-information panel stays readable, because reading it is not doing anything.
+The viewer opens no windows of its own. Everything that would have been one is
+a **card**: it fills the viewer under the menu bar, there is never more than
+one on screen, and there is no title bar to drag, no corner to pull and no
+position that has to be remembered. What is behind a settings page is no part
+of setting anything, so it is not drawn.
 
-`Escape` shuts the window in front. The first press leaves whatever field has
-the cursor and the second shuts the window, so a search half typed is not lost
-to a key pressed once. The questions — the two deletions, the bulk undo, and
-where photographs are being sent — answer `Escape` themselves, where it means
+Seven cards are opened by hand — the settings, the keyboard, the sheet of keys,
+the legend, the placeholders, the recent messages, and what this build is — and
+the bar at the top of whichever is up is how you get between them:
+
+- on the left, the cards this one was opened *from*, each a button back to it:
+  **Settings › Keyboard › Keys for Next mode**;
+- on the right, **Go to…**, which lists all seven with a tick against the ones
+  already open;
+- and a `✖`, which puts every card down and goes back to the photographs.
+
+`Escape` does the same thing one card at a time. The first press leaves
+whatever field has the cursor and the second takes the card off, so a search
+half typed is not lost to a key pressed once.
+
+A card owns the mouse and the keyboard while it is up. The wheel scrolls the
+page rather than walking the folder behind it, and the keys mean what the card
+says they mean — a digit typed into the search box is a digit and not a star.
+The menu bar stays on screen but greys out: the way between cards is the card's
+own bar, and a click on **Mode** aimed past a settings page is a click that was
+meant for the page.
+
+A **question** is the other shape. Sending three photographs to the bin, a bin
+with something still in it on the way out, a bulk undo, a configuration file
+edited underneath — these are drawn as a plate over the rest of the window
+*dimmed* rather than covered, because "send these three to the bin" cannot be
+answered by somebody who can no longer see them. A question has no cross: its
+own answers are the way out of it, and `Escape` is one of them, where it means
 "leave them alone".
-
-The same holds for the keyboard editor, the sheet of keys, the four windows the
-Help menu opens, the "go to" bar and the directory tree.
 
 ### When a change takes effect
 
-Everything in the settings window applies while the window is open, with one
+Everything in the settings applies while the card is open, with one
 exception. Most of it is the next frame; the seventeen fields the caches are
 built from — the two budgets, the preload radii, the decode ceiling, the
 thumbnail resolution, the camera-thumbnail count, the five raw settings and the
@@ -780,9 +798,9 @@ them is to build the caches again and a slider on true per-frame apply would do
 that sixty times a second.
 
 **`cache.decode_threads` is the exception**, and the only row in the whole
-window that carries the `↻` badge. The decode pool is spawned once and shared
+program that carries the `↻` badge. The decode pool is spawned once and shared
 by both views; draining a running pool mid-session is a larger job than it is
-worth. While a change to it is waiting, the window says so in a band across its
+worth. While a change to it is waiting, the card says so in a band across its
 top and offers to restart.
 
 A setting about the *next* launch — which mode it opens in, which folder, which
@@ -804,12 +822,12 @@ chose.
 
 **Settings → Keyboard…** lists every key the viewer listens for, grouped by
 where it applies and each with a sentence saying what it does. Click one and a
-window opens holding that command alone: every key bound to it, a cross beside
+card opens holding that command alone: every key bound to it, a cross beside
 each, and **Add a key…**, which takes the next key pressed, modifiers and all.
-Escape leaves it alone. Changes are written to the configuration file straight
-away.
+Escape goes back to the list. Changes are written to the configuration file
+straight away.
 
-The same window is reached from the key on the settings page, from a row in the
+The same card is reached from the key on the settings page, from a row in the
 sheet of keys, and from **Keys for…** in the right-click menu of the thing
 itself — the panel, the badge in the bottom bar, the mask, the star. A person
 who can see a control changes its keys from where they are standing.
@@ -1489,7 +1507,7 @@ are not, beside the zoom readout: with the first on, every photograph arrives at
 the magnification the last one was at, and with the second on it arrives showing
 the same part of itself. That is how a burst is gone through at a hundred per
 cent — the same eye in every frame — and it is why they are a click away rather
-than a page in the settings window. They override what a photograph opens at,
+than a page in the settings. They override what a photograph opens at,
 and where each photograph was last left, for as long as they are on; turning
 them off puts every remembered place back in charge, none of them lost. `R`
 still does the same thing once.

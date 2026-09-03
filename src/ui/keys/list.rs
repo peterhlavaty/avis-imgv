@@ -38,8 +38,11 @@ pub(super) fn contents(
 
     let needle = state.query.trim().to_lowercase();
 
+    // No height of its own: the card is the window, so the list is as tall as
+    // what is left of it. The 520 points this asked for were the height of a
+    // window that had to choose one, and in a card they left two thirds of the
+    // screen empty under a scrolling list of ninety rows.
     egui::ScrollArea::vertical()
-        .max_height(520.0)
         .auto_shrink([false, false])
         .show(ui, |ui| {
             let mut drawn = 0;
@@ -96,10 +99,15 @@ pub(super) fn contents(
                 ui.add_space(10.0);
                 ui.weak(format!("No key matches \"{}\".", state.query.trim()));
             }
-        });
 
-    ui.add_space(8.0);
-    outcome = footer(ui, state, config, &bindings).or(outcome);
+            // Inside the list rather than under it, which is where the
+            // settings card puts its own footer and for the same reason: a row
+            // of buttons below a scrolling area that fills the card is a row
+            // pushed off the bottom of it.
+            ui.add_space(12.0);
+            ui.separator();
+            outcome = footer(ui, state, config, &bindings).or(outcome);
+        });
 
     outcome
 }

@@ -206,35 +206,32 @@ impl App {
     }
 
     /// Draws the question a bulk run of the history asks, and obeys it.
-    pub(super) fn show_pending_history(&mut self, ctx: &egui::Context) {
+    pub(super) fn ask_about_history(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
+        let ctx = &ctx;
+
         let Some(pending) = self.pending_history.clone() else {
             return;
         };
 
         let mut answered = None;
 
-        let shown = egui::Window::new("Undo")
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(format!("This will {}.", pending.said));
-                ui.add_space(10.0);
+        {
+            ui.label(format!("This will {}.", pending.said));
+            ui.add_space(10.0);
 
-                ui.horizontal(|ui| {
-                    if ui.button("Do it").clicked() {
-                        answered = Some(true);
-                    }
-                    if ui.button("Leave it").clicked() {
-                        answered = Some(false);
-                    }
-                });
-
-                ui.add_space(6.0);
-                ui.label(egui::RichText::new("Enter or Y to do it · Escape to leave it").weak());
+            ui.horizontal(|ui| {
+                if ui.button("Do it").clicked() {
+                    answered = Some(true);
+                }
+                if ui.button("Leave it").clicked() {
+                    answered = Some(false);
+                }
             });
 
-        crate::utils::in_front(ctx, shown.as_ref());
+            ui.add_space(6.0);
+            ui.label(egui::RichText::new("Enter or Y to do it · Escape to leave it").weak());
+        }
 
         let said_no = ctx.input_mut(|i| {
             let escaped = i.consume_key(egui::Modifiers::NONE, egui::Key::Escape);

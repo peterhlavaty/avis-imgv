@@ -16,7 +16,7 @@ use crate::app::App;
 /// Three answers rather than a boolean, because the viewer's own bin is a
 /// third thing and not a shade of either: it can be taken back like the
 /// platform's, and it is a folder on a disk like a move. The question, the
-/// window's title and what is written to the history all read off this, so
+/// card's title and what is written to the history all read off this, so
 /// there is one place that decides and nowhere for the three to disagree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sends {
@@ -39,8 +39,8 @@ impl Sends {
         matches!(self, Sends::ForGood | Sends::EmptyingTheBin(_))
     }
 
-    /// What the window asking about it is called.
-    fn title(&self) -> &'static str {
+    /// What the card asking about it is called.
+    pub(in crate::app) fn title(&self) -> &'static str {
         match self {
             Sends::EmptyingTheBin(_) => "Empty the bin",
             Sends::ForGood => "Delete for good",
@@ -114,42 +114,39 @@ impl Pending {
 
 impl App {
     /// Draws the question, if there is one outstanding.
-    pub(in crate::app) fn show_pending_delete(&mut self, ctx: &egui::Context) {
+    pub(in crate::app) fn ask_about_deleting(&mut self, ui: &mut egui::Ui) {
+        let ctx = ui.ctx().clone();
+        let ctx = &ctx;
+
         let Some(pending) = self.pending_delete.clone() else {
             return;
         };
 
         let mut answered = None;
 
-        let shown = egui::Window::new(pending.sends.title())
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-            .show(ctx, |ui| {
-                ui.label(pending.question());
-                ui.add_space(10.0);
+        {
+            ui.label(pending.question());
+            ui.add_space(10.0);
 
-                ui.horizontal(|ui| {
-                    if ui.button("Yes").clicked() {
-                        answered = Some(true);
-                    }
-                    if ui.button("Leave them alone").clicked() {
-                        answered = Some(false);
-                    }
-                });
-
-                ui.add_space(6.0);
-                ui.label(
-                    egui::RichText::new(if pending.sends.permanent() {
-                        "Y to delete · Escape to leave them alone"
-                    } else {
-                        "Enter or Y to send them · Escape to leave them alone"
-                    })
-                    .weak(),
-                );
+            ui.horizontal(|ui| {
+                if ui.button("Yes").clicked() {
+                    answered = Some(true);
+                }
+                if ui.button("Leave them alone").clicked() {
+                    answered = Some(false);
+                }
             });
 
-        crate::utils::in_front(ctx, shown.as_ref());
+            ui.add_space(6.0);
+            ui.label(
+                egui::RichText::new(if pending.sends.permanent() {
+                    "Y to delete · Escape to leave them alone"
+                } else {
+                    "Enter or Y to send them · Escape to leave them alone"
+                })
+                .weak(),
+            );
+        }
 
         // Consumed rather than read. Answering the question un-mutes the
         // keyboard, and the views draw after this does, so a key merely looked
@@ -164,7 +161,7 @@ impl App {
             escaped | i.consume_key(egui::Modifiers::NONE, egui::Key::N)
         });
 
-        // A window that owns the keyboard has to be answerable from it: this
+        // A card that owns the keyboard has to be answerable from it: this
         // one comes up in the middle of a cull, and reaching for the mouse to
         // say yes is the thing the whole keyboard map exists to avoid.
         //

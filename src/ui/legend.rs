@@ -12,14 +12,9 @@ use crate::organize::group::Kind;
 use crate::view::grid_view::cell::Badges;
 use crate::view::stacks;
 
-/// Draws the legend window.
-pub fn ui(ctx: &egui::Context, open: &mut bool) {
-    let shown = egui::Window::new("What the marks mean")
-        .open(open)
-        .default_width(540.0)
-        .default_height(520.0)
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
+/// Draws the legend.
+pub fn contents(ui: &mut egui::Ui) {
+    egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.heading("On a stack");
                 ui.label(
                     "A cell standing for a run of frames wears a glyph saying what kind of \
@@ -71,9 +66,6 @@ pub fn ui(ctx: &egui::Context, open: &mut bool) {
                      is a colour label. Each of them can be clicked.",
                 );
             });
-        });
-
-    crate::utils::in_front(ctx, shown.as_ref());
 }
 
 /// One row: a glyph, its name, and what it means.

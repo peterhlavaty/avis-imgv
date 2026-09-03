@@ -1,7 +1,7 @@
 //! What this build is, and where it keeps its files.
 //!
 //! Three of the most confusing behaviours in the program are diagnosable from
-//! this one window: which graphics adapter is being drawn on, whether this
+//! this one card: which graphics adapter is being drawn on, whether this
 //! build can develop a raw file at all, and where the configuration and the log
 //! actually live — all three of which were decided at startup and told only to
 //! the log, whose own path was written only into that same log.
@@ -10,7 +10,7 @@ use eframe::egui;
 
 use crate::actions::reveal;
 
-/// What the window says about the build, read once when it is constructed.
+/// What the card says about the build, read once when it is constructed.
 #[derive(Debug, Clone)]
 pub struct About {
     pub version: &'static str,
@@ -31,42 +31,33 @@ impl About {
     }
 }
 
-/// Draws the window. Nothing in it changes anything.
-pub fn ui(ctx: &egui::Context, open: &mut bool, about: &About) {
-    let shown = egui::Window::new("About avis-imgv")
-        .open(open)
-        .resizable(false)
-        .default_width(520.0)
-        .show(ctx, |ui| {
-            ui.heading("avis-imgv");
-            ui.label(format!("Version {}", about.version));
-            ui.add_space(8.0);
+/// Draws the card. Nothing in it changes anything.
+pub fn contents(ui: &mut egui::Ui, about: &About) {
+    ui.heading("avis-imgv");
+    ui.label(format!("Version {}", about.version));
+    ui.add_space(8.0);
 
-            ui.label(&about.adapter)
-                .on_hover_text("The graphics adapter the photographs are drawn on");
-            ui.label(about.raw_line()).on_hover_text(
-                "Decided when the program starts, from whether LibRaw could be found",
-            );
+    ui.label(&about.adapter)
+        .on_hover_text("The graphics adapter the photographs are drawn on");
+    ui.label(about.raw_line())
+        .on_hover_text("Decided when the program starts, from whether LibRaw could be found");
 
-            ui.add_space(10.0);
-            ui.separator();
-            ui.add_space(6.0);
+    ui.add_space(10.0);
+    ui.separator();
+    ui.add_space(6.0);
 
-            file_row(
-                ui,
-                "Configuration",
-                crate::config::Config::path(),
-                "Every setting, as JSON. The viewer reads it once at startup.",
-            );
-            file_row(
-                ui,
-                "Log",
-                crate::logging::path(),
-                "What the viewer has been doing, and what went wrong.",
-            );
-        });
-
-    crate::utils::in_front(ctx, shown.as_ref());
+    file_row(
+        ui,
+        "Configuration",
+        crate::config::Config::path(),
+        "Every setting, as JSON. The viewer reads it once at startup.",
+    );
+    file_row(
+        ui,
+        "Log",
+        crate::logging::path(),
+        "What the viewer has been doing, and what went wrong.",
+    );
 }
 
 /// One path, with a copy button and a way to open it.
