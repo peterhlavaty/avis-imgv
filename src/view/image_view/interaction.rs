@@ -10,14 +10,29 @@ use eframe::egui::{self, PointerButton, Response};
 use eframe::epaint::Vec2;
 
 use crate::actions::{self, Callback};
-use crate::config::{DragButton, WheelJob};
+use crate::config::DragButton;
 use crate::ui::menus::{Chosen, Row, Verb};
 use crate::view::wheel::{self, Job, Notch};
 
 use super::{input, pan, ImageView};
 
+/// The most one frame of the wheel may magnify by, counted in notches.
+///
+/// A guard rather than a judgement: a page-sized scroll event, which some
+/// platforms send for a flick, would otherwise be worth as many steps as it
+/// claims lines.
+const TURNS_AT_ONCE: f32 = 4.0;
+
 impl ImageView {
     pub(super) fn handle_pointer(&mut self, ctx: &egui::Context, response: &Response) {
+        // Read before anything below can return. The latch is about what egui
+        // is still doing with a notch this view has already answered, rather
+        // than about where the notch landed, and one left shut by an early
+        // return swallows the next pinch instead.
+        let turned = wheel::read(ctx);
+        let zoom_delta = ctx.input(|i| i.zoom_delta());
+        let already_spent = self.wheel_tail.swallows(turned, zoom_delta);
+
         // While a window of the viewer's own is up, the photograph is a
         // picture rather than a surface: no wheel, no drag, no pinch. The
         // wheel is the one that mattered — a notch spent scrolling a page of
@@ -34,20 +49,14 @@ impl ImageView {
         }
 
         let hovered = response.contains_pointer();
-        let notch = if hovered { wheel::read(ctx) } else { None };
+        let notch = turned.filter(|_| hovered);
 
-        // Through the same command as the keys, so a pinch holds the point
-        // under the fingers rather than the middle of the panel.
-        //
-        // Ctrl and the wheel arrive here as well, because egui's
-        // `zoom_modifier` is Ctrl and it has already turned them into a zoom
-        // by this point. Where the user has given Ctrl and the wheel another
-        // job, that zoom is not wanted and is dropped: it is the same notch,
-        // counted twice.
-        let ctrl_wheel = notch.is_some_and(|notch| notch.modifiers.command);
-        let zoom_delta = ctx.input(|i| i.zoom_delta());
-        if hovered && zoom_delta != 1.0 && (!ctrl_wheel || self.mouse.ctrl_wheel == WheelJob::Zoom)
-        {
+        // What is left of egui's own magnification once the wheel's share of
+        // it has been taken away: a pinch, which arrives as a gesture rather
+        // than as a notch and so has no step to take. Through the same
+        // command as the keys, so it holds the point under the fingers rather
+        // than the middle of the panel.
+        if hovered && zoom_delta != 1.0 && !already_spent {
             self.apply(input::Command::ZoomBy(zoom_delta), ctx);
         }
 
@@ -66,7 +75,14 @@ impl ImageView {
         let mut delta = notch.map_or(Vec2::ZERO, |notch| self.wheel(ctx, notch));
 
         if self.dragging(ctx, response) {
-            delta += ctx.input(|i| i.pointer.delta()) * ctx.pixels_per_point();
+            // The modifier that means "finer", read as a held key for the
+            // same reason the pan keys read it: there is no event of its own
+            // to bind it to. A drag reads it now rather than when it began,
+            // so a hand can steady itself part of the way across.
+            let fine = ctx.input(|input| self.config.fine_modifier.held(&input.modifiers));
+            let share = pan::Pace::of(&self.config, fine).drag;
+
+            delta += ctx.input(|i| i.pointer.delta()) * ctx.pixels_per_point() * share;
         }
 
         self.viewport.scroll_delta = delta + keyboard;
@@ -82,32 +98,43 @@ impl ImageView {
         // Only the pans use it; nothing else here has a distance.
         let smooth = ctx.input(|i| i.smooth_scroll_delta);
 
-        let command = match wheel::decide(notch, &self.mouse) {
+        // The modifiers the notch itself was turned under, which is where the
+        // rest of the decision comes from as well: a modifier let go of
+        // between the turn and the frame did not mean anything else while the
+        // wheel was moving.
+        let fine = self.config.fine_modifier.held(&notch.modifiers);
+
+        let command = match wheel::decide(notch, &self.mouse, fine) {
             Job::Forward => input::Command::Next,
             Job::Back => input::Command::Previous,
             Job::PageForward => input::Command::PageForward,
             Job::PageBack => input::Command::PageBack,
-            Job::ZoomIn => input::Command::ZoomBy(self.zoom_step()),
-            Job::ZoomOut => input::Command::ZoomBy(1.0 / self.zoom_step()),
+            Job::ZoomIn { fine } => input::Command::ZoomBy(self.magnification(notch, fine)),
+            Job::ZoomOut { fine } => input::Command::ZoomBy(1.0 / self.magnification(notch, fine)),
             Job::Pan => return smooth,
             // Alt folds the wheel onto the vertical axis before this crate
             // sees a delta, so the movement is read off y and spent on x.
             Job::PanSideways => return Vec2::new(smooth.y, 0.0),
-            Job::AlreadyZoomed | Job::Nothing => return Vec2::ZERO,
+            Job::Nothing => return Vec2::ZERO,
         };
 
         self.apply(command, ctx);
         Vec2::ZERO
     }
 
-    /// How much one notch magnifies by, which is what one press of the zoom
-    /// keys does.
-    fn zoom_step(&self) -> f32 {
-        if self.config.zoom_step > 1.0 {
-            self.config.zoom_step
-        } else {
-            1.25
-        }
+    /// How much one notch magnifies by: the step one press of the zoom keys
+    /// takes, raised to how far the wheel actually turned.
+    ///
+    /// One notch of a mouse is one turn, so there the exponent does nothing
+    /// and the step is exactly the step. What it is for is the trackpad,
+    /// which reports a stroke as a great many small movements: a whole step
+    /// apiece would cross the entire range in a frame, and the same stroke
+    /// now covers about what the same movement of a wheel covers.
+    fn magnification(&self, notch: Notch, fine: bool) -> f32 {
+        let (ordinary, finer) = input::zoom_steps(&self.config);
+        let step = if fine { finer } else { ordinary };
+
+        step.powf(notch.turns.abs().min(TURNS_AT_ONCE))
     }
 
     /// Whether the photograph is being dragged about this frame.

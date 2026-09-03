@@ -983,11 +983,12 @@ what each one means.
 |---------|----------------|-------------------|
 | Wheel | One photograph, or zoom, or move it, or nothing — `mouse.wheel` | Scrolls the sheet |
 | Shift + wheel | Ten photographs | Ten rows |
-| Ctrl + wheel | `mouse.ctrl_wheel`, which ships as zoom | Thumbnails per row |
-| Alt + wheel | Moves the photograph sideways | — |
+| Ctrl + wheel | `mouse.ctrl_wheel`, which ships as zoom, by `zoom_step` a notch | Thumbnails per row |
+| Alt + wheel | Moves the photograph sideways, or magnifies by `zoom_fine_step` where the notch already magnifies — `image_view.fine_modifier` | — |
 | One click | Zooms to a marked area, or clears it; nothing otherwise | Picks the photograph out |
 | Two clicks | `mouse.double_click`, which ships as fit ↔ actual pixels | Opens the photograph |
 | Left drag | Moves the photograph, or marks part of it out where there is nowhere to move it to — `mouse.mark_area` | Picks out everything it crosses |
+| Alt + drag | Moves it a quarter as far, for placing a detail — `image_view.pan_fine_drag` | — |
 | Middle drag | Moves the photograph, always | Scrolls the sheet |
 | Right button | The menu, on the press | The menu, on the press |
 | Thumb buttons | Previous and next — `mouse.back`, `mouse.forward` | Previous and next |
@@ -1199,13 +1200,15 @@ set aside for the full resolution copies, which are 96 MB each.
 | `opening_percent` | What `percent` above means, against the photograph's own pixels. Kept whatever the choice beside it says. | 100 |
 | `enlarge_to_fit` | Enlarge a photograph smaller than the window to fill it. What needs it is a raw file's embedded copy: some DNGs carry a 256 pixel preview and nothing else. | true |
 | `zoom_out_past_fit` | Let the zoom go out past fitting the window, leaving a border on all four sides | false |
-| `zoom_fine_step` | How much one press of the fine zoom keys magnifies by | 1.05 |
+| `zoom_step` | How much one press of the zoom keys, or one notch of a wheel that zooms, magnifies by | 1.25 |
+| `zoom_fine_step` | The same with the fine modifier held | 1.05 |
 | `pan_step` | How far one press of a pan key moves, in screen pixels | 40 |
 | `pan_speed` | How fast a held pan key moves, in screenfuls a second | 1.5 |
 | `pan_glide_delay` | How long a pan key is held before it starts to glide, in seconds. `0` glides from the first frame | 0.25 |
-| `pan_fine_modifier` | The modifier that means finer: `alt`, `ctrl` or `shift` | `alt` |
+| `fine_modifier` | The modifier that means finer, on the keys and on the mouse alike: `alt`, `ctrl` or `shift`. Written `pan_fine_modifier` in files from before it reached the mouse, and still read under that name | `alt` |
 | `pan_fine_step` | How far one press moves with that modifier held, in screen pixels | 1 |
 | `pan_fine_speed` | How fast a held pan key moves with it held, in screenfuls a second | 0.15 |
+| `pan_fine_drag` | How much of the pointer's travel a drag moves the photograph by with it held. The drag without it is one for one | 0.25 |
 | `name_format` | Status bar name. `$(...#Tag#...)` fragments disappear when the tag is missing. Ex: `$(#File Name#)$( • Æ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)` → `DSCF6114.JPG • Æ5.6 • 1/500 • 200 ISO` | as above |
 
 ### Grid view
@@ -1408,12 +1411,28 @@ keyboard's own repeat and the reason the shortest press anybody can make is
 worth exactly one step rather than however many frames a finger stayed down.
 Alt held with a pan key swaps both figures for `pan_fine_step` and
 `pan_fine_speed`: a pixel a press by default, for putting an eyelash in the
-middle of the window at 400%. `pan_fine_modifier` moves that to Ctrl or Shift,
+middle of the window at 400%. `fine_modifier` moves that to Ctrl or Shift,
 and the viewer says so at startup if the modifier and a pan key are a binding
 somewhere else — which is why watching the folder is `Ctrl + Shift + W` rather
 than `Ctrl + W`. Alt with the zoom keys is the same idea: `Alt + +` and
 `Alt + -` magnify by `zoom_fine_step`, five per cent against the ordinary
 key's twenty-five, for arriving at a framing rather than crossing a range.
+
+The mouse reads the same modifier. Held while the photograph is dragged, the
+picture takes `pan_fine_drag` of what the pointer travelled — a quarter of it
+by default, which is what makes a detail placeable by hand at 400%, where an
+ordinary drag overshoots everything it aims at. Held with a wheel notch that
+magnifies, the notch is worth `zoom_fine_step` rather than `zoom_step`: with
+the wheel as it ships that gesture is `Ctrl + Alt` and the wheel. A bare Alt
+and the wheel still pans sideways, as it always did, except where the wheel
+itself has been set to zoom — there a finer version of the gesture is worth
+more than a second way to pan.
+
+A notch of the wheel magnifies by `zoom_step`, the same figure one press of
+the zoom keys takes, whether the wheel is set to zoom or Ctrl is held with it.
+A trackpad, which reports one stroke as a great many small movements, is
+counted in notches rather than in movements, so the same stroke covers about
+what the same movement of a wheel covers.
 
 Zooming keeps the point under the pointer, so magnifying an eye near the edge
 of the frame brings the eye closer rather than pushing it off screen. The keys

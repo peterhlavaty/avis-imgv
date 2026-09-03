@@ -1,4 +1,4 @@
-//! What the pan keys move the photograph by.
+//! What the pan keys, and a drag, move the photograph by.
 //!
 //! A press and a hold are two gestures. The press moves the view exactly one
 //! step, and the hold glides at so many screenfuls a second once it has been
@@ -57,7 +57,7 @@ impl Keys {
     }
 }
 
-/// How far a press and a hold move, as the configuration has them.
+/// How far a press, a hold and a drag move, as the configuration has them.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Pace {
     /// One press, in points.
@@ -66,24 +66,36 @@ pub struct Pace {
     pub speed: f32,
     /// How long a key is held before the glide starts.
     pub delay: f32,
+    /// The share of the pointer's travel a drag moves the photograph by.
+    pub drag: f32,
 }
 
 impl Pace {
     /// The pace the fine modifier asks for, or the ordinary one.
     ///
     /// The delay is the same either way: it is about telling a tap from a
-    /// hold, which is a property of the hand rather than of the gesture.
+    /// hold, which is a property of the hand rather than of the gesture. So
+    /// is the ordinary drag, which is one for one and not a setting — a
+    /// photograph that does not follow the hand is not being dragged. What
+    /// the modifier is for is the other answer: a quarter of the travel, so
+    /// an eyelash can be put in the middle of the window at four hundred per
+    /// cent with the same gesture that got there.
     pub fn of(config: &ImageViewConfig, fine: bool) -> Pace {
-        let (step, speed) = if fine {
-            (config.pan_fine_step, config.pan_fine_speed)
+        let (step, speed, drag) = if fine {
+            (
+                config.pan_fine_step,
+                config.pan_fine_speed,
+                config.pan_fine_drag,
+            )
         } else {
-            (config.pan_step, config.pan_speed)
+            (config.pan_step, config.pan_speed, 1.0)
         };
 
         Pace {
             step: step.max(0.0),
             speed: speed.max(0.0),
             delay: config.pan_glide_delay.max(0.0),
+            drag: drag.max(0.0),
         }
     }
 }
@@ -172,7 +184,7 @@ pub fn asked(ctx: &egui::Context, config: &ImageViewConfig) -> Keys {
 
     ctx.input(|input| {
         let mut keys = Keys {
-            fine: config.pan_fine_modifier.held(&input.modifiers),
+            fine: config.fine_modifier.held(&input.modifiers),
             ..Keys::default()
         };
 
@@ -418,10 +430,25 @@ mod tests {
 
         assert!(fine.step < ordinary.step);
         assert!(fine.speed < ordinary.speed);
+        assert!(fine.drag < ordinary.drag);
         assert_eq!(fine.delay, ordinary.delay);
 
         let moved = Glide::default().moved(press(RIGHT), fine, PANEL, FRAME);
         assert!((moved.x.abs() - fine.step).abs() < 0.001, "{moved:?}");
+    }
+
+    /// A drag follows the hand exactly, whatever else is configured. That is
+    /// the one answer there is to it; the modifier is where the other one
+    /// lives.
+    #[test]
+    fn an_ordinary_drag_is_one_for_one() {
+        let config = ImageViewConfig {
+            pan_fine_drag: 0.5,
+            ..ImageViewConfig::default()
+        };
+
+        assert_eq!(Pace::of(&config, false).drag, 1.0);
+        assert_eq!(Pace::of(&config, true).drag, 0.5);
     }
 
     /// A negative in the file is a value nobody can produce from the window,
@@ -431,8 +458,11 @@ mod tests {
         let config = ImageViewConfig {
             pan_step: -40.0,
             pan_speed: -1.5,
+            pan_fine_drag: -0.5,
             ..ImageViewConfig::default()
         };
+
+        assert_eq!(Pace::of(&config, true).drag, 0.0);
 
         let pace = Pace::of(&config, false);
         let mut glide = Glide::default();
@@ -523,7 +553,7 @@ mod tests {
     #[test]
     fn the_modifier_is_the_one_the_configuration_names() {
         let config = ImageViewConfig {
-            pan_fine_modifier: crate::config::FineModifier::Ctrl,
+            fine_modifier: crate::config::FineModifier::Ctrl,
             ..ImageViewConfig::default()
         };
 

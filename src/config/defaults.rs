@@ -85,7 +85,7 @@ pub fn default_sc_flatten_dir() -> Shortcut {
 ///
 /// It moved off `Ctrl + W` when the fine pan arrived. The pan keys are
 /// `W A S D` and Ctrl is one of the three answers to
-/// `image_view.pan_fine_modifier`, so holding Ctrl and W to move the picture
+/// `image_view.fine_modifier`, so holding Ctrl and W to move the picture
 /// up by a pixel would also have toggled the watcher, once for every repeat
 /// the platform sent — a legal choice of modifier is not one that should need
 /// a binding moved before it can be made.
@@ -779,9 +779,20 @@ pub fn default_pan_fine_speed() -> f32 {
     0.15
 }
 
+/// What share of the pointer's travel a drag moves the photograph by with the
+/// fine modifier held.
+///
+/// A quarter: enough that the hand still feels connected to the picture, slow
+/// enough to place a detail at four hundred per cent, where a screen pixel of
+/// pointer is four pixels of photograph and the ordinary drag overshoots
+/// everything it aims at.
+pub fn default_pan_fine_drag() -> f32 {
+    0.25
+}
+
 /// Which modifier means "finer": Alt, which no binding in the viewer uses
 /// with a letter.
-pub fn default_pan_fine_modifier() -> FineModifier {
+pub fn default_fine_modifier() -> FineModifier {
     FineModifier::default()
 }
 

@@ -2,6 +2,29 @@
 
 ## 2026-09-03
 
+- **The mouse can be careful too.** Alt held while the photograph is dragged
+  moves it a quarter as far as the pointer went — `image_view.pan_fine_drag` —
+  which is what makes a detail placeable by hand at 400%, where an ordinary
+  drag overshoots everything it aims at. Alt held with a wheel notch that
+  magnifies takes `zoom_fine_step` rather than `zoom_step`, the same pair the
+  `Alt + +` and `Alt + -` keys have always taken. It is one modifier for every
+  gesture that has a size now, so the setting is `image_view.fine_modifier`
+  rather than `pan_fine_modifier`; a file written under the old name is still
+  read.
+
+  With the wheel as it ships, the new gesture is `Ctrl + Alt` and the wheel.
+  A bare Alt and the wheel still pans sideways — except where the wheel itself
+  has been set to zoom, where a finer version of the gesture is worth more
+  than a second way to pan a photograph the wheel is not panning.
+
+  `Ctrl` and the wheel now magnifies by `zoom_step`, the figure one press of
+  the zoom keys takes. It was egui's own, at a rate nothing in the
+  configuration could reach: the only mouse zoom in the viewer with no step
+  behind it. A trackpad, which reports one stroke as a great many small
+  movements rather than as notches, is counted in notches, so a stroke covers
+  about what the same movement of a wheel covers rather than the whole range
+  in a frame.
+
 - **A command has as many keys as you give it.** The arrow keys and `WASD` can
   both walk the folder now; the key another viewer used can sit beside the one
   this one chose. A shortcut in the configuration file is a list of chords

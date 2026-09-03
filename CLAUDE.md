@@ -438,6 +438,24 @@ Leaving the seam for later means the next session pays for it with interest.
   The wheel is read off the `MouseWheel` event (`view::wheel`) rather than off
   `raw_scroll_delta`, because Shift and Alt are spent by egui before this crate
   sees a delta.
+- **"Finer" is one modifier, and every gesture with a size reads it.**
+  `image_view.fine_modifier` — Alt, and named `pan_fine_modifier` while it
+  governed only the keys — is the pan keys' smaller step and speed, a drag's
+  `pan_fine_drag` share of the pointer's travel, and a notch's
+  `zoom_fine_step`. `pan::Pace::of` chooses the pan pair and
+  `input::zoom_steps` the zoom pair, so no gesture picks its own answer and no
+  caller keeps its own fallback. On the wheel it refines a notch that
+  *magnifies* and nothing else: Alt is already the axis across the wheel's
+  own, and walking a folder has no smaller version of itself. What a notch is
+  worth is counted in *notches* — `Notch::turns`, one to a line and fifty to a
+  point — because a trackpad reports one stroke as a great many movements and
+  a whole step for each of them crosses the range in a frame. A Ctrl notch
+  reaches egui first, whose `zoom_modifier` is Ctrl and must not be moved: it
+  folds the notch into `zoom_delta` and smooths it over the frames after,
+  frames carrying no event to recognise it by. The viewer answers the notch
+  itself, so `wheel::Tail` latches that magnification shut from the notch
+  until the first frame it comes back to exactly one. A pinch arrives as
+  `Event::Zoom`, is neither folded nor smoothed, and is what is left.
 - **A window in front owns the mouse and the keyboard.** Whether one is up is
   decided once a frame, in `App::a_window_is_in_front`, and written to the
   context with `utils::set_window_in_front`; a window that sets and clears a

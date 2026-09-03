@@ -376,17 +376,17 @@ pub fn rows() -> Vec<Row> {
         ),
         row!(
             ThePhotograph / Movement,
-            "image_view.pan_fine_modifier",
+            "image_view.fine_modifier",
             "The key that means finer",
-            "Held with a pan key, it swaps the two figures above for the two below.              A binding on the same modifier and the same pan key still fires as well,              once for every repeat the platform sends, and the viewer says so at              startup.",
-            ["pan", "fine", "modifier", "ctrl", "precise", "slow"],
+            "One modifier for every gesture that has a size. Held with a pan key it              swaps the two figures above for the two below; held while the photograph              is dragged it takes the share below; held with a wheel notch that              magnifies it takes the fine zoom step. A binding on the same modifier and              the same pan key still fires as well, once for every repeat the platform              sends, and the viewer says so at startup.",
+            ["pan", "zoom", "fine", "modifier", "ctrl", "alt", "precise", "slow"],
             Live,
             None,
             Access::Enum {
-                get: |c| c.image_view.pan_fine_modifier.value(),
+                get: |c| c.image_view.fine_modifier.value(),
                 set: |c, v| {
-                    c.image_view.pan_fine_modifier =
-                        FineModifier::of(v).unwrap_or(c.image_view.pan_fine_modifier)
+                    c.image_view.fine_modifier =
+                        FineModifier::of(v).unwrap_or(c.image_view.fine_modifier)
                 },
                 choices: FINE_MODIFIERS,
             },
@@ -410,6 +410,16 @@ pub fn rows() -> Vec<Row> {
             Live,
             None,
             decimal!(0.01, 8.0, " screens/s", true, image_view.pan_fine_speed),
+        ),
+        row!(
+            ThePhotograph / Movement,
+            "image_view.pan_fine_drag",
+            "How far a drag moves with it held",
+            "A quarter of what the pointer travelled, so a detail can be placed by              hand at four hundred per cent. The drag without the modifier is one for              one and is not a setting: a photograph that does not follow the hand is              not being dragged.",
+            ["pan", "fine", "drag", "mouse", "slow", "precise"],
+            Live,
+            None,
+            decimal!(0.01, 1.0, "×", true, image_view.pan_fine_drag),
         ),
         row!(
             ThePhotograph / Movement,

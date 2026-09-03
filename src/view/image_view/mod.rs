@@ -123,6 +123,9 @@ pub struct ImageView {
     /// How long each pan key has been down, which is what tells a press from a
     /// hold.
     glide: pan::Glide,
+    /// Whether egui is still smoothing a wheel notch this view has already
+    /// answered with a step of its own.
+    wheel_tail: crate::view::wheel::Tail,
     /// Where the user got to in each image they zoomed, so coming back to one
     /// shows the same corner at the same magnification.
     viewports: Viewports,
@@ -205,6 +208,7 @@ impl ImageView {
             },
             metrics: Metrics::default(),
             glide: pan::Glide::default(),
+            wheel_tail: crate::view::wheel::Tail::default(),
             viewports: Viewports::default(),
             previous_place: Place::UNTOUCHED,
             images_shown: config.nr_images_shown.clamp(1, MAX_IMAGES_SHOWN),

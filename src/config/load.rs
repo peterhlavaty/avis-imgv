@@ -368,7 +368,7 @@ fn section<T: serde::de::DeserializeOwned + Default>(
 
 #[cfg(test)]
 mod tests {
-    use super::super::GridViewConfig;
+    use super::super::{FineModifier, GridViewConfig};
     use super::*;
 
     #[test]
@@ -444,6 +444,18 @@ mod tests {
             cfg.grid_view.images_per_row,
             GridViewConfig::default().images_per_row
         );
+    }
+
+    /// The modifier that means "finer" was `pan_fine_modifier` while it
+    /// governed only the pan keys. A file written then is still read, because
+    /// the name it used is an alias — and losing it would silently move
+    /// somebody's modifier back to Alt.
+    #[test]
+    fn the_old_name_of_the_fine_modifier_is_still_read() {
+        let cfg = Config::from_json(r#"{"image_view": {"pan_fine_modifier": "shift"}}"#);
+
+        assert!(!cfg.partial);
+        assert_eq!(cfg.image_view.fine_modifier, FineModifier::Shift);
     }
 
     /// The case that used to discard the file: one section the viewer cannot

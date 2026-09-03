@@ -644,14 +644,27 @@ pub struct ImageViewConfig {
     /// there was a step at all.
     #[serde(default = "default_pan_glide_delay")]
     pub pan_glide_delay: f32,
-    /// The same two with [`ImageViewConfig::pan_fine_modifier`] held.
+    /// The same two with [`ImageViewConfig::fine_modifier`] held.
     #[serde(default = "default_pan_fine_step")]
     pub pan_fine_step: f32,
     #[serde(default = "default_pan_fine_speed")]
     pub pan_fine_speed: f32,
-    /// The modifier that means "finer", held while a pan key is down.
-    #[serde(default = "default_pan_fine_modifier")]
-    pub pan_fine_modifier: FineModifier,
+    /// How much of the pointer's travel a drag moves the photograph by with
+    /// the same modifier held.
+    ///
+    /// A quarter, which is what the fine pan keys are at the pointer. The
+    /// drag without it is one for one and is not a setting: a photograph that
+    /// does not follow the hand is not being dragged.
+    #[serde(default = "default_pan_fine_drag")]
+    pub pan_fine_drag: f32,
+    /// The modifier that means "finer".
+    ///
+    /// One modifier for every gesture that has a size: the four pan keys, a
+    /// drag of the photograph, and a wheel notch that magnifies. It was
+    /// `pan_fine_modifier` while it governed only the keys, and a file written
+    /// then still names it that.
+    #[serde(default = "default_fine_modifier", alias = "pan_fine_modifier")]
+    pub fine_modifier: FineModifier,
     /// How many photographs a screenful is, for the keys that walk a long
     /// folder quickly.
     #[serde(default = "default_page")]
@@ -980,7 +993,8 @@ impl Default for ImageViewConfig {
             pan_glide_delay: default_pan_glide_delay(),
             pan_fine_step: default_pan_fine_step(),
             pan_fine_speed: default_pan_fine_speed(),
-            pan_fine_modifier: default_pan_fine_modifier(),
+            pan_fine_drag: default_pan_fine_drag(),
+            fine_modifier: default_fine_modifier(),
             page: default_page(),
             user_actions: default_user_actions(),
             context_menu: default_ctx_menu(),

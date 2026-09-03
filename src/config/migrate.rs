@@ -320,11 +320,11 @@ fn the_watcher_off_the_pan_key(config: &mut Config) -> bool {
 /// Ctrl deliberately is moved too, which is the cost of not being able to tell
 /// a choice from a default; it is one radio button back.
 fn the_fine_pan_onto_alt(config: &mut Config) -> bool {
-    if config.image_view.pan_fine_modifier != FineModifier::Ctrl {
+    if config.image_view.fine_modifier != FineModifier::Ctrl {
         return false;
     }
 
-    config.image_view.pan_fine_modifier = defaults::default_pan_fine_modifier();
+    config.image_view.fine_modifier = defaults::default_fine_modifier();
     true
 }
 
@@ -618,7 +618,7 @@ mod tests {
         let mut config = Config {
             version: 6,
             image_view: super::super::ImageViewConfig {
-                pan_fine_modifier: FineModifier::Ctrl,
+                fine_modifier: FineModifier::Ctrl,
                 ..Default::default()
             },
             ..Config::default()
@@ -627,7 +627,7 @@ mod tests {
         let said = apply(&mut config);
 
         assert_eq!(said.len(), 1);
-        assert_eq!(config.image_view.pan_fine_modifier, FineModifier::Alt);
+        assert_eq!(config.image_view.fine_modifier, FineModifier::Alt);
     }
 
     /// The rule that makes migrations safe: a key the user chose is theirs.

@@ -237,7 +237,7 @@ fn keys(config: &Config, found: &mut Vec<Complaint>) {
 /// modifier arrived — the folder watcher, sharing a letter with pan up — and
 /// is why it is now `Ctrl + Shift + W`.
 fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
-    let fine = config.image_view.pan_fine_modifier;
+    let fine = config.image_view.fine_modifier;
 
     let ways = [
         ("up", &config.image_view.sc_pan_up),
@@ -272,7 +272,7 @@ fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
                 }
 
                 found.push(Complaint {
-                    path: "image_view.pan_fine_modifier",
+                    path: "image_view.fine_modifier",
                     says: format!(
                         "{} is both \"{}\" and the fine pan {way}.",
                         crate::ui::keys::chord(&fined),

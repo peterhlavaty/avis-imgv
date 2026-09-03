@@ -36,6 +36,18 @@ fn magnifies(asked: f32, fallback: f32) -> f32 {
     }
 }
 
+/// How much one press magnifies by: the ordinary step, then the fine one.
+///
+/// The wheel asks for the same pair — a notch is a press with a distance
+/// attached — so which figure a gesture takes, and what stands in for one the
+/// file cannot use, is decided here and once.
+pub(super) fn zoom_steps(config: &ImageViewConfig) -> (f32, f32) {
+    (
+        magnifies(config.zoom_step, ZOOM_STEP),
+        magnifies(config.zoom_fine_step, ZOOM_FINE_STEP),
+    )
+}
+
 /// What a zoom holds still.
 ///
 /// Magnifying is about a point in the picture, so it holds whatever is under
@@ -151,8 +163,7 @@ pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
     // is a judgement about the photographs somebody looks at. A step at or
     // below one would magnify by nothing or turn the key round, which is a
     // value the window cannot produce and a file can.
-    let step = magnifies(config.zoom_step, ZOOM_STEP);
-    let fine = magnifies(config.zoom_fine_step, ZOOM_FINE_STEP);
+    let (step, fine) = zoom_steps(config);
 
     let bindings = [
         (&config.sc_next, Command::Next),
