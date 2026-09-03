@@ -215,6 +215,10 @@ fn navigation(ui: &mut egui::Ui, state: &mut State, config: &Config) {
 
         ui.add_space(8.0);
 
+        // Read once: the list is a column of one width, and a row that asked
+        // for its own would be a row narrower than the one above it.
+        let width = ui.available_width();
+
         for wanted in Page::ALL {
             let on = state.page == Some(*wanted) && state.query.trim().is_empty();
             let changed = registry::on_page(*wanted)
@@ -229,7 +233,7 @@ fn navigation(ui: &mut egui::Ui, state: &mut State, config: &Config) {
             };
 
             let picked = ui
-                .selectable_label(on, label)
+                .add(navigation_row(on, label, width))
                 .on_hover_text(if changed > 0 {
                     format!(
                         "{}  Â·  {changed} changed from the default",
@@ -248,6 +252,18 @@ fn navigation(ui: &mut egui::Ui, state: &mut State, config: &Config) {
 }
 
 const NAVIGATION_WIDTH: f32 = 210.0;
+
+/// One row of the navigation list, the whole width of the list.
+///
+/// A category is a place to go, and the row is what is pointed at: a press an
+/// inch to the right of a short name landing on nothing is a miss nobody
+/// attributes to their aim, and the hover then lights only the words rather
+/// than the row, which says the words are the button. `min_size` rather than a
+/// justified layout, because a button takes its alignment from the layout it
+/// is in and a justified one would centre every name.
+fn navigation_row(on: bool, label: String, width: f32) -> egui::Button<'static> {
+    egui::Button::selectable(on, label).min_size(egui::vec2(width, 0.0))
+}
 
 /// One page.
 fn page(ui: &mut egui::Ui, state: &mut State, config: &mut Config) -> widgets::Touched {
@@ -465,6 +481,65 @@ mod tests {
             .sum();
 
         assert_eq!(drawn, registry::rows().len());
+    }
+
+    /// The whole row is the category, not the words on it — and it stops at
+    /// the edge of the list.
+    #[test]
+    fn a_category_answers_a_press_beside_its_name() {
+        assert!(pressed_at(8.0), "the name itself");
+        assert!(pressed_at(NAVIGATION_WIDTH - 8.0), "the far end of the row");
+        assert!(!pressed_at(NAVIGATION_WIDTH + 40.0), "past the list");
+    }
+
+    /// Draws one navigation row in a list `NAVIGATION_WIDTH` wide inside a
+    /// wider window, and answers whether a press `x` from the row's left edge
+    /// was a press on it.
+    fn pressed_at(x: f32) -> bool {
+        let ctx = egui::Context::default();
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(400.0, 200.0));
+
+        let at = std::cell::Cell::new(egui::Pos2::ZERO);
+        let clicked = std::cell::Cell::new(false);
+
+        let draw = |ctx: &egui::Context| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    ui.set_width(NAVIGATION_WIDTH);
+                    let width = ui.available_width();
+                    let row = ui.add(navigation_row(false, "Caching".to_string(), width));
+                    at.set(egui::pos2(row.rect.left() + x, row.rect.center().y));
+                    clicked.set(clicked.get() || row.clicked());
+                });
+            });
+        };
+
+        let input = |events: Vec<egui::Event>| egui::RawInput {
+            screen_rect: Some(screen),
+            events,
+            ..Default::default()
+        };
+
+        // Twice, so the hit test the press is decided by has a frame of
+        // rectangles behind it — and so `at` is read off a row that was drawn.
+        for _ in 0..2 {
+            let _ = ctx.run(input(Vec::new()), draw);
+        }
+
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at.get(),
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::default(),
+        };
+
+        let _ = ctx.run(
+            input(vec![egui::Event::PointerMoved(at.get()), button(true)]),
+            draw,
+        );
+        let _ = ctx.run(input(vec![button(false)]), draw);
+
+        clicked.get()
     }
 
     #[test]

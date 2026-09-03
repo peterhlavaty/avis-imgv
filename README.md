@@ -704,6 +704,9 @@ doing rather than for what the field is made of:
 | **The window** | Light or dark, text size, the panels, and the file paths. |
 | **Keys and mouse** | Every key the viewer reads, including the ones it reads for itself. |
 
+A page in that list is a row rather than a name: the whole width of the list
+answers the press, wherever along it you land.
+
 The search box holds the cursor when the window opens. It is over the name, the
 sentence, other programs' words for the same thing, and the path — so "blurry
 thumbnails" finds the thumbnail resolution, "where do rejects go" finds the

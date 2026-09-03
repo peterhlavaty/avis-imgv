@@ -2,6 +2,12 @@
 
 ## 2026-09-03
 
+- **A category in the settings window is the whole row.** The eleven pages down
+  the left answered a press only on the letters of their own names, so a click
+  an inch to the right of **Keywords** — well inside the list, and over nothing
+  else — did nothing at all. The hover lit the word rather than the row, which
+  said as much. Each row is now as wide as the list, and stops at its edge.
+
 - **The clipping figures are buttons, and say one thing each.** *Blown 3.4%*
   and *Crushed 0.2%* under the histogram now answer the left button by painting
   the mask that marks exactly those pixels, which is what the numbers were
