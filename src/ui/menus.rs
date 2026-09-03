@@ -5,13 +5,15 @@
 //! used to answer a right-click with nothing at all: the default entry list is
 //! empty and the menu returns before registering anything when it is.
 //!
-//! One level, with one exception. A submenu is placed against the right edge of
-//! the row that opens it and folds back to the left when the screen has no room
-//! — and every panel in this program sits against an edge, so a second level is
-//! worth the risk only where the rows behind it are variations on one another
-//! and would otherwise take five of the twelve rows a menu may carry. The turns
-//! are that: five ways of saying one verb, behind the word. The submenu is kept
-//! narrower than its parent so that there is somewhere for it to go.
+//! One level, with three exceptions. A submenu is placed against the right edge
+//! of the row that opens it and folds back to the left when the screen has no
+//! room — and every panel in this program sits against an edge, so a second
+//! level is worth the risk only where the rows behind it are variations on one
+//! another and would otherwise take several of the twelve rows a menu may
+//! carry. The turns are that, and so are the three zooms; the panels are the
+//! third, and the one that is not a verb. Five, three and eight rows folded
+//! into three. The submenu is kept narrower than its parent so that there is
+//! somewhere for it to go.
 
 use eframe::egui;
 
@@ -100,6 +102,15 @@ impl Verb {
         Verb::MirrorHorizontally,
         Verb::MirrorVertically,
     ];
+
+    /// The three ways of saying how large, in the order they are drawn.
+    ///
+    /// One decision with three answers, which is the turns' shape, and they
+    /// fold behind a word for the turns' reason: the photograph's menu is the
+    /// longest in the program and the panels wanted a row on it. Fitting
+    /// first, because it is what the zoom already floors at and what most
+    /// presses of the word are looking for.
+    pub const ZOOMS: &'static [Verb] = &[Verb::Fit, Verb::ActualPixels, Verb::Fill];
 
     /// What this verb does to the orientation, for the five that are turns.
     ///
@@ -270,28 +281,38 @@ impl Verb {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Row {
     Verb(Verb),
-    /// The word, and the verbs behind it. The only second level in the
-    /// program; the note at the top of this file says why there is one.
+    /// The word, and the verbs behind it. One of the two second levels in the
+    /// program; the note at the top of this file says why there are any.
     Group(&'static str, &'static [Verb]),
+    /// The panels, and which of them are showing.
+    ///
+    /// The other second level, and the only row here that is not about the
+    /// photograph: the rows behind it are [`crate::ui::panel::show_and_hide`]'s,
+    /// one per panel with a tick against the ones on screen. It is behind a
+    /// word for the same reason the turns are — eight rows inline would be two
+    /// thirds of a menu that already carries eleven — and it is on the
+    /// photograph because the photograph is the whole window when the panels
+    /// are away, and so the only surface left to ask.
+    Panels,
 }
 
 impl Row {
     /// The rows a photograph carries, in the order they are drawn.
     ///
     /// Verbs first and most used first, then copy and show because the object
-    /// is a file on disk.
+    /// is a file on disk, and last the panels, which are about the window
+    /// rather than about the photograph.
     pub const ON_A_PHOTOGRAPH: &'static [Row] = &[
         Row::Verb(Verb::Keep),
         Row::Verb(Verb::Reject),
-        Row::Verb(Verb::Fit),
-        Row::Verb(Verb::ActualPixels),
-        Row::Verb(Verb::Fill),
+        Row::Group("Zoom", Verb::ZOOMS),
         Row::Verb(Verb::Compare),
         Row::Group("Turn", Verb::TURNS),
         Row::Verb(Verb::Bin),
         Row::Verb(Verb::CopyPath),
         Row::Verb(Verb::CopyPicture),
         Row::Verb(Verb::ShowInFolder),
+        Row::Panels,
     ];
 
     /// The same, standing inside the viewer's own bin.
@@ -301,9 +322,7 @@ impl Row {
     /// two verbs that do apply take its place, in its position, so the row
     /// muscle memory reaches for is the one that means something here.
     pub const ON_A_PHOTOGRAPH_IN_THE_BIN: &'static [Row] = &[
-        Row::Verb(Verb::Fit),
-        Row::Verb(Verb::ActualPixels),
-        Row::Verb(Verb::Fill),
+        Row::Group("Zoom", Verb::ZOOMS),
         Row::Verb(Verb::Compare),
         Row::Group("Turn", Verb::TURNS),
         Row::Verb(Verb::PutBack),
@@ -311,13 +330,14 @@ impl Row {
         Row::Verb(Verb::CopyPath),
         Row::Verb(Verb::CopyPicture),
         Row::Verb(Verb::ShowInFolder),
+        Row::Panels,
     ];
 
     /// The rows a cell carries. `Open` leads, because that is what a cell is
     /// for, and the zoom verbs are not about anything the sheet draws.
     ///
     /// The two destinations are here and on the strip but not on the
-    /// photograph, whose list is at nine of the ten rows that fit. They are
+    /// photograph, whose list is at ten of the eleven rows that fit. They are
     /// verbs about a *file*, which is what a cell and a thumbnail are; the
     /// photograph's own menu leads with what it is showing. Both have a key
     /// each, so nothing is only reachable here.
@@ -392,6 +412,7 @@ impl Row {
         let (alone, behind): (Option<Verb>, &'static [Verb]) = match self {
             Row::Verb(verb) => (Some(verb), &[]),
             Row::Group(_, verbs) => (None, verbs),
+            Row::Panels => (None, &[]),
         };
 
         alone.into_iter().chain(behind.iter().copied())
@@ -403,6 +424,9 @@ impl Row {
             Row::Verb(verb) => verb.label(count),
             Row::Group(word, _) if count == 1 => word.to_string(),
             Row::Group(word, _) => format!("{word} {count} photographs"),
+            // No count: the panels are not the photographs the rest of the
+            // menu is about, and a selection changes nothing about them.
+            Row::Panels => "Show".to_string(),
         }
     }
 }
@@ -451,8 +475,9 @@ pub fn rows(
     for row in rows {
         // A row that would do nothing where it stands is not drawn. The lists
         // themselves stay static, which is what keeps them readable and free
-        // of an allocation per cell per frame.
-        if !row.verbs().any(|verb| verb.applies(count)) {
+        // of an allocation per cell per frame. The panels are not a verb and
+        // apply wherever they are listed, selection or no selection.
+        if !matches!(row, Row::Panels) && !row.verbs().any(|verb| verb.applies(count)) {
             continue;
         }
 
@@ -475,6 +500,18 @@ pub fn rows(
                             chosen = Some(Chosen::Verb(*verb));
                         }
                     }
+                });
+            }
+            Row::Panels => {
+                // Set apart, because everything above it is about the
+                // photograph and this is about the window around it. What was
+                // ticked goes to `ui::panel`'s own mailbox rather than back
+                // through `Chosen`: the verbs here are the panels', not this
+                // menu's, and the same rows are drawn on the bar.
+                ui.separator();
+
+                ui.menu_button(row.label(count), |ui| {
+                    crate::ui::panel::show_and_hide(ui);
                 });
             }
         }
@@ -524,11 +561,11 @@ mod tests {
     /// Twelve rows including the last is the ceiling, and the user's own
     /// entries are appended to whatever is here.
     ///
-    /// The five turns take one row between them, which is what the second
-    /// level bought and what keeps every one of these under it. The
-    /// photograph's list is the longest at eleven, which with the settings row
-    /// is exactly the twelve: keep and throw out went to the top of it when
-    /// panes learned to carry them, and it has no room for a thirteenth.
+    /// The five turns take one row between them, and so do the three zooms and
+    /// the eight panels: that is what the second level bought and what keeps
+    /// every one of these under it. The photograph's list is the longest at
+    /// ten, which with the settings row is eleven. The zooms folded on the day
+    /// the panels wanted a row, because it was already at the twelve.
     #[test]
     fn no_built_in_list_uses_up_the_menu() {
         // The list, plus the settings row that closes every menu.
@@ -542,6 +579,58 @@ mod tests {
         ] {
             assert!(list.len() < 12, "{} rows", list.len());
         }
+    }
+
+    /// The panels are on the photograph and nowhere else, because the
+    /// photograph is the whole window once the panels are away.
+    #[test]
+    fn the_panels_are_listed_on_the_photograph() {
+        for list in [Row::ON_A_PHOTOGRAPH, Row::ON_A_PHOTOGRAPH_IN_THE_BIN] {
+            assert!(
+                list.contains(&Row::Panels),
+                "the photograph lists the panels"
+            );
+        }
+
+        for list in [Row::ON_A_CELL, Row::ON_A_CELL_IN_THE_BIN, Row::ON_THE_STRIP] {
+            assert!(
+                !list.contains(&Row::Panels),
+                "a cell is a file, not a window"
+            );
+        }
+    }
+
+    /// One word, and the same word whatever is picked out: a selection changes
+    /// nothing about which panels are up.
+    #[test]
+    fn the_word_above_the_panels_says_nothing_about_the_count() {
+        assert_eq!(Row::Panels.label(1), "Show");
+        assert_eq!(Row::Panels.label(24), "Show");
+    }
+
+    /// It carries no verb, so the rule that drops a row nothing applies to
+    /// must not drop it.
+    #[test]
+    fn the_panels_are_not_a_verb_and_are_drawn_all_the_same() {
+        assert_eq!(Row::Panels.verbs().count(), 0);
+
+        let ctx = egui::Context::default();
+        let output = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                rows(ui, &[Row::Panels], &[], 24);
+            });
+        });
+
+        let drawn: Vec<String> = output
+            .shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                _ => None,
+            })
+            .collect();
+
+        assert!(drawn.iter().any(|text| text == "Show"), "{drawn:?}");
     }
 
     /// The two verbs a cull is made of are on the photograph, which is what a

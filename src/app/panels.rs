@@ -129,6 +129,13 @@ pub fn top_menu(
                     }
                 });
 
+                // Between what the window is for and how it is set up, which
+                // is where it sits: the panels are neither a mode nor a
+                // setting but what is on screen right now. The rows are
+                // `ui::panel`'s, so this menu and the Show submenu on the
+                // photograph cannot come to say different things.
+                ui.menu_button("View", crate::ui::panel::show_and_hide);
+
                 ui.menu_button("Settings", |ui| {
                     // The third entry on a menu that has had two since it was
                     // written. Keyboard and Slideshow stay as deep links to
@@ -579,6 +586,29 @@ pub fn first_run_hint(ctx: &egui::Context, menu_key: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The bar names the panels at the top level, beside what the window is
+    /// for and how it is set up.
+    #[test]
+    fn the_bar_carries_a_view_menu() {
+        let ctx = egui::Context::default();
+        let output = ctx.run(egui::RawInput::default(), |ctx| {
+            let _ = top_menu(ctx, true, Mode::Image, &MenuKeys::default());
+        });
+
+        let drawn: Vec<String> = output
+            .shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                _ => None,
+            })
+            .collect();
+
+        for menu in ["File", "Mode", "View", "Settings", "Help"] {
+            assert!(drawn.iter().any(|text| text == menu), "{menu}: {drawn:?}");
+        }
+    }
 
     #[test]
     fn sizes_are_reported_in_mebibytes() {

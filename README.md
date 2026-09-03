@@ -806,6 +806,15 @@ that is what a person means — but they are pointed out.
 `F1` shows the menu bar, which starts up on a first run and thereafter is
 wherever it was left.
 
+**View** is the list of panels, with a tick against the ones on screen and the
+key that shows and hides each beside it — the menu bar, the performance
+readout, the filter bar, the metadata panel, the history, the stars and
+keywords panel and the strip of thumbnails. The same list is behind **Show** at
+the foot of the photograph's own menu, because the photograph is the whole
+window once the panels are away and so the only surface left to ask. The status
+bar is not in either: it cannot be put away, and a tick nothing can clear is
+worse than no row at all.
+
 **Help** carries the things a person needs when the program has stopped
 explaining itself:
 
@@ -856,9 +865,11 @@ own entries and the copy group. It is the whole of the configurability offered
 for the built-in rows, and the reason there is no menu editor.
 
 Right-clicking a photograph, a cell or a thumbnail on the strip offers what can
-be done to it: fit, actual pixels, fill, compare, turn, move to the bin, copy
-the path, copy the picture, and show it in the file manager. **Copy the
-picture** puts the file's own pixels
+be done to it: zoom, compare, turn, move to the bin, copy the path, copy the
+picture, and show it in the file manager. **Zoom** holds fit, actual pixels and
+fill, which are three ways of saying one thing and take one row between them —
+the shape the turns already had, and what made room for **Show** at the foot of
+the list. **Copy the picture** puts the file's own pixels
 on the clipboard, decoded at full size and turned the right way up, on a thread
 of its own so a sixty megapixel raw does not stop the window. With part of the
 photograph marked out it copies that part, cut from the same full size decode.

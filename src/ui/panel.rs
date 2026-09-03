@@ -52,8 +52,10 @@ use crate::ui::surface::{self, Subject};
 /// panel put away from its own menu into the history for free.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Ask {
-    /// Put the panel away.
-    Hide(Command),
+    /// Show the panel or put it away. One variant for both, because the
+    /// command is the same either way: the row inside a panel can only mean
+    /// "away", and the row in the list of panels means whichever it is not.
+    Toggle(Command),
     /// Open the settings window at this row.
     Settings(&'static str),
     /// Open the keyboard editor with this row armed.
@@ -106,7 +108,7 @@ pub fn rows(ui: &mut egui::Ui, chrome: &Chrome<'_>) {
             .on_hover_text("Nothing in it is lost; this only puts it away.")
             .clicked()
         {
-            ask(Ask::Hide(hide));
+            ask(Ask::Toggle(hide));
             ui.close();
         }
     }
@@ -182,8 +184,11 @@ fn wanted(ui: &egui::Ui) -> bool {
 /// paths each one carries are checked against the registry: a settings row or
 /// a key row that has been renamed leaves a menu whose last two rows quietly
 /// do nothing, which is the failure this list exists to catch.
-#[cfg(test)]
-const EVERY_PANEL: &[&Chrome<'static>] = &[
+///
+/// It is also the list [`show_and_hide`] draws, which is why the order is the
+/// order they are drawn in: a panel added here appears in the View menu and in
+/// the Show submenu on the photograph without either of them being touched.
+pub const EVERY_PANEL: &[&Chrome<'static>] = &[
     &crate::app::panels::MENU_BAR,
     &crate::ui::perf_metrics::CHROME,
     &crate::ui::filter_bar::CHROME,
@@ -194,9 +199,107 @@ const EVERY_PANEL: &[&Chrome<'static>] = &[
     &crate::view::image_view::bottom_bar::CHROME,
 ];
 
+/// What one panel looks like from anywhere else in the program: whether it is
+/// on screen, and the key that shows and hides it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Showing {
+    pub on: bool,
+    /// Empty where the panel has no key, or none is bound.
+    pub key: String,
+}
+
+/// One entry per panel in [`EVERY_PANEL`], in that order.
+static SHOWING: Mutex<Vec<Showing>> = Mutex::new(Vec::new());
+
+/// Says which panels are on screen and which key shows and hides each.
+///
+/// Written once a frame by `App::publish_panels`, the way
+/// `utils::set_window_in_front` writes whether a window is up, and for the same
+/// reason: the two menus that list the panels are drawn where neither the
+/// program's fields nor its configuration are in hand — the View menu on the
+/// bar and the Show submenu on the photograph — and threading seven booleans
+/// and seven key names through `top_menu` and `menus::rows` would be fourteen
+/// arguments to say one thing.
+///
+/// In [`EVERY_PANEL`]'s order and no other: a list rather than a mask, so that
+/// neither end has an index to get wrong, and a short list only costs the rows
+/// past its end their key.
+pub fn showing(panels: Vec<Showing>) {
+    if let Ok(mut it) = SHOWING.lock() {
+        *it = panels;
+    }
+}
+
+/// What one row of the list says: the panel's name, and the key beside it.
+///
+/// The key is rendered from the binding rather than written into the label,
+/// the same as the rows on the bar, so a rebind stays correct. It matters most
+/// for the menu bar's own row: the list is one of the two ways back to a bar
+/// that has just been put away, and the key is the other.
+fn label(chrome: &Chrome<'_>, key: &str) -> String {
+    match key.is_empty() {
+        true => chrome.subject.named(),
+        false => format!("{}  ({key})", chrome.subject.named()),
+    }
+}
+
+/// The rows that show and hide the panels, ticked where one is on screen.
+///
+/// The whole list, from [`EVERY_PANEL`], drawn the same way wherever it is
+/// asked for: the View menu on the bar carries it at the top level and the
+/// photograph's menu carries it behind one word. A tick rather than a
+/// sentence, because the question a person opens this list with is which of
+/// them are up.
+///
+/// The status bar is not in it. A row for a panel that cannot be put away is a
+/// tick nothing can clear, which is worse than no row at all.
+pub fn show_and_hide(ui: &mut egui::Ui) {
+    ui.set_max_width(surface::WIDEST);
+
+    let showing = SHOWING.lock().ok();
+
+    for (at, chrome) in EVERY_PANEL.iter().enumerate() {
+        let Some(hide) = chrome.hide else {
+            continue;
+        };
+
+        let known = showing.as_ref().and_then(|it| it.get(at));
+        let mut on = known.is_some_and(|it| it.on);
+        let key = known.map(|it| it.key.as_str()).unwrap_or_default();
+
+        // The tick is the answer, so the row closes the menu: the mailbox
+        // holds one ask, and two rows ticked before it shut would be one panel
+        // toggled and one press thrown away.
+        if ui.checkbox(&mut on, label(chrome, key)).clicked() {
+            ask(Ask::Toggle(hide));
+            ui.close();
+        }
+    }
+
+    drop(showing);
+
+    // Which of them open at start, which is the one thing about the panels
+    // this list cannot say.
+    if surface::more_settings(ui, Page::TheWindow) {
+        ask(Ask::Settings("general.panels_at_start"));
+        ui.close();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The list of panels and the mailbox are both process-wide, so the tests
+    /// that write to either take turns rather than racing each other.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+    /// The turn, surviving a test that panicked while holding it.
+    fn a_turn() -> std::sync::MutexGuard<'static, ()> {
+        ONE_AT_A_TIME
+            .lock()
+            .unwrap_or_else(|held| held.into_inner())
+    }
 
     fn a_chrome() -> Chrome<'static> {
         Chrome {
@@ -211,10 +314,11 @@ mod tests {
     /// The mailbox holds one ask and gives it up once.
     #[test]
     fn an_ask_is_taken_once() {
+        let _turn = a_turn();
         let _ = asked();
 
-        ask(Ask::Hide(Command::ToggleFilmstrip));
-        assert_eq!(asked(), Some(Ask::Hide(Command::ToggleFilmstrip)));
+        ask(Ask::Toggle(Command::ToggleFilmstrip));
+        assert_eq!(asked(), Some(Ask::Toggle(Command::ToggleFilmstrip)));
         assert_eq!(asked(), None);
 
         ask(Ask::Settings("history.panel_visible"));
@@ -413,6 +517,127 @@ mod tests {
         said.dedup();
 
         assert_eq!(said.len(), all, "two panels say the same thing: {said:?}");
+    }
+
+    /// The list is every panel that can be put away, and only those.
+    #[test]
+    fn the_list_is_the_panels_that_can_be_put_away() {
+        let drawn = drew_the_list(Vec::new());
+
+        for chrome in EVERY_PANEL {
+            let named = chrome.subject.named();
+            let listed = drawn.iter().any(|text| text.starts_with(&named));
+
+            assert_eq!(
+                listed,
+                chrome.hide.is_some(),
+                "{named} is {} the list of panels",
+                if listed { "in" } else { "not in" }
+            );
+        }
+    }
+
+    /// The key is said beside the name, so a bar that has just been put away
+    /// says how it comes back.
+    #[test]
+    fn a_row_says_the_key_that_shows_and_hides_it() {
+        let mut said = vec![Showing::default(); EVERY_PANEL.len()];
+        said[0].key = "Ctrl + M".to_string();
+
+        let drawn = drew_the_list(said);
+        let named = EVERY_PANEL[0].subject.named();
+
+        assert!(
+            drawn.contains(&format!("{named}  (Ctrl + M)")),
+            "the menu bar's key is beside its name: {drawn:?}"
+        );
+    }
+
+    /// And a panel with no key bound says only its name, with no empty
+    /// brackets after it.
+    #[test]
+    fn a_panel_with_no_key_says_only_its_name() {
+        let chrome = a_chrome();
+
+        assert_eq!(label(&chrome, ""), "History panel");
+        assert_eq!(label(&chrome, "H"), "History panel  (H)");
+    }
+
+    /// A list shorter than the panels — nothing published yet, on the first
+    /// frame — draws the rows all the same, unticked and with no key.
+    #[test]
+    fn a_list_that_says_nothing_yet_still_draws_the_rows() {
+        let drawn = drew_the_list(Vec::new());
+        let named = EVERY_PANEL[0].subject.named();
+
+        assert!(drawn.contains(&named), "{drawn:?}");
+    }
+
+    /// Ticking a row asks for the command that panel is put away by.
+    #[test]
+    fn ticking_a_row_asks_for_that_panel() {
+        let _turn = a_turn();
+        let _ = asked();
+
+        let first = EVERY_PANEL
+            .iter()
+            .find(|chrome| chrome.hide.is_some())
+            .expect("some panel can be put away");
+
+        showing(Vec::new());
+
+        let ctx = egui::Context::default();
+        let draw = |ctx: &egui::Context| {
+            egui::CentralPanel::default().show(ctx, show_and_hide);
+        };
+
+        // Where the row landed, read off the frame that drew it, rather than
+        // a position guessed from the spacing.
+        let output = ctx.run(egui::RawInput::default(), draw);
+        let at = text_at(&output, &first.subject.named()).expect("the row was drawn");
+
+        let press = |pressed: bool| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::default(),
+        };
+
+        let _ = ctx.run(
+            egui::RawInput {
+                events: vec![egui::Event::PointerMoved(at), press(true), press(false)],
+                ..Default::default()
+            },
+            draw,
+        );
+
+        assert_eq!(asked(), Some(Ask::Toggle(first.hide.unwrap())));
+    }
+
+    /// Draws the list with `said` published, and answers with what it painted.
+    fn drew_the_list(said: Vec<Showing>) -> Vec<String> {
+        let _turn = a_turn();
+        showing(said);
+
+        let ctx = egui::Context::default();
+        let output = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, show_and_hide);
+        });
+
+        painted(&output)
+    }
+
+    /// Where a piece of text was painted, for a click aimed at it.
+    fn text_at(output: &egui::FullOutput, wanted: &str) -> Option<egui::Pos2> {
+        output
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(text) if text.galley.text() == wanted => {
+                    Some(text.pos + egui::vec2(4.0, 4.0))
+                }
+                _ => None,
+            })
     }
 
     /// Every piece of text the frame painted, in the order it was painted.

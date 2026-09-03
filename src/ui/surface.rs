@@ -59,6 +59,22 @@ impl<'a> Subject<'a> {
         Subject { kind, which: "" }
     }
 
+    /// The kind alone, without its article, for a list where every row is one
+    /// of them and seven definite articles would be noise.
+    ///
+    /// Derived rather than a second name on the type. A panel that says one
+    /// thing at the head of its own menu and another in the list of panels is
+    /// two names to keep in step, and they would not stay in step.
+    pub fn named(&self) -> String {
+        let named = self.kind.strip_prefix("The ").unwrap_or(self.kind);
+        let mut chars = named.chars();
+
+        match chars.next() {
+            Some(first) => first.to_uppercase().chain(chars).collect(),
+            None => self.kind.to_string(),
+        }
+    }
+
     /// The whole of it on one line, for the hover and for the tests.
     pub fn said(&self) -> String {
         if self.which.is_empty() {
@@ -371,6 +387,25 @@ mod tests {
     fn a_subject_says_the_kind_and_which_one() {
         assert_eq!(Subject::of("Keyword", "Tatras").said(), "Keyword — Tatras");
         assert_eq!(Subject::of("Rating", "3/5").said(), "Rating — 3/5");
+    }
+
+    /// The article goes, and what is left starts with a capital.
+    #[test]
+    fn a_subject_can_say_its_kind_without_the_article() {
+        assert_eq!(Subject::the("The metadata panel").named(), "Metadata panel");
+        assert_eq!(
+            Subject::the("The strip of thumbnails").named(),
+            "Strip of thumbnails"
+        );
+    }
+
+    /// A kind that never had one is left as it stands, and an empty one does
+    /// not panic on a first letter that is not there.
+    #[test]
+    fn a_kind_with_no_article_is_left_alone() {
+        assert_eq!(Subject::the("Keywords").named(), "Keywords");
+        assert_eq!(Subject::the("").named(), "");
+        assert_eq!(Subject::of("Keyword", "Tatras").named(), "Keyword");
     }
 
     /// A thing there is only one of says only what it is, with no dangling

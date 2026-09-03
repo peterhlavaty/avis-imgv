@@ -2,6 +2,34 @@
 
 ## 2026-09-03
 
+- **A View menu, and the same list under the photograph.** Which panels are on
+  screen was reachable only by knowing seven keys or by right-clicking each
+  panel in turn — and a panel that has been put away cannot be right-clicked,
+  so the only way back to one was the key. The menu bar now carries **View**
+  between *Mode* and *Settings*: one row per panel, a tick against the ones on
+  screen, and the key that shows and hides each beside its name, rendered from
+  the binding so a rebind stays correct. The same list is behind **Show** at
+  the foot of the photograph's own menu, because with the bar itself put away
+  the photograph is the whole window and the only surface left to ask.
+
+  Written once, in `src/ui/panel.rs`, over `EVERY_PANEL` — the list that
+  already existed to keep the panels' menus honest, and which is now the list
+  drawn. A panel added to it appears in both menus without either being
+  touched, and both go through the mailbox `App::take_panel_ask` already
+  empties, which is what puts a panel shown or hidden from a menu into the
+  history for free. What is on screen and what each key is are published once a
+  frame by `App::publish_panels`, the way whether a window is in front already
+  was: the two menus are drawn where neither the program's fields nor its
+  configuration are in hand.
+
+  The status bar is in neither list. It cannot be put away, and a tick nothing
+  can clear is worse than no row at all.
+
+  The photograph's menu was at the twelve rows a menu may carry, so **fit**,
+  **actual pixels** and **fill** fold behind **Zoom** — three ways of saying
+  one thing, which is the shape the turns have had since they were written, and
+  the only fold in the program that was not paid for by a second level already.
+
 - **A panel answers the second button anywhere in itself.** The rows in the
   history answered; the heading above them did not, nor the strip of blank to
   the right of a short row, nor the half of the panel below the last one, nor

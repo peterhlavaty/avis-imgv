@@ -460,7 +460,7 @@ impl App {
     /// panel put away from its own menu in the history without a word here.
     pub(super) fn take_panel_ask(&mut self, ctx: &egui::Context) {
         match crate::ui::panel::asked() {
-            Some(crate::ui::panel::Ask::Hide(command)) => self.apply(command, ctx),
+            Some(crate::ui::panel::Ask::Toggle(command)) => self.apply(command, ctx),
             Some(crate::ui::panel::Ask::Settings(path)) => self.open_settings_at(path),
             Some(crate::ui::panel::Ask::BindAKey(path)) => self.arm_key(path),
             None => {}

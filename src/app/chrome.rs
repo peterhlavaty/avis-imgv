@@ -96,6 +96,57 @@ impl App {
         self.grid_view.insert(at, path);
     }
 
+    /// Says which panels are on screen, and which key shows and hides each.
+    ///
+    /// The two menus that list the panels — the View menu on the bar and the
+    /// Show submenu on the photograph — are drawn where neither these fields
+    /// nor the configuration are in hand, so the answer is published once a
+    /// frame rather than threaded through them. The same shape as
+    /// `utils::set_window_in_front`, and for the same reason.
+    ///
+    /// Read afresh rather than remembered. A copy kept beside the settings
+    /// would be right until somebody rebound a key by a route that forgot to
+    /// refresh it, and a menu naming a key that does nothing is worse than one
+    /// naming none. It is seven short strings once a frame, which is not a
+    /// cost that multiplies by the size of a folder.
+    pub(super) fn publish_panels(&self) {
+        let panels = crate::ui::panel::EVERY_PANEL
+            .iter()
+            .map(|chrome| crate::ui::panel::Showing {
+                on: self.panel_is_showing(chrome.hide),
+                key: chrome
+                    .key
+                    .and_then(crate::config::registry::row)
+                    .and_then(|row| row.access.shortcut(&self.settings))
+                    .filter(|shortcut| !shortcut.key.trim().is_empty())
+                    .map(crate::ui::keys::describe)
+                    .unwrap_or_default(),
+            })
+            .collect();
+
+        crate::ui::panel::showing(panels);
+    }
+
+    /// Whether the panel that command puts away is on screen.
+    fn panel_is_showing(&self, hide: Option<input::Command>) -> bool {
+        match hide {
+            // The status bar, which cannot be put away and is therefore not in
+            // the list the menus draw.
+            None => true,
+            Some(input::Command::ToggleMenu) => self.menu_visible,
+            Some(input::Command::ToggleMetrics) => self.metrics_visible,
+            Some(input::Command::ToggleFilter) => self.filter_visible,
+            Some(input::Command::ToggleSidePanel) => self.side_panel_visible,
+            Some(input::Command::ToggleHistoryPanel) => self.history_panel_visible,
+            Some(input::Command::ToggleTagPanel) => self.tag_panel_visible,
+            Some(input::Command::ToggleFilmstrip) => self.filmstrip_visible,
+            // A panel added to `EVERY_PANEL` without a line here would draw a
+            // tick that never changes. The test at the foot of this file is
+            // what says so, since the match cannot be asked without a window.
+            Some(_) => true,
+        }
+    }
+
     pub(super) fn show_side_panel(&mut self, ctx: &egui::Context) {
         // An egui side panel sizes itself to its widest child unless it is
         // told not to, and the widest child here is the directory line. A
@@ -223,5 +274,41 @@ impl App {
 
         report.log();
         ctx.send_viewport_cmd(ViewportCommand::Close);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::input::Command;
+
+    /// Every panel that can be put away is one `panel_is_showing` reads back.
+    ///
+    /// The match cannot be asked without a window, so the commands it answers
+    /// are written down here and compared with the list of panels: a panel
+    /// added to `EVERY_PANEL` fails this rather than drawing a tick in the
+    /// View menu that never changes whatever is done to it.
+    #[test]
+    fn every_panel_that_can_be_put_away_is_read_back() {
+        const READ_BACK: &[Command] = &[
+            Command::ToggleMenu,
+            Command::ToggleMetrics,
+            Command::ToggleFilter,
+            Command::ToggleSidePanel,
+            Command::ToggleHistoryPanel,
+            Command::ToggleTagPanel,
+            Command::ToggleFilmstrip,
+        ];
+
+        for chrome in crate::ui::panel::EVERY_PANEL {
+            let Some(hide) = chrome.hide else {
+                continue;
+            };
+
+            assert!(
+                READ_BACK.contains(&hide),
+                "{} is put away by {hide:?}, which `panel_is_showing` does not read back",
+                chrome.subject.said()
+            );
+        }
     }
 }

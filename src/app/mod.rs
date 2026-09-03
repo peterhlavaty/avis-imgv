@@ -1313,6 +1313,11 @@ impl eframe::App for App {
             }
         }
 
+        // Before anything that draws a menu, and after the commands of this
+        // frame have been carried out: what the View menu and the Show submenu
+        // tick is what is on screen now.
+        self.publish_panels();
+
         egui::TopBottomPanel::top("performance_metrics")
             .show_separator_line(false)
             .show_animated(ctx, self.metrics_visible, |ui| {

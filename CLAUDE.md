@@ -251,6 +251,20 @@ Leaving the seam for later means the next session pays for it with interest.
   being worth pressing the moment only some things answer. `Shift + F10` is
   the keyboard's way in, which is why a menu it can reach is a `named_menu`.
   Nothing, though, is reachable *only* by right-click.
+- **Which panels are on screen is asked once and drawn twice.**
+  `ui::panel::show_and_hide` is the one list — a row per entry of `EVERY_PANEL`
+  that can be put away, ticked where it is up, with the key beside it — and it
+  is drawn at the top level of the bar's **View** menu and behind **Show** at
+  the foot of the photograph's. The photograph, because with the bar itself put
+  away it is the whole window and the only surface left to ask. What is on
+  screen and what each key is are published once a frame by
+  `App::publish_panels`, the shape `utils::set_window_in_front` already has and
+  for the same reason: neither drawing site holds the program's fields or its
+  configuration, and both would otherwise take fourteen arguments to say one
+  thing. Both routes leave `panel::Ask::Toggle` in the mailbox
+  `App::take_panel_ask` already empties, which puts them in the history for
+  free. The status bar is in neither list: a tick nothing can clear is worse
+  than no row.
 - **A panel is a surface, and it answers anywhere in itself.** `ui::panel` is
   the one definition: what a panel says for itself is five things — what it is,
   what puts it away, the key row for that, and the settings page and row its
@@ -294,12 +308,13 @@ Leaving the seam for later means the next session pays for it with interest.
   what it is about, and `surface` draws it rather than the caller so that none
   of the thirty can word it differently. Always first, the way
   `more_settings` is always last.
-- **One menu has a second level, and it is the turns.** A menu is a list of
-  `ui::menus::Row`; `Row::Group` is the only one, holding the five ways of
-  saying one verb that would otherwise take five of the twelve rows a menu may
-  carry. A second level for five *different* decisions is still wrong and is
+- **A second level is bought with a row, never with a decision.** A menu is a
+  list of `ui::menus::Row`, and three things are folded: the five turns, the
+  three zooms and the eight panels — five, three and eight rows into three,
+  against the twelve a menu may carry. Each fold is *one* decision with several
+  answers; a second level for five *different* decisions is still wrong and is
   drawn as an inline row. egui 0.33 folds a submenu that will not fit to the far
-  side of its parent rather than over it, which is what makes even the one
+  side of its parent rather than over it, which is what makes any of them
   affordable against a panel on the screen edge.
 - **A key that moves something is a step and a glide, not a stopwatch.** The
   pan keys were read as held keys and multiplied by the frame time, so the
