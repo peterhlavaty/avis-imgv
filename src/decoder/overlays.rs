@@ -248,6 +248,16 @@ mod tests {
         assert_eq!(overlay, Overlay::default(), "it comes back round");
     }
 
+    /// Why a row offering to show the photograph as it is cannot use the
+    /// key's cycle: one along from the clipping mask is another mask, and the
+    /// status bar's word said it would show the photograph while turning
+    /// focus peaking on.
+    #[test]
+    fn the_mask_after_the_clipping_one_is_not_nothing() {
+        assert_eq!(Overlay::Clipping.next(), Overlay::Peaking);
+        assert_ne!(Overlay::Clipping.next(), Overlay::Off);
+    }
+
     /// The point of the clipping overlay: what a screen cannot show.
     #[test]
     fn clipping_marks_both_ends_and_nothing_between() {

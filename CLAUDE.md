@@ -344,6 +344,17 @@ Leaving the seam for later means the next session pays for it with interest.
   what it is about, and `surface` draws it rather than the caller so that none
   of the thirty can word it differently. Always first, the way
   `more_settings` is always last.
+- **A row that offers a way out of a state carries out the way out.** The key
+  that reaches a state often cycles — the mask goes clipping, focus peaking,
+  nothing — and the row saying *Show the photograph as it is* used to send that
+  key's command, which from the clipping mask turned the other mask on. So
+  `Command::NoMarks` sits beside `CycleMarks` and `StopComparing` beside
+  `Compare`: a command with no key of its own, which is what a menu row means.
+  And a figure that states a fact carries the verb that acts on it, on the
+  *left* button as well — `Blown 3.4%` and the two glyphs in the status bar are
+  buttons, and the menu carries the same verb written out for whoever has not
+  worked out that a number is one.
+
 - **A row a key also does names that key.** On the right of the row, in the
   weak colour, through `ui::keys::button`, `checkbox` or `radio` and no other
   way — thirty surfaces each choosing their own punctuation is what the two

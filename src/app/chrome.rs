@@ -165,6 +165,7 @@ impl App {
 
         let mut asked: Option<&'static str> = None;
         let mut clip = false;
+        let mut bind: Option<&'static str> = None;
 
         let panel = egui::SidePanel::right("image_metadata")
             .resizable(true)
@@ -192,9 +193,9 @@ impl App {
                     .or(asked);
 
                     if let Some(found) = self.image_view.active_histogram() {
-                        match crate::ui::histogram::show(ui, found) {
+                        match crate::ui::histogram::show(ui, found, self.image_view.marking()) {
                             Some(crate::ui::histogram::Asked::Clipping) => clip = true,
-                            Some(crate::ui::histogram::Asked::Settings(path)) => asked = Some(path),
+                            Some(crate::ui::histogram::Asked::BindKey(path)) => bind = Some(path),
                             None => {}
                         }
                     }
@@ -229,6 +230,12 @@ impl App {
         if let Some(path) = asked {
             // The reverse trip, from a readout to the setting behind it.
             self.open_settings_at(path);
+        }
+
+        // And from a readout to the key behind it, which is where the mask
+        // lives: it is a key and a state and not a setting anywhere.
+        if let Some(path) = bind {
+            self.arm_key(path);
         }
     }
 

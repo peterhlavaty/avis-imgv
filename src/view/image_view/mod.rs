@@ -428,6 +428,7 @@ impl ImageView {
                 self.config.overlay_corner = self.config.overlay_corner.next();
             }
             Command::CycleMarks => self.marking = self.marking.next(),
+            Command::NoMarks => self.marking = crate::decoder::overlays::Overlay::Off,
             Command::ShowMoreImages => {
                 if !self.widen_comparison() {
                     self.images_shown = (self.images_shown + 1).min(MAX_IMAGES_SHOWN);

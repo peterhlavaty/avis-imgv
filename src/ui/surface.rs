@@ -378,6 +378,7 @@ pub fn bind_a_key(ui: &mut egui::Ui, what: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::drawn;
 
     /// The same four words on every surface, so a person can learn them once.
     #[test]
@@ -440,22 +441,22 @@ mod tests {
             });
         });
 
-        let drawn = painted(&output);
-        let heading = drawn
+        let painted = drawn::text(&output);
+        let heading = painted
             .iter()
             .position(|text| text == "Keyword")
             .expect("the kind is drawn");
-        let which = drawn
+        let which = painted
             .iter()
             .position(|text| text == "Tatras")
             .expect("which one it is, is drawn");
-        let row = drawn
+        let row = painted
             .iter()
             .position(|text| text == "Show only this")
             .expect("the row is drawn");
 
-        assert!(heading < row, "the heading comes first: {drawn:?}");
-        assert!(which < row, "and so does which one it is: {drawn:?}");
+        assert!(heading < row, "the heading comes first: {painted:?}");
+        assert!(which < row, "and so does which one it is: {painted:?}");
     }
 
     /// The fault this was written for: a menu inside a list stopped opening on
@@ -548,18 +549,8 @@ mod tests {
         // The popup is laid out on the frame after the one that opened it.
         let output = ctx.run(input(moved()), |ctx| draw(ctx, &mut where_it_is));
 
-        painted(&output).iter().any(|text| text == "Do the thing")
-    }
-
-    /// Every piece of text the frame painted, in the order it was painted.
-    fn painted(output: &egui::FullOutput) -> Vec<String> {
-        output
-            .shapes
+        crate::ui::drawn::text(&output)
             .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
-                _ => None,
-            })
-            .collect()
+            .any(|text| text == "Do the thing")
     }
 }

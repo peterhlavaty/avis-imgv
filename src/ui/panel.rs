@@ -290,6 +290,7 @@ pub fn show_and_hide(ui: &mut egui::Ui) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::drawn;
 
     /// The list of panels and the mailbox are both process-wide, so the tests
     /// that write to either take turns rather than racing each other.
@@ -341,12 +342,12 @@ mod tests {
             });
         });
 
-        let drawn = painted(&output);
+        let painted = drawn::text(&output);
         let at = |what: &str| {
-            drawn
+            painted
                 .iter()
                 .position(|text| text.contains(what))
-                .unwrap_or_else(|| panic!("{what} is drawn: {drawn:?}"))
+                .unwrap_or_else(|| panic!("{what} is drawn: {painted:?}"))
         };
 
         assert!(at("Hide this panel") < at("Keys for"));
@@ -373,10 +374,10 @@ mod tests {
             });
         });
 
-        let drawn = painted(&output);
-        assert!(!drawn.iter().any(|text| text.contains("Hide this panel")));
-        assert!(!drawn.iter().any(|text| text.contains("Bind a key")));
-        assert!(drawn.iter().any(|text| text.contains("More settings")));
+        let painted = drawn::text(&output);
+        assert!(!painted.iter().any(|text| text.contains("Hide this panel")));
+        assert!(!painted.iter().any(|text| text.contains("Bind a key")));
+        assert!(painted.iter().any(|text| text.contains("More settings")));
     }
 
     /// The fault this file was written for: a right-click on the empty half of
@@ -454,7 +455,7 @@ mod tests {
         // The popup is laid out on the frame after the one that opened it.
         let output = ctx.run(input(moved()), draw);
 
-        painted(&output)
+        drawn::text(&output)
             .iter()
             .any(|text| text == "The history panel")
     }
@@ -593,7 +594,7 @@ mod tests {
         // Where the row landed, read off the frame that drew it, rather than
         // a position guessed from the spacing.
         let output = ctx.run(egui::RawInput::default(), draw);
-        let at = text_at(&output, &first.subject.named()).expect("the row was drawn");
+        let at = drawn::text_at(&output, &first.subject.named()).expect("the row was drawn");
 
         let press = |pressed: bool| egui::Event::PointerButton {
             pos: at,
@@ -623,31 +624,6 @@ mod tests {
             egui::CentralPanel::default().show(ctx, show_and_hide);
         });
 
-        painted(&output)
-    }
-
-    /// Where a piece of text was painted, for a click aimed at it.
-    fn text_at(output: &egui::FullOutput, wanted: &str) -> Option<egui::Pos2> {
-        output
-            .shapes
-            .iter()
-            .find_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(text) if text.galley.text() == wanted => {
-                    Some(text.pos + egui::vec2(4.0, 4.0))
-                }
-                _ => None,
-            })
-    }
-
-    /// Every piece of text the frame painted, in the order it was painted.
-    fn painted(output: &egui::FullOutput) -> Vec<String> {
-        output
-            .shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
-                _ => None,
-            })
-            .collect()
+        drawn::text(&output)
     }
 }

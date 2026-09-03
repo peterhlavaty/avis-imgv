@@ -3,6 +3,8 @@
 pub mod cheat_sheet;
 pub mod destinations;
 pub mod dragged;
+#[cfg(test)]
+pub mod drawn;
 pub mod empty;
 pub mod filter_bar;
 pub mod histogram;

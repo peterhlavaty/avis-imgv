@@ -982,6 +982,17 @@ The words in the status bar are doors as well. **Flattened**, **Watching**,
 **Filling**, **Advancing**, **Comparing** and **RAW+JPEG** each say what they
 mean and carry the verb that turns them off — and **Advancing** and **RAW+JPEG**
 are the only place in the running program those two settings are visible at all.
+**Show the photograph as it is**, on the word for whichever mask is painted,
+takes the mask off; it used to cycle, which from the clipping mask meant
+turning focus peaking on instead.
+
+**So are the two figures under the histogram.** *Blown 3.4%* and *Crushed 0.2%*
+are the numbers a screen cannot show you — a monitor renders 250 and 255 as the
+same white — and clicking either paints the mask that marks exactly those
+pixels, red at the top of the range and blue at the bottom. One mask rather
+than a half each: a photograph is looked at from both ends at once. The second
+button carries the same verb written out, worded for the state the mask is in,
+and the keys behind it.
 
 ## The mouse
 

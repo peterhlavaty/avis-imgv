@@ -10,6 +10,7 @@ use eframe::egui::{self, Color32, RichText, Sense, Stroke};
 use eframe::epaint::{pos2, Rect, Vec2};
 
 use crate::decoder::histogram::{Histogram, BUCKETS};
+use crate::decoder::overlays::Overlay;
 
 /// How tall the plot is, in points.
 const HEIGHT: f32 = 90.0;
@@ -29,7 +30,6 @@ const WARNING: Color32 = Color32::from_rgb(219, 160, 96);
 /// taken, and calling that out would train people to ignore the number.
 const WORTH_SAYING: f32 = 0.1;
 
-/// Draws `histogram`, and the clipping figures under it.
 /// What a figure was clicked to do.
 ///
 /// `Blown 3.4%` and `Crushed 0.2%` were true statements nobody could act on,
@@ -37,18 +37,20 @@ const WORTH_SAYING: f32 = 0.1;
 /// subsystem. They are the same question asked twice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Asked {
-    /// Paint the clipping mask over the photograph.
+    /// Paint the clipping mask over the photograph, or take it off again.
     Clipping,
-    /// Go to a settings row.
-    Settings(&'static str),
+    /// Open the keys for the mask, so it can be reached from where it is read.
+    BindKey(&'static str),
 }
 
-pub fn show(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
+/// Draws `histogram`, and the clipping figures under it.
+///
+/// `marking` is whichever mask is on the photograph, which the figures need in
+/// order to offer the thing that is not already there.
+pub fn show(ui: &mut egui::Ui, histogram: &Histogram, marking: Overlay) -> Option<Asked> {
     if histogram.is_empty() {
         return None;
     }
-
-    let mut asked = None;
 
     ui.add_space(20.0);
     ui.label(RichText::new("Tones").heading())
@@ -87,9 +89,20 @@ pub fn show(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
         egui::StrokeKind::Inside,
     );
 
-    asked = clipping(ui, histogram).or(asked);
+    clipping(ui, histogram, marking)
+}
 
-    asked
+/// What the figure offers, in the words for the state it finds.
+///
+/// The same sentence the mask's own word in the status bar carries, because it
+/// is the same verb. Focus peaking is a mask this figure knows nothing about:
+/// with it on, what a clipping figure offers is still to mark the clipping,
+/// which replaces it.
+fn verb(marking: Overlay) -> &'static str {
+    match marking == Overlay::Clipping {
+        true => "Show the photograph as it is",
+        false => "Mark the clipping on the photograph",
+    }
 }
 
 /// One channel, as a filled area.
@@ -129,11 +142,22 @@ fn plot(
 
 /// What the picture cannot show: how much of it has gone at each end.
 ///
-/// Each figure is a toggle for its half of the clipping mask, which is what a
-/// person means when they read "Blown 3.4 %" and look for somewhere to click.
-/// Today that mask is a separate key in a different subsystem.
-fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
+/// Each figure is the button for the mask that marks exactly the pixels it is
+/// counting, which is what a person means when they read "Blown 3.4 %" and
+/// looks for somewhere to click. The left button does it, the way the glyphs
+/// in the status bar do; the menu carries the same verb written out, for
+/// somebody who has not worked out that a number is a button, and the keys
+/// behind it.
+///
+/// One mask and not two halves of one: it paints the blown pixels red and the
+/// crushed ones blue in the same pass, and a photographer looking at either
+/// end wants both marked. So both figures offer the same verb, and the heading
+/// of the menu says which of them was asked.
+fn clipping(ui: &mut egui::Ui, histogram: &Histogram, marking: Overlay) -> Option<Asked> {
     let mut asked = None;
+
+    let verb = verb(marking);
+
     ui.add_space(4.0);
 
     ui.horizontal(|ui| {
@@ -160,35 +184,32 @@ fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
                 .sense(Sense::click()),
             );
 
+            // The left button is the whole of what these are for: a number
+            // that says a twentieth of the frame has gone is read while
+            // deciding whether to keep the photograph, and the mask is the
+            // answer. It sensed clicks and nothing read them.
+            if figure.clicked() {
+                asked = Some(Asked::Clipping);
+            }
+
             let reading = format!("{percent:.1}%");
 
             crate::ui::surface::with_menu(
                 ui,
                 &figure,
                 crate::ui::surface::Subject::of(label, &reading),
-                hover,
+                &format!("{hover}. {verb}."),
                 |ui| {
-                    if crate::ui::keys::button(
-                        ui,
-                        "Mark it on the photograph",
-                        "image_view.sc_marks",
-                    )
-                    .clicked()
-                    {
+                    if crate::ui::keys::button(ui, verb, "image_view.sc_marks").clicked() {
                         asked = Some(Asked::Clipping);
                         ui.close();
                     }
 
-                    if ui.button("Show only these on the photograph").clicked() {
-                        asked = Some(Asked::Clipping);
-                        ui.close();
-                    }
-
-                    if crate::ui::surface::more_settings(
-                        ui,
-                        crate::config::registry::Page::ThePhotograph,
-                    ) {
-                        asked = Some(Asked::Settings("image_view.sc_marks"));
+                    // Where the menu ends, since the mask is a key and a
+                    // runtime state and not a setting anywhere — the same last
+                    // row the mask's own word in the status bar carries.
+                    if crate::ui::surface::bind_a_key(ui, "the mask") {
+                        asked = Some(Asked::BindKey("image_view.sc_marks"));
                         ui.close();
                     }
                 },
@@ -244,5 +265,58 @@ mod tests {
     #[test]
     fn nothing_to_draw_is_nothing() {
         assert!(Histogram::default().is_empty());
+    }
+
+    /// The row offers what is not already there. It offered both — two rows,
+    /// worded differently, that did the very same thing.
+    #[test]
+    fn the_row_offers_the_state_it_is_not_in() {
+        assert_eq!(verb(Overlay::Off), "Mark the clipping on the photograph");
+        assert_eq!(verb(Overlay::Clipping), "Show the photograph as it is");
+
+        // Focus peaking is a mask this figure is not about, so what it offers
+        // is still the clipping — which replaces it.
+        assert_eq!(
+            verb(Overlay::Peaking),
+            "Mark the clipping on the photograph"
+        );
+    }
+
+    /// The left button is the whole of what a figure is for, and nothing read
+    /// it: the label sensed clicks and the response was passed to the menu and
+    /// dropped.
+    #[test]
+    fn clicking_a_figure_asks_for_the_mask() {
+        let blown = histogram(&[[255, 255, 255, 255]; 100]);
+        let ctx = egui::Context::default();
+
+        let mut asked = None;
+        let draw = |ctx: &egui::Context, asked: &mut Option<Asked>| {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                *asked = show(ui, &blown, Overlay::Off);
+            });
+        };
+
+        // Where the figure landed, read off the frame that drew it, rather
+        // than a position guessed from the spacing.
+        let output = ctx.run(egui::RawInput::default(), |ctx| draw(ctx, &mut asked));
+        let at = crate::ui::drawn::text_at(&output, "Blown 100.0%").expect("the figure is drawn");
+
+        let press = |pressed: bool| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::default(),
+        };
+
+        let _ = ctx.run(
+            egui::RawInput {
+                events: vec![egui::Event::PointerMoved(at), press(true), press(false)],
+                ..Default::default()
+            },
+            |ctx| draw(ctx, &mut asked),
+        );
+
+        assert_eq!(asked, Some(Asked::Clipping));
     }
 }

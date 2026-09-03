@@ -418,7 +418,10 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
             |ui| {
                 if keys::button(ui, "Show the photograph as it is", "image_view.sc_marks").clicked()
                 {
-                    commands.push(Command::CycleMarks);
+                    // Off, not onwards. The key cycles — clipping, then focus
+                    // peaking, then nothing — and this row said it would show
+                    // the photograph while turning the second mask on.
+                    commands.push(Command::NoMarks);
                     ui.close();
                 }
                 if surface::bind_a_key(ui, "the mask") {

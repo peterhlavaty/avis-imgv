@@ -109,6 +109,14 @@ pub enum Command {
     CycleOverlay,
     /// Mark what has clipped, then what is in focus, then nothing.
     CycleMarks,
+    /// Take whichever mask is on off the photograph.
+    ///
+    /// The key cycles; a row that says "Show the photograph as it is" means
+    /// this, and said it while cycling on to focus peaking. Not bound to a key
+    /// of its own — `StopComparing` is the same shape, and for the same
+    /// reason: it is what a menu row means, and the key that reaches the state
+    /// is the key that leaves it.
+    NoMarks,
     /// Magnify to a percentage of the image's own pixels, holding a point.
     ///
     /// The anchor is part of the command because the same magnification is

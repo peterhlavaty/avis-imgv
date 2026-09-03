@@ -128,9 +128,20 @@ impl ImageView {
         self.backdrop = hex.to_string();
     }
 
+    /// Which mask is painted over the photograph, if any.
+    ///
+    /// For the two figures under the histogram, which offer to put the
+    /// clipping mask on and have to say so in the words for the state they
+    /// find: a row offering what is already there is a row that does nothing.
+    pub fn marking(&self) -> crate::decoder::overlays::Overlay {
+        self.marking
+    }
+
     /// Paints the clipping mask, or takes it off if it is already on.
     ///
-    /// What "Blown 3.4 %" means, done where it is read.
+    /// What "Blown 3.4 %" means, done where it is read. Focus peaking is a
+    /// different mask and is replaced rather than kept: the two cannot both be
+    /// painted, and the figure that was clicked is about the clipping.
     pub fn mark_clipping(&mut self) {
         use crate::decoder::overlays::Overlay;
 

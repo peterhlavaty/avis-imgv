@@ -2,6 +2,22 @@
 
 ## 2026-09-03
 
+- **The clipping figures are buttons, and say one thing each.** *Blown 3.4%*
+  and *Crushed 0.2%* under the histogram now answer the left button by painting
+  the mask that marks exactly those pixels, which is what the numbers were
+  written for and what nothing had ever read: the figures sensed clicks and the
+  answer was thrown away. Their menu offered two rows — *Mark it on the
+  photograph* and *Show only these on the photograph* — that did the very same
+  thing, and ended on a **More settings…** promising *The photograph* while
+  opening a keyboard row. It is one verb now, worded for the state the mask is
+  in, and it ends on **Keys for the mask…**, which is what the mask's own word
+  in the status bar already did.
+
+  That word — **Show the photograph as it is** — now shows the photograph as it
+  is. It cycled, and from the clipping mask the next one along is focus
+  peaking, so the one row in the program offering a way out of a mask turned
+  the other one on.
+
 - **A menu says which key does the same thing.** Every row of every menu that a
   key also carries out now names that key, on the right of the row and in the
   weak colour: *Keep* `p`, *Compare* `n`, *Move this photograph to the bin*
