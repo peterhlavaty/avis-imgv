@@ -525,6 +525,20 @@ Leaving the seam for later means the next session pays for it with interest.
   presses to do it from a search box: egui clears the focus itself before the
   program is called, so "was anything being typed into" has to be remembered
   from the frame before.
+
+- **The menu bar is the one thing a card does not take.** It answers the mouse
+  from over one, which costs a second layer: a panel lives in
+  `LayerId::background()` and cannot be moved out of it, and egui decides the
+  modal layer by comparing `Order`, so everything in every panel is under every
+  card there is. So `panels::top_menu` lays the bar out in its panel with
+  `set_invisible` — for the height, the background and the animation, which are
+  the panel's to give — and draws it again from the same `rows` in an `Area` at
+  `Order::Foreground`, over the rectangle the panel's contents came to. The
+  panel's own rectangle is the wrong one: it takes in the margin, and the bar
+  would shift by it the moment a card opened. The copy is salted, because the
+  first has taken every id. What the bar is asked for then decides the deck:
+  `MenuAction::goes_back_to_the_photographs` is an exhaustive match, so an
+  action added later does not compile until somebody has said which it is.
 - **A turn is written to the sidecar and never to the photograph.** The eight
   orientations compose (`Orientation::then`), so the camera's and the user's are
   one orientation by the time anything draws. The same rule as the ratings: this

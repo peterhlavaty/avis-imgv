@@ -775,9 +775,15 @@ half typed is not lost to a key pressed once.
 A card owns the mouse and the keyboard while it is up. The wheel scrolls the
 page rather than walking the folder behind it, and the keys mean what the card
 says they mean — a digit typed into the search box is a digit and not a star.
-The menu bar stays on screen but greys out: the way between cards is the card's
-own bar, and a click on **Mode** aimed past a settings page is a click that was
-meant for the page.
+
+The menu bar is the one thing that carries on working. **Help → About** from
+the settings is one click rather than Escape and then a menu, and every card
+the bar can open is reached that way. What the bar is asked for decides what
+happens to the card you were on: another card goes on top of it, with a crumb
+back; a folder or a mode puts the cards down, because somebody who has just
+asked for a different folder is asking to look at photographs. The
+configuration file, the log and the manual open outside the viewer and leave
+the card exactly where it was.
 
 A **question** is the other shape. Sending three photographs to the bin, a bin
 with something still in it on the way out, a bulk undo, a configuration file

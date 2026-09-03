@@ -2,6 +2,24 @@
 
 ## 2026-09-03
 
+- **The menu bar works from over a card.** It stayed on screen when the windows
+  became cards and greyed out, which made **Help → About** from the settings
+  Escape and then a menu. It answers the mouse now: another card goes on top of
+  the one you were on, with a crumb back to it, and a folder or a mode puts the
+  cards down, because somebody who has just asked for a different folder is
+  asking to look at photographs.
+
+  The cost is a second layer, and it is egui's to explain: a panel lives in
+  `LayerId::background()` and cannot be moved out of it, and the modal layer
+  that stops the photograph behind a card from being clicked is decided by
+  comparing `Order` — so everything in every panel is under every card there
+  is. The bar is laid out in its panel for the height, the background and the
+  animation, which are the panel's to give, and drawn again from the same
+  function in a layer above the card, over the rectangle the panel's contents
+  came to. A test asserts the two land on the same pixel, because the panel's
+  own rectangle takes in its margin and the bar would shift by it as a card
+  opened.
+
 - **The viewer opens no windows of its own.** The thirteen it had are cards of
   one deck: a card fills the viewer under the menu bar, one is on screen at a
   time, and there is no title bar to drag, no corner to pull, no second one

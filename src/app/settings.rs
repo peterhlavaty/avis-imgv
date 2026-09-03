@@ -28,6 +28,15 @@ impl App {
     pub(super) fn handle_menu(&mut self, action: MenuAction) {
         let dialog = rfd::FileDialog::new().set_directory(&self.base_path);
 
+        // The bar answers the mouse from over a card, so a folder or a mode
+        // asked for from there is asked for by somebody who wants to look at
+        // photographs. Before it is carried out rather than after: opening a
+        // folder is what puts a question about an empty bin up, and shutting
+        // the deck afterwards would take nothing off but might have.
+        if action.goes_back_to_the_photographs() {
+            self.deck.shut();
+        }
+
         match action {
             MenuAction::OpenFolder => {
                 if let Some(folder) = dialog.pick_folder() {
