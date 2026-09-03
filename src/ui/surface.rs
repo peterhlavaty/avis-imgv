@@ -355,19 +355,23 @@ pub fn more_settings(ui: &mut egui::Ui, page: crate::config::registry::Page) -> 
         .clicked()
 }
 
-/// A row that binds a key to whatever this menu is about.
+/// A row that opens the keys of whatever this menu is about.
 ///
-/// Makes the control the route to its own key, which closes the loop the
+/// Makes the control the route to its own keys, which closes the loop the
 /// keyboard editor otherwise owns alone — the direct answer to the request to
 /// "change keybinds by ctrl+right clicking on the menu and picking them on the
 /// GUI instead of having to edit configs".
+///
+/// "Keys for", plural, since a command carries as many as somebody gave it:
+/// the row opens the window holding all of them, where one is added or taken
+/// away. It said "Bind a key to" while binding one was all it could do.
 pub fn bind_a_key(ui: &mut egui::Ui, what: &str) -> bool {
     if !SETTINGS_ROWS.load(std::sync::atomic::Ordering::Relaxed) {
         return false;
     }
 
-    ui.button(format!("Bind a key to {what}…"))
-        .on_hover_text("Opens the keyboard editor with that row armed")
+    ui.button(format!("Keys for {what}…"))
+        .on_hover_text("Every key that does it, to add to or take from")
         .clicked()
 }
 

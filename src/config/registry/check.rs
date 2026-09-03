@@ -6,7 +6,7 @@
 //! to the control.
 
 use super::effect::Scope;
-use crate::config::{Config, Shortcut};
+use crate::config::{Chord, Config};
 
 /// One thing wrong with the file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -195,21 +195,31 @@ fn actions(config: &Config, found: &mut Vec<Complaint>) {
 
 /// An unknown key name becomes the unreachable sentinel, so a typo makes a
 /// command permanently unreachable and the only record is a log line.
+///
+/// Every chord, not only the first: a second key nobody can press is the one
+/// most easily left in the file and never noticed, since the first still
+/// works. A command with no chords at all is deliberately unbound and is not a
+/// complaint — a blank key name used to be one, which is what made unbinding
+/// something the settings window nagged about.
 fn keys(config: &Config, found: &mut Vec<Complaint>) {
     for row in super::rows() {
         let Some(shortcut) = row.access.shortcut(config) else {
             continue;
         };
 
-        if crate::config::shortcut::names_a_key(&shortcut.key) {
+        let Some(unreadable) = shortcut
+            .chords()
+            .iter()
+            .find(|chord| !crate::config::shortcut::names_a_key(&chord.key))
+        else {
             continue;
-        }
+        };
 
         found.push(Complaint {
             path: row.path,
             says: format!(
                 "\"{}\" is not a key name, so {} cannot be pressed.",
-                shortcut.key, row.label
+                unreadable.key, row.label
             ),
             instead: "The command is unreachable. examples/keys.txt lists every name \
                       the viewer accepts."
@@ -237,40 +247,43 @@ fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
     ];
 
     for (way, pan) in ways {
-        if pan.key.trim().is_empty() {
-            continue;
-        }
+        // Every key that pans that way, not only the first: a second one is
+        // as much a held key as the first, and the modifier is held with
+        // whichever the finger is on.
+        for chord in pan.chords() {
+            let fined = Chord::new(
+                &crate::utils::capitalize_first_char(&chord.key),
+                &[fine.value()],
+            );
 
-        let chord = Shortcut::new(
-            &crate::utils::capitalize_first_char(&pan.key),
-            &[fine.value()],
-        );
+            for row in super::rows() {
+                // Only where the photograph is: a key the contact sheet reads
+                // is never read on a frame this one is.
+                if !row.scope.overlaps(Scope::ImageView) {
+                    continue;
+                }
 
-        for row in super::rows() {
-            // Only where the photograph is: a key the contact sheet reads is
-            // never read on a frame this one is.
-            if !row.scope.overlaps(Scope::ImageView) {
-                continue;
+                let Some(bound) = row.access.shortcut(config) else {
+                    continue;
+                };
+
+                if !bound.holds(&fined) {
+                    continue;
+                }
+
+                found.push(Complaint {
+                    path: "image_view.pan_fine_modifier",
+                    says: format!(
+                        "{} is both \"{}\" and the fine pan {way}.",
+                        crate::ui::keys::chord(&fined),
+                        row.label
+                    ),
+                    instead: "Both happen on every press, and the platform repeats the key \
+                              for as long as it is held. Another modifier here, or another \
+                              key for the command, settles it."
+                        .to_string(),
+                });
             }
-
-            let Some(bound) = row.access.shortcut(config) else {
-                continue;
-            };
-
-            if bound.kbd_shortcut != chord.kbd_shortcut {
-                continue;
-            }
-
-            found.push(Complaint {
-                path: "image_view.pan_fine_modifier",
-                says: format!(
-                    "{} is both \"{}\" and the fine pan {way}.",
-                    crate::ui::keys::describe(&chord),
-                    row.label
-                ),
-                instead: "Both happen on every press, and the platform repeats the key                           for as long as it is held. Another modifier here, or another                           key for the command, settles it."
-                    .to_string(),
-            });
         }
     }
 }

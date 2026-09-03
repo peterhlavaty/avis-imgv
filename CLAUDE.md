@@ -170,6 +170,42 @@ Leaving the seam for later means the next session pays for it with interest.
   one section rather than the file.
 - **A new key binding** must pass `ui::keys::clashes`, which warns at startup.
   Check what the key already does before taking it.
+- **A shortcut is a list of chords, and the list may be empty.** `Shortcut`
+  holds `Vec<Chord>`; `Chord` is what the whole of it used to be. That is the
+  one seam multiplicity was threaded through, and it is why the sixteen
+  `shortcut::consume` sites, the registry's five key-shaped `Access` variants
+  and every one of the ninety table rows were untouched: `consume` tries each
+  chord. The file keeps the first chord where it always was and writes the rest
+  under `also` only when there are any, so a configuration nobody has added a
+  key to is byte-identical and an older build still reads it. A blank chord is
+  dropped on the way in, so "no key" is the empty list rather than a blank
+  string four readers each had to remember to check — and it is reachable, by
+  taking the last key away, which is what let `Delete` and `Backspace` become
+  ordinary bindable keys. Two chords are the same when they are the same
+  *press*: compared on the built `KeyboardShortcut`, because `Esc` and `Escape`
+  are one key and a comparison minding the spelling let a clash through, with
+  the written name used only to tell two unreadable names apart, since every
+  typo builds the same sentinel. `pan.rs` is the one reader that bypasses
+  `consume` — it reads held keys — and it asks every chord.
+- **The list of keys is an index; a window holds one command.**
+  `ui::keys::list` is the ninety rows with a sentence each, and clicking a key
+  opens `ui::keys::one` on that command alone: its keys, a cross beside each,
+  and a button that takes the next press. Editing in the list does not work
+  once a command can have several keys — a row is one button, so there is
+  nothing for a second key to be added *to* — and the armed row was invisible
+  whenever the list was scrolled elsewhere. Every route in is the same one:
+  `App::arm_key`, from the eleven `surface::bind_a_key` rows, the settings
+  page's key button, the settings row menu and the cheat sheet. The window is
+  drawn *after* the list so `set_modal_layer` leaves it in front, and at
+  `Order::Foreground` rather than among the windows — an `Area` keeps the place
+  it had in its order and egui raises one only when it is *new*, so the second
+  time it was opened it was drawn underneath the list, which with a list nine
+  hundred pixels tall and opaque reads as the button having stopped working.
+- **A clash is asked about a key, not about a command.** `keys::clash_on` takes
+  a chord, and `clash` is the walk over a command's chords. A command clear on
+  its first key and taken on its second collides on every press of the second,
+  and a warning naming only the command leaves a person looking at two keys not
+  knowing which to move. `clashes` says a pair once *per key they share*.
 - **Anything the user should know** goes to `notices.say`, not only to the log.
 - **Keywords are hierarchical**: written to `lr:hierarchicalSubject` *and*
   `dc:subject`, never only one.

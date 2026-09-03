@@ -248,13 +248,13 @@ impl Access {
             Access::Flags { get, options, .. } => options
                 .iter()
                 .any(|option| get(a, option.value) != get(b, option.value)),
-            Access::Key(get, _) => !same_key(get(a), get(b)),
+            Access::Key(get, _) => get(a) != get(b),
             Access::RatingKey(i) => match (a.tags.sc_rating.get(*i), b.tags.sc_rating.get(*i)) {
-                (Some(a), Some(b)) => !same_key(a, b),
+                (Some(a), Some(b)) => a != b,
                 (a, b) => a.is_some() != b.is_some(),
             },
             Access::LabelKey(i) => match (a.tags.sc_label.get(*i), b.tags.sc_label.get(*i)) {
-                (Some(a), Some(b)) => !same_key(a, b),
+                (Some(a), Some(b)) => a != b,
                 (a, b) => a.is_some() != b.is_some(),
             },
             Access::ActionKey(i) => {
@@ -262,7 +262,7 @@ impl Access {
                     a.image_view.user_actions.get(*i),
                     b.image_view.user_actions.get(*i),
                 ) {
-                    (Some(a), Some(b)) => !same_key(&a.shortcut, &b.shortcut),
+                    (Some(a), Some(b)) => a.shortcut != b.shortcut,
                     (a, b) => a.is_some() != b.is_some(),
                 }
             }
@@ -383,11 +383,6 @@ fn reset_records(list: List, config: &mut Config, fresh: &Config) {
     }
 }
 
-/// Two shortcuts meaning the same key press.
-fn same_key(a: &Shortcut, b: &Shortcut) -> bool {
-    a.key.eq_ignore_ascii_case(&b.key) && a.modifiers == b.modifiers
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -402,8 +397,8 @@ mod tests {
             .set_shortcut(&mut config, Shortcut::new("F9", &["ctrl"]));
 
         assert_eq!(
-            row.access.shortcut(&config).map(|s| s.key.as_str()),
-            Some("F9")
+            row.access.shortcut(&config),
+            Some(&Shortcut::new("F9", &["ctrl"]))
         );
         assert!(row.changed(&config));
     }

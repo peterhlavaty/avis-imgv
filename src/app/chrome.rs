@@ -118,7 +118,7 @@ impl App {
                     .key
                     .and_then(crate::config::registry::row)
                     .and_then(|row| row.access.shortcut(&self.settings))
-                    .filter(|shortcut| !shortcut.key.trim().is_empty())
+                    .filter(|shortcut| !shortcut.is_empty())
                     .map(crate::ui::keys::describe)
                     .unwrap_or_default(),
             })

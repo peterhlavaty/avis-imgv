@@ -348,8 +348,8 @@ mod tests {
                 .unwrap_or_else(|| panic!("{what} is drawn: {drawn:?}"))
         };
 
-        assert!(at("Hide this panel") < at("Bind a key"));
-        assert!(at("Bind a key") < at("More settings"));
+        assert!(at("Hide this panel") < at("Keys for"));
+        assert!(at("Keys for") < at("More settings"));
     }
 
     /// A panel that cannot be put away still says what it is and where its

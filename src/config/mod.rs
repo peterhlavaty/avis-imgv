@@ -18,7 +18,7 @@ pub use browsing::{BrowsingConfig, Confirmations, GroupConfig, MenuConfig, Panel
 pub use defaults::*;
 pub use history::{HistoryConfig, Undoes};
 pub use mouse::{DragButton, MouseConfig, WheelJob};
-pub use shortcut::{build_keyboard_shortcut, FineModifier, Shortcut, ShortcutData};
+pub use shortcut::{build_keyboard_shortcut, Chord, FineModifier, Shortcut, ShortcutData};
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(default)]

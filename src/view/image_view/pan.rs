@@ -177,20 +177,26 @@ pub fn asked(ctx: &egui::Context, config: &ImageViewConfig) -> Keys {
         };
 
         for (way, binding) in bindings.iter().enumerate() {
-            let key = binding.kbd_shortcut.logical_key;
+            // Any of the keys bound to that direction, and the modifiers of
+            // none of them: what is held with a pan key says how far it moves,
+            // not whether it moves — see `Config::check`, which is what warns
+            // when a command is sitting on the chord that results.
+            for chord in binding.chords() {
+                let key = chord.kbd_shortcut.logical_key;
 
-            keys.down[way] = input.key_down(key);
-            keys.pressed[way] = input.events.iter().any(|event| {
-                matches!(
-                    event,
-                    egui::Event::Key {
-                        key: pressed,
-                        pressed: true,
-                        repeat: false,
-                        ..
-                    } if *pressed == key
-                )
-            });
+                keys.down[way] |= input.key_down(key);
+                keys.pressed[way] |= input.events.iter().any(|event| {
+                    matches!(
+                        event,
+                        egui::Event::Key {
+                            key: pressed,
+                            pressed: true,
+                            repeat: false,
+                            ..
+                        } if *pressed == key
+                    )
+                });
+            }
         }
 
         keys

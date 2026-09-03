@@ -436,9 +436,16 @@ impl App {
     /// The other half of the reverse trip: a menu on the thing itself is the
     /// route to its key, which closes the loop the keyboard editor otherwise
     /// owns alone.
+    /// Opens the window holding every key bound to one command.
+    ///
+    /// The whole list used to open with a row armed somewhere inside it, which
+    /// asked a person who right-clicked one thing to find it again among
+    /// ninety — and the armed row was off screen whenever the list happened to
+    /// be scrolled elsewhere. The eleven **Bind a key to…** rows, the settings
+    /// window's **Change this key…** and the cheat sheet all land here, and
+    /// **All keys…** in that window is the way on to the list.
     pub(super) fn arm_key(&mut self, path: &'static str) {
         self.keys.arm(path);
-        self.keys_visible = true;
     }
 }
 

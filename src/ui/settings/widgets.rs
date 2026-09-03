@@ -97,7 +97,9 @@ pub fn row(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> (Touched, Optio
             asked = Some(path);
         }
 
-        touched = touched.merge(control(ui, row, config));
+        let (drew, wanted) = control(ui, row, config);
+        touched = touched.merge(drew);
+        asked = asked.or(wanted);
 
         // Marked where it is drawn, and left exactly as written. `save` writes
         // the whole document, so clamping on load would destroy somebody's
@@ -158,7 +160,12 @@ fn row_menu(ui: &egui::Ui, response: &egui::Response, row: &Row) -> Option<&'sta
                 ui.close();
             }
 
-            if row.access.is_a_key() && ui.button("Change this key…").clicked() {
+            if row.access.is_a_key()
+                && ui
+                    .button("Keys for this…")
+                    .on_hover_text("Every key that does it, to add to or take from")
+                    .clicked()
+            {
                 asked = Some(row.path);
                 ui.close();
             }
@@ -186,8 +193,40 @@ fn out_of_range(row: &Row, config: &Config) -> bool {
     }
 }
 
-/// The control itself.
-fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
+/// The control itself, and whatever it asked to open.
+///
+/// A key is the one field this window does not hold the control for: what it
+/// draws is a button on to [`keys::one`], which is where a key is added or
+/// taken away. Split out ahead of the match rather than made an arm of it,
+/// because it is the only one of the twelve with something to ask for and
+/// threading an ask through the other eleven would say nothing.
+fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> (Touched, Option<&'static str>) {
+    if row.access.is_a_key() && row.access.is_writable() {
+        return (Touched::default(), keys_button(ui, row, config));
+    }
+
+    (value(ui, row, config), None)
+}
+
+/// The keys bound to a command, as a button that opens the window holding them.
+///
+/// It used to be a label, and the only way through to the keyboard was the
+/// row's right-click menu — a route nobody finds who is not looking for it,
+/// against a value that plainly wants clicking.
+fn keys_button(ui: &mut egui::Ui, row: &Row, config: &Config) -> Option<&'static str> {
+    let key = row
+        .access
+        .shortcut(config)
+        .map(crate::ui::keys::describe)
+        .unwrap_or_else(|| "no key".to_string());
+
+    ui.button(RichText::new(key).monospace())
+        .on_hover_text("Every key that does this, to add to or take from")
+        .clicked()
+        .then_some(row.path)
+}
+
+fn value(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
     match &row.access {
         Access::Bool(get, set) => {
             let mut on = get(config);
@@ -262,6 +301,8 @@ fn control(ui: &mut egui::Ui, row: &Row, config: &mut Config) -> Touched {
         }
         Access::Colour(get, set) => colour(ui, get, set, config),
         Access::Records(list, _) => super::lists::ui(ui, *list, config),
+        // Reached only for a key row that cannot be written — `control` draws
+        // the rest as a button on to the window that holds them.
         Access::Key(..) | Access::RatingKey(_) | Access::LabelKey(_) | Access::ActionKey(_) => {
             let key = row
                 .access

@@ -379,6 +379,61 @@ mod tests {
         assert!(!cfg.partial);
     }
 
+    /// A second key reaches the program from the file, and both keys press
+    /// the command.
+    ///
+    /// The whole chain in one test: the `also` list off the disk, through
+    /// `Config`, into `shortcut::consume`. The pieces are covered where they
+    /// live; this is the one that fails if any of the joins between them come
+    /// apart.
+    #[test]
+    fn a_second_key_read_from_the_file_presses_the_command() {
+        let cfg = Config::from_json(
+            r#"{"general": {"sc_exit": {"key": "F13", "modifiers": [],
+                 "also": [{"key": "F14", "modifiers": ["ctrl"]}]}}}"#,
+        );
+
+        assert!(!cfg.partial);
+        assert_eq!(cfg.general.sc_exit.len(), 2);
+
+        for (key, modifiers) in [
+            (eframe::egui::Key::F13, eframe::egui::Modifiers::NONE),
+            (eframe::egui::Key::F14, eframe::egui::Modifiers::CTRL),
+        ] {
+            let ctx = eframe::egui::Context::default();
+            ctx.begin_pass(eframe::egui::RawInput {
+                events: vec![eframe::egui::Event::Key {
+                    key,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                }],
+                ..Default::default()
+            });
+
+            let pressed = ctx
+                .input_mut(|input| crate::config::shortcut::consume(input, &cfg.general.sc_exit));
+            assert!(pressed, "{key:?} did not press it");
+        }
+    }
+
+    /// And writing it out again keeps both, in the shape an older build reads
+    /// the first of.
+    #[test]
+    fn a_second_key_survives_being_written_out() {
+        let mut cfg = Config::default();
+        cfg.general
+            .sc_exit
+            .add(crate::config::Chord::new("F14", &["ctrl"]));
+
+        let json = serde_json::to_string(&cfg).expect("writes");
+        let read = Config::from_json(&json);
+
+        assert_eq!(read.general.sc_exit, cfg.general.sc_exit);
+        assert!(json.contains(r#""also":[{"key":"F14","modifiers":["ctrl"]}]"#));
+    }
+
     /// A file written by an older build has sections the newer one added.
     #[test]
     fn a_missing_section_costs_nothing() {

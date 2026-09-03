@@ -2,6 +2,41 @@
 
 ## 2026-09-03
 
+- **A command has as many keys as you give it.** The arrow keys and `WASD` can
+  both walk the folder now; the key another viewer used can sit beside the one
+  this one chose. A shortcut in the configuration file is a list of chords
+  rather than one, with the first written where it always was and the rest
+  under `also` — so a file nobody has added a key to is byte-identical to what
+  the last build wrote, and one written by this build still loads in the last.
+
+  **Settings → Keyboard…** is now an index rather than an editor: clicking a
+  key opens a window holding that one command — every key bound to it, a cross
+  beside each, and **Add a key…**, which takes the next key pressed. The same
+  window is what the key on the settings page opens, what a row in the sheet of
+  keys opens, and what **Keys for…** opens from the right-click menu of the
+  panel, badge, mask or star itself. It replaces the old arrangement where a
+  row in the list of ninety was armed in place, which asked somebody who
+  right-clicked one thing to find it again among ninety — and which drew the
+  armed row off screen whenever the list happened to be scrolled elsewhere.
+
+  Taking the last key away leaves the command with no key. That was a state the
+  list could already draw and only a bare `Delete` or `Backspace` could produce,
+  which cost those two keys being bindable at all — including `Delete`, the key
+  that sends a photograph to the bin and so the one most often wanted
+  elsewhere. Both are ordinary keys now.
+
+  Two things on one key are still not refused, and are still pointed out — but
+  against the key rather than against the command, since a command can be clear
+  on its first key and taken on its second. The startup warning says a pair once
+  per key they share, because two commands on both of two keys is two things
+  gone wrong and fixing one leaves the other.
+
+  Along the way: two spellings of one key are one key to the clash checker
+  (`Esc` and `Escape` were two, and a hand-edited file could hide a collision
+  behind the difference); the fine-pan check looks at every key that pans a
+  direction rather than the first; and a deliberately unbound command no longer
+  reads as a configuration error.
+
 - **A View menu, and the same list under the photograph.** Which panels are on
   screen was reachable only by knowing seven keys or by right-clicking each
   panel in turn — and a panel that has been put away cannot be right-clicked,

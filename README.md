@@ -795,11 +795,43 @@ Where the window is left is where the next launch starts.
 
 ## Changing the keys
 
+A command has as many keys as you give it. The arrow keys and `WASD` can both
+walk the folder; the key another viewer used can sit beside the one this one
+chose.
+
 **Settings → Keyboard…** lists every key the viewer listens for, grouped by
-where it applies and each with a sentence saying what it does. Click a key,
-press the one you want, and it is written to the configuration file straight
-away; escape leaves it alone. Two things on one key are not refused — sometimes
-that is what a person means — but they are pointed out.
+where it applies and each with a sentence saying what it does. Click one and a
+window opens holding that command alone: every key bound to it, a cross beside
+each, and **Add a key…**, which takes the next key pressed, modifiers and all.
+Escape leaves it alone. Changes are written to the configuration file straight
+away.
+
+The same window is reached from the key on the settings page, from a row in the
+sheet of keys, and from **Keys for…** in the right-click menu of the thing
+itself — the panel, the badge in the bottom bar, the mask, the star. A person
+who can see a control changes its keys from where they are standing.
+
+Taking the last key away leaves the command with no key, which is a state the
+list draws as *no key* and nothing else can reach it by. There is no key that
+means "unbind" any more, which is what makes `Delete` and `Backspace` bindable
+like anything else — `Delete` being the key that sends a photograph to the bin,
+and so the one somebody rearranging a keyboard most often wants to move.
+
+Two things on one key are not refused — sometimes that is what a person means —
+but they are pointed out, against the key rather than against the command: a
+command can be clear on its first key and taken on its second, and saying which
+is which is the difference between a warning that helps and one that does not.
+
+In the configuration file the first key stays where it always was and the rest
+go under `also`, so a file nobody has added a key to is unchanged:
+
+```json
+"sc_next_image": {
+  "key": "d",
+  "modifiers": [],
+  "also": [{ "key": "ArrowRight", "modifiers": [] }]
+}
+```
 
 ## Help
 

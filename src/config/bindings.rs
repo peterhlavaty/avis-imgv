@@ -190,7 +190,7 @@ mod tests {
             .expect("the list has it");
 
         three.set(&mut config, Shortcut::new("F5", &[]));
-        assert_eq!(config.tags.sc_rating[3].key, "F5");
+        assert_eq!(config.tags.sc_rating[3], Shortcut::new("F5", &[]));
     }
 
     /// The count is what stops a shortcut being added to the configuration and
@@ -243,7 +243,7 @@ mod tests {
             .expect("the table has nine of them");
 
         assert!(action.exists(&config));
-        assert_eq!(action.get(&config).map(|s| s.key.as_str()), Some("e"));
+        assert_eq!(action.get(&config), Some(&Shortcut::new("e", &[])));
 
         // And the other eight are not rows for this file.
         let missing = bindings

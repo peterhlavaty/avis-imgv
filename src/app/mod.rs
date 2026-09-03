@@ -1015,6 +1015,7 @@ impl App {
     fn a_window_is_in_front(&self) -> bool {
         self.settings_visible
             || self.keys_visible
+            || self.keys.editing_one()
             || self.cheat_sheet_visible
             || self.about_visible
             || self.legend_visible
@@ -1045,6 +1046,18 @@ impl App {
         }
 
         let typing = self.was_typing;
+
+        // The keys of one command are drawn over everything below, so Escape
+        // reaches that window first. It is not in the list because it is not a
+        // flag: what it holds is which command it is about.
+        if self.keys.editing_one() {
+            if input::escape_shuts_a_window(ctx, typing) {
+                self.keys.close_one();
+            }
+
+            return;
+        }
+
         let mut plain = [
             &mut self.settings_visible,
             &mut self.keys_visible,
@@ -1346,14 +1359,14 @@ impl eframe::App for App {
                 &mut change,
             );
 
-            // The route out. A row opens the keyboard editor with its own
-            // binding armed; the footer opens it with nothing armed.
+            // The route out. A row opens the keys of the command it names; the
+            // footer opens the list of every one of them.
             if let Some(path) = change {
                 self.cheat_sheet_visible = false;
 
-                // A key row arms the key editor; a gesture row opens the page
-                // that owns it. The sheet lists both now, and the row itself
-                // says which it is.
+                // A key row opens that command's keys; a gesture row opens the
+                // page that owns it. The sheet lists both now, and the row
+                // itself says which it is.
                 if path.is_empty() {
                     self.keys_visible = true;
                 } else if crate::config::bindings::is_a_key(path) {
