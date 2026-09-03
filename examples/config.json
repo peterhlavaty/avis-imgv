@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 7,
   "image_view": {
     "overlay_corner": "off",
     "overlay_format": "{name}\n$({iso} ISO)$( • ƒ{aperture})$( • {shutter})$( • {focal})",
@@ -21,13 +21,25 @@
     "gpu_resident_images": 8,
     "max_image_edge": 0,
     "nr_images_shown": 1,
+    "comparison_colour": "#E2BA78",
     "should_wait": true,
     "frame_size_relative_to_image": 0.2,
     "enlarge_to_fit": true,
+    "opening": "fit",
+    "opening_percent": 100.0,
+    "keep_zoom": false,
+    "keep_pan": false,
+    "zoom_out_past_fit": false,
     "zoom_step": 1.25,
+    "zoom_fine_step": 1.05,
     "zoom_step_factor": 2.0,
     "zoom_step_max": 8.0,
     "pan_speed": 1.5,
+    "pan_step": 40.0,
+    "pan_glide_delay": 0.25,
+    "pan_fine_step": 1.0,
+    "pan_fine_speed": 0.15,
+    "pan_fine_modifier": "alt",
     "page": 10,
     "name_format": "$(#File Name#)$( • ƒ#Aperture#)$( • #Shutter Speed#)$( • #ISO# ISO)",
     "user_actions": [],
@@ -74,10 +86,23 @@
       "key": "m",
       "modifiers": []
     },
-    "sc_latch_fit_maximize": {
+    "sc_cycle_opening": {
       "key": "m",
       "modifiers": [
         "ctrl"
+      ]
+    },
+    "sc_keep_zoom": {
+      "key": "r",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_keep_pan": {
+      "key": "r",
+      "modifiers": [
+        "ctrl",
+        "shift"
       ]
     },
     "sc_more_images_shown": {
@@ -113,6 +138,18 @@
     "sc_zoom_out": {
       "key": "Minus",
       "modifiers": []
+    },
+    "sc_zoom_in_fine": {
+      "key": "Plus",
+      "modifiers": [
+        "alt"
+      ]
+    },
+    "sc_zoom_out_fine": {
+      "key": "Minus",
+      "modifiers": [
+        "alt"
+      ]
     },
     "sc_pan_up": {
       "key": "w",
@@ -156,18 +193,26 @@
         "ctrl"
       ]
     },
-    "filmstrip_height": 0.0,
+    "filmstrip_height": 96.0,
     "caption_format": "{name}.{ext}",
     "badges": "marks",
     "filmstrip_visible": false,
     "filmstrip_edge": "bottom",
     "click_opens": false,
+    "selection_colour": "#7EA8E0",
+    "moving_on_clears_the_selection": true,
     "sc_select": {
       "key": "Space",
       "modifiers": []
     },
     "sc_select_all": {
       "key": "a",
+      "modifiers": [
+        "ctrl"
+      ]
+    },
+    "sc_select_none": {
+      "key": "d",
       "modifiers": [
         "ctrl"
       ]
@@ -243,7 +288,8 @@
     "sc_watch_directory": {
       "key": "w",
       "modifiers": [
-        "ctrl"
+        "ctrl",
+        "shift"
       ]
     },
     "sc_toggle_side_panel": {
@@ -464,6 +510,9 @@
       "empty_rejects": true,
       "undo_several": true
     },
+    "bin": "system",
+    "bin_folder": null,
+    "ask_to_empty_the_bin": true,
     "sc_move": {
       "key": "m",
       "modifiers": [
@@ -480,6 +529,12 @@
       "key": "x",
       "modifiers": [
         "shift"
+      ]
+    },
+    "sc_put_back": {
+      "key": "b",
+      "modifiers": [
+        "ctrl"
       ]
     }
   },
@@ -510,12 +565,14 @@
     "double_click": "fit_or_actual",
     "middle": "nothing",
     "back": "previous",
-    "forward": "next"
+    "forward": "next",
+    "slider_travel": 3.0
   },
   "history": {
     "remember": 0,
     "undoes": {
       "view": true,
+      "selection": true,
       "settings": true,
       "content": true
     },
