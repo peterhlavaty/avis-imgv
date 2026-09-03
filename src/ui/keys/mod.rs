@@ -20,14 +20,16 @@ mod capture;
 mod describe;
 mod list;
 pub mod one;
+mod shown;
 
 use eframe::egui::{self, Color32};
 
 use crate::config::bindings::{self, Binding};
 use crate::config::{Chord, Config};
 
-pub use describe::{chord, describe};
+pub use describe::{chord, describe, describe_into};
 pub use one::Editing;
+pub use shown::{button, checkbox, of, publish, radio, scopes_for};
 
 /// What the editor did this frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

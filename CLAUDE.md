@@ -344,6 +344,24 @@ Leaving the seam for later means the next session pays for it with interest.
   what it is about, and `surface` draws it rather than the caller so that none
   of the thirty can word it differently. Always first, the way
   `more_settings` is always last.
+- **A row a key also does names that key.** On the right of the row, in the
+  weak colour, through `ui::keys::button`, `checkbox` or `radio` and no other
+  way — thirty surfaces each choosing their own punctuation is what the two
+  rows that already named one had been doing, one with brackets and one with
+  two spaces. The name is rendered from the binding rather than written into
+  the label, so a rebind stays correct and a command with two keys names both.
+  Which key is published once a frame by `App::publish_keys` into
+  `ui::keys::of`, the shape `panel::showing` and `surface::more_settings`
+  already have and for the same reason: no menu in the program holds the
+  configuration. The mode goes with it, because a key is only a key where it
+  is *read* — `scopes_for` is the one answer, shared with the cheat sheet —
+  and a menu naming a key that does nothing there is worse than one naming
+  none: `Enter` opens the cell under the cursor in the contact sheet and does
+  nothing on the strip. A row says which key by naming its registry path, the
+  way `bind_a_key` and `Chrome` already do; an empty path is a row with no key
+  to name, and a path the registry has never heard of trips a `debug_assert`
+  rather than drawing nothing for ever.
+
 - **A second level is bought with a row, never with a decision.** A menu is a
   list of `ui::menus::Row`, and three things are folded: the five turns, the
   three zooms and the eight panels — five, three and eight rows into three,

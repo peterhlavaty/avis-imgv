@@ -96,7 +96,7 @@ impl App {
         self.grid_view.insert(at, path);
     }
 
-    /// Says which panels are on screen, and which key shows and hides each.
+    /// Says which panels are on screen.
     ///
     /// The two menus that list the panels — the View menu on the bar and the
     /// Show submenu on the photograph — are drawn where neither these fields
@@ -104,27 +104,36 @@ impl App {
     /// frame rather than threaded through them. The same shape as
     /// `utils::set_window_in_front`, and for the same reason.
     ///
-    /// Read afresh rather than remembered. A copy kept beside the settings
-    /// would be right until somebody rebound a key by a route that forgot to
-    /// refresh it, and a menu naming a key that does nothing is worse than one
-    /// naming none. It is seven short strings once a frame, which is not a
-    /// cost that multiplies by the size of a folder.
+    /// It said which key shows and hides each of them too, until every menu in
+    /// the program began naming its keys and the answer moved to the one table
+    /// that holds all ninety ([`publish_keys`]). What is left is what only this
+    /// type knows: which of the panels is up.
+    ///
+    /// [`publish_keys`]: Self::publish_keys
     pub(super) fn publish_panels(&self) {
         let panels = crate::ui::panel::EVERY_PANEL
             .iter()
             .map(|chrome| crate::ui::panel::Showing {
                 on: self.panel_is_showing(chrome.hide),
-                key: chrome
-                    .key
-                    .and_then(crate::config::registry::row)
-                    .and_then(|row| row.access.shortcut(&self.settings))
-                    .filter(|shortcut| !shortcut.is_empty())
-                    .map(crate::ui::keys::describe)
-                    .unwrap_or_default(),
             })
             .collect();
 
         crate::ui::panel::showing(panels);
+    }
+
+    /// Says what every command's keys read as, for the menus that name them.
+    ///
+    /// Read afresh rather than remembered. A copy kept beside the settings
+    /// would be right until somebody rebound a key by a route that forgot to
+    /// refresh it, and a menu naming a key that does nothing is worse than one
+    /// naming none. The mode goes with it because a key is only a key where it
+    /// is read: the same menu on the strip and in the contact sheet is two
+    /// different sets of keys, and only one of them is true at a time.
+    ///
+    /// It is ninety short strings, written over rather than built again, once
+    /// a frame — not a cost that multiplies by the size of a folder.
+    pub(super) fn publish_keys(&self) {
+        crate::ui::keys::publish(&self.settings, self.mode);
     }
 
     /// Whether the panel that command puts away is on screen.

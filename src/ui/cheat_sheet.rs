@@ -17,10 +17,9 @@
 use eframe::egui::{self, RichText};
 
 use crate::app::mode::Mode;
-use crate::config::registry::Scope;
 use crate::config::{bindings, Config};
 
-use super::keys::describe;
+use super::keys::{describe, scopes_for};
 
 /// One binding, ready to draw.
 struct Row {
@@ -33,21 +32,6 @@ struct Row {
     path: &'static str,
     /// Whether it can be changed at all.
     editable: bool,
-}
-
-/// Which scopes are live in each mode.
-///
-/// Read off the registry rather than off a heading, which is the same change
-/// the clash checker made: a scope states where a binding is *read*, and a
-/// heading only happens to. `Everywhere` is in every mode, because it is.
-fn scopes_for(mode: Mode) -> &'static [Scope] {
-    match mode {
-        Mode::Grid => &[Scope::Everywhere, Scope::Gallery, Scope::Overlay],
-        Mode::Image | Mode::Slideshow => &[Scope::Everywhere, Scope::ImageView, Scope::Overlay],
-        // A folder job draws no photographs, so the marking and navigation
-        // keys are not what somebody is looking for there.
-        Mode::Rename | Mode::TimeShift | Mode::Group => &[Scope::Everywhere],
-    }
 }
 
 /// What the mouse does here, as rows of the same shape as the keys.
@@ -408,52 +392,6 @@ fn needed_height(ui: &egui::Ui, sections: &[(&str, Vec<Row>)]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn every_mode_has_something_to_show() {
-        for mode in Mode::ALL {
-            assert!(!scopes_for(*mode).is_empty(), "{mode:?}");
-        }
-    }
-
-    /// The keys on screen are the ones for what is on screen.
-    #[test]
-    fn a_mode_shows_its_own_keys_and_not_the_others() {
-        let grid = scopes_for(Mode::Grid);
-        let image = scopes_for(Mode::Image);
-
-        assert!(grid.contains(&Scope::Gallery));
-        assert!(!grid.contains(&Scope::ImageView));
-
-        assert!(image.contains(&Scope::ImageView));
-        assert!(!image.contains(&Scope::Gallery));
-    }
-
-    /// The keys read in every mode are shown in every mode, which is what
-    /// makes the sheet a complete answer rather than most of one.
-    #[test]
-    fn what_is_read_everywhere_is_shown_everywhere() {
-        for mode in Mode::ALL {
-            assert!(scopes_for(*mode).contains(&Scope::Everywhere), "{mode:?}");
-        }
-    }
-
-    /// Every scope a binding can carry is shown in some mode, or a whole group
-    /// of keys would be undocumented on screen.
-    #[test]
-    fn every_scope_a_binding_has_is_shown_in_some_mode() {
-        for binding in bindings::all() {
-            let scope = binding.scope();
-            assert!(
-                Mode::ALL
-                    .iter()
-                    .any(|mode| scopes_for(*mode).contains(&scope)),
-                "{} is read in {} and shown in no mode",
-                binding.path(),
-                scope.label()
-            );
-        }
-    }
 
     /// The frame it opens on must not also close it, or nothing is ever seen.
     #[test]

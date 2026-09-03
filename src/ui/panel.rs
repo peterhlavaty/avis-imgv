@@ -103,8 +103,7 @@ pub struct Chrome<'a> {
 /// they were written — and two copies would be two things to keep in step.
 pub fn rows(ui: &mut egui::Ui, chrome: &Chrome<'_>) {
     if let Some(hide) = chrome.hide {
-        if ui
-            .button("Hide this panel")
+        if crate::ui::keys::button(ui, "Hide this panel", chrome.key.unwrap_or_default())
             .on_hover_text("Nothing in it is lost; this only puts it away.")
             .clicked()
         {
@@ -200,26 +199,28 @@ pub const EVERY_PANEL: &[&Chrome<'static>] = &[
 ];
 
 /// What one panel looks like from anywhere else in the program: whether it is
-/// on screen, and the key that shows and hides it.
+/// on screen.
+///
+/// It carried the key that shows and hides it as well, until every menu in the
+/// program began naming its keys off one table — `ui::keys::of`, which the row
+/// asks for itself now that it holds the path anyway.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Showing {
     pub on: bool,
-    /// Empty where the panel has no key, or none is bound.
-    pub key: String,
 }
 
 /// One entry per panel in [`EVERY_PANEL`], in that order.
 static SHOWING: Mutex<Vec<Showing>> = Mutex::new(Vec::new());
 
-/// Says which panels are on screen and which key shows and hides each.
+/// Says which panels are on screen.
 ///
 /// Written once a frame by `App::publish_panels`, the way
 /// `utils::set_window_in_front` writes whether a window is up, and for the same
 /// reason: the two menus that list the panels are drawn where neither the
 /// program's fields nor its configuration are in hand — the View menu on the
 /// bar and the Show submenu on the photograph — and threading seven booleans
-/// and seven key names through `top_menu` and `menus::rows` would be fourteen
-/// arguments to say one thing.
+/// through `top_menu` and `menus::rows` would be seven arguments to say one
+/// thing.
 ///
 /// In [`EVERY_PANEL`]'s order and no other: a list rather than a mask, so that
 /// neither end has an index to get wrong, and a short list only costs the rows
@@ -227,19 +228,6 @@ static SHOWING: Mutex<Vec<Showing>> = Mutex::new(Vec::new());
 pub fn showing(panels: Vec<Showing>) {
     if let Ok(mut it) = SHOWING.lock() {
         *it = panels;
-    }
-}
-
-/// What one row of the list says: the panel's name, and the key beside it.
-///
-/// The key is rendered from the binding rather than written into the label,
-/// the same as the rows on the bar, so a rebind stays correct. It matters most
-/// for the menu bar's own row: the list is one of the two ways back to a bar
-/// that has just been put away, and the key is the other.
-fn label(chrome: &Chrome<'_>, key: &str) -> String {
-    match key.is_empty() {
-        true => chrome.subject.named(),
-        false => format!("{}  ({key})", chrome.subject.named()),
     }
 }
 
@@ -263,14 +251,27 @@ pub fn show_and_hide(ui: &mut egui::Ui) {
             continue;
         };
 
-        let known = showing.as_ref().and_then(|it| it.get(at));
-        let mut on = known.is_some_and(|it| it.on);
-        let key = known.map(|it| it.key.as_str()).unwrap_or_default();
+        let mut on = showing
+            .as_ref()
+            .and_then(|it| it.get(at))
+            .is_some_and(|it| it.on);
 
         // The tick is the answer, so the row closes the menu: the mailbox
         // holds one ask, and two rows ticked before it shut would be one panel
         // toggled and one press thrown away.
-        if ui.checkbox(&mut on, label(chrome, key)).clicked() {
+        //
+        // The key is named beside it, rendered from the binding rather than
+        // written into the label so that a rebind stays correct. It matters
+        // most on the menu bar's own row: the list is one of the two ways back
+        // to a bar that has just been put away, and the key is the other.
+        let named = crate::ui::keys::checkbox(
+            ui,
+            &mut on,
+            chrome.subject.named(),
+            chrome.key.unwrap_or_default(),
+        );
+
+        if named.clicked() {
             ask(Ask::Toggle(hide));
             ui.close();
         }
@@ -539,28 +540,26 @@ mod tests {
 
     /// The key is said beside the name, so a bar that has just been put away
     /// says how it comes back.
+    ///
+    /// Read off the published table rather than written here: the row asks
+    /// `keys::of` for it, and what the row should say is what that says.
     #[test]
     fn a_row_says_the_key_that_shows_and_hides_it() {
-        let mut said = vec![Showing::default(); EVERY_PANEL.len()];
-        said[0].key = "Ctrl + M".to_string();
+        crate::ui::keys::publish(
+            &crate::config::Config::default(),
+            crate::app::mode::Mode::Image,
+        );
 
-        let drawn = drew_the_list(said);
-        let named = EVERY_PANEL[0].subject.named();
+        let bar = EVERY_PANEL[0];
+        let key = crate::ui::keys::of(bar.key.expect("the menu bar has a key"));
+        let drawn = drew_the_list(vec![Showing::default(); EVERY_PANEL.len()]);
 
+        assert!(!key.is_empty(), "the menu bar is bound to something");
+        assert!(drawn.contains(&bar.subject.named()), "{drawn:?}");
         assert!(
-            drawn.contains(&format!("{named}  (Ctrl + M)")),
+            drawn.contains(&key),
             "the menu bar's key is beside its name: {drawn:?}"
         );
-    }
-
-    /// And a panel with no key bound says only its name, with no empty
-    /// brackets after it.
-    #[test]
-    fn a_panel_with_no_key_says_only_its_name() {
-        let chrome = a_chrome();
-
-        assert_eq!(label(&chrome, ""), "History panel");
-        assert_eq!(label(&chrome, "H"), "History panel  (H)");
     }
 
     /// A list shorter than the panels — nothing published yet, on the first

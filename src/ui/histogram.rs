@@ -168,7 +168,13 @@ fn clipping(ui: &mut egui::Ui, histogram: &Histogram) -> Option<Asked> {
                 crate::ui::surface::Subject::of(label, &reading),
                 hover,
                 |ui| {
-                    if ui.button("Mark it on the photograph").clicked() {
+                    if crate::ui::keys::button(
+                        ui,
+                        "Mark it on the photograph",
+                        "image_view.sc_marks",
+                    )
+                    .clicked()
+                    {
                         asked = Some(Asked::Clipping);
                         ui.close();
                     }

@@ -1328,8 +1328,10 @@ impl eframe::App for App {
 
         // Before anything that draws a menu, and after the commands of this
         // frame have been carried out: what the View menu and the Show submenu
-        // tick is what is on screen now.
+        // tick is what is on screen now, and the key every menu names beside
+        // its verb is the one that would be read on the next frame.
         self.publish_panels();
+        self.publish_keys();
 
         egui::TopBottomPanel::top("performance_metrics")
             .show_separator_line(false)
@@ -1339,11 +1341,7 @@ impl eframe::App for App {
                 crate::ui::panel::menu(ui, &crate::ui::perf_metrics::CHROME, |_| {});
             });
 
-        let menu_keys = panels::MenuKeys {
-            cheat_sheet: "?".to_string(),
-            settings: keys::describe(&self.config.sc_settings),
-        };
-        if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode, &menu_keys) {
+        if let Some(action) = panels::top_menu(ctx, self.menu_visible, self.mode) {
             self.handle_menu(action);
         }
 

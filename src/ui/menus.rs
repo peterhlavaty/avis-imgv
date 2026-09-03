@@ -260,6 +260,49 @@ impl Verb {
         }
     }
 
+    /// Where the key that also does this lives in the registry.
+    ///
+    /// A menu row names its key beside it, and the row has to say which key
+    /// that is: there is no table anywhere mapping a command to the binding
+    /// that raises it — `input::collect` pairs a shortcut *field* with a
+    /// `Command`, and half of these verbs are not commands at all. So it is
+    /// said here, once, and the test at the foot of this file holds it to the
+    /// registry.
+    ///
+    /// Empty where the verb is this menu's alone: the two mirrors and the half
+    /// turn are the three of the five turns nobody has bound, the two paths
+    /// are copied from nowhere else, and showing a file in the file manager
+    /// has never had a key. `ui::keys::of` answers an empty path with nothing,
+    /// which is what a row with no key to name draws.
+    pub fn key(self) -> &'static str {
+        match self {
+            Verb::Open => "fixed.grid_open",
+            Verb::Fit => "image_view.sc_fit",
+            Verb::ActualPixels => "image_view.sc_one_to_one",
+            Verb::Fill => "image_view.sc_fit_maximize",
+            Verb::Compare => "image_view.sc_compare",
+            Verb::Keep => "tags.sc_pick",
+            Verb::Reject => "tags.sc_reject",
+            Verb::PickNone => "grid_view.sc_select_none",
+            Verb::TurnRight => "general.sc_turn_right",
+            Verb::TurnLeft => "general.sc_turn_left",
+            Verb::Bin => "general.sc_delete",
+            Verb::MoveTo => "cull.sc_move",
+            Verb::CopyTo => "cull.sc_copy",
+            Verb::PutBack => "cull.sc_put_back",
+            Verb::DeleteForGood => "general.sc_delete_permanently",
+            // The chord the toolkit turns into a copy *event* before this
+            // program sees it, which is why it is a fixed row rather than a
+            // binding.
+            Verb::CopyPicture => "fixed.copy_area",
+            Verb::TurnHalf
+            | Verb::MirrorHorizontally
+            | Verb::MirrorVertically
+            | Verb::CopyPath
+            | Verb::ShowInFolder => "",
+        }
+    }
+
     /// Whether this verb means anything in a menu about `count` photographs.
     ///
     /// One rule and one verb so far, and it belongs here rather than in a
@@ -445,8 +488,7 @@ pub enum Chosen {
 /// it, which is what a menu is expected to do and is why nothing here has to
 /// know which of the two levels it is on.
 fn verb_row(ui: &mut egui::Ui, verb: Verb, count: usize) -> bool {
-    let clicked = ui
-        .button(verb.label(count))
+    let clicked = crate::ui::keys::button(ui, verb.label(count), verb.key())
         .on_hover_text(verb.hint())
         .clicked();
 
@@ -862,5 +904,70 @@ mod tests {
             Orientation::Rotate90Cw.then(Verb::MirrorHorizontally.turn().unwrap()),
             Orientation::MirrorHorizontalRotate90Cw
         );
+    }
+
+    /// Every verb in the program, so that one added without a line in
+    /// [`Verb::key`] fails the build rather than drawing a row that names no
+    /// key however the person bound it.
+    const EVERY_VERB: &[Verb] = &[
+        Verb::Open,
+        Verb::Fit,
+        Verb::ActualPixels,
+        Verb::Fill,
+        Verb::Compare,
+        Verb::Keep,
+        Verb::Reject,
+        Verb::PickNone,
+        Verb::TurnRight,
+        Verb::TurnLeft,
+        Verb::TurnHalf,
+        Verb::MirrorHorizontally,
+        Verb::MirrorVertically,
+        Verb::Bin,
+        Verb::MoveTo,
+        Verb::CopyTo,
+        Verb::PutBack,
+        Verb::DeleteForGood,
+        Verb::CopyPath,
+        Verb::CopyPicture,
+        Verb::ShowInFolder,
+    ];
+
+    /// The key a row names is a key the registry has. A renamed binding
+    /// otherwise leaves the row naming nothing, silently, for ever.
+    #[test]
+    fn every_key_a_verb_names_is_one_the_registry_has() {
+        for verb in EVERY_VERB {
+            let path = verb.key();
+
+            if path.is_empty() {
+                continue;
+            }
+
+            assert!(
+                crate::config::bindings::is_a_key(path),
+                "{verb:?} names {path}, which is not a key"
+            );
+        }
+    }
+
+    /// And every verb a menu can draw is in the list above, so that the test
+    /// before this one keeps covering all of them.
+    #[test]
+    fn every_verb_a_menu_draws_is_one_of_them() {
+        let lists = [
+            Row::ON_A_PHOTOGRAPH,
+            Row::ON_A_PHOTOGRAPH_IN_THE_BIN,
+            Row::ON_A_CELL,
+            Row::ON_A_CELL_IN_THE_BIN,
+            Row::ON_THE_STRIP,
+            Row::ON_THE_STRIP_IN_THE_BIN,
+        ];
+
+        for row in lists.iter().flat_map(|list| list.iter()) {
+            for verb in row.verbs() {
+                assert!(EVERY_VERB.contains(&verb), "{verb:?}");
+            }
+        }
     }
 }

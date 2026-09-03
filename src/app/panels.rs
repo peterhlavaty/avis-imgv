@@ -5,6 +5,7 @@ use eframe::egui::{self, RichText};
 use crate::app::mode::Mode;
 use crate::cache::StoreStats;
 use crate::metadata::Metadata;
+use crate::ui::keys;
 
 /// Something picked from the menu bar.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -39,23 +40,12 @@ pub enum MenuAction {
     About,
 }
 
-/// The keys the menu names beside its own rows.
-///
-/// Rendered from the bindings rather than written into the labels, so a rebind
-/// stays correct: Microsoft asks for exactly that of a menu that names a key.
-#[derive(Debug, Clone, Default)]
-pub struct MenuKeys {
-    pub cheat_sheet: String,
-    pub settings: String,
-}
-
 /// Draws the menu bar, returning what the user picked.
-pub fn top_menu(
-    ctx: &egui::Context,
-    visible: bool,
-    mode: Mode,
-    keys: &MenuKeys,
-) -> Option<MenuAction> {
+///
+/// The keys it names beside its rows are `ui::keys`', published once a frame.
+/// Two of them were threaded in as strings while two rows were all that named
+/// one; every menu in the program names them now.
+pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAction> {
     let mut action = None;
 
     egui::TopBottomPanel::top("menu")
@@ -122,7 +112,8 @@ pub fn top_menu(
                     for wanted in Mode::ALL {
                         // Radio rather than plain buttons: the menu is also
                         // where the user finds out which mode they are in.
-                        if ui.radio(mode == *wanted, wanted.label()).clicked() {
+                        if keys::radio(ui, mode == *wanted, wanted.label(), wanted.key()).clicked()
+                        {
                             action = Some(MenuAction::Mode(*wanted));
                             ui.close();
                         }
@@ -141,8 +132,7 @@ pub fn top_menu(
                     // written. Keyboard and Slideshow stay as deep links to
                     // two of the eleven pages, because they are the only
                     // settings routes anybody has learned.
-                    if ui
-                        .button(format!("All settings…  {}", keys.settings))
+                    if keys::button(ui, "All settings…", "general.sc_settings")
                         .on_hover_text("Every setting the viewer has, with a search box")
                         .clicked()
                     {
@@ -171,7 +161,7 @@ pub fn top_menu(
                     }
                 });
 
-                help_menu(ui, keys, &mut action);
+                help_menu(ui, &mut action);
             });
 
             crate::ui::panel::menu(ui, &MENU_BAR, |_| {});
@@ -185,33 +175,39 @@ pub fn top_menu(
 /// The menu bar was three menus and eleven items with no Help at all, so the
 /// cheat sheet, the configuration file and the log were reachable only by
 /// somebody who already knew they existed.
-fn help_menu(ui: &mut egui::Ui, keys: &MenuKeys, action: &mut Option<MenuAction>) {
+fn help_menu(ui: &mut egui::Ui, action: &mut Option<MenuAction>) {
     ui.menu_button("Help", |ui| {
-        let rows: [(String, &str, MenuAction); 4] = [
+        // The path is empty where the row is not something a key also does,
+        // which is what `keys::of` answers with nothing.
+        let rows: [(&str, &str, &str, MenuAction); 4] = [
             (
-                format!("Keys…  {}", keys.cheat_sheet),
+                "Keys…",
+                "fixed.cheat_sheet",
                 "What every key does in the mode on screen",
                 MenuAction::CheatSheet,
             ),
             (
-                "Keyboard…".to_string(),
+                "Keyboard…",
+                "",
                 "Change what a key does",
                 MenuAction::Keyboard,
             ),
             (
-                "What the marks mean".to_string(),
+                "What the marks mean",
+                "",
                 "The glyphs on a stack, the badges on a cell and the overlay colours",
                 MenuAction::MarksLegend,
             ),
             (
-                "Template placeholders…".to_string(),
+                "Template placeholders…",
+                "",
                 "What may go in a name template, and what each one expands to",
                 MenuAction::Placeholders,
             ),
         ];
 
-        for (label, hint, picked) in rows {
-            if ui.button(label).on_hover_text(hint).clicked() {
+        for (label, path, hint, picked) in rows {
+            if keys::button(ui, label, path).on_hover_text(hint).clicked() {
                 *action = Some(picked);
                 ui.close();
             }
@@ -593,7 +589,7 @@ mod tests {
     fn the_bar_carries_a_view_menu() {
         let ctx = egui::Context::default();
         let output = ctx.run(egui::RawInput::default(), |ctx| {
-            let _ = top_menu(ctx, true, Mode::Image, &MenuKeys::default());
+            let _ = top_menu(ctx, true, Mode::Image);
         });
 
         let drawn: Vec<String> = output

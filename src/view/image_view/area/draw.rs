@@ -67,8 +67,7 @@ pub fn show(ctx: &egui::Context, on_screen: Rect, picture: Rect, dim: u8) -> Opt
         |ui| {
             ui.set_max_width(surface::WIDEST);
 
-            if ui
-                .button("Zoom to it")
+            if crate::ui::keys::button(ui, "Zoom to it", "image_view.sc_zoom_to_area")
                 .on_hover_text("Magnifies until the marked area fills the panel")
                 .clicked()
             {
@@ -76,8 +75,7 @@ pub fn show(ctx: &egui::Context, on_screen: Rect, picture: Rect, dim: u8) -> Opt
                 ui.close();
             }
 
-            if ui
-                .button("Copy the marked area")
+            if crate::ui::keys::button(ui, "Copy the marked area", "fixed.copy_area")
                 .on_hover_text("The pixels inside it, decoded at full size and turned upright")
                 .clicked()
             {
@@ -85,8 +83,7 @@ pub fn show(ctx: &egui::Context, on_screen: Rect, picture: Rect, dim: u8) -> Opt
                 ui.close();
             }
 
-            if ui
-                .button("Clear the marking")
+            if crate::ui::keys::button(ui, "Clear the marking", "fixed.escape")
                 .on_hover_text("The same as clicking outside it, or Escape")
                 .clicked()
             {

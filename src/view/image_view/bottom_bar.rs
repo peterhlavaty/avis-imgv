@@ -234,7 +234,9 @@ fn mode_word(ui: &mut egui::Ui, mode: crate::app::mode::Mode) -> Vec<BarAction> 
             for wanted in Mode::ALL {
                 // Radios rather than buttons: the menu is also where somebody finds
                 // out which mode they are in, which is the whole point of the word.
-                if ui.radio(mode == *wanted, wanted.label()).clicked() {
+                if crate::ui::keys::radio(ui, mode == *wanted, wanted.label(), wanted.key())
+                    .clicked()
+                {
                     asked.push(BarAction::Mode(*wanted));
                     ui.close();
                 }
@@ -259,7 +261,7 @@ fn mode_word(ui: &mut egui::Ui, mode: crate::app::mode::Mode) -> Vec<BarAction> 
 /// the running program either of those two is visible.
 fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> Vec<BarAction> {
     use crate::config::registry::Page;
-    use crate::ui::surface;
+    use crate::ui::{keys, surface};
 
     let mut asked = Vec::new();
 
@@ -269,7 +271,7 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
             "Flattened",
             "Photographs in sub-folders are part of this collection.",
             |ui| {
-                if ui.button("Only this folder").clicked() {
+                if keys::button(ui, "Only this folder", "general.sc_flatten_dir").clicked() {
                     asked.push(BarAction::ToggleFlatten);
                     ui.close();
                 }
@@ -291,7 +293,9 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
             "Watching",
             "The folder is being watched, so a file written into it appears.",
             |ui| {
-                if ui.button("Stop watching the folder").clicked() {
+                if keys::button(ui, "Stop watching the folder", "general.sc_watch_directory")
+                    .clicked()
+                {
                     asked.push(BarAction::ToggleWatching);
                     ui.close();
                 }
@@ -365,9 +369,12 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
             "Advancing",
             "A star, a flag or a label moves on to the next photograph.",
             |ui| {
-                if ui
-                    .button("Stay on the photograph after marking it")
-                    .clicked()
+                if keys::button(
+                    ui,
+                    "Stay on the photograph after marking it",
+                    "tags.sc_toggle_advance",
+                )
+                .clicked()
                 {
                     asked.push(BarAction::SetAdvancing(false));
                     ui.close();
@@ -390,7 +397,7 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
             "Comparing",
             "Several photographs are pinned side by side.",
             |ui| {
-                if ui.button("Stop comparing").clicked() {
+                if keys::button(ui, "Stop comparing", "image_view.sc_compare").clicked() {
                     commands.push(Command::StopComparing);
                     ui.close();
                 }
@@ -409,7 +416,8 @@ fn flag_words(ui: &mut egui::Ui, flags: &Flags, commands: &mut Vec<Command>) -> 
             "A mask is painted over the photograph. Help → What the marks mean says \
              what the colours are.",
             |ui| {
-                if ui.button("Show the photograph as it is").clicked() {
+                if keys::button(ui, "Show the photograph as it is", "image_view.sc_marks").clicked()
+                {
                     commands.push(Command::CycleMarks);
                     ui.close();
                 }
@@ -516,7 +524,7 @@ fn toggle(
     asked: &mut Vec<BarAction>,
 ) -> Option<bool> {
     use crate::config::registry::Page;
-    use crate::ui::surface;
+    use crate::ui::{keys, surface};
 
     let mut wanted = None;
 
@@ -539,9 +547,12 @@ fn toggle(
         surface::Subject::of(toggle.what, if on { "on" } else { "off" }),
         toggle.hint,
         |ui| {
-            if ui
-                .button(if on { toggle.turn_off } else { toggle.turn_on })
-                .clicked()
+            if keys::button(
+                ui,
+                if on { toggle.turn_off } else { toggle.turn_on },
+                toggle.key,
+            )
+            .clicked()
             {
                 wanted = Some(!on);
                 ui.close();
@@ -642,7 +653,14 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                     crate::ui::surface::Subject::of("Position", &counted),
                     &says,
                     |ui| {
-                        if status.hidden > 0 && ui.button("Show everything").clicked() {
+                        if status.hidden > 0
+                            && crate::ui::keys::button(
+                                ui,
+                                "Show everything",
+                                "general.sc_suspend_filter",
+                            )
+                            .clicked()
+                        {
                             outcome.bar.push(BarAction::ShowEverything);
                             ui.close();
                         }
@@ -677,13 +695,16 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
                         crate::ui::surface::Subject::of("Run", &run),
                         "One run of frames. Amber says it is folded up.",
                         |ui| {
-                            if ui
-                                .button(if place.collapsed {
+                            if crate::ui::keys::button(
+                                ui,
+                                if place.collapsed {
                                     "Open this run"
                                 } else {
                                     "Fold it back up"
-                                })
-                                .clicked()
+                                },
+                                "general.sc_toggle_stack",
+                            )
+                            .clicked()
                             {
                                 outcome.bar.push(BarAction::ToggleStack);
                                 ui.close();
@@ -1002,13 +1023,21 @@ fn zoom_label(ui: &mut egui::Ui, percentage_zoom: f32) -> Vec<Command> {
         crate::ui::surface::Subject::of("Zoom", &reading),
         "How large the photograph is drawn.",
         |ui| {
-            for (label, command) in [
-                ("Fit to screen", Command::Fit),
-                ("Fill screen", Command::Fill),
-                ("Fit horizontal", Command::FitHorizontal),
-                ("Fit vertical", Command::FitVertical),
+            for (label, path, command) in [
+                ("Fit to screen", "image_view.sc_fit", Command::Fit),
+                ("Fill screen", "image_view.sc_fit_maximize", Command::Fill),
+                (
+                    "Fit horizontal",
+                    "image_view.sc_fit_horizontal",
+                    Command::FitHorizontal,
+                ),
+                (
+                    "Fit vertical",
+                    "image_view.sc_fit_vertical",
+                    Command::FitVertical,
+                ),
             ] {
-                if ui.button(label).clicked() {
+                if crate::ui::keys::button(ui, label, path).clicked() {
                     commands.push(command);
                     ui.close();
                 }

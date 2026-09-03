@@ -2,6 +2,21 @@
 
 ## 2026-09-03
 
+- **A menu says which key does the same thing.** Every row of every menu that a
+  key also carries out now names that key, on the right of the row and in the
+  weak colour: *Keep* `p`, *Compare* `n`, *Move this photograph to the bin*
+  `delete`, *Copy the picture* `Ctrl + C`, *All settings…* `Ctrl + Comma`, and
+  each of the eight panels in **View** and in **Show**. It is how anybody who
+  opens a menu ever stops needing it, and it is what the two rows in the
+  program that already named a key had each been doing their own way.
+
+  The name is rendered from the binding rather than written into the row, so a
+  key you rebind is the key the menu names from that moment on, and a command
+  you have given two keys names both. A row whose key is not read where you
+  are standing names none, which is the whole of the rule: *Open* says `Enter`
+  in the contact sheet, where `Enter` opens the cell under the cursor, and says
+  nothing on the strip beside a photograph, where it does not.
+
 - **The mouse can be careful too.** Alt held while the photograph is dragged
   moves it a quarter as far as the pointer went — `image_view.pan_fine_drag` —
   which is what makes a detail placeable by hand at 400%, where an ordinary

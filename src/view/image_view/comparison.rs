@@ -221,7 +221,7 @@ fn plate(ui: &egui::Ui, panel: Rect, banner: Banner, colour: Color32) -> Option<
         |ui| {
             let mut chosen = None;
 
-            if ui.button("Stop comparing").clicked() {
+            if crate::ui::keys::button(ui, "Stop comparing", "image_view.sc_compare").clicked() {
                 chosen = Some(Asked::Stop);
                 ui.close();
             }

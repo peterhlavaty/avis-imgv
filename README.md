@@ -870,6 +870,16 @@ nothing here is reachable only by right-click. `Shift + F10` opens the menu of
 whatever has the keyboard, which is the only keyboard route there is: egui
 cannot read the dedicated Menu key at all.
 
+**A row that a key also does names the key**, on the right of it and in the
+weak colour, the way a desktop menu has always done — *Keep* `p`, *Move this
+photograph to the bin* `delete`, *Copy the picture* `Ctrl + C`. The name is
+read off the binding rather than written into the row, so a key you rebind is
+the key the menu names from that moment on, and a command you have given two
+keys names both. A row whose key is not read where you are standing names
+none: *Open* says `Enter` in the contact sheet, where `Enter` opens the cell
+under the cursor, and says nothing on the strip beside a photograph, where it
+does not.
+
 Every menu also opens by saying what was clicked: the kind of thing and which
 one of them — *Keyword* **Tatras**, *Rating* **3/5**, *Setting* **Thumbnails
 per row**, *Photograph* **DSC0142.jpg**, or *24 photographs* where a selection

@@ -46,6 +46,19 @@ impl Mode {
         }
     }
 
+    /// The key that reaches this mode, where one does.
+    ///
+    /// One of the six has a key of its own; `general.sc_next_mode` walks all
+    /// six and belongs to none of them, so it is not what a row naming its own
+    /// key would name. Empty where there is nothing to name, which is what
+    /// `ui::keys::of` answers with nothing.
+    pub fn key(self) -> &'static str {
+        match self {
+            Mode::Grid => "general.sc_toggle_gallery",
+            _ => "",
+        }
+    }
+
     /// Whether this mode takes over the whole screen.
     pub fn is_fullscreen(self) -> bool {
         self == Mode::Slideshow
