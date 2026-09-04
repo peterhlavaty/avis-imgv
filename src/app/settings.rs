@@ -312,6 +312,14 @@ impl App {
         // just been asked to change. "Show the strip" had never worked.
         self.filmstrip_visible = self.settings.grid_view.filmstrip_visible;
         self.history_panel_visible = self.settings.history.panel_visible;
+        // The third of them, and it had the same fault for the same reason:
+        // `remember_runtime` wrote `advancing` into the file and nothing wrote
+        // it back, so ticking "advance after marking" in the settings window
+        // was undone on the next frame by the flag it had just been asked to
+        // change. Two of these have now been found by hand. The type that
+        // makes a one-way mirror fail to compile is what stops there being a
+        // fourth.
+        self.advancing = self.settings.tags.advance_after_marking;
     }
 }
 
@@ -508,4 +516,91 @@ fn restart() {
     }
 
     std::process::exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    /// Every live field the program writes into the file is written back out
+    /// of it.
+    ///
+    /// `remember_runtime` writes the file from the program and
+    /// `apply_settings` writes the program from the file. A value with only
+    /// the first half is a setting that cannot be changed from the settings
+    /// window: the tick is overwritten on the next frame by the flag it was
+    /// just asked to change. That has now happened twice — "show the strip",
+    /// and "advance after marking" — and both times it was found by somebody
+    /// noticing a checkbox did nothing.
+    ///
+    /// The two halves are matched on the *live* location rather than on the
+    /// settings path, because the settings path is written back by the bulk
+    /// handovers (`set_config`, and the section clones) whether or not the
+    /// field beside it is. That is exactly how the second one hid: the file's
+    /// `tags` section was being handed to `tag_config` in full, while
+    /// `App::advancing` next to it was read by nobody.
+    ///
+    /// Only the fields sourced from a bare `App` field are checked. The ones
+    /// read out of a view by a method — the corner, the opening, the columns —
+    /// go back through `set_config` with the rest of their section, which is a
+    /// different shape and one the compiler already keeps whole.
+    #[test]
+    fn a_setting_written_from_the_program_is_read_back_into_it() {
+        let source = include_str!("settings.rs");
+        // Cut the tests off, or this very comment is part of what is searched.
+        let code = source
+            .split_once("#[cfg(test)]")
+            .map_or(source, |(code, _)| code);
+
+        let body = |name: &str| {
+            let from = code
+                .find(&format!("fn {name}("))
+                .unwrap_or_else(|| panic!("{name} is still called that"));
+            let rest = &code[from..];
+            // To the start of the next item at the same indentation.
+            let to = rest[1..].find("\n    /// ").map_or(rest.len(), |at| at + 1);
+            &rest[..to]
+        };
+
+        let remember = body("remember_runtime");
+        let apply = body("apply_settings");
+
+        let mut checked = 0;
+
+        for line in remember.lines() {
+            let Some((left, right)) = line.split_once(" != self.") else {
+                continue;
+            };
+
+            if !left.trim_start().starts_with("if self.settings.") {
+                continue;
+            }
+
+            let live = right.trim_end_matches(&[' ', '{', '\n'][..]).trim();
+
+            // A method call is a view handing its state over, not a field.
+            if live.contains('(') || live.is_empty() {
+                continue;
+            }
+
+            assert!(
+                apply.contains(&format!("self.{live} = self.settings.")),
+                "`App::{live}` is written into the file by `remember_runtime` \
+                 and never read back by `apply_settings`, so changing it in \
+                 the settings window does nothing: the next frame overwrites \
+                 it with the value it was asked to change. Add \
+                 `self.{live} = self.settings.<section>.<field>;` to \
+                 `apply_settings`."
+            );
+
+            checked += 1;
+        }
+
+        // The three that exist today. If the shape of `remember_runtime`
+        // changes so that none is found, the test above passes by matching
+        // nothing at all, which is worse than failing.
+        assert!(
+            checked >= 3,
+            "only {checked} mirrored fields were found; the test has stopped \
+             reading `remember_runtime` and is now asserting nothing"
+        );
+    }
 }
