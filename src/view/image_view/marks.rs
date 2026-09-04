@@ -43,12 +43,11 @@ impl Marks {
             return;
         }
 
-        let wanted = (path.to_path_buf(), overlay);
-        if self.built_for.as_ref() == Some(&wanted) {
+        if self.holds(path, overlay) {
             return;
         }
 
-        self.built_for = Some(wanted);
+        self.built_for = Some((path.to_path_buf(), overlay));
         self.texture = crate::decoder::overlays::mask(overlay, pixels, width, height).map(|mask| {
             let size = [mask.width() as usize, mask.height() as usize];
             let colours = egui::ColorImage::from_rgba_unmultiplied(size, mask.as_raw());
@@ -58,6 +57,19 @@ impl Marks {
             // three are blown" into a pink haze that means nothing.
             ctx.load_texture("overlay-mask", colours, TextureOptions::NEAREST)
         });
+    }
+
+    /// Whether what is held is already the mask being asked for.
+    ///
+    /// Its own method because it is the answer on nearly every frame, and
+    /// because it is the only part of preparing a mask that can be asked
+    /// without a window. It compares rather than building the pair to compare
+    /// against: that allocated a path per frame to throw away, next to a whole
+    /// RGBA surface the caller was copying for the same reason.
+    pub fn holds(&self, path: &Path, overlay: Overlay) -> bool {
+        self.built_for
+            .as_ref()
+            .is_some_and(|(built, over)| *over == overlay && built == path)
     }
 
     /// Drops what is held, for when the overlay is switched off.
@@ -106,13 +118,24 @@ mod tests {
     /// between clipping and peaking on one picture rebuilds it.
     #[test]
     fn the_key_is_the_photograph_and_the_overlay() {
-        let one = (PathBuf::from("/photos/a.jpg"), Overlay::Clipping);
-        let same = (PathBuf::from("/photos/a.jpg"), Overlay::Clipping);
-        let other_overlay = (PathBuf::from("/photos/a.jpg"), Overlay::Peaking);
-        let other_photograph = (PathBuf::from("/photos/b.jpg"), Overlay::Clipping);
+        let marks = Marks {
+            texture: None,
+            built_for: Some((PathBuf::from("/photos/a.jpg"), Overlay::Clipping)),
+        };
 
-        assert_eq!(one, same);
-        assert_ne!(one, other_overlay);
-        assert_ne!(one, other_photograph);
+        assert!(marks.holds(Path::new("/photos/a.jpg"), Overlay::Clipping));
+        assert!(!marks.holds(Path::new("/photos/a.jpg"), Overlay::Peaking));
+        assert!(!marks.holds(Path::new("/photos/b.jpg"), Overlay::Clipping));
+    }
+
+    /// The question the caller asks once a frame, and the reason it is asked
+    /// before the pixels are reached for rather than after: holding nothing
+    /// has to answer no without being handed a surface to answer about.
+    #[test]
+    fn holding_nothing_is_not_holding_what_was_asked_for() {
+        let marks = Marks::default();
+
+        assert!(!marks.holds(Path::new("/photos/a.jpg"), Overlay::Clipping));
+        assert!(!marks.holds(Path::new("/photos/a.jpg"), Overlay::Off));
     }
 }

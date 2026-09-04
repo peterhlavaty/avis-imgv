@@ -991,18 +991,28 @@ impl ImageView {
             return;
         }
 
+        // Both borrows are of `self.store` and the mask's is of `self.marks`,
+        // which are different fields, so the pixels are lent rather than
+        // copied. They used to be cloned to get around the borrow — a whole
+        // RGBA surface a frame, sixty times a second, for a mask that is
+        // built once a photograph.
         let (Some(path), Some(decoded)) = (
-            self.store.path(self.cursor).map(Path::to_path_buf),
+            self.store.path(self.cursor),
             self.store.decoded(self.cursor),
         ) else {
             return;
         };
 
         let surface = &decoded.surface;
-        let (pixels, width, height) = (surface.pixels.clone(), surface.width, surface.height);
 
-        self.marks
-            .prepare(ctx, self.marking, &path, &pixels, width, height);
+        self.marks.prepare(
+            ctx,
+            self.marking,
+            path,
+            &surface.pixels,
+            surface.width,
+            surface.height,
+        );
     }
 
     /// What to write over the photograph, already expanded.
