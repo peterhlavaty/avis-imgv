@@ -22,6 +22,12 @@
   fault "show the strip" had, and there is now a test that fails if a third one
   is written.
 
+- **The flag filter says the same thing wherever you open it.** Its five
+  choices carried two different sets of words — "Kept" in the filter bar and
+  "Only the keepers" in the settings window — because the enum and the settings
+  table were two places to write them. They are one table now, with the short
+  word on the control and the longer one as the sentence underneath.
+
 - **Menus, panel ticks and key names cost nothing to publish.** The seven
   noticeboards a frame writes for the widgets drawn inside it were seven
   hand-rolled locks in three storage mechanisms; they are now two types. Two of

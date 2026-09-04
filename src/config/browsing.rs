@@ -8,7 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::view::narrow::{FlagRule, SortBy};
+use crate::config::kinds::{FlagRule, SortBy};
 
 /// How a folder is ordered and narrowed when it is opened.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]

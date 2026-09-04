@@ -10,9 +10,31 @@
 use std::path::Path;
 
 use crate::annotations::marks::Marks;
+use crate::choices::Choices;
+use crate::config::kinds::{FlagRule, SortBy};
 use crate::metadata::xmp::{Flag, Label, MAX_RATING};
 
 use super::visible::Visible;
+
+/// Whether a photograph's flag passes the rule.
+///
+/// A method about *filtering* rather than part of the word, so it lives with
+/// the filter. `FlagRule` itself is a setting and lives in `config::kinds`.
+trait Passes {
+    fn matches(self, flag: Flag) -> bool;
+}
+
+impl Passes for FlagRule {
+    fn matches(self, flag: Flag) -> bool {
+        match self {
+            FlagRule::Any => true,
+            FlagRule::NotRejected => flag != Flag::Rejected,
+            FlagRule::Picked => flag == Flag::Picked,
+            FlagRule::Rejected => flag == Flag::Rejected,
+            FlagRule::Unflagged => flag == Flag::Unflagged,
+        }
+    }
+}
 
 /// What a photograph has to be to stay on show.
 ///
@@ -43,64 +65,6 @@ impl Default for Rules {
             name_contains: String::new(),
             extensions: String::new(),
             keyword: String::new(),
-        }
-    }
-}
-
-/// Which flag a photograph has to carry.
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum FlagRule {
-    #[default]
-    Any,
-    Picked,
-    Rejected,
-    Unflagged,
-    /// Everything except the rejects, which is the one people leave on.
-    NotRejected,
-}
-
-impl FlagRule {
-    pub const ALL: &'static [FlagRule] = &[
-        FlagRule::Any,
-        FlagRule::NotRejected,
-        FlagRule::Picked,
-        FlagRule::Rejected,
-        FlagRule::Unflagged,
-    ];
-
-    /// The word the file holds.
-    pub fn value(self) -> &'static str {
-        match self {
-            FlagRule::Any => "any",
-            FlagRule::NotRejected => "not_rejected",
-            FlagRule::Picked => "picked",
-            FlagRule::Rejected => "rejected",
-            FlagRule::Unflagged => "unflagged",
-        }
-    }
-
-    pub fn of(value: &str) -> Option<FlagRule> {
-        FlagRule::ALL.iter().copied().find(|it| it.value() == value)
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            FlagRule::Any => "Any flag",
-            FlagRule::NotRejected => "Not rejected",
-            FlagRule::Picked => "Kept",
-            FlagRule::Rejected => "Rejected",
-            FlagRule::Unflagged => "Unflagged",
-        }
-    }
-
-    fn matches(self, flag: Flag) -> bool {
-        match self {
-            FlagRule::Any => true,
-            FlagRule::NotRejected => flag != Flag::Rejected,
-            FlagRule::Picked => flag == Flag::Picked,
-            FlagRule::Rejected => flag == Flag::Rejected,
-            FlagRule::Unflagged => flag == Flag::Unflagged,
         }
     }
 }
@@ -149,45 +113,6 @@ impl LabelRule {
             LabelRule::Any => true,
             LabelRule::None => label.is_none(),
             LabelRule::One(index) => label == Label::CHOICES.get(index).copied(),
-        }
-    }
-}
-
-/// What the collection is ordered by.
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum SortBy {
-    /// The order the crawler found them in, which is already natural by name.
-    #[default]
-    Name,
-    Stars,
-    Label,
-    Flag,
-}
-
-impl SortBy {
-    pub const ALL: &'static [SortBy] = &[SortBy::Name, SortBy::Stars, SortBy::Label, SortBy::Flag];
-
-    /// The word the file holds.
-    pub fn value(self) -> &'static str {
-        match self {
-            SortBy::Name => "name",
-            SortBy::Stars => "stars",
-            SortBy::Label => "label",
-            SortBy::Flag => "flag",
-        }
-    }
-
-    pub fn of(value: &str) -> Option<SortBy> {
-        SortBy::ALL.iter().copied().find(|it| it.value() == value)
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            SortBy::Name => "Name",
-            SortBy::Stars => "Stars",
-            SortBy::Label => "Colour label",
-            SortBy::Flag => "Flag",
         }
     }
 }

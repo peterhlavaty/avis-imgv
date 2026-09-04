@@ -8,17 +8,12 @@
 
 use crate::config::{Config, Shortcut};
 
-/// One variant of an enumerated field, as the radio group draws it.
-pub struct Choice {
-    /// What the file holds, which is what a forum answer quotes.
-    pub value: &'static str,
-    /// What the control says.
-    pub label: &'static str,
-    /// The line under it. Fewer than five choices get a sentence each, which
-    /// is the shape the slideshow's `Motion` control already uses and the best
-    /// control in the program.
-    pub sentence: &'static str,
-}
+/// One of a closed set of words, as a control draws it.
+///
+/// Re-exported from [`crate::choices`] rather than declared here: the sets
+/// themselves carry these now, so a registry row and the enum it is about read
+/// one table instead of two that could disagree — and five of them already did.
+pub use crate::choices::Choice;
 
 /// A row that is a button rather than a value.
 ///

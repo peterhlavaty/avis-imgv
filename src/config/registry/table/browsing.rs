@@ -3,58 +3,16 @@
 
 use super::*;
 
-use crate::view::narrow::{FlagRule, SortBy};
+use crate::choices::Choices;
+use crate::config::kinds::{FlagRule, SortBy};
 
-const SORT: &[Choice] = &[
-    Choice {
-        value: "name",
-        label: "Name",
-        sentence: "The order the crawler found them in, which is already natural by name.",
-    },
-    Choice {
-        value: "stars",
-        label: "Stars",
-        sentence: "",
-    },
-    Choice {
-        value: "label",
-        label: "Colour label",
-        sentence: "",
-    },
-    Choice {
-        value: "flag",
-        label: "Flag",
-        sentence: "",
-    },
-];
+/// The words themselves, from the set that declares them — not a second
+/// copy of them. These five had drifted into two vocabularies.
+const SORT: &[Choice] = <crate::config::kinds::SortBy as Choices>::ROWS;
 
-const FLAGS: &[Choice] = &[
-    Choice {
-        value: "any",
-        label: "Everything",
-        sentence: "",
-    },
-    Choice {
-        value: "not_rejected",
-        label: "Everything but the rejects",
-        sentence: "The one people leave on during a first pass.",
-    },
-    Choice {
-        value: "picked",
-        label: "Only the keepers",
-        sentence: "",
-    },
-    Choice {
-        value: "rejected",
-        label: "Only the rejects",
-        sentence: "",
-    },
-    Choice {
-        value: "unflagged",
-        label: "Only the unflagged",
-        sentence: "What is left to decide about.",
-    },
-];
+/// The words themselves, from the set that declares them — not a second
+/// copy of them. These five had drifted into two vocabularies.
+const FLAGS: &[Choice] = <crate::config::kinds::FlagRule as Choices>::ROWS;
 
 const LABELS: &[Choice] = &[
     Choice {

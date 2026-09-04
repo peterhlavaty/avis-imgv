@@ -21,6 +21,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::choices::Choices;
 use crate::config::Config;
 use crate::mode::Mode;
 use crate::view::image_view::viewports::Place;
@@ -791,7 +792,7 @@ mod tests {
     /// none of them.
     #[test]
     fn narrowing_says_which_rule_changed() {
-        use crate::view::narrow::{FlagRule, SortBy};
+        use crate::config::kinds::{FlagRule, SortBy};
 
         let plain = Narrowing::default();
 

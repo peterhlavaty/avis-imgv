@@ -6,9 +6,11 @@
 
 use eframe::egui::{self, RichText};
 
+use crate::choices::Choices;
+use crate::config::kinds::{FlagRule, SortBy};
 use crate::metadata::xmp::{Label, MAX_RATING};
 use crate::organize::group::Settings;
-use crate::view::narrow::{FlagRule, LabelRule, Narrowing, Rules, SortBy};
+use crate::view::narrow::{LabelRule, Narrowing, Rules};
 
 /// Draws the bar, returning whether anything about it changed.
 /// What the filter bar says for itself, for the menu every panel carries.
@@ -254,7 +256,7 @@ fn flag(ui: &mut egui::Ui, rules: &mut Rules) -> bool {
     egui::ComboBox::from_id_salt("filter_flag")
         .selected_text(rules.flag.label())
         .show_ui(ui, |ui| {
-            for wanted in FlagRule::ALL {
+            for wanted in FlagRule::EVERY {
                 changed |= ui
                     .selectable_value(&mut rules.flag, *wanted, wanted.label())
                     .changed();
@@ -326,7 +328,7 @@ fn order(ui: &mut egui::Ui, narrowing: &mut Narrowing) -> bool {
     egui::ComboBox::from_id_salt("filter_sort")
         .selected_text(narrowing.sort.label())
         .show_ui(ui, |ui| {
-            for wanted in SortBy::ALL {
+            for wanted in SortBy::EVERY {
                 changed |= ui
                     .selectable_value(&mut narrowing.sort, *wanted, wanted.label())
                     .changed();

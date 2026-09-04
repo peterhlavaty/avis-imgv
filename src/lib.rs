@@ -10,6 +10,7 @@
 //! - [`work`] is a background queue that knows nothing about photographs,
 //! - [`fit`] puts one rectangle inside another, keeping its shape,
 //! - [`command`] is the vocabulary, and [`mode`] what the window is for,
+//! - [`choices`] is a closed set of words written once,
 //! - [`crawler`] finds the images,
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
@@ -28,6 +29,7 @@ pub mod app;
 pub mod atomic;
 pub mod board;
 pub mod cache;
+pub mod choices;
 pub mod command;
 pub mod config;
 pub mod crawler;

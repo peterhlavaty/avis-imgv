@@ -180,3 +180,34 @@ impl Opening {
         Opening::ALL[(at + 1) % Opening::ALL.len()]
     }
 }
+
+crate::choices! {
+    /// What the collection is ordered by.
+    pub enum SortBy {
+        #[default]
+        Name = "name", "Name", "The order the crawler found them in, which is already natural by name.";
+        Stars = "stars", "Stars";
+        Label = "label", "Colour label";
+        Flag = "flag", "Flag";
+    }
+}
+
+crate::choices! {
+    /// Which flags a photograph may carry to be shown.
+    ///
+    /// These five had two sets of words: `FlagRule::label` said "Any flag",
+    /// "Not rejected" and "Kept", while the registry's table said
+    /// "Everything", "Everything but the rejects" and "Only the keepers" —
+    /// so the same five choices read differently depending on which window
+    /// they were opened from. One table now, with the terse word as the label
+    /// the filter bar's chip needs and the longer one as the sentence the
+    /// settings window already draws under it.
+    pub enum FlagRule {
+        #[default]
+        Any = "any", "Any flag", "Everything, however it is flagged.";
+        NotRejected = "not_rejected", "Not rejected", "Everything but the rejects. The one people leave on during a first pass.";
+        Picked = "picked", "Kept", "Only the keepers.";
+        Rejected = "rejected", "Rejected", "Only the rejects.";
+        Unflagged = "unflagged", "Unflagged", "What is left to decide about.";
+    }
+}

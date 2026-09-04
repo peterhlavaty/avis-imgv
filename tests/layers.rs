@@ -65,8 +65,15 @@ const DRAWS: &[&str] = &[
     "cache::gpu",
     "cache::mipmap",
     "cache::store",
-    // Still to be cut: the configuration speaks egui's keyboard vocabulary.
-    // `config::shortcut` becomes `keychord` and these two rows go.
+    // Not to be cut, and the reason is worth having written down. A chord is
+    // compared on the `KeyboardShortcut` egui builds from it, because `Esc`
+    // and `Escape` are one key and a comparison minding the spelling let a
+    // clash through. Owning that vocabulary here would mean copying
+    // `Key::from_name`'s hundred names and their aliases out of egui, where
+    // they would drift on the next update — and the clash checker would then
+    // be answering about keys the toolkit does not read. `config::shortcut`
+    // is the adaptor between the file's words and the toolkit's, and an
+    // adaptor naming both sides is what an adaptor is.
     "config::shortcut",
     "config::load",
     // `src/actions/` is the one folder of business logic that draws.
