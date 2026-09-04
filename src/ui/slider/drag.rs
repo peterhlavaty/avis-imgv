@@ -24,18 +24,10 @@
 
 use eframe::egui::Rangef;
 
-/// The travel at which the handle and the pointer move together.
-pub const BOUND: f32 = 1.0;
-
-/// What a fresh configuration asks for.
-///
-/// Three rather than two because two is not enough to be felt on the short
-/// rails, and not five because a rail is also how somebody sweeps to the far
-/// end of a range, and five makes that a journey.
-pub const SHIPS_AS: f32 = 3.0;
-
-/// The furthest the settings window will go.
-pub const FURTHEST: f32 = 20.0;
+// The three figures that bound the travel are the setting's own range and
+// live with the setting, in `config::mouse`: a widget should not be where the
+// configuration goes to ask what a value may be.
+pub use crate::config::mouse::{BOUND, FURTHEST, SHIPS_AS};
 
 /// What the menu on a rail offers: the same decision as the setting, with the
 /// numbers somebody would actually pick.

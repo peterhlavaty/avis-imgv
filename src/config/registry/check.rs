@@ -5,8 +5,7 @@
 //! draw a band across its top with a row per complaint and a button that goes
 //! to the control.
 
-use super::effect::Scope;
-use crate::config::{Chord, Config};
+use crate::config::Config;
 
 /// One thing wrong with the file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +28,12 @@ impl Config {
     /// exactly as written, because `save` writes the whole document and
     /// clamping on load would destroy somebody's deliberate 8,192 MB budget on
     /// the first save after any unrelated change.
+    /// Two of the nine checks are not here: the one about a menu row shadowing
+    /// a built-in one, and the one about the fine modifier colliding with a
+    /// binding. Both need words the *drawing* layer owns — what a menu row
+    /// says, what a chord reads as — and the configuration should not reach up
+    /// into the window to ask. They are `crate::ui::checks`, which the settings
+    /// window chains onto these.
     pub fn check(&self) -> Vec<Complaint> {
         let mut found = Vec::new();
 
@@ -37,9 +42,7 @@ impl Config {
         rejects(self, &mut found);
         the_bin(self, &mut found);
         destinations(self, &mut found);
-        actions(self, &mut found);
         keys(self, &mut found);
-        the_fine_pan(self, &mut found);
         ranges(self, &mut found);
 
         found
@@ -146,53 +149,6 @@ fn destinations(config: &Config, found: &mut Vec<Complaint>) {
     }
 }
 
-/// An action with no command has a key that does nothing.
-fn actions(config: &Config, found: &mut Vec<Complaint>) {
-    for (at, action) in config.image_view.user_actions.iter().enumerate() {
-        if action.exec.trim().is_empty() {
-            found.push(Complaint {
-                path: "image_view.user_actions",
-                says: format!("Action {} has no command.", at + 1),
-                instead: "Its key does nothing.".to_string(),
-            });
-        }
-    }
-
-    // A configured menu row whose words now sit two rows below a built-in one
-    // saying nearly the same thing. It is reported and nothing is done about
-    // it: the entry is the user's own, and the viewer does not rename or remove
-    // what somebody wrote.
-    for (where_it_is, entries) in [
-        ("image_view.context_menu", &config.image_view.context_menu),
-        ("grid_view.context_menu", &config.grid_view.context_menu),
-    ] {
-        for entry in entries.iter() {
-            let words = entry.description.to_lowercase();
-            let shadows = crate::ui::menus::Row::ON_A_PHOTOGRAPH
-                .iter()
-                .chain(crate::ui::menus::Row::ON_A_CELL)
-                .chain(crate::ui::menus::Row::ON_A_PHOTOGRAPH_IN_THE_BIN)
-                .chain(crate::ui::menus::Row::ON_A_CELL_IN_THE_BIN)
-                .flat_map(|row| row.verbs())
-                .any(|verb| verb.label(1).to_lowercase().contains(&words) && words.len() > 3);
-
-            if !shadows {
-                continue;
-            }
-
-            found.push(Complaint {
-                path: where_it_is,
-                says: format!(
-                    "Your menu row \"{}\" now sits below a built-in one saying nearly \n                     the same thing.",
-                    entry.description
-                ),
-                instead: "Nothing was changed: the row is yours. Rename it, take it off, \n                          or leave it."
-                    .to_string(),
-            });
-        }
-    }
-}
-
 /// An unknown key name becomes the unreachable sentinel, so a typo makes a
 /// command permanently unreachable and the only record is a log line.
 ///
@@ -225,66 +181,6 @@ fn keys(config: &Config, found: &mut Vec<Complaint>) {
                       the viewer accepts."
                 .to_string(),
         });
-    }
-}
-
-/// A binding sitting on the chord a fine pan is asked for with.
-///
-/// The fine pan is a modifier and the four keys that already pan, so no row in
-/// the registry holds it and the clash check cannot see it — but a binding on
-/// the same chord is read on the same frame, and the platform repeats it for
-/// as long as the key is held. `Ctrl + W` was that case on the day the
-/// modifier arrived — the folder watcher, sharing a letter with pan up — and
-/// is why it is now `Ctrl + Shift + W`.
-fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
-    let fine = config.image_view.fine_modifier;
-
-    let ways = [
-        ("up", &config.image_view.sc_pan_up),
-        ("down", &config.image_view.sc_pan_down),
-        ("left", &config.image_view.sc_pan_left),
-        ("right", &config.image_view.sc_pan_right),
-    ];
-
-    for (way, pan) in ways {
-        // Every key that pans that way, not only the first: a second one is
-        // as much a held key as the first, and the modifier is held with
-        // whichever the finger is on.
-        for chord in pan.chords() {
-            let fined = Chord::new(
-                &crate::config::shortcut::capitalize_first_char(&chord.key),
-                &[fine.value()],
-            );
-
-            for row in super::rows() {
-                // Only where the photograph is: a key the contact sheet reads
-                // is never read on a frame this one is.
-                if !row.scope.overlaps(Scope::ImageView) {
-                    continue;
-                }
-
-                let Some(bound) = row.access.shortcut(config) else {
-                    continue;
-                };
-
-                if !bound.holds(&fined) {
-                    continue;
-                }
-
-                found.push(Complaint {
-                    path: "image_view.fine_modifier",
-                    says: format!(
-                        "{} is both \"{}\" and the fine pan {way}.",
-                        crate::ui::keys::chord(&fined),
-                        row.label
-                    ),
-                    instead: "Both happen on every press, and the platform repeats the key \
-                              for as long as it is held. Another modifier here, or another \
-                              key for the command, settles it."
-                        .to_string(),
-                });
-            }
-        }
     }
 }
 

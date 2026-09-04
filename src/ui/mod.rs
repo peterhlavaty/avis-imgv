@@ -5,6 +5,7 @@
 //! and `app::cards` says which this program has.
 
 pub mod cheat_sheet;
+pub mod checks;
 pub mod deck;
 pub mod destinations;
 pub mod dragged;

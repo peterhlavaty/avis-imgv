@@ -584,8 +584,13 @@ mod tests {
             defaults::default_sc_less_images_shown()
         );
 
-        // And the clash it was for is gone.
-        assert!(crate::ui::keys::clashes(&config).is_empty());
+        // And the clash it was for is gone. Asked of the configuration
+        // rather than of `ui::keys::clashes`, which needs the window: this
+        // file is one of the ones that must build without it.
+        assert_ne!(
+            config.image_view.sc_more_images_shown,
+            config.image_view.sc_less_images_shown
+        );
     }
 
     /// The watcher shared `Ctrl + W` with the fine pan up from the day the

@@ -205,8 +205,8 @@ pub fn rows() -> Vec<Row> {
             Live,
             None,
             decimal!(
-                crate::ui::slider::drag::BOUND,
-                crate::ui::slider::drag::FURTHEST,
+                crate::config::mouse::BOUND,
+                crate::config::mouse::FURTHEST,
                 "×",
                 true,
                 mouse.slider_travel

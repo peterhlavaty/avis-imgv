@@ -29,6 +29,19 @@ use serde::{Deserialize, Serialize};
 
 use super::registry::Choice;
 
+/// The travel at which the handle and the pointer move together.
+pub const BOUND: f32 = 1.0;
+
+/// What a fresh configuration asks for.
+///
+/// Three rather than two because two is not enough to be felt on the short
+/// rails, and not five because a rail is also how somebody sweeps to the far
+/// end of a range, and five makes that a journey.
+pub const SHIPS_AS: f32 = 3.0;
+
+/// The furthest the settings window will go.
+pub const FURTHEST: f32 = 20.0;
+
 /// What the pointer does.
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -96,7 +109,7 @@ fn next() -> String {
 }
 
 fn slider_travel() -> f32 {
-    crate::ui::slider::drag::SHIPS_AS
+    SHIPS_AS
 }
 
 impl Default for MouseConfig {

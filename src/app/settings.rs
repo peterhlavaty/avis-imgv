@@ -375,12 +375,11 @@ impl App {
                 // Said out loud because the change is only felt on the next
                 // drag, and a menu that closes having apparently done nothing
                 // is a menu nobody trusts again.
-                self.notices
-                    .say(if travel <= crate::ui::slider::drag::BOUND {
-                        "Sliders follow the pointer.".to_string()
-                    } else {
-                        format!("The pointer now moves {travel:.0}× the rail to cross a slider.")
-                    });
+                self.notices.say(if travel <= crate::config::mouse::BOUND {
+                    "Sliders follow the pointer.".to_string()
+                } else {
+                    format!("The pointer now moves {travel:.0}× the rail to cross a slider.")
+                });
             }
             Some(crate::ui::slider::Ask::Settings) => {
                 self.open_settings_at("mouse.slider_travel");
@@ -395,7 +394,12 @@ impl App {
             self.settings_state.page = Some(page_named(&self.settings.general.last_settings_page));
         }
 
+        // The nine checks: seven the configuration can make about itself,
+        // and two that need the window's own words.
         self.settings_state.problems = self.settings.check();
+        self.settings_state
+            .problems
+            .extend(crate::ui::checks::about_the_window(&self.settings));
 
         // The migration report and the key clashes had six seconds and no way
         // back; here they have a home that does not fade.
