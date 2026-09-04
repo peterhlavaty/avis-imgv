@@ -196,7 +196,9 @@ impl App {
         // Showing four photographs side by side and marking one of them is a
         // strip that disagrees with the window in front of it.
         let panes = self.image_view.panes();
-        let forced = std::mem::take(&mut self.forced_filmstrip_height);
+        let (size, filmstrip_height, forced) = self.filmstrip_size.asked_for();
+        self.filmstrip_size = size;
+        let height = filmstrip_height;
         let (opened, drawn) = self
             .grid_view
             .filmstrip(ctx, cursor, &panes, height, forced);

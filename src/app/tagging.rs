@@ -214,8 +214,9 @@ impl App {
             // The panel used to return before drawing anything, so the key
             // that opens it changed no pixel on an empty folder and looked
             // broken.
-            tag_panel::nothing_open(ctx, self.tag_panel_visible, self.tag_config.panel_width);
-            self.forced_panel_width = false;
+            let (size, width, _) = self.tag_panel_size.asked_for();
+            self.tag_panel_size = size;
+            tag_panel::nothing_open(ctx, self.tag_panel_visible, width);
             return;
         };
 
@@ -224,7 +225,8 @@ impl App {
 
         // One frame, and only when the window is what changed it: forcing it
         // every frame would take the edge away from the pointer.
-        let forced = std::mem::take(&mut self.forced_panel_width);
+        let (size, panel_width, forced) = self.tag_panel_size.asked_for();
+        self.tag_panel_size = size;
 
         self.refresh_seen_tags();
 
@@ -244,7 +246,7 @@ impl App {
             tag_panel::ui(
                 ctx,
                 self.tag_panel_visible,
-                self.tag_config.panel_width,
+                panel_width,
                 forced,
                 &mut self.tag_panel,
                 &source,
@@ -305,6 +307,7 @@ impl App {
                 Action::PanelWidth(width) => {
                     self.tag_config.panel_width = width;
                     self.settings.tags.panel_width = width;
+                    self.tag_panel_size = self.tag_panel_size.dragged_to(width);
                     self.save_settings();
                 }
             }

@@ -125,6 +125,12 @@ pub fn ui(
     }
 
     let panel = panel.show_animated(ctx, visible, |ui| {
+        // The fourth part of the rule: a panel reports the rectangle its
+        // *contents* came to, so a scroll area that shrinks to its content
+        // reports the content's width and the next frame is drawn at it — the
+        // edge springs out of the hand.
+        ui.set_min_width(ui.available_width());
+
         // A keyword clicked from behind a window is written to a sidecar, so
         // the panel goes quiet while one is up.
         if crate::ui::front::is_in_front(ui.ctx()) {

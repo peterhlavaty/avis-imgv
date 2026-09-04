@@ -270,24 +270,19 @@ impl App {
         crate::ui::surface::show_settings_rows(self.settings.menus.settings_rows);
         crate::ui::slider::travels(self.settings.mouse.slider_travel);
         // Before the copies are replaced, because the question is whether the
-        // window moved them rather than what they now say.
-        self.forced_panel_width |=
-            (self.tag_config.panel_width - self.settings.tags.panel_width).abs() > 0.5;
-        self.forced_filmstrip_height |=
-            (self.grid_view.filmstrip_height() - self.settings.grid_view.filmstrip_height).abs()
-                > 0.5;
-        // The other two resizable panels, which had none of this: they were
-        // drawn with `default_width` alone, and egui keeps a width of its own
-        // for a panel from the second frame on, so a width typed into the
-        // settings window reached them at the next launch and not before.
-        self.forced_side_panel_width |=
-            (self.config.side_panel_width - self.settings.general.side_panel_width).abs() > 0.5;
-        // The history panel keeps no live copy — it reads the file every
-        // frame — so there is nothing to compare against and it takes its
-        // exact frame whenever anything in the settings moved. That costs one
-        // frame drawn at the width the user asked for, which is the width it
-        // was going to be drawn at anyway.
-        self.forced_history_panel_width = true;
+        // window moved them rather than what they now say. `Sized` answers
+        // "did it move, and by a route that was not a drag" for all four, so
+        // a panel cannot be given three quarters of the rule.
+        self.tag_panel_size = self.tag_panel_size.moved_to(self.settings.tags.panel_width);
+        self.filmstrip_size = self
+            .filmstrip_size
+            .moved_to(self.settings.grid_view.filmstrip_height);
+        self.side_panel_size = self
+            .side_panel_size
+            .moved_to(self.settings.general.side_panel_width);
+        self.history_panel_size = self
+            .history_panel_size
+            .moved_to(self.settings.history.panel_width);
 
         self.config = self.settings.general.clone();
         self.tag_config = self.settings.tags.clone();

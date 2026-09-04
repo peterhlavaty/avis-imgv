@@ -33,9 +33,11 @@
   hand-rolled locks in three storage mechanisms; they are now two types. Two of
   them allocated a list every frame and no longer do.
 
-- **The metadata panel and the history panel take the width the settings window
-  gives them**, rather than at the next launch, and both now hold the width a
-  drag leaves them at instead of springing back to fit their contents.
+- **All four resizable panels keep the width you give them.** The metadata and
+  history panels took a width from the settings window only at the next launch,
+  and three of the four sprang back to fit their contents when the edge was
+  dragged. The rule for keeping a panel's size is one type now, so a panel
+  cannot be given three quarters of it.
 
 ## 2026-09-03
 

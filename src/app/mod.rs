@@ -200,7 +200,7 @@ pub struct App {
     /// The same reason the keyword panel has one: egui owns a panel's size
     /// from the second frame on, so a height typed into the settings window or
     /// put back by the history has one frame in which to say so.
-    forced_filmstrip_height: bool,
+    filmstrip_size: crate::ui::sized::Sized,
     /// Set on the frame the sheet of keys was opened, so that frame's key does
     /// not close it again.
     cheat_sheet_opened: bool,
@@ -251,13 +251,13 @@ pub struct App {
     /// open, so the window has to know what is actually in force to say that
     /// a change is waiting.
     threads_at_start: usize,
-    /// Whether the keyword panel's width has to be stated rather than
-    /// suggested on the next frame it draws.
-    forced_panel_width: bool,
-    /// The same, for the metadata panel down the right.
-    forced_side_panel_width: bool,
-    /// The same, for the history panel.
-    forced_history_panel_width: bool,
+    /// The four panels that have a size, and the whole of the rule for
+    /// keeping one — see `ui::sized`. Four booleans before this, of which two
+    /// existed and two did not, which is why two of the panels never received
+    /// a width typed into the settings window.
+    tag_panel_size: crate::ui::sized::Sized,
+    side_panel_size: crate::ui::sized::Sized,
+    history_panel_size: crate::ui::sized::Sized,
     /// Whether the text size has to be applied again on the next frame.
     ///
     /// From the base the styles were at when the viewer started rather than
@@ -316,6 +316,15 @@ impl App {
         // Kept whole so the keyboard editor has something to write back; the
         // views take their own copies of the parts they need.
         let settings = config.clone();
+        // The four panels that have a size, read before the configuration is
+        // moved into the struct. `Sized` carries the whole of the rule for
+        // keeping one — see `ui::sized`.
+        let sizes = (
+            crate::ui::sized::Sized::of(settings.grid_view.filmstrip_height),
+            crate::ui::sized::Sized::of(settings.tags.panel_width),
+            crate::ui::sized::Sized::of(settings.general.side_panel_width),
+            crate::ui::sized::Sized::of(settings.history.panel_width),
+        );
         // Before the sections are moved out into their own fields, and so that
         // the first settings change of the session has something to be
         // compared against.
@@ -413,7 +422,7 @@ impl App {
             following: None,
             pane_flags: Vec::new(),
             compared_from: crate::view::Selection::default(),
-            forced_filmstrip_height: false,
+            filmstrip_size: sizes.0,
             cheat_sheet_opened: false,
             cheat_sheet_query: String::new(),
             seen_tags: (None, Vec::new()),
@@ -426,9 +435,9 @@ impl App {
             busy_since: None,
             pending_theme: None,
             pending_text_size: false,
-            forced_panel_width: false,
-            forced_side_panel_width: false,
-            forced_history_panel_width: false,
+            tag_panel_size: sizes.1,
+            side_panel_size: sizes.2,
+            history_panel_size: sizes.3,
             threads_at_start: config.cache.decode_threads,
             copying: verbs::Copying::default(),
             pending_clipboard: None,

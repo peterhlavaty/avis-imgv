@@ -9,7 +9,8 @@ use super::super::App;
 impl App {
     /// Draws the panel, if it is up, and carries out what was clicked.
     pub(in crate::app) fn show_history_panel(&mut self, ctx: &egui::Context) {
-        let width = self.settings.history.panel_width;
+        let (size, width, forced) = self.history_panel_size.asked_for();
+        self.history_panel_size = size;
 
         // The toggle has to change a pixel whatever the state, or the key
         // looks broken on a fresh start.
@@ -22,7 +23,7 @@ impl App {
             ctx,
             self.history_panel_visible,
             width,
-            std::mem::take(&mut self.forced_history_panel_width),
+            forced,
             &mut self.history_panel,
             &self.history,
         );
@@ -33,6 +34,7 @@ impl App {
                 Action::Repeat(id) => self.repeat_in_history(id),
                 Action::Width(width) => {
                     self.settings.history.panel_width = width;
+                    self.history_panel_size = self.history_panel_size.dragged_to(width);
                     self.save_settings();
                 }
             }

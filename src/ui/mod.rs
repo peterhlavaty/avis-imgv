@@ -25,6 +25,7 @@ pub mod perf_metrics;
 pub mod placeholders;
 pub mod progress;
 pub mod settings;
+pub mod sized;
 pub mod slider;
 pub mod surface;
 pub mod tag_panel;

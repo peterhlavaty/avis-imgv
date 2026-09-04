@@ -167,18 +167,21 @@ impl App {
         let mut clip = false;
         let mut bind: Option<&'static str> = None;
 
+        let (size, width, forced) = self.side_panel_size.asked_for();
+        self.side_panel_size = size;
+
         let mut panel = egui::SidePanel::right("image_metadata")
             .resizable(true)
             .show_separator_line(false)
             .min_width(220.)
-            .default_width(self.config.side_panel_width)
+            .default_width(width)
             .max_width(most);
 
         // `default_width` is dead from the second frame on, so a width typed
         // into the settings window never reached this panel. For the one frame
         // after it moves by anything but a drag, the width is stated.
-        if std::mem::take(&mut self.forced_side_panel_width) {
-            panel = panel.exact_width(self.config.side_panel_width);
+        if forced {
+            panel = panel.exact_width(width);
         }
 
         let panel = panel.show_animated(ctx, self.side_panel_visible, |ui| {
@@ -230,6 +233,7 @@ impl App {
             if self.side_panel_visible && (width - self.config.side_panel_width).abs() > 1.0 {
                 self.config.side_panel_width = width;
                 self.settings.general.side_panel_width = width;
+                self.side_panel_size = self.side_panel_size.dragged_to(width);
                 self.save_settings();
             }
         }
