@@ -18,85 +18,27 @@
 use eframe::egui::{self, Align2, Color32, FontId, Rect};
 use eframe::epaint::Vec2;
 
-/// Where on the photograph the overlay sits.
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum Corner {
-    /// Not drawn at all.
-    #[default]
-    Off,
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
+use crate::config::kinds::Corner;
+
+/// Where the overlay's text is anchored, and which way it is nudged inwards.
+///
+/// A method *about* the setting rather than part of it: `Corner` is a word in
+/// the configuration file, and this is what the painter does with that word,
+/// so it lives beside the painter. Keeping it on the enum was what made the
+/// configuration name a type in the drawing layer.
+trait Anchored {
+    fn anchoring(self) -> Option<(Align2, Vec2)>;
 }
 
-impl Corner {
-    pub const ALL: &'static [Corner] = &[
-        Corner::Off,
-        Corner::TopLeft,
-        Corner::TopRight,
-        Corner::BottomLeft,
-        Corner::BottomRight,
-    ];
-
-    /// The word the file holds for this corner.
-    ///
-    /// The registry is keyed on what a forum answer quotes, which is what the
-    /// document says rather than what the control says.
-    pub fn value(self) -> &'static str {
-        match self {
-            Corner::Off => "off",
-            Corner::TopLeft => "top_left",
-            Corner::TopRight => "top_right",
-            Corner::BottomLeft => "bottom_left",
-            Corner::BottomRight => "bottom_right",
-        }
-    }
-
-    /// The corner that word names, if it names one.
-    pub fn of(value: &str) -> Option<Corner> {
-        Corner::ALL
-            .iter()
-            .copied()
-            .find(|corner| corner.value() == value)
-    }
-
-    /// The next corner round, for the key that cycles it.
-    ///
-    /// Through the corners and then off, so one key both moves it out of the
-    /// way of whatever it is covering and turns it off entirely.
-    pub fn next(self) -> Corner {
-        match self {
-            Corner::Off => Corner::TopLeft,
-            Corner::TopLeft => Corner::TopRight,
-            Corner::TopRight => Corner::BottomRight,
-            Corner::BottomRight => Corner::BottomLeft,
-            Corner::BottomLeft => Corner::Off,
-        }
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            Corner::Off => "Off",
-            Corner::TopLeft => "Top left",
-            Corner::TopRight => "Top right",
-            Corner::BottomLeft => "Bottom left",
-            Corner::BottomRight => "Bottom right",
-        }
-    }
-
-    /// How the text is anchored, and which way the inset runs.
+impl Anchored for Corner {
     fn anchoring(self) -> Option<(Align2, Vec2)> {
-        let anchor = match self {
+        Some(match self {
             Corner::Off => return None,
             Corner::TopLeft => (Align2::LEFT_TOP, Vec2::new(1.0, 1.0)),
             Corner::TopRight => (Align2::RIGHT_TOP, Vec2::new(-1.0, 1.0)),
             Corner::BottomLeft => (Align2::LEFT_BOTTOM, Vec2::new(1.0, -1.0)),
             Corner::BottomRight => (Align2::RIGHT_BOTTOM, Vec2::new(-1.0, -1.0)),
-        };
-
-        Some(anchor)
+        })
     }
 }
 

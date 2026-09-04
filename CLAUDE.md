@@ -52,8 +52,8 @@ bug of the same rank as a crash.
 ## Test everything
 
 Every behaviour gets a test, in a `#[cfg(test)] mod tests` at the foot of the
-file that holds it. There are around 114 such modules, and they are the reason
-changes to XMP writing and cache eviction can be made at all.
+file that holds it. There are 180 such modules, and they are the reason changes
+to XMP writing and cache eviction can be made at all.
 
 - Anything that touches a file on disk gets a test that a failure leaves the
   original where it was. Losing a photograph's keywords is the worst thing this
@@ -117,9 +117,12 @@ one piece of the work each.
 | `src/session.rs` | what is remembered between runs: window, folder, position |
 | `src/ui/` | shared widgets, the notice bar, the key binding clash check, `deck/` for the cards everything is drawn on, `settings/`, `surface.rs` for the menus, `panel.rs` for what every panel does about them, `slider/` for the rails, `progress.rs` |
 
-**Keep files short.** Aim for 300 lines; the median here is 264. Past that,
-split along the seam the file already has — a `mod.rs` plus siblings — rather
-than growing it. Sixty files are over that today and are candidates for
+**Keep files short.** Aim for 300 lines of code. The median file is 302 lines
+in total and 193 of code, so the aim is being kept on the measure that matters
+and missed on the raw one — count code, not tests, or the rule punishes the
+files that are best covered. Past that, split along the seam the file already
+has — a `mod.rs` plus siblings — rather than growing it. Fifty-five files are
+over it on code alone, 112 counting their tests, and they are candidates for
 splitting when they are next touched; they are not licence to write more.
 
 **Keep folders small.** Around fifteen files to a directory. Past that the
@@ -213,6 +216,17 @@ Leaving the seam for later means the next session pays for it with interest.
   its first key and taken on its second collides on every press of the second,
   and a warning naming only the command leaves a person looking at two keys not
   knowing which to move. `clashes` says a pair once *per key they share*.
+- **The direction the modules depend in is a test.** `tests/layers.rs` walks
+  the module graph transitively and asserts that nothing in `DECIDES` reaches
+  the toolkit — not directly, and not through somebody who does. Transitive
+  because the two edges that spoiled it were invisible to a grep: `view::narrow`
+  imported a struct out of a drawing file, and a test in `metadata::xmp` named a
+  type in `view`. It is a test and says so: a row added to `DRAWS` in the same
+  commit defeats it. What makes it worth having is that the list is short, is in
+  the diff, and shrinks. A settings enum belongs in `config`, not in the view
+  that happens to draw it — `Corner` and `Opening` are in `config::kinds` for
+  that reason, with the painting that acts on them left behind.
+
 - **Anything the user should know** goes to `notices.say`, not only to the log.
 - **Keywords are hierarchical**: written to `lr:hierarchicalSubject` *and*
   `dc:subject`, never only one.

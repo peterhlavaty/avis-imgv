@@ -4,10 +4,11 @@ use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
 use crate::annotations::marks::Marks;
+use crate::config::kinds::Opening;
 use crate::decoder::overlays::Overlay;
 use crate::metadata::xmp::{Flag, Label};
 use crate::organize::pairs::Prefer;
-use crate::view::image_view::opening::{Opening, Opens};
+use crate::view::image_view::opening::Opens;
 use crate::view::image_view::viewports::Keep;
 use crate::view::stacks::Place;
 
@@ -141,7 +142,7 @@ pub enum BarAction {
     /// one the keys are about.
     FlagOne(usize, crate::metadata::xmp::Flag),
     /// What a photograph is drawn at when it comes up.
-    SetOpening(crate::view::image_view::opening::Opening),
+    SetOpening(crate::config::kinds::Opening),
     /// Whether the magnification and the corner carry to the next photograph.
     SetKeeping(Keep),
     /// Which half of a raw+JPEG pair is the one browsed.

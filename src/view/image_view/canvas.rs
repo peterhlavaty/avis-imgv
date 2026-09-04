@@ -49,7 +49,7 @@ pub struct Style {
 /// frame would be work to arrive at the same sentence.
 #[derive(Debug, Clone, Default)]
 pub struct Overlay {
-    pub corner: super::overlay::Corner,
+    pub corner: crate::config::kinds::Corner,
     pub lines: String,
     pub size: f32,
 }

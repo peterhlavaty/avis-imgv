@@ -14,10 +14,11 @@ use crate::cache::{StoreConfig, StoreStats};
 use crate::config::{ImageViewConfig, Motion, SlideshowConfig};
 use crate::metadata::Metadata;
 
-use super::opening::{Opening, Opens};
+use super::opening::Opens;
 use super::slideshow::Slideshow;
 use super::viewports::{Keep, Place, Viewports};
 use super::{zoom, ImageView};
+use crate::config::kinds::Opening;
 use crate::view::visible::Visible;
 
 impl ImageView {
@@ -388,7 +389,7 @@ impl ImageView {
 
     /// Which corner the photograph's own details are drawn in, as the key
     /// cycling it has left them.
-    pub fn overlay_corner(&self) -> crate::view::image_view::overlay::Corner {
+    pub fn overlay_corner(&self) -> crate::config::kinds::Corner {
         self.config.overlay_corner
     }
 

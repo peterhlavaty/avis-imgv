@@ -1022,7 +1022,7 @@ impl ImageView {
     /// same template, and the answer is about the photograph the keys are on.
     fn overlay(&self) -> canvas::Overlay {
         let corner = self.config.overlay_corner;
-        if corner == overlay::Corner::Off || self.config.overlay_format.is_empty() {
+        if corner == crate::config::kinds::Corner::Off || self.config.overlay_format.is_empty() {
             return canvas::Overlay::default();
         }
 

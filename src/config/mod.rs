@@ -4,6 +4,7 @@ pub mod bindings;
 pub mod browsing;
 pub mod defaults;
 pub mod history;
+pub mod kinds;
 pub mod load;
 pub mod migrate;
 pub mod mouse;
@@ -516,7 +517,7 @@ pub struct ImageViewConfig {
     /// when the viewer is fullscreen for a slideshow or a review: there is no
     /// chrome then, and the eye is on the picture.
     #[serde(default)]
-    pub overlay_corner: crate::view::image_view::overlay::Corner,
+    pub overlay_corner: kinds::Corner,
     /// What it says, in the template grammar, one line per line.
     #[serde(default = "default_overlay_format")]
     pub overlay_format: String,
@@ -574,7 +575,7 @@ pub struct ImageViewConfig {
     /// window judges a composition on the whole screen, and its own size is
     /// the magnification focus is judged at.
     #[serde(default)]
-    pub opening: crate::view::image_view::opening::Opening,
+    pub opening: kinds::Opening,
     /// The magnification *at a magnification you choose* means, in per cent of
     /// the photograph's own pixels.
     ///
@@ -979,7 +980,7 @@ impl Default for ImageViewConfig {
             should_wait: default_should_wait(),
             frame_size_relative_to_image: default_frame_size_relative_to_image(),
             enlarge_to_fit: default_enlarge_to_fit(),
-            opening: crate::view::image_view::opening::Opening::default(),
+            opening: kinds::Opening::default(),
             opening_percent: default_opening_percent(),
             keep_zoom: false,
             keep_pan: false,
@@ -999,7 +1000,7 @@ impl Default for ImageViewConfig {
             user_actions: default_user_actions(),
             context_menu: default_ctx_menu(),
             name_format: default_name_format(),
-            overlay_corner: crate::view::image_view::overlay::Corner::default(),
+            overlay_corner: kinds::Corner::default(),
             overlay_format: default_overlay_format(),
             overlay_text_size: default_overlay_text_size(),
             sc_overlay: default_sc_overlay(),

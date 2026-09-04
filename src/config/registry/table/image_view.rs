@@ -83,7 +83,7 @@ pub fn rows() -> Vec<Row> {
             Access::Enum {
                 get: |c| c.image_view.overlay_corner.value(),
                 set: |c, v| {
-                    if let Some(corner) = crate::view::image_view::overlay::Corner::of(v) {
+                    if let Some(corner) = crate::config::kinds::Corner::of(v) {
                         c.image_view.overlay_corner = corner;
                     }
                 },
@@ -265,7 +265,7 @@ pub fn rows() -> Vec<Row> {
             Access::Enum {
                 get: |c| c.image_view.opening.value(),
                 set: |c, v| {
-                    if let Some(opening) = crate::view::image_view::opening::Opening::of(v) {
+                    if let Some(opening) = crate::config::kinds::Opening::of(v) {
                         c.image_view.opening = opening;
                     }
                 },
@@ -535,7 +535,7 @@ fn keys() -> Vec<Row> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::view::image_view::opening::Opening;
+    use crate::config::kinds::Opening;
 
     /// The window offers exactly the three the program has, in the words the
     /// enum uses for them.
