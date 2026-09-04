@@ -35,8 +35,8 @@
 
 use eframe::egui;
 
-use crate::app::input::Command;
 use crate::board::{Mailbox, Published};
+use crate::command::Command;
 use crate::config::registry::Page;
 use crate::ui::surface::{self, Subject};
 
@@ -534,10 +534,7 @@ mod tests {
     /// `keys::of` for it, and what the row should say is what that says.
     #[test]
     fn a_row_says_the_key_that_shows_and_hides_it() {
-        crate::ui::keys::publish(
-            &crate::config::Config::default(),
-            crate::app::mode::Mode::Image,
-        );
+        crate::ui::keys::publish(&crate::config::Config::default(), crate::mode::Mode::Image);
 
         let bar = EVERY_PANEL[0];
         let key = crate::ui::keys::of(bar.key.expect("the menu bar has a key"));

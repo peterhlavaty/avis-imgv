@@ -74,7 +74,7 @@ pub struct State {
 /// person reading the tick in the settings are reading about the same panel.
 pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The stars and keywords panel"),
-    hide: Some(crate::app::input::Command::ToggleTagPanel),
+    hide: Some(crate::command::Command::ToggleTagPanel),
     key: Some("tags.sc_toggle_tag_panel"),
     page: crate::config::registry::Page::Keywords,
     setting: "tags.categories",

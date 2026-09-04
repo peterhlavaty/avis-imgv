@@ -68,7 +68,7 @@ const BAR: f32 = 14.0;
 /// What the strip says for itself, for the menu every panel carries.
 pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The strip of thumbnails"),
-    hide: Some(crate::app::input::Command::ToggleFilmstrip),
+    hide: Some(crate::command::Command::ToggleFilmstrip),
     key: Some("general.sc_filmstrip"),
     page: crate::config::registry::Page::TheContactSheet,
     setting: "grid_view.filmstrip_visible",

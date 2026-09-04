@@ -17,7 +17,7 @@ use crate::view::narrow::{FlagRule, LabelRule, Narrowing, Rules, SortBy};
 /// that is the page its menu ends on.
 pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The filter bar"),
-    hide: Some(crate::app::input::Command::ToggleFilter),
+    hide: Some(crate::command::Command::ToggleFilter),
     key: Some("general.sc_filter"),
     page: crate::config::registry::Page::TheContactSheet,
     setting: "grid_view.images_per_row",

@@ -19,10 +19,10 @@
 
 use eframe::egui::{self, Atom, Response, RichText};
 
-use crate::app::mode::Mode;
 use crate::board::Published;
 use crate::config::registry::Scope;
 use crate::config::{bindings, Config};
+use crate::mode::Mode;
 
 use super::describe_into;
 

@@ -21,8 +21,8 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::app::mode::Mode;
 use crate::config::Config;
+use crate::mode::Mode;
 use crate::view::image_view::viewports::Place;
 use crate::view::narrow::Narrowing;
 use crate::view::selection::Selection;

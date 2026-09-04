@@ -16,8 +16,8 @@
 
 use eframe::egui::{self, RichText};
 
-use crate::app::mode::Mode;
 use crate::config::{bindings, Config};
+use crate::mode::Mode;
 
 use super::keys::{describe, scopes_for};
 

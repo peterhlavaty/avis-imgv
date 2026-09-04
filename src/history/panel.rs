@@ -164,7 +164,7 @@ fn rows(ui: &mut egui::Ui, state: &mut State, history: &super::History, actions:
 /// and two copies would be two things to keep in step.
 pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The history panel"),
-    hide: Some(crate::app::input::Command::ToggleHistoryPanel),
+    hide: Some(crate::command::Command::ToggleHistoryPanel),
     key: Some("history.sc_panel"),
     page: crate::config::registry::Page::History,
     setting: "history.panel_visible",

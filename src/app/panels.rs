@@ -2,9 +2,9 @@
 
 use eframe::egui::{self, RichText};
 
-use crate::app::mode::Mode;
 use crate::cache::StoreStats;
 use crate::metadata::Metadata;
+use crate::mode::Mode;
 use crate::ui::keys;
 
 /// Something picked from the menu bar.
@@ -356,7 +356,7 @@ fn help_menu(ui: &mut egui::Ui, action: &mut Option<MenuAction>) {
 /// list of which tags they are.
 pub const METADATA_PANEL: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The metadata panel"),
-    hide: Some(crate::app::input::Command::ToggleSidePanel),
+    hide: Some(crate::command::Command::ToggleSidePanel),
     key: Some("general.sc_toggle_side_panel"),
     page: crate::config::registry::Page::ThePhotograph,
     setting: "general.metadata_tags",
@@ -365,7 +365,7 @@ pub const METADATA_PANEL: crate::ui::panel::Chrome<'static> = crate::ui::panel::
 /// And what the menu bar says for itself.
 pub const MENU_BAR: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The menu bar"),
-    hide: Some(crate::app::input::Command::ToggleMenu),
+    hide: Some(crate::command::Command::ToggleMenu),
     key: Some("general.sc_menu"),
     page: crate::config::registry::Page::TheWindow,
     setting: "general.panels_at_start",

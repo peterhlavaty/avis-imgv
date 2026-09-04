@@ -10,7 +10,6 @@ mod cull;
 mod gestures;
 mod history;
 pub mod input;
-pub mod mode;
 pub mod panels;
 mod settings;
 pub mod stacking;
@@ -43,10 +42,10 @@ use crate::view::narrow::Narrowing;
 use crate::view::organize::OrganizeView;
 use crate::view::{GridView, ImageView};
 
+use crate::mode::Mode;
 use benchmark::Benchmark;
 use cards::Card;
 use input::{Command, Overlay};
-use mode::Mode;
 
 /// Images a benchmark run walks through before reporting.
 const BENCHMARK_IMAGES: usize = 500;

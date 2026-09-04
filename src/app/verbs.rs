@@ -18,8 +18,8 @@ use crate::view::image_view::bottom_bar::BarAction;
 use crate::view::image_view::{COMPARE_PANES, MAX_IMAGES_SHOWN};
 
 use super::input::Command;
-use super::mode::Mode;
 use super::panels::MenuAction;
+use crate::mode::Mode;
 
 use super::App;
 

@@ -103,7 +103,7 @@ pub struct Status<'a> {
     /// `Mode::label()` is drawn in three places, none of them where people
     /// spend their time, while one key cycles all six and three of the six draw
     /// no photographs at all.
-    pub mode: crate::app::mode::Mode,
+    pub mode: crate::mode::Mode,
     /// How many messages have arrived and not been read.
     ///
     /// One of the two ways into the history, so it is reachable without the
@@ -155,7 +155,7 @@ pub enum BarAction {
     /// Arm the keyboard editor on the row that binds this.
     BindKey(&'static str),
     /// Switch to this mode.
-    Mode(crate::app::mode::Mode),
+    Mode(crate::mode::Mode),
     /// Open or fold the run this frame belongs to.
     ToggleStack,
     /// Narrow the folder to the photographs carrying this mark.
@@ -177,8 +177,8 @@ pub enum BarAction {
 /// the cheat sheet's title and in the organiser's own heading, and `F2` cycles
 /// six modes of which three draw no photographs. Somebody who pressed it once
 /// too often had nothing on screen telling them where they were.
-fn mode_word(ui: &mut egui::Ui, mode: crate::app::mode::Mode) -> Vec<BarAction> {
-    use crate::app::mode::Mode;
+fn mode_word(ui: &mut egui::Ui, mode: crate::mode::Mode) -> Vec<BarAction> {
+    use crate::mode::Mode;
 
     let mut asked = Vec::new();
 

@@ -212,7 +212,7 @@ pub fn slots(changes: &[Change]) -> Vec<Slot> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::mode::Mode;
+    use crate::mode::Mode;
 
     fn moment(seconds: u64) -> SystemTime {
         SystemTime::UNIX_EPOCH + Duration::from_secs(seconds)

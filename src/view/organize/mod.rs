@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 
 use eframe::egui;
 
-use crate::app::mode::Mode;
+use crate::mode::Mode;
 use crate::organize::group::{Group, Settings as Grouping};
 use crate::organize::{self, rename as renaming, timeshift as shifting};
 use crate::organize::{Direction, Entry, Filter, Scan, SortKey};

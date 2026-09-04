@@ -251,7 +251,7 @@ impl ImageView {
         flags: Flags,
         marks: Marks,
         nothing: &Nothing,
-        mode: crate::app::mode::Mode,
+        mode: crate::mode::Mode,
         unread: usize,
     ) {
         if self.warm() {
@@ -910,7 +910,7 @@ impl ImageView {
         ctx: &egui::Context,
         flags: Flags,
         marks: Marks,
-        mode: crate::app::mode::Mode,
+        mode: crate::mode::Mode,
         unread: usize,
     ) {
         let name = self.display_name();

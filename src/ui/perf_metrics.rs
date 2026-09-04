@@ -16,7 +16,7 @@ const RECENT_FRAMES: usize = 60;
 /// threads, so that is the page its menu ends on.
 pub const CHROME: crate::ui::panel::Chrome<'static> = crate::ui::panel::Chrome {
     subject: crate::ui::surface::Subject::the("The performance readout"),
-    hide: Some(crate::app::input::Command::ToggleMetrics),
+    hide: Some(crate::command::Command::ToggleMetrics),
     key: None,
     page: crate::config::registry::Page::SpeedAndMemory,
     setting: "cache.ram_budget_mb",
