@@ -83,12 +83,19 @@ cargo build --release
 A clippy warning is a failure. There is no rustfmt configuration: default
 style.
 
-**Every change ends with a release build.** `cargo build --release`, every time
-the code has been touched, and the viewer run from that build when the change
-is visible. Debug builds optimise this crate at level 1: too slow to judge
-anything about speed by, and a different program where it matters —
-`debug_assert!` is compiled out and integer overflow wraps rather than
-panicking. A change that has only ever been built in debug has not been built.
+**A run of work ends with a release build, not every commit in it.** `cargo
+build --release` takes three minutes, and paying it thirty times down a branch
+buys nothing: the viewer is not being looked at between commits, because there
+is still something in development behind it. So the release build and the run
+belong at the *end of the job* — when the work is being handed over to somebody
+who will actually open a folder in it. Debug builds optimise this crate at level
+1: too slow to judge anything about speed by, and a different program where it
+matters — `debug_assert!` is compiled out and integer overflow wraps rather than
+panicking. A change that has only ever been built in debug has not been built,
+and the last commit of a run is where that is settled.
+
+`cargo test` and `cargo clippy --all-targets` still run at every commit. They
+take seconds, and they are what keeps each commit a whole unit.
 
 ## The shape of the code
 
