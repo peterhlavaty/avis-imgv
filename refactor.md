@@ -1,7 +1,20 @@
 # The refactor: what it should be
 
-A proposal, for approval before any code is written. Nothing here has been
-carried out.
+> **Status, 2026-09-04.** Approved and largely carried out on
+> `refactor-framework`, 21 commits. Stages 0, 1 and 2 are complete; stage 3 has
+> its foundation (`src/collection/`) and stage 4 two of its five commits. What
+> is *not* done is listed at the foot of this file, under "What is still
+> outstanding" — that section is the honest part and is worth reading before
+> the rest, which is the proposal as it was approved and is left unedited
+> except where a claim in it turned out to be wrong.
+>
+> Two claims in this document were corrected by contact with the compiler and
+> are struck through or amended in place rather than quietly fixed: the orphan
+> rule does not enforce the `fit` boundary (§7), and the Cargo feature gate
+> proved *achievable*, which the document had costed as merely possible.
+
+A proposal, written for approval before any code was written. What follows
+below this line is that proposal, unchanged except where marked.
 
 It was arrived at by two rounds of survey and design — forty-eight agents, the
 first sixteen reading one subsystem or sweeping one cross-cutting concern each,
@@ -560,3 +573,48 @@ If you want a smaller version of this: stages 0 and 1 alone are about 6,000
 lines, fix all four bugs, deliver six of the seven mini-libraries, and leave the
 shape of `app/`, the views and the status bar untouched. That is the version I
 would choose if the branch had to be judged on value per line changed.
+
+---
+
+## 15. What is still outstanding
+
+Written after the work, against the plan above.
+
+**Done, and each verified by the checks in §10:**
+
+| Stage | State |
+|---|---|
+| 0 — the four bugs | complete; all four fixed, each with the test that would have caught it |
+| 1 — the bottom layer | complete except `keychord`, which is **refused** below |
+| 2 — the domain owns itself | complete, including the Cargo feature gate |
+| 3 — the collection | foundation only: `src/collection/` exists and is provably toolkit-free; the `Collection` owner type and `Changing` guard are **not** written |
+| 4 — the shell | two of five: `ui::sized` and `config::mirror`. `Panel`/`Hideable`, the menu tails and the status-bar readout are **not** written |
+| 5 — ports and adapters | **not started**: the input port and the virtualised list |
+
+**Refused during the work, with reasons:**
+
+- **`keychord`** — decoupling `config::shortcut` from egui would mean owning a
+  copy of `Key::from_name`'s hundred names and aliases. That table drifts on
+  every egui update, and the clash checker must agree with what the toolkit
+  *actually* reads or it lies about which keys collide. The module is an
+  adaptor between the file's vocabulary and the toolkit's, and an adaptor
+  naming both sides is what an adaptor is. Recorded in `tests/layers.rs`.
+
+**Three of the four bugs are now impossible rather than fixed:**
+
+| Bug | Made impossible by | Mechanism |
+|---|---|---|
+| 3 · the one-way mirror | `config::mirror` | `E0063` — a missing field |
+| 4 · the panel width rule | `ui::sized` | one type carries three of the four parts; a panel cannot get some of them |
+| 1 · the stale stacks | *not yet* — the three routes are unified but nothing stops a fourth | needs stage 3's `Changing` guard |
+| 2 · the per-frame clone | *not applicable* — a performance fault, fixed and tested | — |
+
+**What the remaining work is worth, honestly.** Stage 5 is the two largest
+behaviour-carrying rewrites and both failed adversarial verification on
+architecture rather than detail; they were scheduled last for that reason and
+stopping before them is the outcome the plan anticipated. Stage 3's `Collection`
+is the one remaining item that would make a *verified* bug impossible, and it is
+the single highest-risk change in the plan — it came back `SURVIVES=false` twice,
+with the same fatal both times. It should be done carefully or not at all, and
+not at the end of a long run.
+
