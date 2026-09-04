@@ -256,6 +256,10 @@ pub struct App {
     /// Whether the keyword panel's width has to be stated rather than
     /// suggested on the next frame it draws.
     forced_panel_width: bool,
+    /// The same, for the metadata panel down the right.
+    forced_side_panel_width: bool,
+    /// The same, for the history panel.
+    forced_history_panel_width: bool,
     /// Whether the text size has to be applied again on the next frame.
     ///
     /// From the base the styles were at when the viewer started rather than
@@ -425,6 +429,8 @@ impl App {
             pending_theme: None,
             pending_text_size: false,
             forced_panel_width: false,
+            forced_side_panel_width: false,
+            forced_history_panel_width: false,
             threads_at_start: config.cache.decode_threads,
             copying: verbs::Copying::default(),
             pending_clipboard: None,

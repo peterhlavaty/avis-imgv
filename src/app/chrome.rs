@@ -168,47 +168,60 @@ impl App {
         let mut clip = false;
         let mut bind: Option<&'static str> = None;
 
-        let panel = egui::SidePanel::right("image_metadata")
+        let mut panel = egui::SidePanel::right("image_metadata")
             .resizable(true)
             .show_separator_line(false)
             .min_width(220.)
             .default_width(self.config.side_panel_width)
-            .max_width(most)
-            .show_animated(ctx, self.side_panel_visible, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    // The same photograph the keyword panel is about. The two
-                    // used to read different things, so with both open they
-                    // described different photographs and neither said which.
-                    let showing = self.current_photograph();
-                    let metadata = showing
-                        .as_deref()
-                        .filter(|path| self.image_view.active_path().as_deref() == Some(path))
-                        .and(self.image_view.active_metadata());
+            .max_width(most);
 
-                    asked = panels::metadata_panel(
-                        ui,
-                        metadata,
-                        &self.config.metadata_tags,
-                        !self.paths.is_empty(),
-                    )
-                    .or(asked);
+        // `default_width` is dead from the second frame on, so a width typed
+        // into the settings window never reached this panel. For the one frame
+        // after it moves by anything but a drag, the width is stated.
+        if std::mem::take(&mut self.forced_side_panel_width) {
+            panel = panel.exact_width(self.config.side_panel_width);
+        }
 
-                    if let Some(found) = self.image_view.active_histogram() {
-                        match crate::ui::histogram::show(ui, found, self.image_view.marking()) {
-                            Some(crate::ui::histogram::Asked::Clipping) => clip = true,
-                            Some(crate::ui::histogram::Asked::BindKey(path)) => bind = Some(path),
-                            None => {}
-                        }
+        let panel = panel.show_animated(ctx, self.side_panel_visible, |ui| {
+            // A panel reports the rectangle its *contents* came to, not
+            // the one the drag asked for, so a scroll area that shrinks to
+            // its content reports the content's width and the next frame
+            // is drawn at it — the edge springs back.
+            ui.set_min_width(ui.available_width());
+
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                // The same photograph the keyword panel is about. The two
+                // used to read different things, so with both open they
+                // described different photographs and neither said which.
+                let showing = self.current_photograph();
+                let metadata = showing
+                    .as_deref()
+                    .filter(|path| self.image_view.active_path().as_deref() == Some(path))
+                    .and(self.image_view.active_metadata());
+
+                asked = panels::metadata_panel(
+                    ui,
+                    metadata,
+                    &self.config.metadata_tags,
+                    !self.paths.is_empty(),
+                )
+                .or(asked);
+
+                if let Some(found) = self.image_view.active_histogram() {
+                    match crate::ui::histogram::show(ui, found, self.image_view.marking()) {
+                        Some(crate::ui::histogram::Asked::Clipping) => clip = true,
+                        Some(crate::ui::histogram::Asked::BindKey(path)) => bind = Some(path),
+                        None => {}
                     }
-                    ui.add_space(20.);
-                    ui.separator();
-                    asked =
-                        panels::cache_stats(ui, &self.image_view.stats(), &self.grid_view.stats())
-                            .or(asked);
-                });
-
-                crate::ui::panel::menu(ui, &panels::METADATA_PANEL, |_| {});
+                }
+                ui.add_space(20.);
+                ui.separator();
+                asked = panels::cache_stats(ui, &self.image_view.stats(), &self.grid_view.stats())
+                    .or(asked);
             });
+
+            crate::ui::panel::menu(ui, &panels::METADATA_PANEL, |_| {});
+        });
 
         // The dragged width, written back to the field the window reads. It
         // was a hardcoded `default_width(340.)`, so dragging the edge was a

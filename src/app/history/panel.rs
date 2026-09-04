@@ -22,6 +22,7 @@ impl App {
             ctx,
             self.history_panel_visible,
             width,
+            std::mem::take(&mut self.forced_history_panel_width),
             &mut self.history_panel,
             &self.history,
         );

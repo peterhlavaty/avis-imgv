@@ -46,39 +46,54 @@ pub fn ui(
     ctx: &egui::Context,
     visible: bool,
     width: f32,
+    forced: bool,
     state: &mut State,
     history: &super::History,
 ) -> Vec<Action> {
     let mut actions = Vec::new();
 
-    let panel = egui::SidePanel::right("history_panel")
+    let mut panel = egui::SidePanel::right("history_panel")
         .resizable(true)
         .show_separator_line(false)
         .default_width(width)
-        .min_width(180.0)
-        .show_animated(ctx, visible, |ui| {
-            // A window in front owns the pointer, and a hit test knows nothing
-            // about modal layers.
-            if crate::utils::is_in_front(ui.ctx()) {
-                ui.disable();
-            }
+        .min_width(180.0);
 
-            ui.add_space(4.0);
-            // The heading on a line of its own. Sharing one with a settings
-            // route left "History" drawn as "His" against a narrow panel, the
-            // right-to-left layout beside it having taken the whole width.
-            ui.heading("History");
-            ui.label(RichText::new(count(history)).weak());
-            ui.separator();
+    // `default_width` is honoured only while egui has no width of its own for
+    // this panel, which it does from the first frame on — so a width typed
+    // into the settings window did nothing until the next launch. For the one
+    // frame after it changes, the width is stated rather than suggested.
+    if forced {
+        panel = panel.exact_width(width);
+    }
 
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    rows(ui, state, history, &mut actions);
-                });
+    let panel = panel.show_animated(ctx, visible, |ui| {
+        // A panel reports the rectangle its contents came to, not the one
+        // the drag asked for, so the scroll area has to be told to fill
+        // what it was given or the edge springs back.
+        ui.set_min_width(ui.available_width());
 
-            crate::ui::panel::menu(ui, &CHROME, |_| {});
-        });
+        // A window in front owns the pointer, and a hit test knows nothing
+        // about modal layers.
+        if crate::utils::is_in_front(ui.ctx()) {
+            ui.disable();
+        }
+
+        ui.add_space(4.0);
+        // The heading on a line of its own. Sharing one with a settings
+        // route left "History" drawn as "His" against a narrow panel, the
+        // right-to-left layout beside it having taken the whole width.
+        ui.heading("History");
+        ui.label(RichText::new(count(history)).weak());
+        ui.separator();
+
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                rows(ui, state, history, &mut actions);
+            });
+
+        crate::ui::panel::menu(ui, &CHROME, |_| {});
+    });
 
     // A dragged edge is a setting the user has just changed, and every other
     // one of those in this program is written back rather than lost on exit.
