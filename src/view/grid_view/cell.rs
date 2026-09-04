@@ -8,8 +8,8 @@
 use eframe::egui::{self, Align2, Color32, FontId, Rect};
 use eframe::epaint::{pos2, Stroke, Vec2};
 
+use crate::annotations::marks::Marks;
 use crate::metadata::xmp::Flag;
-use crate::view::image_view::bottom_bar::Marks;
 
 /// How much of the cell the marks strip takes.
 ///

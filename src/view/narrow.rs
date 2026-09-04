@@ -9,8 +9,8 @@
 
 use std::path::Path;
 
+use crate::annotations::marks::Marks;
 use crate::metadata::xmp::{Flag, Label, MAX_RATING};
-use crate::view::image_view::bottom_bar::Marks;
 
 use super::visible::Visible;
 
@@ -391,6 +391,22 @@ impl Rules {
 
 #[cfg(test)]
 mod tests {
+
+    /// A flag is called in a menu what the filter calls it, because they are
+    /// the same three states and two vocabularies for them are one too many.
+    ///
+    /// Asked from this side. It used to be asked from `metadata::xmp`, which
+    /// meant the metadata layer named a type in the drawing layer — for a
+    /// test, but a `use` is a `use`, and it was one of the two edges that made
+    /// four toolkit-free modules depend on the toolkit transitively.
+    #[test]
+    fn a_flag_is_called_what_the_filter_calls_it() {
+        use crate::metadata::xmp::Flag;
+
+        assert_eq!(Flag::Picked.name(), FlagRule::Picked.label());
+        assert_eq!(Flag::Rejected.name(), FlagRule::Rejected.label());
+        assert_eq!(Flag::Unflagged.name(), FlagRule::Unflagged.label());
+    }
     use super::*;
     use std::path::PathBuf;
 

@@ -26,6 +26,7 @@ use std::sync::Arc;
 use eframe::egui::{self, ViewportCommand};
 
 use crate::actions::Callback;
+use crate::annotations::marks::Marks;
 use crate::annotations::{AnnotationStore, Catalog, RecentTags};
 use crate::app::stacking::Stacking;
 use crate::cache::loader::Loader;
@@ -38,7 +39,6 @@ use crate::ui::deck::Deck;
 use crate::ui::destinations::{Asking, Errand, Slot};
 use crate::ui::tag_panel;
 use crate::ui::{filter_bar, keys, notice::Notices, perf_metrics::PerfMetrics, progress, theme};
-use crate::view::image_view::bottom_bar::Marks;
 use crate::view::narrow::Narrowing;
 use crate::view::organize::OrganizeView;
 use crate::view::{GridView, ImageView};

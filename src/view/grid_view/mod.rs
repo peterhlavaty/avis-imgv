@@ -25,7 +25,7 @@ use crate::ui::menus::{Chosen, Row, Verb};
 use crate::utils;
 use crate::view::texture;
 
-use crate::view::image_view::bottom_bar::Marks;
+use crate::annotations::marks::Marks;
 use crate::view::selection::Selection;
 use crate::view::stacks::{self, Stacks};
 use crate::view::visible::Visible;

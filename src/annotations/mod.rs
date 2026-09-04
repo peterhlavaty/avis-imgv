@@ -7,6 +7,7 @@
 //! a slow disk cannot stutter the interface.
 
 pub mod catalog;
+pub mod marks;
 pub mod recent;
 pub mod sidecar;
 pub mod writer;

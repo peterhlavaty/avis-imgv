@@ -3,8 +3,9 @@
 use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
+use crate::annotations::marks::Marks;
 use crate::decoder::overlays::Overlay;
-use crate::metadata::xmp::{leaf_of, Flag, Label, Xmp};
+use crate::metadata::xmp::{Flag, Label};
 use crate::organize::pairs::Prefer;
 use crate::view::image_view::opening::{Opening, Opens};
 use crate::view::image_view::viewports::Keep;
@@ -38,47 +39,6 @@ const NOT_KEPT: egui::Color32 = egui::Color32::from_rgb(219, 96, 96);
 
 /// Zoom levels offered in the magnification context menu.
 const PERCENTAGES: &[f32] = &[200., 100., 75., 50., 25.];
-
-/// What the user has said about the photograph on screen.
-///
-/// Drawn in the bar so that rating, flagging or labelling with the panel shut
-/// is not a keystroke that appears to do nothing.
-#[derive(Debug, Clone, Default)]
-pub struct Marks {
-    pub stars: u8,
-    pub flag: Flag,
-    pub label: Option<Label>,
-    /// Kept here as well as in the annotation store, because the filter asks
-    /// about every photograph in the folder at once and a lookup per file per
-    /// keystroke is the thing this list exists to avoid.
-    ///
-    /// With their levels where the sidecar records them, so narrowing by
-    /// `Slovakia` finds everything filed underneath it and not only what is
-    /// tagged with the word itself.
-    pub keywords: Vec<String>,
-}
-
-impl Marks {
-    pub fn of(annotations: &Xmp) -> Marks {
-        Marks {
-            stars: annotations.stars(),
-            flag: annotations.flag(),
-            label: annotations.known_label(),
-            keywords: annotations
-                .keywords
-                .iter()
-                .map(|keyword| {
-                    annotations
-                        .hierarchy
-                        .iter()
-                        .find(|path| leaf_of(path) == keyword)
-                        .unwrap_or(keyword)
-                        .clone()
-                })
-                .collect(),
-        }
-    }
-}
 
 /// Modes worth telling the user about.
 #[derive(Debug, Clone, Copy, Default)]

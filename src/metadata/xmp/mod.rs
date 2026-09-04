@@ -411,17 +411,6 @@ mod hierarchy_tests {
 mod tests {
     use super::*;
 
-    /// A flag is called in a menu what the filter calls it, because they are
-    /// the same three states and two vocabularies for them are one too many.
-    #[test]
-    fn a_flag_is_called_what_the_filter_calls_it() {
-        use crate::view::narrow::FlagRule;
-
-        assert_eq!(Flag::Picked.name(), FlagRule::Picked.label());
-        assert_eq!(Flag::Rejected.name(), FlagRule::Rejected.label());
-        assert_eq!(Flag::Unflagged.name(), FlagRule::Unflagged.label());
-    }
-
     #[test]
     fn ratings_are_clamped_to_the_defined_range() {
         assert_eq!(parse_rating("0"), Some(0));

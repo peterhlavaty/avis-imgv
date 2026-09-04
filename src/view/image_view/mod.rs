@@ -29,7 +29,8 @@ use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig};
 use crate::config::{Config, ImageViewConfig, Motion, MouseConfig, SlideshowConfig};
 
-use bottom_bar::{BarAction, Flags, Marks, Status};
+use crate::annotations::marks::Marks;
+use bottom_bar::{BarAction, Flags, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
 
 use crate::ui::empty::{Asked, Nothing};

@@ -7,8 +7,9 @@
 
 use eframe::egui;
 
+use crate::annotations::marks::Marks;
 use crate::ui::empty::Nothing;
-use crate::view::image_view::bottom_bar::{Flags, Marks};
+use crate::view::image_view::bottom_bar::Flags;
 use crate::view::organize::Done;
 
 use super::{App, Mode};
