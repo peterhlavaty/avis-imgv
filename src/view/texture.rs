@@ -76,6 +76,28 @@ pub fn displayed_size(stored: Vec2, orientation: Orientation) -> Vec2 {
     }
 }
 
+/// The toolkit's vector, as something [`crate::fit`] can size.
+///
+/// Here rather than in `fit.rs` so that `fit.rs` names nothing from the
+/// toolkit and could be lifted out as it stands. Within one crate that is a
+/// convention rather than a rule — the trait is local everywhere, so the
+/// orphan rule does not forbid the impl being written there — but it is the
+/// convention that keeps the option open, and the day `fit` is its own crate
+/// it is the only place this impl can go.
+impl crate::fit::Edges for Vec2 {
+    fn width(self) -> f32 {
+        self.x
+    }
+
+    fn height(self) -> f32 {
+        self.y
+    }
+
+    fn of(width: f32, height: f32) -> Self {
+        Vec2::new(width, height)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

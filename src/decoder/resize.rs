@@ -108,18 +108,7 @@ fn has_transparency(image: &RgbaImage) -> bool {
 /// Dimensions that fit `max_edge` while preserving the aspect ratio, or `None`
 /// when the image already fits.
 fn target_size(width: u32, height: u32, max_edge: u32) -> Option<(u32, u32)> {
-    let longest = width.max(height);
-    if longest <= max_edge || max_edge == 0 {
-        return None;
-    }
-
-    let scale = max_edge as f64 / longest as f64;
-    let target = (
-        ((width as f64 * scale).round() as u32).max(1),
-        ((height as f64 * scale).round() as u32).max(1),
-    );
-
-    Some(target)
+    crate::fit::longest_edge((width, height), max_edge)
 }
 
 #[cfg(test)]

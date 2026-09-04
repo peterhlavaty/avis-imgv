@@ -1077,13 +1077,14 @@ impl GridView {
 }
 
 /// Largest size with the thumbnail's aspect ratio that fits the cell.
+///
+/// A thumbnail of no size takes the whole cell, which is this view's answer to
+/// the degenerate case: a cell that drew nothing would read as a gap in the
+/// sheet rather than as a photograph that could not be read.
 fn fit_in_cell(size: Vec2, width: f32, height: f32) -> Vec2 {
-    if size.x <= 0.0 || size.y <= 0.0 {
-        return Vec2::new(width, height);
-    }
+    let cell = Vec2::new(width, height);
 
-    let scale = (width / size.x).min(height / size.y);
-    size * scale
+    crate::fit::inside(size, cell, crate::fit::Grow::ToFill).unwrap_or(cell)
 }
 
 fn show_placeholder(ui: &mut egui::Ui, state: ImageState, cell: f32) {

@@ -423,12 +423,14 @@ fn draw_cell(
 }
 
 /// Largest size with the thumbnail's shape that fits a square cell.
+///
+/// A thumbnail of no size takes the whole cell, for the same reason the
+/// contact sheet's does: a gap in the strip reads as a missing photograph
+/// rather than an unreadable one.
 fn fit(size: Vec2, cell: f32) -> Vec2 {
-    if size.x <= 0.0 || size.y <= 0.0 {
-        return Vec2::splat(cell);
-    }
+    let square = Vec2::splat(cell);
 
-    size * (cell / size.x).min(cell / size.y)
+    crate::fit::inside(size, square, crate::fit::Grow::ToFill).unwrap_or(square)
 }
 
 #[cfg(test)]

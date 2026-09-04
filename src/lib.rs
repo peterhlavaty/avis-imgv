@@ -8,6 +8,7 @@
 //! - [`board`] is where a frame leaves a value for the rest of itself,
 //! - [`fault`] is how something that went wrong says so, once,
 //! - [`work`] is a background queue that knows nothing about photographs,
+//! - [`fit`] puts one rectangle inside another, keeping its shape,
 //! - [`crawler`] finds the images,
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
@@ -30,6 +31,7 @@ pub mod config;
 pub mod crawler;
 pub mod decoder;
 pub mod fault;
+pub mod fit;
 pub mod formats;
 pub mod history;
 pub mod logging;

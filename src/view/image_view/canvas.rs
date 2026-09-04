@@ -303,34 +303,17 @@ pub fn travelled(scaled: Vec2, available: Vec2, progress: f32) -> Vec2 {
 /// and nothing else, and drawn at its own size it is a postage stamp in the
 /// middle of a 4K screen.
 fn fill(image: Vec2, available: Vec2) -> Vec2 {
-    if image.x <= 0.0 || image.y <= 0.0 {
-        return Vec2::ZERO;
-    }
-
-    let scale = (available.x / image.x).min(available.y / image.y);
-    image * scale
+    crate::fit::inside(image, available, crate::fit::Grow::ToFill).unwrap_or(Vec2::ZERO)
 }
 
 /// Largest size with the image's aspect ratio that fits inside `available`.
 ///
 /// Never enlarges: a small image is shown at its own size until zoomed.
+///
+/// A photograph of no size draws nothing, which is this view's answer to the
+/// degenerate case and not one it inherits — see `fit::inside`.
 fn fit(image: Vec2, available: Vec2) -> Vec2 {
-    if image.x <= 0.0 || image.y <= 0.0 {
-        return Vec2::ZERO;
-    }
-
-    let aspect = image.x / image.y;
-    let mut size = image;
-
-    if available.x < size.x {
-        size = Vec2::new(available.x, available.x / aspect);
-    }
-
-    if available.y < size.y {
-        size = Vec2::new(available.y * aspect, available.y);
-    }
-
-    size
+    crate::fit::inside(image, available, crate::fit::Grow::Never).unwrap_or(Vec2::ZERO)
 }
 
 /// Zoom that makes the fitted image cover the whole panel, cropping the

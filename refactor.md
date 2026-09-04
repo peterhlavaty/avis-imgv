@@ -225,10 +225,14 @@ refactoring proposals usually overclaim.
 
 **By the compiler, and these are the only ones I will call enforced:**
 
-1. **The orphan rule.** `impl fit::Edges for epaint::Vec2` can only be written
-   where one of the two is local, so it lands in `view/texture.rs` and `fit.rs`
-   cannot name `epaint` even if somebody tries. This is the crate's one genuine
-   compile-time GUI boundary.
+1. ~~**The orphan rule.**~~ **Withdrawn — this was wrong.** The claim was that
+   `impl fit::Edges for epaint::Vec2` could only be written in the drawing
+   layer. It cannot be: within one crate the trait is local everywhere, so the
+   orphan rule does not apply and only coherence (E0119) stops a *second*
+   impl. Checked by trying it. The placement is a convention that keeps `fit`
+   liftable, and becomes the compiler's rule only when it is its own crate.
+   This was the proposal's one claimed compile-time GUI boundary, so the honest
+   position is that the Cargo feature gate below is the only one.
 2. **Exhaustive matches.** `Panel::chrome()` makes a panel without a menu a
    compile error. `MenuAction::goes_back_to_the_photographs` is the recorded
    precedent.
