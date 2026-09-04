@@ -199,8 +199,8 @@ mod glyphs {
     /// the *monospace* family — so both drew an empty box. Nothing catches
     /// that but looking, and looking is what a test is for.
     fn every_glyph() -> Vec<&'static str> {
+        use crate::collection::stacks::glyph;
         use crate::organize::group::Kind;
-        use crate::view::stacks::glyph;
 
         let mut glyphs = vec![
             "★",

@@ -468,9 +468,9 @@ impl App {
     /// reversible: a folder that silently lost nine tenths of itself is a
     /// worse answer than no answer.
     pub(super) fn show_only(&mut self, narrow: Narrow) {
+        use crate::collection::narrow::LabelRule;
         use crate::config::kinds::FlagRule;
         use crate::metadata::xmp::Label;
-        use crate::view::narrow::LabelRule;
 
         match narrow {
             Narrow::Flag(flag) => {

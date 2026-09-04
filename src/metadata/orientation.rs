@@ -172,6 +172,25 @@ impl Orientation {
     }
 }
 
+/// The size a photograph is *shown* at, given the turn applied to it.
+///
+/// A quarter turn swaps the two dimensions and the other four orientations
+/// leave them alone. Written out four times in three modules before this — the
+/// decoder twice, the GPU cache once and the drawing layer once — which is
+/// three chances for one of them to be forgotten when a ninth orientation is
+/// never added and the rule never changes.
+///
+/// Generic over [`crate::fit::Edges`] so the decoder can ask in whole pixels
+/// and the drawing layer in the toolkit's vector, without either converting
+/// into the other's type to ask.
+pub fn shown<E: crate::fit::Edges>(stored: E, orientation: Orientation) -> E {
+    if orientation.transposes() {
+        E::of(stored.height(), stored.width())
+    } else {
+        stored
+    }
+}
+
 #[cfg(test)]
 mod orientation_tests {
     use super::*;

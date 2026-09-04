@@ -69,11 +69,7 @@ pub fn to_texture(orientation: Orientation, point: Pos2) -> Pos2 {
 /// A quarter turn swaps the two, which every layout calculation needs to know
 /// before it fits anything to the panel.
 pub fn displayed_size(stored: Vec2, orientation: Orientation) -> Vec2 {
-    if orientation.transposes() {
-        Vec2::new(stored.y, stored.x)
-    } else {
-        stored
-    }
+    crate::metadata::orientation::shown(stored, orientation)
 }
 
 /// The toolkit's vector, as something [`crate::fit`] can size.

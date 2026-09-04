@@ -15,10 +15,10 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use crate::collection::stacks::Stacks;
+use crate::collection::visible::Visible;
 use crate::organize::group::{self, Settings};
 use crate::organize::{Entry, Scan};
-use crate::view::stacks::Stacks;
-use crate::view::visible::Visible;
 
 #[derive(Default)]
 pub struct Stacking {
@@ -122,7 +122,7 @@ impl Stacking {
     /// Reads the folder into runs again, keeping what the user has opened.
     pub fn detect(&mut self, paths: &[PathBuf]) {
         let groups = group::detect(&self.entries, &self.settings);
-        let positions = crate::view::stacks::positions(paths);
+        let positions = crate::collection::stacks::positions(paths);
 
         let mut stacks = Stacks::of_groups(&groups, |path| positions.get(path).copied(), true);
         stacks.open(&self.opened);

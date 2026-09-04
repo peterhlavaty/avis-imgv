@@ -189,7 +189,7 @@ impl GpuCache {
                 // The size the image is shown at does not depend on how much
                 // of it has been uploaded, so nothing moves when the rest
                 // arrives.
-                shown: crate::view::texture::displayed_size(stored, image.orientation),
+                shown: crate::metadata::orientation::shown(stored, image.orientation),
                 resolution: image.resolution(),
                 orientation: image.orientation,
                 label: image.file_name(),
@@ -209,7 +209,7 @@ impl GpuCache {
         };
 
         let full = Vec2::new(preview.full_size.0 as f32, preview.full_size.1 as f32);
-        let shown = crate::view::texture::displayed_size(full, preview.orientation);
+        let shown = crate::metadata::orientation::shown(full, preview.orientation);
 
         self.put(
             index,

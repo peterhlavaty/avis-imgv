@@ -16,10 +16,11 @@ use crate::metadata::Metadata;
 
 use super::opening::Opens;
 use super::slideshow::Slideshow;
+use super::viewports::place_of;
 use super::viewports::{Keep, Place, Viewports};
 use super::{zoom, ImageView};
+use crate::collection::visible::Visible;
 use crate::config::kinds::Opening;
-use crate::view::visible::Visible;
 
 impl ImageView {
     /// Opens a new collection, optionally starting on a specific image.
@@ -264,7 +265,7 @@ impl ImageView {
         // Remembered even when it was not worth an entry of its own: repeating
         // a plain fitted view onto the next picture is still a thing to ask
         // for, and it is what undoes an accidental repeat.
-        self.previous_place = Place::of(&self.viewport);
+        self.previous_place = place_of(&self.viewport);
 
         self.viewport.reset_for_new_image();
 
@@ -288,7 +289,7 @@ impl ImageView {
     /// view: the latches saying what a *new* image should do are a preference
     /// and are not something to put back.
     pub fn place(&self) -> Place {
-        Place::of(&self.viewport)
+        place_of(&self.viewport)
     }
 
     /// How large the photograph is being drawn, as a percentage of its own

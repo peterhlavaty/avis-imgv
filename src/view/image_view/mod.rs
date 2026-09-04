@@ -33,10 +33,10 @@ use crate::annotations::marks::Marks;
 use bottom_bar::{BarAction, Flags, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
 
+use crate::collection::visible::Visible;
 use crate::ui::empty::{Asked, Nothing};
 use crate::ui::front;
 use crate::ui::menus::Verb;
-use crate::view::visible::Visible;
 use input::Command;
 use slideshow::Slideshow;
 use viewports::{Place, Viewports};
@@ -1151,7 +1151,7 @@ fn pinnable(visible: &Visible, wanted: &[usize]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::{pinnable, stepping, MAX_IMAGES_SHOWN};
-    use crate::view::visible::Visible;
+    use crate::collection::visible::Visible;
 
     #[test]
     fn an_arrow_moves_the_focus_one_pane_along() {

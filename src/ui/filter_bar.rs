@@ -7,10 +7,10 @@
 use eframe::egui::{self, RichText};
 
 use crate::choices::Choices;
+use crate::collection::narrow::{LabelRule, Narrowing, Rules};
 use crate::config::kinds::{FlagRule, SortBy};
 use crate::metadata::xmp::{Label, MAX_RATING};
 use crate::organize::group::Settings;
-use crate::view::narrow::{LabelRule, Narrowing, Rules};
 
 /// Draws the bar, returning whether anything about it changed.
 /// What the filter bar says for itself, for the menu every panel carries.

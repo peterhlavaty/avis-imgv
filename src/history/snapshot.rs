@@ -22,11 +22,11 @@
 use std::path::{Path, PathBuf};
 
 use crate::choices::Choices;
+use crate::collection::narrow::Narrowing;
+use crate::collection::place::Place;
+use crate::collection::selection::Selection;
 use crate::config::Config;
 use crate::mode::Mode;
-use crate::view::image_view::viewports::Place;
-use crate::view::narrow::Narrowing;
-use crate::view::selection::Selection;
 
 /// Which panels are up.
 ///
@@ -557,7 +557,7 @@ pub enum Slot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eframe::epaint::Vec2;
+    use crate::collection::place::Pan;
 
     fn snapshot() -> Snapshot {
         Snapshot {
@@ -724,7 +724,7 @@ mod tests {
         let mut zoomed = snapshot();
         zoomed.place = Place {
             zoom: 2.0,
-            pan: Vec2::ZERO,
+            pan: Pan::NONE,
         };
         assert!(was.diff(&zoomed)[0].is_continuous());
 
@@ -768,15 +768,15 @@ mod tests {
     fn zooming_in_and_out_are_told_apart_from_panning() {
         let out = Place {
             zoom: 1.0,
-            pan: Vec2::ZERO,
+            pan: Pan::NONE,
         };
         let close = Place {
             zoom: 4.0,
-            pan: Vec2::ZERO,
+            pan: Pan::NONE,
         };
         let moved = Place {
             zoom: 1.0,
-            pan: Vec2::new(10.0, 0.0),
+            pan: Pan(10.0, 0.0),
         };
 
         assert_eq!(zoomed(out, close, 250.0).label(), "Zoomed in to 250%");

@@ -22,8 +22,8 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::collection::visible::Visible;
 use crate::organize::group::{Group, Kind};
-use crate::view::visible::Visible;
 
 /// One detected run of frames, as the browsing views hold it.
 #[derive(Debug, Clone, PartialEq, Eq)]

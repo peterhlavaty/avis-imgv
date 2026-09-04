@@ -4,13 +4,13 @@ use eframe::egui::{self, Sense};
 use eframe::epaint::Vec2;
 
 use crate::annotations::marks::Marks;
+use crate::collection::stacks::Place;
 use crate::config::kinds::Opening;
 use crate::decoder::overlays::Overlay;
 use crate::metadata::xmp::{Flag, Label};
 use crate::organize::pairs::Prefer;
 use crate::view::image_view::opening::Opens;
 use crate::view::image_view::viewports::Keep;
-use crate::view::stacks::Place;
 
 use super::input::{Anchor, Command};
 

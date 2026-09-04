@@ -26,9 +26,9 @@ use crate::ui::menus::{Chosen, Row, Verb};
 use crate::view::texture;
 
 use crate::annotations::marks::Marks;
-use crate::view::selection::Selection;
-use crate::view::stacks::{self, Stacks};
-use crate::view::visible::Visible;
+use crate::collection::selection::Selection;
+use crate::collection::stacks::{self, Stacks};
+use crate::collection::visible::Visible;
 
 use cell::Badges;
 use layout::Layout;

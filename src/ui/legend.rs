@@ -7,10 +7,10 @@
 
 use eframe::egui;
 
+use crate::collection::stacks;
 use crate::decoder::overlays::Overlay;
 use crate::organize::group::Kind;
 use crate::view::grid_view::cell::Badges;
-use crate::view::stacks;
 
 /// Draws the legend.
 pub fn contents(ui: &mut egui::Ui) {

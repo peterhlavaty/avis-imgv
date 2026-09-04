@@ -309,20 +309,17 @@ pub fn decode(
 
 /// Width the image is shown at, which a quarter turn swaps.
 fn displayed_width(image: &RgbaImage, orientation: Orientation) -> u32 {
-    if orientation.transposes() {
-        image.height()
-    } else {
-        image.width()
-    }
+    shown_size(image, orientation).0
 }
 
 /// Height the image is shown at.
 fn displayed_height(image: &RgbaImage, orientation: Orientation) -> u32 {
-    if orientation.transposes() {
-        image.width()
-    } else {
-        image.height()
-    }
+    shown_size(image, orientation).1
+}
+
+/// Both, from the one rule: a quarter turn swaps the two dimensions.
+fn shown_size(image: &RgbaImage, orientation: Orientation) -> (u32, u32) {
+    crate::metadata::orientation::shown((image.width(), image.height()), orientation)
 }
 
 /// Develops a raw file, or returns nothing so the preview is used instead.

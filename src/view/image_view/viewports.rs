@@ -12,56 +12,22 @@ use eframe::epaint::Vec2;
 
 use super::canvas::Viewport;
 
-/// The part of a viewport that belongs to an image rather than to the view.
+// `Place` is `crate::collection::place`: where a photograph was left is
+// something the photograph carries, not something the view owns, and the
+// history had to name this drawing module to read it.
+pub use crate::collection::place::Place;
+
+use crate::collection::place::Pan;
+
+/// Where a viewport currently is.
 ///
-/// The latches — whether new images should fill the panel — are a preference
-/// and stay where they are; what is remembered is where the user got to.
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Copy, PartialEq)]
-pub struct Place {
-    pub zoom: f32,
-    #[serde(with = "as_a_pair")]
-    pub pan: Vec2,
-}
-
-/// A `Vec2` as two numbers.
-///
-/// egui's own `serde` feature is not switched on in this build, and switching
-/// it on to write two floats would pull serialisation into every type the
-/// interface is made of.
-mod as_a_pair {
-    use eframe::epaint::Vec2;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S: Serializer>(pan: &Vec2, out: S) -> Result<S::Ok, S::Error> {
-        [pan.x, pan.y].serialize(out)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(input: D) -> Result<Vec2, D::Error> {
-        let [x, y] = <[f32; 2]>::deserialize(input)?;
-        Ok(Vec2::new(x, y))
-    }
-}
-
-impl Place {
-    /// The whole image, centred: what an image that was never touched shows.
-    pub const UNTOUCHED: Place = Place {
-        zoom: 1.0,
-        pan: Vec2::ZERO,
-    };
-
-    /// Where a viewport currently is.
-    pub fn of(viewport: &Viewport) -> Place {
-        Place {
-            zoom: viewport.zoom,
-            pan: viewport.pan,
-        }
-    }
-
-    /// Whether this is worth a map entry.
-    fn is_worth_remembering(&self) -> bool {
-        // The pan is meaningless at a zoom that shows the whole image, and is
-        // clamped away on the next frame anyway.
-        (self.zoom - 1.0).abs() > f32::EPSILON
+/// The one constructor that needs a `Viewport`, which is a drawing type — so
+/// it is here rather than on `Place`, and `Place` itself names nothing from
+/// the toolkit.
+pub fn place_of(viewport: &Viewport) -> Place {
+    Place {
+        zoom: viewport.zoom,
+        pan: Pan(viewport.pan.x, viewport.pan.y),
     }
 }
 
@@ -91,7 +57,7 @@ pub struct Viewports {
 impl Viewports {
     /// Records where `path` was left, or forgets it if it was left untouched.
     pub fn save(&mut self, path: &Path, viewport: &Viewport) {
-        let place = Place::of(viewport);
+        let place = place_of(viewport);
 
         if place.is_worth_remembering() {
             self.places.insert(path.to_path_buf(), place);
@@ -137,14 +103,14 @@ impl Viewports {
         }
 
         if keep.pan {
-            viewport.pan = previous.pan;
+            viewport.pan = Vec2::new(previous.pan.x(), previous.pan.y());
         }
     }
 
     /// Moves a viewport to a place, wherever the place came from.
     pub fn put(viewport: &mut Viewport, place: Place) {
         viewport.zoom = place.zoom;
-        viewport.pan = place.pan;
+        viewport.pan = Vec2::new(place.pan.x(), place.pan.y());
         viewport.scroll_delta = Vec2::ZERO;
     }
 
@@ -258,7 +224,7 @@ mod tests {
         // What repeating the last view does: the place of the picture just
         // left, applied to this one.
         let mut viewport = Viewport::default();
-        Viewports::put(&mut viewport, Place::of(&zoomed(3.0, Vec2::new(8.0, 9.0))));
+        Viewports::put(&mut viewport, place_of(&zoomed(3.0, Vec2::new(8.0, 9.0))));
 
         assert_eq!(viewport.zoom, 3.0);
         assert_eq!(viewport.pan, Vec2::new(8.0, 9.0));
@@ -278,7 +244,7 @@ mod tests {
                 zoom: true,
                 pan: false,
             },
-            Place::of(&zoomed(4.0, Vec2::new(80.0, 20.0))),
+            place_of(&zoomed(4.0, Vec2::new(80.0, 20.0))),
         );
 
         assert_eq!(viewport.zoom, 4.0);
@@ -301,7 +267,7 @@ mod tests {
                 zoom: true,
                 pan: false,
             },
-            Place::of(&zoomed(4.0, Vec2::ZERO)),
+            place_of(&zoomed(4.0, Vec2::ZERO)),
         );
 
         assert_eq!(viewport.zoom, 4.0);
@@ -326,7 +292,7 @@ mod tests {
                 zoom: false,
                 pan: true,
             },
-            Place::of(&zoomed(4.0, Vec2::new(80.0, 20.0))),
+            place_of(&zoomed(4.0, Vec2::new(80.0, 20.0))),
         );
 
         assert_eq!(viewport.pan, Vec2::new(80.0, 20.0));

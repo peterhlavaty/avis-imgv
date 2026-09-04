@@ -42,7 +42,18 @@ const DECIDES: &[&str] = &[
     "mode",
     "work",
     "annotations",
+    "cache::focus",
+    "cache::policy",
+    "cache::residency",
+    "cache::ram",
+    "collection",
     "decoder",
+    "history::tree",
+    "history::snapshot",
+    "history::watch",
+    "history::deed",
+    "history::persist",
+    "history::files",
     "metadata",
     "organize",
 ];
@@ -126,25 +137,37 @@ fn module_of(root: &Path, path: &Path) -> String {
     parts.join("::")
 }
 
-/// Whether a file names the toolkit in code rather than in prose.
+/// The file with its comments taken out.
 ///
-/// Comments are stripped first: four of the modules this branch cleaned still
-/// *mention* wgpu in a doc comment explaining why a buffer is laid out as it
-/// is, and a rule that counted those would be a rule nobody could satisfy.
-fn names_the_toolkit(text: &str) -> bool {
+/// Prose is not a dependency, and both questions this asks would otherwise be
+/// answered by it: four modules explain in a doc comment why a buffer is laid
+/// out the way wgpu wants, and `history::mod` links to `crate::app` in a
+/// sentence about the five dispatchers. Counting either would make a rule
+/// nobody could satisfy without writing worse documentation.
+fn code_only(text: &str) -> String {
     text.lines()
-        .map(|line| line.trim_start())
-        .filter(|line| !line.starts_with("//") && !line.starts_with("*"))
-        .any(|line| {
-            ["egui", "eframe", "epaint", "wgpu"]
-                .iter()
-                .any(|name| line.contains(name))
-        })
+        .map(str::trim_start)
+        .filter(|line| !line.starts_with("//") && !line.starts_with('*'))
+        .collect::<Vec<_>>()
+        .join(
+            "
+",
+        )
+}
+
+/// Whether a file names the toolkit in code rather than in prose.
+fn names_the_toolkit(text: &str) -> bool {
+    code_only(text).lines().any(|line| {
+        ["egui", "eframe", "epaint", "wgpu"]
+            .iter()
+            .any(|name| line.contains(name))
+    })
 }
 
 /// Which modules a file names, resolved against the modules that exist.
 fn edges(text: &str, modules: &HashSet<&String>) -> HashSet<String> {
     let mut found = HashSet::new();
+    let text = code_only(text);
 
     for piece in text.split("crate::").skip(1) {
         let path: String = piece

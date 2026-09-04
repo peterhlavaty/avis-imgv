@@ -19,10 +19,10 @@ use eframe::egui::{self, Color32, Rect, Sense};
 use eframe::epaint::Vec2;
 
 use crate::cache::{ImageState, ImageStore};
+use crate::collection::selection::Selection;
+use crate::collection::visible::Visible;
 use crate::ui::menus::Chosen;
-use crate::view::selection::Selection;
 use crate::view::texture;
-use crate::view::visible::Visible;
 
 use super::cell;
 
