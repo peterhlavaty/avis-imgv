@@ -4,112 +4,26 @@
 //! a hundred gigabytes of 60 megapixel raws. The budget turns that ambition
 //! into a sliding window: everything fits until it doesn't, and then the
 //! images furthest from where the user is looking are the ones dropped.
+//!
+//! The map, the budget and the eviction are [`super::residency`], which the
+//! GPU cache uses too. What is left here is what is true of *this* one: a
+//! decoded photograph measures itself by its buffer, and there is no ceiling
+//! on the count because bytes are the whole story.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::decoder::DecodedImage;
 
-use super::policy;
+use super::residency::{Residency, Resident};
+
+impl Resident for Arc<DecodedImage> {
+    fn byte_len(&self) -> usize {
+        DecodedImage::byte_len(self)
+    }
+}
 
 /// Decoded images held in RAM, evicted by distance from the viewer's position.
-pub struct RamCache {
-    entries: HashMap<usize, Arc<DecodedImage>>,
-    resident_bytes: usize,
-    budget_bytes: usize,
-}
-
-impl RamCache {
-    pub fn new(budget_bytes: usize) -> RamCache {
-        RamCache {
-            entries: HashMap::new(),
-            resident_bytes: 0,
-            budget_bytes,
-        }
-    }
-
-    pub fn get(&self, index: usize) -> Option<&Arc<DecodedImage>> {
-        self.entries.get(&index)
-    }
-
-    pub fn contains(&self, index: usize) -> bool {
-        self.entries.contains_key(&index)
-    }
-
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
-    pub fn resident_bytes(&self) -> usize {
-        self.resident_bytes
-    }
-
-    pub fn budget_bytes(&self) -> usize {
-        self.budget_bytes
-    }
-
-    /// Adds an image, then evicts until the budget is met again.
-    ///
-    /// The freshly inserted image is never the one evicted, so a single image
-    /// larger than the whole budget still displays.
-    pub fn insert(&mut self, index: usize, image: Arc<DecodedImage>, cursor: usize, total: usize) {
-        self.resident_bytes += image.byte_len();
-
-        if let Some(replaced) = self.entries.insert(index, image) {
-            self.resident_bytes = self.resident_bytes.saturating_sub(replaced.byte_len());
-        }
-
-        self.evict_until_within_budget(index, cursor, total);
-    }
-
-    pub fn remove(&mut self, index: usize) {
-        if let Some(removed) = self.entries.remove(&index) {
-            self.resident_bytes = self.resident_bytes.saturating_sub(removed.byte_len());
-        }
-    }
-
-    /// Removes an image that has left the collection, shifting the entries
-    /// above it down so the cache stays keyed by position.
-    pub fn remove_shifting(&mut self, index: usize) {
-        if let Some(removed) = policy::remove_and_shift(&mut self.entries, index) {
-            self.resident_bytes = self.resident_bytes.saturating_sub(removed.byte_len());
-        }
-    }
-
-    /// Makes room for a photograph appearing at `index`.
-    pub fn insert_shifting(&mut self, index: usize) {
-        policy::insert_and_shift(&mut self.entries, index);
-    }
-
-    pub fn clear(&mut self) {
-        self.entries.clear();
-        self.resident_bytes = 0;
-    }
-
-    /// Indices currently held, in no particular order.
-    pub fn indices(&self) -> impl Iterator<Item = usize> + '_ {
-        self.entries.keys().copied()
-    }
-
-    fn evict_until_within_budget(&mut self, keep: usize, cursor: usize, total: usize) {
-        while self.resident_bytes > self.budget_bytes {
-            let Some(victim) = self.furthest_from(cursor, total, keep) else {
-                return;
-            };
-
-            tracing::debug!("RAM budget reached, evicting image {victim}");
-            self.remove(victim);
-        }
-    }
-
-    fn furthest_from(&self, cursor: usize, total: usize, keep: usize) -> Option<usize> {
-        policy::furthest(self.entries.keys().copied(), cursor, total, keep)
-    }
-}
+pub type RamCache = Residency<Arc<DecodedImage>>;
 
 #[cfg(test)]
 mod tests {

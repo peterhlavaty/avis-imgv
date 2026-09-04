@@ -17,6 +17,7 @@ pub mod mipmap;
 pub mod policy;
 pub mod preview;
 pub mod ram;
+pub mod residency;
 pub mod scanned;
 pub mod store;
 
