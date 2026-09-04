@@ -3,15 +3,15 @@
 //! Reading the front of a file and decoding the camera's thumbnail costs a
 //! couple of milliseconds, so one thread keeps hundreds of images a second
 //! supplied. It is deliberately not the decode pool: this work has to stay out
-//! of the way of the real decoding, and it must never queue behind it.
+//! of the way of the real decoding, and it must never queue behind it. Sharing
+//! [`crate::work`]'s engine is not sharing a queue.
 
-use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Condvar, Mutex};
-use std::thread::JoinHandle;
+use std::sync::Arc;
 
 use crate::decoder::preview::{self, Preview};
+use crate::work::{Newest, OnShutdown, Pool};
 
 use super::loader::ImageKey;
 
@@ -28,33 +28,17 @@ struct Request {
     responder: Sender<Read>,
 }
 
-#[derive(Default)]
-struct Queue {
-    /// Newest first: the image the viewer is on now matters more than the one
-    /// it was on a moment ago.
-    pending: VecDeque<Request>,
-    shutdown: bool,
-}
-
-struct Shared {
-    queue: Mutex<Queue>,
-    ready: Condvar,
-    /// What the display's profile is called.
-    ///
-    /// Held here rather than passed per request because it is the same for
-    /// every photograph and changes only when the configuration does.
-    output_profile: Arc<str>,
-}
-
-/// Reads previews on a thread of its own.
-pub struct PreviewLoader {
-    shared: Arc<Shared>,
-    thread: Option<JoinHandle<()>>,
-}
-
 /// Beyond this the viewer has moved on faster than previews can be read, and
 /// the oldest requests are no longer worth keeping.
 const MAX_PENDING: usize = 256;
+
+/// Reads previews on a thread of its own.
+///
+/// Newest first: the image the viewer is on now matters more than the one it
+/// was on a moment ago.
+pub struct PreviewLoader {
+    pool: Pool<Newest<Request, MAX_PENDING>>,
+}
 
 impl Default for PreviewLoader {
     /// sRGB, which is what a display is unless it is configured otherwise.
@@ -65,86 +49,40 @@ impl Default for PreviewLoader {
 
 impl PreviewLoader {
     pub fn new(output_profile: Arc<str>) -> PreviewLoader {
-        let shared = Arc::new(Shared {
-            queue: Mutex::new(Queue::default()),
-            ready: Condvar::new(),
-            output_profile,
-        });
+        // Held by the worker rather than passed per request: it is the same
+        // for every photograph and changes only when the configuration does.
+        let pool = Pool::new(
+            "avis-previews",
+            1,
+            OnShutdown::Drop,
+            move |request: Request| {
+                let Some(preview) = preview::load(&request.path, &output_profile) else {
+                    return;
+                };
 
-        let worker = Arc::clone(&shared);
-        let thread = std::thread::Builder::new()
-            .name("avis-previews".to_string())
-            .spawn(move || run(&worker))
-            .ok();
+                // A closed channel means the store was replaced; nothing to do.
+                let _ = request.responder.send(Read {
+                    key: request.key,
+                    preview,
+                });
+            },
+        );
 
-        PreviewLoader { shared, thread }
+        PreviewLoader { pool }
     }
 
     /// Queues an image, ahead of everything already waiting.
     pub fn submit(&self, key: ImageKey, path: PathBuf, responder: Sender<Read>) {
-        let Ok(mut queue) = self.shared.queue.lock() else {
-            return;
-        };
-
-        queue.pending.push_front(Request {
+        self.pool.submit(Request {
             key,
             path,
             responder,
         });
-        queue.pending.truncate(MAX_PENDING);
-
-        self.shared.ready.notify_one();
     }
 
     /// Forgets everything queued, for when the open folder changes.
     pub fn clear(&self) {
-        if let Ok(mut queue) = self.shared.queue.lock() {
-            queue.pending.clear();
-        }
-    }
-}
-
-impl Drop for PreviewLoader {
-    fn drop(&mut self) {
-        if let Ok(mut queue) = self.shared.queue.lock() {
-            queue.shutdown = true;
-            queue.pending.clear();
-        }
-        self.shared.ready.notify_all();
-
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
-        }
-    }
-}
-
-fn run(shared: &Shared) {
-    while let Some(request) = next(shared) {
-        let Some(preview) = preview::load(&request.path, &shared.output_profile) else {
-            continue;
-        };
-
-        // A closed channel means the store was replaced; nothing to do.
-        let _ = request.responder.send(Read {
-            key: request.key,
-            preview,
-        });
-    }
-}
-
-fn next(shared: &Shared) -> Option<Request> {
-    let mut queue = shared.queue.lock().ok()?;
-
-    loop {
-        if let Some(request) = queue.pending.pop_front() {
-            return Some(request);
-        }
-
-        if queue.shutdown {
-            return None;
-        }
-
-        queue = shared.ready.wait(queue).ok()?;
+        self.pool.clear();
     }
 }
 
@@ -245,7 +183,7 @@ mod tests {
             loader.submit(key(index), PathBuf::from("does-not-exist.jpg"), tx.clone());
         }
 
-        let queued = loader.shared.queue.lock().unwrap().pending.len();
+        let queued = loader.pool.pending();
         assert!(queued <= MAX_PENDING, "{queued} queued");
     }
 }

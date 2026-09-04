@@ -5,14 +5,12 @@
 //! requested a moment earlier. Workers therefore pull from a priority queue and
 //! drop requests that the viewer has since navigated away from.
 
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Condvar, Mutex};
-use std::thread::{self, JoinHandle};
+use std::sync::Arc;
 
 use crate::decoder::{self, DecodeError, DecodeOptions, DecodedImage};
+use crate::work::{OnShutdown, Pool, Ranked};
 
 pub use super::focus::Focus;
 
@@ -62,55 +60,37 @@ pub struct Job {
     pub responder: Sender<LoadResult>,
 }
 
-/// One unit of work, as the queue holds it.
-struct Request {
-    job: Job,
-}
-
-// The heap orders by priority alone; ties are broken arbitrarily, which is
-// fine because equally distant images are equally urgent.
-impl PartialEq for Request {
+// `Ranked` hands back the least first, and the job's order is its priority:
+// distance from the cursor. Ties are broken arbitrarily, which is right —
+// equally distant photographs are equally urgent.
+impl PartialEq for Job {
     fn eq(&self, other: &Self) -> bool {
-        self.job.priority == other.job.priority
+        self.priority == other.priority
     }
 }
-impl Eq for Request {}
-impl PartialOrd for Request {
+impl Eq for Job {}
+impl PartialOrd for Job {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
-impl Ord for Request {
+impl Ord for Job {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.job.priority.cmp(&other.job.priority)
+        self.priority.cmp(&other.priority)
     }
-}
-
-#[derive(Default)]
-struct Queue {
-    pending: BinaryHeap<Reverse<Request>>,
-    shutdown: bool,
-}
-
-struct Shared {
-    queue: Mutex<Queue>,
-    ready: Condvar,
 }
 
 /// A pool of decode workers fed by a shared priority queue.
 pub struct Loader {
-    shared: Arc<Shared>,
-    workers: Vec<JoinHandle<()>>,
+    pool: Pool<Ranked<Job>>,
 }
 
 impl Loader {
     /// Starts `worker_count` threads. Zero means "pick a sensible number".
     ///
-    /// The number arrives from the configuration file and every spawn is
-    /// `expect`ed, so a thousand decode threads used to be a panic with no
-    /// message. The cap is here rather than in `Config` because the file keeps
-    /// what it says and the consumer refuses to act on the impossible part of
-    /// it.
+    /// The number arrives from the configuration file, so the cap is here
+    /// rather than in `Config`: the file keeps what it says and the consumer
+    /// refuses to act on the impossible part of it.
     pub fn new(worker_count: usize) -> Loader {
         let worker_count = worker_count.min(MAX_WORKERS);
         let worker_count = if worker_count == 0 {
@@ -119,99 +99,53 @@ impl Loader {
             worker_count
         };
 
-        let shared = Arc::new(Shared {
-            queue: Mutex::new(Queue::default()),
-            ready: Condvar::new(),
-        });
-
         tracing::info!("Starting {worker_count} decode workers");
 
-        let workers = (0..worker_count)
-            .map(|i| {
-                let shared = Arc::clone(&shared);
-                thread::Builder::new()
-                    .name(format!("avis-decode-{i}"))
-                    .spawn(move || worker_loop(&shared))
-                    .expect("decode worker thread")
-            })
-            .collect();
+        // Dropped rather than finished on the way out: a queued decode is a
+        // photograph nobody is waiting for any more.
+        let pool = Pool::new("avis-decode", worker_count, OnShutdown::Drop, decode);
 
-        Loader { shared, workers }
+        Loader { pool }
     }
 
     /// How many decode threads are actually running.
     pub fn worker_count(&self) -> usize {
-        self.workers.len()
+        self.pool.workers()
     }
 
     /// Queues an image for decoding.
     pub fn submit(&self, job: Job) {
-        if let Ok(mut queue) = self.shared.queue.lock() {
-            queue.pending.push(Reverse(Request { job }));
-            self.shared.ready.notify_one();
-        }
+        self.pool.submit(job);
     }
 
     /// Drops every queued request, used when the open collection changes.
     pub fn clear(&self) {
-        if let Ok(mut queue) = self.shared.queue.lock() {
-            queue.pending.clear();
-        }
-    }
-
-    /// Whether the queue has been drained. Workers may still be finishing the
-    /// requests they already picked up.
-    pub fn is_queue_empty(&self) -> bool {
-        self.shared
-            .queue
-            .lock()
-            .map(|queue| queue.pending.is_empty())
-            .unwrap_or(true)
+        self.pool.clear();
     }
 }
 
-impl Drop for Loader {
-    fn drop(&mut self) {
-        if let Ok(mut queue) = self.shared.queue.lock() {
-            queue.shutdown = true;
-            queue.pending.clear();
-        }
-        self.shared.ready.notify_all();
-
-        for worker in self.workers.drain(..) {
-            let _ = worker.join();
-        }
-    }
-}
-
-fn worker_loop(shared: &Shared) {
-    loop {
-        let Some(request) = next_request(shared) else {
-            return;
-        };
-
-        let job = request.job;
-
-        // The viewer may have moved on while this job sat in the queue.
-        let outcome = if job.focus.accepts(job.key, job.radius) {
-            match decode_without_dying(&job.path, &job.options) {
-                Ok(image) => Loaded::Decoded(image),
-                Err(e) => {
-                    tracing::warn!("{} {e}", job.path.display());
-                    Loaded::Failed(e)
-                }
+/// One photograph: decode it unless the viewer has moved on, and send the
+/// answer back.
+fn decode(job: Job) {
+    // The viewer may have moved on while this job sat in the queue.
+    let outcome = if job.focus.accepts(job.key, job.radius) {
+        match decode_without_dying(&job.path, &job.options) {
+            Ok(image) => Loaded::Decoded(image),
+            Err(e) => {
+                tracing::warn!("{} {e}", job.path.display());
+                Loaded::Failed(e)
             }
-        } else {
-            tracing::trace!("Abandoning {}", job.path.display());
-            Loaded::Abandoned
-        };
+        }
+    } else {
+        tracing::trace!("Abandoning {}", job.path.display());
+        Loaded::Abandoned
+    };
 
-        // A closed channel just means the store was dropped or replaced.
-        let _ = job.responder.send(LoadResult {
-            key: job.key,
-            outcome,
-        });
-    }
+    // A closed channel just means the store was dropped or replaced.
+    let _ = job.responder.send(LoadResult {
+        key: job.key,
+        outcome,
+    });
 }
 
 /// Decodes, turning a panic into a failed image rather than a lost worker.
@@ -234,23 +168,6 @@ fn decode_without_dying(
     }
 }
 
-/// Blocks until there is work, or returns `None` once the pool shuts down.
-fn next_request(shared: &Shared) -> Option<Request> {
-    let mut queue = shared.queue.lock().ok()?;
-
-    loop {
-        if queue.shutdown {
-            return None;
-        }
-
-        if let Some(Reverse(request)) = queue.pending.pop() {
-            return Some(request);
-        }
-
-        queue = shared.ready.wait(queue).ok()?;
-    }
-}
-
 /// Ceiling on the default worker count.
 ///
 /// Decoding a photograph is not compute bound past a handful of threads: a 24
@@ -270,7 +187,7 @@ pub const MAX_WORKERS: usize = 64;
 /// Leaves a core for the UI thread so navigation stays responsive while a
 /// folder is being read.
 fn default_worker_count() -> usize {
-    thread::available_parallelism()
+    std::thread::available_parallelism()
         .map(|n| n.get().saturating_sub(1).clamp(1, MAX_DEFAULT_WORKERS))
         .unwrap_or(2)
 }
