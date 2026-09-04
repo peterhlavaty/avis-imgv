@@ -2,6 +2,14 @@
 
 ## 2026-09-04
 
+- **A configuration written across a rename is no longer half thrown away.** A
+  renamed setting is read under both its old and new name, so a file holding
+  both — written before the rename and again after it — was a duplicate field,
+  and the whole section it was in was ignored on every launch. Anybody whose
+  file had both `pan_fine_modifier` and `fine_modifier` had been losing every
+  `image_view` setting silently. The old spelling is dropped where the new one
+  is beside it.
+
 - **Culling from a stacked folder no longer mislabels the frames below it.** A
   stack holds positions in the open collection, and taking a photograph out
   moved every position after it. Nothing said so, so the runs went on naming

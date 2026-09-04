@@ -347,6 +347,46 @@ fn strip_comments(document: &str) -> String {
 }
 
 /// One section of the document, or its defaults when it cannot be read.
+/// Keys renamed since a version somebody may still have, as `(was, is)`.
+///
+/// A rename is spelt with `#[serde(alias = "...")]`, which reads the old name
+/// *and* the new one — and a file holding both is then a duplicate field,
+/// which costs the whole section. That is not hypothetical: a configuration
+/// written before `pan_fine_modifier` became `fine_modifier`, and then written
+/// again by a build that had renamed it, holds both, and every setting under
+/// `image_view` has been silently ignored ever since.
+///
+/// The new spelling wins, because it is the one the program last wrote.
+const RENAMED: &[(&str, &str)] = &[("pan_fine_modifier", "fine_modifier")];
+
+/// Drops an old spelling where the new one is present beside it.
+///
+/// Here rather than in `migrate`, because the section has to parse before a
+/// migration can run on it and this is exactly the case where it does not.
+fn without_stale_names(value: &serde_json::Value) -> std::borrow::Cow<'_, serde_json::Value> {
+    let Some(map) = value.as_object() else {
+        return std::borrow::Cow::Borrowed(value);
+    };
+
+    let stale: Vec<&str> = RENAMED
+        .iter()
+        .filter(|(was, is)| map.contains_key(*was) && map.contains_key(*is))
+        .map(|(was, _)| *was)
+        .collect();
+
+    if stale.is_empty() {
+        return std::borrow::Cow::Borrowed(value);
+    }
+
+    let mut map = map.clone();
+    for was in stale {
+        tracing::info!("Dropping the old \"{was}\" key, which the file holds twice over");
+        map.remove(was);
+    }
+
+    std::borrow::Cow::Owned(serde_json::Value::Object(map))
+}
+
 fn section<T: serde::de::DeserializeOwned + Default>(
     map: &serde_json::Map<String, serde_json::Value>,
     name: &str,
@@ -356,7 +396,9 @@ fn section<T: serde::de::DeserializeOwned + Default>(
         return T::default();
     };
 
-    match serde_json::from_value(value.clone()) {
+    let value = without_stale_names(value);
+
+    match serde_json::from_value(value.into_owned()) {
         Ok(parsed) => parsed,
         Err(e) => {
             tracing::error!("Ignoring the \"{name}\" section of the configuration: {e}");
@@ -368,6 +410,69 @@ fn section<T: serde::de::DeserializeOwned + Default>(
 
 #[cfg(test)]
 mod tests {
+
+    /// A file that holds both spellings of a renamed key.
+    ///
+    /// Found by running the release build at the end of this branch and
+    /// reading its first three lines: "Ignoring the "image_view" section of
+    /// the configuration: duplicate field `fine_modifier`". A real
+    /// configuration, written across the rename, in which every setting under
+    /// `image_view` had been silently discarded on every launch since.
+    #[test]
+    fn a_file_holding_both_spellings_of_a_renamed_key_still_loads() {
+        let both = serde_json::json!({
+            "fine_modifier": "alt",
+            "pan_fine_modifier": "ctrl",
+            "nr_images_shown": 3,
+        });
+
+        let cleaned = without_stale_names(&both);
+        let map = cleaned.as_object().expect("still an object");
+
+        assert!(!map.contains_key("pan_fine_modifier"));
+        assert_eq!(map.get("fine_modifier"), Some(&serde_json::json!("alt")));
+        assert_eq!(map.get("nr_images_shown"), Some(&serde_json::json!(3)));
+    }
+
+    /// The old name alone is what the alias is *for*, and must still be read.
+    #[test]
+    fn the_old_spelling_alone_is_left_where_it_is() {
+        let old = serde_json::json!({ "pan_fine_modifier": "ctrl" });
+
+        let cleaned = without_stale_names(&old);
+
+        assert_eq!(cleaned.as_ref(), &old);
+        assert!(
+            matches!(cleaned, std::borrow::Cow::Borrowed(_)),
+            "not copied"
+        );
+    }
+
+    #[test]
+    fn a_file_with_neither_is_not_copied() {
+        let plain = serde_json::json!({ "nr_images_shown": 3 });
+
+        assert!(matches!(
+            without_stale_names(&plain),
+            std::borrow::Cow::Borrowed(_)
+        ));
+    }
+
+    /// The whole section, through the real path, which is what actually broke.
+    #[test]
+    fn a_section_holding_both_spellings_is_not_thrown_away() {
+        let file: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_value(serde_json::json!({
+                "image_view": { "fine_modifier": "alt", "pan_fine_modifier": "ctrl" }
+            }))
+            .expect("it parses");
+
+        let mut partial = false;
+        let read: crate::config::ImageViewConfig = section(&file, "image_view", &mut partial);
+
+        assert!(!partial, "the section was kept");
+        assert_eq!(read.fine_modifier, crate::config::FineModifier::Alt);
+    }
     use super::super::{FineModifier, GridViewConfig};
     use super::*;
 
