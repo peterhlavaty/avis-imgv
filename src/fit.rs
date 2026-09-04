@@ -22,16 +22,23 @@
 //!
 //! # Where the toolkit's vector is taught to fit
 //!
-//! [`Edges`] is implemented for `(u32, u32)` and `(f32, f32)` here, and for the
-//! toolkit's own vector in the drawing layer — `view::texture`.
+//! Here, with the other two implementations, and that was twice reconsidered.
 //!
-//! Be precise about what that buys, because it is easy to overstate. Within one
-//! crate the trait is local everywhere, so the orphan rule does not forbid
-//! writing that impl here; coherence only stops a *second* one. The placement
-//! is therefore a convention today, and it becomes the compiler's rule on the
-//! day this file is a crate of its own — which is the point of keeping it able
-//! to be one. What is checked now is that there is exactly one implementation
-//! and it is not in this file.
+//! It began in the drawing layer, on the theory that the orphan rule put it
+//! there and that this file could then be lifted out as a crate. The orphan
+//! rule does no such thing within one crate — the trait is local everywhere,
+//! and only coherence stops a *second* impl — so that was a convention wearing
+//! a rule's clothes.
+//!
+//! The `gui` feature then settled it for real. `cache::gpu` holds a `Vec2` and
+//! asks this question about it, and the cache is not part of the drawing layer,
+//! so an implementation living there is one the cache cannot see when the
+//! drawing layer is gated out. The convention and the boundary disagreed, and
+//! the boundary is the one the compiler checks.
+//!
+//! What that costs is the pretence that this file could be published as it
+//! stands: it names `epaint::Vec2` for one impl. Everything else in it is
+//! arithmetic, and the arithmetic is what the six callers share.
 
 /// A pair of dimensions that can be measured and rebuilt.
 ///
@@ -60,6 +67,25 @@ impl Edges for (f32, f32) {
 
     fn of(width: f32, height: f32) -> Self {
         (width, height)
+    }
+}
+
+/// The toolkit's own vector.
+///
+/// epaint is not an optional dependency — `config::shortcut` needs it however
+/// the crate is built — so this costs nothing at the boundary the `gui`
+/// feature draws.
+impl Edges for eframe::epaint::Vec2 {
+    fn width(self) -> f32 {
+        self.x
+    }
+
+    fn height(self) -> f32 {
+        self.y
+    }
+
+    fn of(width: f32, height: f32) -> Self {
+        eframe::epaint::Vec2::new(width, height)
     }
 }
 

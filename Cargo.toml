@@ -58,10 +58,37 @@ lto = "thin"
 codegen-units = 1
 
 [features]
-default = ["custom_font"]
+default = ["gui", "custom_font"]
+
+# The window, and everything that draws in it: `view`, `ui` and `app`.
+#
+# Not a feature anybody is expected to turn off to get a smaller build. It is
+# there so that `cargo check --no-default-features` compiles the crate *without
+# the drawing layer*, and every reference to it from the half that decides
+# becomes an unresolved import — which makes the dependency direction the
+# compiler's business rather than a test's. Within one crate there is no other
+# way to get that.
+#
+# Be exact about what it proves, because the temptation is to claim more. It
+# proves nothing below the drawing layer names the drawing layer. It does *not*
+# prove the crate is free of the toolkit: eframe stays in the dependency graph,
+# because `config::shortcut` speaks egui's keyboard vocabulary on purpose — a
+# chord is compared on the `KeyboardShortcut` egui builds from it, and owning a
+# copy of that vocabulary would mean the clash checker answering about keys the
+# toolkit does not read. Freeing the crate of eframe entirely is a workspace
+# split, and that is not what this is.
+gui = []
 custom_font = []
 # JPEG XL support. Requires cmake and a C++ toolchain to build libjxl from source.
 jxl = ["dep:jpegxl-rs"]
 # Developing raw files rather than showing their embedded preview. Links
 # against a system LibRaw; see build.rs for how it is found.
 libraw = ["dep:pkg-config", "dep:vcpkg"]
+
+# The viewer needs a window. Said here so `--no-default-features` checks the
+# library's layering rather than failing on a binary that cannot exist without
+# one.
+[[bin]]
+name = "avis-imgv"
+path = "src/main.rs"
+required-features = ["gui"]

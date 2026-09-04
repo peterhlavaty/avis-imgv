@@ -34,6 +34,11 @@ use std::time::{Duration, SystemTime};
 
 pub mod deed;
 pub mod files;
+// The history's own panel: the file that draws, beside the files that
+// decide. `gui` gates it, which is the house rule made checkable — a job
+// directory keeps its drawing, and the rest of the directory keeps working
+// without it.
+#[cfg(feature = "gui")]
 pub mod panel;
 pub mod persist;
 pub mod snapshot;
@@ -42,6 +47,7 @@ pub mod watch;
 
 pub use deed::{Class, Deed};
 pub use files::{Done, Step, Way};
+#[cfg(feature = "gui")]
 pub use panel::Action;
 pub use snapshot::{Change, Panels, Slot, Snapshot, Watched};
 pub use tree::{Node, NodeId, Tree};

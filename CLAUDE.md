@@ -76,9 +76,20 @@ committing:
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-cargo clippy --all-targets --no-default-features -- -D warnings
+cargo clippy --all-targets --no-default-features --features gui -- -D warnings
+cargo clippy --no-default-features -- -D warnings
 cargo build --release
 ```
+
+The fifth is the layering, and it is the compiler rather than a test. `gui` is
+a default feature covering `view`, `ui` and `app`; without it the crate builds
+with the drawing layer taken out, so a reference to it from the half that
+decides is an unresolved import. Nobody is expected to run the viewer that way
+— the binary declares `required-features = ["gui"]`. Adding a `crate::ui::` to
+`config` or `collection` is what it catches, and it catches it the way a type
+error is caught. What it does *not* prove is that the crate is free of the
+toolkit: eframe stays in the graph, because `config::shortcut` speaks egui's
+keyboard vocabulary deliberately.
 
 A clippy warning is a failure. There is no rustfmt configuration: default
 style.

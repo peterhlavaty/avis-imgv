@@ -95,6 +95,11 @@ pub enum Command {
 impl Command {
     /// Whether this is a mark, and so whether it may advance to the next
     /// photograph once it has been applied.
+    /// Whether this is one of the marking commands.
+    ///
+    /// Read only by the reader in `app::input`, which the `gui` feature gates,
+    /// so it is dead without a window rather than dead altogether.
+    #[cfg_attr(not(feature = "gui"), allow(dead_code))]
     pub(crate) fn is_a_mark(self) -> bool {
         matches!(
             self,

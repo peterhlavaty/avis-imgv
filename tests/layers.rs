@@ -18,10 +18,17 @@
 //! rots while everybody believes it holds. What makes it worth having anyway
 //! is that the exemption list is short, is in the diff, and shrinks.
 //!
-//! The one boundary that is not a test is the Cargo feature gate, when it
-//! lands: `cargo check --no-default-features` takes eframe out of the
-//! dependency graph, and then an unresolved import is `rustc`'s answer rather
-//! than this file's.
+//! # What now does the real work
+//!
+//! The `gui` feature. `cargo clippy --no-default-features` builds the crate
+//! with `view`, `ui` and `app` taken out, so a reference to them from the half
+//! that decides is an unresolved import — rustc's answer rather than this
+//! file's, and not one a row in a list can wave through.
+//!
+//! This test is still worth running, because it answers a question the gate
+//! cannot: the gate knows about *modules*, and this knows about the toolkit.
+//! `cache::gpu` is not gated and names wgpu, quite correctly; what this checks
+//! is that nothing in DECIDES reaches it.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

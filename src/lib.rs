@@ -26,6 +26,7 @@
 
 pub mod actions;
 pub mod annotations;
+#[cfg(feature = "gui")]
 pub mod app;
 pub mod atomic;
 pub mod board;
@@ -45,7 +46,9 @@ pub mod metadata;
 pub mod mode;
 pub mod organize;
 pub mod session;
+#[cfg(feature = "gui")]
 pub mod ui;
+#[cfg(feature = "gui")]
 pub mod view;
 pub mod work;
 
