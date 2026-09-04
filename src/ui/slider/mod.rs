@@ -21,17 +21,19 @@
 pub mod drag;
 mod paint;
 
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Mutex;
-
 use eframe::egui::{
     self, emath::Numeric, EventFilter, Key, NumExt as _, PointerButton, Rangef, Response, RichText,
     Sense, TextStyle, Ui, Vec2, ViewportCommand, Widget, WidgetInfo,
 };
 
+use crate::board::{Mailbox, Published};
 use crate::config::registry::Page;
 use crate::ui::surface::{self, Subject};
 
+thread_local! {
+    static TRAVEL_CELL: std::cell::RefCell<f32> =
+        const { std::cell::RefCell::new(drag::SHIPS_AS) };
+}
 /// How far the pointer travels to cross a rail, as everything but the
 /// configuration file sees it.
 ///
@@ -40,7 +42,7 @@ use crate::ui::surface::{self, Subject};
 /// is one: it is a single decision the whole program agrees about, and the
 /// places that draw a rail have no configuration in hand. Written from
 /// `App::apply_settings`, where every other copy of a setting is handed out.
-static TRAVEL: AtomicU32 = AtomicU32::new(drag::SHIPS_AS.to_bits());
+static TRAVEL: Published<f32> = Published::kept_in(&TRAVEL_CELL);
 
 /// What a rail's menu asked the program for.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,27 +53,30 @@ pub enum Ask {
     Settings,
 }
 
+thread_local! {
+    static ASKED_CELL: std::cell::RefCell<Option<Ask>> = const { std::cell::RefCell::new(None) };
+}
 /// The ask, waiting to be taken.
 ///
 /// The same shape as the keyboard's ask in `surface`, and for the same reason:
 /// a menu drawn from inside a widget has no route back to `Config`, and a
 /// mailbox the program empties once a frame is shorter than a return value
 /// threaded up through every caller of every rail.
-static ASKED: Mutex<Option<Ask>> = Mutex::new(None);
+static ASKED: Mailbox<Ask> = Mailbox::kept_in(&ASKED_CELL);
 
 /// Hands the travel to the rails.
 pub fn travels(travel: f32) {
-    TRAVEL.store(travel.to_bits(), Ordering::Relaxed);
+    TRAVEL.publish(|held| *held = travel);
 }
 
 /// What the rails are using.
 pub fn travel() -> f32 {
-    f32::from_bits(TRAVEL.load(Ordering::Relaxed))
+    TRAVEL.read(|held| *held).unwrap_or(drag::SHIPS_AS)
 }
 
 /// What a rail's menu asked for, if anything, taking the ask.
 pub fn asked() -> Option<Ask> {
-    ASKED.lock().ok().and_then(|mut asked| asked.take())
+    ASKED.take()
 }
 
 /// How near two travels have to be to be the same one.
@@ -82,9 +87,7 @@ pub fn asked() -> Option<Ask> {
 const CLOSE_ENOUGH: f32 = 0.01;
 
 fn ask(what: Ask) {
-    if let Ok(mut asked) = ASKED.lock() {
-        *asked = Some(what);
-    }
+    ASKED.ask(what);
 }
 
 /// Where a drag has got to, kept between frames.
@@ -484,11 +487,6 @@ mod tests {
     use super::*;
     use eframe::egui::{Event, Modifiers, Pos2, RawInput, Rect};
 
-    /// The travel and the mailbox are one per program, which is what makes them
-    /// reachable from a widget; two tests changing them at once would each see
-    /// the other's. Every test here takes this first.
-    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
-
     /// Where the drag begins.
     #[derive(Clone, Copy)]
     enum Press {
@@ -560,8 +558,6 @@ mod tests {
     /// of the hand moves the value a third as far.
     #[test]
     fn a_longer_travel_moves_the_value_less() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
-
         let bound = dragged(1.0, 50.0, Press::OnTheHandle, &[30.0]);
         let fine = dragged(3.0, 50.0, Press::OnTheHandle, &[30.0]);
 
@@ -578,8 +574,6 @@ mod tests {
     /// back is back.
     #[test]
     fn the_drag_adds_up_over_the_frames_it_took() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
-
         let one_go = dragged(2.0, 50.0, Press::OnTheHandle, &[40.0]);
         let in_pieces = dragged(2.0, 50.0, Press::OnTheHandle, &[10.0, 10.0, 10.0, 10.0]);
         assert!(
@@ -598,8 +592,6 @@ mod tests {
     /// the value it was about to adjust has to be undone before it can be used.
     #[test]
     fn taking_hold_of_the_handle_does_not_move_it() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
-
         for from in [37.3, 0.0, 100.0, 62.5] {
             let held = dragged(3.0, from, Press::OnTheHandle, &[]);
             assert_eq!(held, from, "taking hold of it at {from} moved it to {held}");
@@ -611,8 +603,6 @@ mod tests {
     /// journey.
     #[test]
     fn a_press_away_from_the_handle_puts_it_under_the_pointer() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
-
         let pressed = dragged(10.0, 5.0, Press::At(0.5), &[]);
         assert!(
             (pressed - 50.0).abs() < 2.0,
@@ -625,8 +615,6 @@ mod tests {
     /// left the photograph a shade too large for the window.
     #[test]
     fn a_drag_to_an_end_lands_exactly_on_it() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
-
         assert_eq!(dragged(3.0, 50.0, Press::OnTheHandle, &[-1000.0]), 0.0);
         assert_eq!(dragged(3.0, 50.0, Press::OnTheHandle, &[1000.0]), 100.0);
     }
@@ -635,7 +623,6 @@ mod tests {
     /// once is not acted on twice.
     #[test]
     fn an_ask_is_taken_once() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
         let _ = asked();
 
         ask(Ask::Travel(5.0));
@@ -650,8 +637,6 @@ mod tests {
     /// What the program hands out is what the rails read.
     #[test]
     fn the_travel_is_the_one_the_program_handed_out() {
-        let _one_at_a_time = ONE_AT_A_TIME.lock();
-
         travels(4.5);
         assert_eq!(travel(), 4.5);
         travels(drag::SHIPS_AS);

@@ -17,11 +17,10 @@
 //! menu must not name, and `Enter` opens the cell under the cursor in the
 //! contact sheet and does nothing at all on the strip beside a photograph.
 
-use std::sync::Mutex;
-
 use eframe::egui::{self, Atom, Response, RichText};
 
 use crate::app::mode::Mode;
+use crate::board::Published;
 use crate::config::registry::Scope;
 use crate::config::{bindings, Config};
 
@@ -37,8 +36,13 @@ struct Named {
     key: String,
 }
 
+thread_local! {
+    static NAMED_CELL: std::cell::RefCell<Vec<Named>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// One entry per binding, in the registry's order.
-static NAMED: Mutex<Vec<Named>> = Mutex::new(Vec::new());
+static NAMED: Published<Vec<Named>> = Published::kept_in(&NAMED_CELL);
 
 /// Which scopes are live in each mode.
 ///
@@ -68,21 +72,14 @@ pub fn scopes_for(mode: Mode) -> &'static [Scope] {
 /// naming none. The strings are written over rather than built again, so a
 /// frame on which nothing was rebound allocates nothing.
 pub fn publish(config: &Config, mode: Mode) {
-    let Ok(mut named) = NAMED.lock() else {
-        return;
-    };
-
-    let bindings = bindings::all();
     let live = scopes_for(mode);
 
-    named.resize_with(bindings.len(), Named::default);
-
-    for (row, binding) in named.iter_mut().zip(bindings.iter()) {
+    NAMED.refill(bindings::all().iter(), |row, binding| {
         row.path = binding.path();
         row.key.clear();
 
         if !live.contains(&binding.scope()) {
-            continue;
+            return;
         }
 
         match binding.fixed() {
@@ -94,7 +91,7 @@ pub fn publish(config: &Config, mode: Mode) {
                 }
             }
         }
-    }
+    });
 }
 
 /// What the keys for the command at `path` read as.
@@ -109,23 +106,24 @@ pub fn of(path: &str) -> String {
         return String::new();
     }
 
-    let Ok(named) = NAMED.lock() else {
-        return String::new();
-    };
+    NAMED
+        .read(|named| {
+            // A menu naming a path the registry has never heard of draws no
+            // key and says nothing about it, which is how a renamed row would
+            // go quietly wrong. Only worth asking once something has been
+            // published, since a test that draws a menu without a frame around
+            // it asks an empty list.
+            debug_assert!(
+                named.is_empty() || named.iter().any(|row| row.path == path),
+                "{path} is named by a menu and is not a key the registry has"
+            );
 
-    // A menu naming a path the registry has never heard of draws no key and
-    // says nothing about it, which is how a renamed row would go quietly
-    // wrong. Only worth asking once something has been published, since a test
-    // that draws a menu without a frame around it asks an empty list.
-    debug_assert!(
-        named.is_empty() || named.iter().any(|row| row.path == path),
-        "{path} is named by a menu and is not a key the registry has"
-    );
-
-    named
-        .iter()
-        .find(|row| row.path == path)
-        .map(|row| row.key.clone())
+            named
+                .iter()
+                .find(|row| row.path == path)
+                .map(|row| row.key.clone())
+                .unwrap_or_default()
+        })
         .unwrap_or_default()
 }
 
@@ -185,21 +183,9 @@ pub fn checkbox(
 mod tests {
     use super::*;
 
-    /// The table is process-wide, so the tests that write to it take turns
-    /// rather than racing each other.
-    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
-
-    /// The turn, surviving a test that panicked while holding it.
-    fn a_turn() -> std::sync::MutexGuard<'static, ()> {
-        ONE_AT_A_TIME
-            .lock()
-            .unwrap_or_else(|held| held.into_inner())
-    }
-
     /// What a fresh configuration binds, as the menus print it.
     #[test]
     fn a_command_is_named_by_the_key_it_carries() {
-        let _turn = a_turn();
         publish(&Config::default(), Mode::Image);
 
         assert_eq!(of("general.sc_settings"), "Ctrl + Comma");
@@ -209,7 +195,6 @@ mod tests {
     /// A key nobody can change is still a key, and the menu still names it.
     #[test]
     fn a_fixed_key_is_named_too() {
-        let _turn = a_turn();
         publish(&Config::default(), Mode::Image);
 
         assert_eq!(of("fixed.cheat_sheet"), "?");
@@ -220,8 +205,6 @@ mod tests {
     /// the only place there is one.
     #[test]
     fn a_key_that_is_not_read_here_is_not_named() {
-        let _turn = a_turn();
-
         publish(&Config::default(), Mode::Image);
         assert!(of("fixed.grid_open").is_empty());
         assert!(of("grid_view.sc_select_all").is_empty());
@@ -242,7 +225,6 @@ mod tests {
     /// seven and is put away by a key that is not a setting.
     #[test]
     fn a_surface_with_no_key_names_nothing() {
-        let _turn = a_turn();
         publish(&Config::default(), Mode::Image);
 
         assert!(of("").is_empty());
@@ -252,8 +234,6 @@ mod tests {
     /// the same as one that never had one.
     #[test]
     fn a_command_with_no_key_is_named_by_nothing() {
-        let _turn = a_turn();
-
         let mut config = Config::default();
         config.image_view.sc_fit = crate::config::Shortcut::unbound();
         publish(&config, Mode::Image);

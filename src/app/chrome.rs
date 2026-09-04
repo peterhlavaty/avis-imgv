@@ -112,14 +112,13 @@ impl App {
     ///
     /// [`publish_keys`]: Self::publish_keys
     pub(super) fn publish_panels(&self) {
-        let panels = crate::ui::panel::EVERY_PANEL
-            .iter()
-            .map(|chrome| crate::ui::panel::Showing {
+        // Not collected first: the board writes over the rows it already has,
+        // so publishing this costs nothing on a frame where no panel moved.
+        crate::ui::panel::showing(crate::ui::panel::EVERY_PANEL.iter().map(|chrome| {
+            crate::ui::panel::Showing {
                 on: self.panel_is_showing(chrome.hide),
-            })
-            .collect();
-
-        crate::ui::panel::showing(panels);
+            }
+        }));
     }
 
     /// Says what every command's keys read as, for the menus that name them.

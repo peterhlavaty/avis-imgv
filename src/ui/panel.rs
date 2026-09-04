@@ -33,11 +33,10 @@
 //! nothing else. The rows, their wording, their order and the route back to
 //! the program are here.
 
-use std::sync::Mutex;
-
 use eframe::egui;
 
 use crate::app::input::Command;
+use crate::board::{Mailbox, Published};
 use crate::config::registry::Page;
 use crate::ui::surface::{self, Subject};
 
@@ -62,18 +61,21 @@ pub enum Ask {
     BindAKey(&'static str),
 }
 
-static ASKED: Mutex<Option<Ask>> = Mutex::new(None);
+thread_local! {
+    static ASKED_CELL: std::cell::RefCell<Option<Ask>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The ask, waiting for `App::take_panel_ask` to empty it.
+static ASKED: Mailbox<Ask> = Mailbox::kept_in(&ASKED_CELL);
 
 /// What a panel's menu asked for, if anything, taking the ask.
 pub fn asked() -> Option<Ask> {
-    ASKED.lock().ok().and_then(|mut asked| asked.take())
+    ASKED.take()
 }
 
 /// Leaves an ask for whoever empties the mailbox.
 fn ask(what: Ask) {
-    if let Ok(mut asked) = ASKED.lock() {
-        *asked = Some(what);
-    }
+    ASKED.ask(what);
 }
 
 /// What one panel says for itself.
@@ -209,8 +211,13 @@ pub struct Showing {
     pub on: bool,
 }
 
+thread_local! {
+    static SHOWING_CELL: std::cell::RefCell<Vec<Showing>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
 /// One entry per panel in [`EVERY_PANEL`], in that order.
-static SHOWING: Mutex<Vec<Showing>> = Mutex::new(Vec::new());
+static SHOWING: Published<Vec<Showing>> = Published::kept_in(&SHOWING_CELL);
 
 /// Says which panels are on screen.
 ///
@@ -225,10 +232,8 @@ static SHOWING: Mutex<Vec<Showing>> = Mutex::new(Vec::new());
 /// In [`EVERY_PANEL`]'s order and no other: a list rather than a mask, so that
 /// neither end has an index to get wrong, and a short list only costs the rows
 /// past its end their key.
-pub fn showing(panels: Vec<Showing>) {
-    if let Ok(mut it) = SHOWING.lock() {
-        *it = panels;
-    }
+pub fn showing(panels: impl IntoIterator<Item = Showing>) {
+    SHOWING.refill(panels, |row, showing| *row = showing);
 }
 
 /// The rows that show and hide the panels, ticked where one is on screen.
@@ -244,17 +249,14 @@ pub fn showing(panels: Vec<Showing>) {
 pub fn show_and_hide(ui: &mut egui::Ui) {
     ui.set_max_width(surface::WIDEST);
 
-    let showing = SHOWING.lock().ok();
-
     for (at, chrome) in EVERY_PANEL.iter().enumerate() {
         let Some(hide) = chrome.hide else {
             continue;
         };
 
-        let mut on = showing
-            .as_ref()
-            .and_then(|it| it.get(at))
-            .is_some_and(|it| it.on);
+        let mut on = SHOWING
+            .read(|showing| showing.get(at).is_some_and(|it| it.on))
+            .unwrap_or_default();
 
         // The tick is the answer, so the row closes the menu: the mailbox
         // holds one ask, and two rows ticked before it shut would be one panel
@@ -277,8 +279,6 @@ pub fn show_and_hide(ui: &mut egui::Ui) {
         }
     }
 
-    drop(showing);
-
     // Which of them open at start, which is the one thing about the panels
     // this list cannot say.
     if surface::more_settings(ui, Page::TheWindow) {
@@ -291,17 +291,6 @@ pub fn show_and_hide(ui: &mut egui::Ui) {
 mod tests {
     use super::*;
     use crate::ui::drawn;
-
-    /// The list of panels and the mailbox are both process-wide, so the tests
-    /// that write to either take turns rather than racing each other.
-    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
-
-    /// The turn, surviving a test that panicked while holding it.
-    fn a_turn() -> std::sync::MutexGuard<'static, ()> {
-        ONE_AT_A_TIME
-            .lock()
-            .unwrap_or_else(|held| held.into_inner())
-    }
 
     fn a_chrome() -> Chrome<'static> {
         Chrome {
@@ -316,7 +305,6 @@ mod tests {
     /// The mailbox holds one ask and gives it up once.
     #[test]
     fn an_ask_is_taken_once() {
-        let _turn = a_turn();
         let _ = asked();
 
         ask(Ask::Toggle(Command::ToggleFilmstrip));
@@ -576,7 +564,6 @@ mod tests {
     /// Ticking a row asks for the command that panel is put away by.
     #[test]
     fn ticking_a_row_asks_for_that_panel() {
-        let _turn = a_turn();
         let _ = asked();
 
         let first = EVERY_PANEL
@@ -616,7 +603,6 @@ mod tests {
 
     /// Draws the list with `said` published, and answers with what it painted.
     fn drew_the_list(said: Vec<Showing>) -> Vec<String> {
-        let _turn = a_turn();
         showing(said);
 
         let ctx = egui::Context::default();

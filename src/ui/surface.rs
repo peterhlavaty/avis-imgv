@@ -141,33 +141,31 @@ pub fn with_menu<R>(
     menu(ui, response, subject, contents)
 }
 
+thread_local! {
+    static KEYBOARD_ASKED_CELL: std::cell::RefCell<Option<&'static str>> =
+        const { std::cell::RefCell::new(None) };
+}
 /// Which surface the keyboard asked for a menu on.
 ///
 /// `Shift + F10` is the only keyboard route to a menu — egui cannot read the
 /// dedicated Menu key at all, since its key list runs F1 to F35 and has no
 /// entry for it. The popup's own id is derived from the response and cannot be
 /// invented, so the ask is recorded by name and each surface claims it.
-static KEYBOARD_ASKED: std::sync::Mutex<Option<&'static str>> = std::sync::Mutex::new(None);
+static KEYBOARD_ASKED: crate::board::Mailbox<&'static str> =
+    crate::board::Mailbox::kept_in(&KEYBOARD_ASKED_CELL);
 
 /// Records that the keyboard asked for the menu of a named surface.
 pub fn ask_for_menu(surface: &'static str) {
-    if let Ok(mut asked) = KEYBOARD_ASKED.lock() {
-        *asked = Some(surface);
-    }
+    KEYBOARD_ASKED.ask(surface);
 }
 
 /// Whether this surface is the one that was asked for, taking the ask.
+///
+/// Only the surface that was named takes it, so the ask has to be looked at
+/// before it is taken — which is the one place a mailbox is read rather than
+/// emptied.
 fn claimed(surface: &str) -> bool {
-    let Ok(mut asked) = KEYBOARD_ASKED.lock() else {
-        return false;
-    };
-
-    if *asked == Some(surface) {
-        *asked = None;
-        return true;
-    }
-
-    false
+    KEYBOARD_ASKED.take_if(|asked| *asked == surface).is_some()
 }
 
 /// Where the pass on which a surface took the press is written down.
@@ -323,17 +321,21 @@ fn chevron(ui: &egui::Ui, response: &Response) {
     );
 }
 
+thread_local! {
+    static SETTINGS_ROWS_CELL: std::cell::RefCell<bool> = const { std::cell::RefCell::new(true) };
+}
 /// Whether the built-in menus draw their settings rows.
 ///
 /// A process-wide flag rather than a parameter threaded through twenty menus:
 /// it is one decision the whole program agrees about, and the surfaces that
 /// draw menus are scattered across a dozen files that have no configuration in
 /// hand.
-static SETTINGS_ROWS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+static SETTINGS_ROWS: crate::board::Published<bool> =
+    crate::board::Published::kept_in(&SETTINGS_ROWS_CELL);
 
 /// Sets it from the configuration.
 pub fn show_settings_rows(on: bool) {
-    SETTINGS_ROWS.store(on, std::sync::atomic::Ordering::Relaxed);
+    SETTINGS_ROWS.publish(|held| *held = on);
 }
 
 /// The last row of every menu: where the settings for this object live.
@@ -344,7 +346,7 @@ pub fn show_settings_rows(on: bool) {
 /// second place the same decisions are made, and it is why nothing in the
 /// program is reachable *only* by right-click.
 pub fn more_settings(ui: &mut egui::Ui, page: crate::config::registry::Page) -> bool {
-    if !SETTINGS_ROWS.load(std::sync::atomic::Ordering::Relaxed) {
+    if !SETTINGS_ROWS.read(|held| *held).unwrap_or(true) {
         return false;
     }
 
@@ -366,7 +368,7 @@ pub fn more_settings(ui: &mut egui::Ui, page: crate::config::registry::Page) -> 
 /// the row opens the window holding all of them, where one is added or taken
 /// away. It said "Bind a key to" while binding one was all it could do.
 pub fn bind_a_key(ui: &mut egui::Ui, what: &str) -> bool {
-    if !SETTINGS_ROWS.load(std::sync::atomic::Ordering::Relaxed) {
+    if !SETTINGS_ROWS.read(|held| *held).unwrap_or(true) {
         return false;
     }
 
