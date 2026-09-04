@@ -21,8 +21,8 @@ use crate::cache::loader::Loader;
 use crate::cache::{ImageState, ImageStore, StoreConfig, StoreStats};
 use crate::config::{shortcut, GridViewConfig};
 use crate::ui::empty::{self, Asked, Nothing};
+use crate::ui::front;
 use crate::ui::menus::{Chosen, Row, Verb};
-use crate::utils;
 use crate::view::texture;
 
 use crate::annotations::marks::Marks;
@@ -526,7 +526,7 @@ impl GridView {
                     self.show_row(ui, &layout, row, marks, stacks);
                 }
 
-                if !utils::are_inputs_muted(ctx)
+                if !front::are_inputs_muted(ctx)
                     && ui.input_mut(|i| shortcut::consume(i, &self.config.sc_scroll))
                 {
                     ui.scroll_with_delta(Vec2::new(0., -(layout.row * 0.5)));
@@ -557,7 +557,7 @@ impl GridView {
         // Nothing is picked out or pushed about while a window is over the
         // sheet: the middle drag that pans it is a pointer gesture like any
         // other.
-        if utils::is_in_front(ctx) {
+        if front::is_in_front(ctx) {
             self.band_from = None;
             self.band = None;
             return;
@@ -593,7 +593,7 @@ impl GridView {
         // drop. Whether the press is ours is decided once, so a drag that
         // wanders over the selection count on its way is not cut short.
         if self.band_from.is_none() {
-            if !pressed || ctx.is_pointer_over_area() || utils::are_inputs_muted(ctx) {
+            if !pressed || ctx.is_pointer_over_area() || front::are_inputs_muted(ctx) {
                 return;
             }
 
@@ -790,7 +790,7 @@ impl GridView {
         response: &egui::Response,
     ) {
         // A cell behind a window is not a cell: no cursor, no click, no menu.
-        if utils::is_in_front(ui.ctx()) {
+        if front::is_in_front(ui.ctx()) {
             return;
         }
 
@@ -927,7 +927,7 @@ impl GridView {
     }
 
     fn handle_input(&mut self, ctx: &egui::Context) {
-        if utils::are_inputs_muted(ctx) {
+        if front::are_inputs_muted(ctx) {
             return;
         }
 

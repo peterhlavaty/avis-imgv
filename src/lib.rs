@@ -9,6 +9,7 @@
 //! - [`fault`] is how something that went wrong says so, once,
 //! - [`work`] is a background queue that knows nothing about photographs,
 //! - [`fit`] puts one rectangle inside another, keeping its shape,
+//! - [`command`] is the vocabulary, and [`mode`] what the window is for,
 //! - [`crawler`] finds the images,
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
@@ -41,7 +42,6 @@ pub mod mode;
 pub mod organize;
 pub mod session;
 pub mod ui;
-pub mod utils;
 pub mod view;
 pub mod work;
 

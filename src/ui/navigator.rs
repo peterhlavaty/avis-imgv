@@ -8,7 +8,8 @@ use eframe::{
     epaint::{Color32, Pos2, Shadow},
 };
 
-use crate::utils;
+use crate::crawler;
+use crate::ui::front;
 
 pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
     let mut is_selected = false;
@@ -81,7 +82,7 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                             selected_index -= 1;
                             //Arrow up makes the cursor go back in the input box so we need to
                             //compensate
-                            utils::textedit_move_cursor_to_end(&editor_resp, ui, input.len());
+                            front::textedit_move_cursor_to_end(&editor_resp, ui, input.len());
                         }
 
                         if ctx.input(|i| i.key_pressed(egui::Key::Tab)) {
@@ -89,7 +90,7 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                         }
 
                         if ctx.input(|i| i.key_pressed(egui::Key::Enter)) {
-                            if selected_index == 0 && utils::is_valid_path(Path::new(&input)) {
+                            if selected_index == 0 && crawler::is_valid_path(Path::new(&input)) {
                                 is_selected = true;
                             } else {
                                 selected_path = suggestions.get(selected_index).cloned();
@@ -110,7 +111,7 @@ pub fn ui(input: &mut String, ctx: &egui::Context) -> bool {
                 })
         });
 
-    crate::utils::in_front(ctx, Some(&shown));
+    crate::ui::front::in_front(ctx, Some(&shown));
     is_selected
 }
 
@@ -166,7 +167,7 @@ fn get_path_strings_from_input(input: &str) -> Option<Vec<String>> {
             .filter_map(|p| match p {
                 Ok(p) => match p.metadata() {
                     Ok(m) => {
-                        if m.is_dir() && !utils::is_dir_hidden(&p.path()) {
+                        if m.is_dir() && !crawler::is_dir_hidden(&p.path()) {
                             string_from_path(&p.path())
                         } else {
                             None
@@ -187,7 +188,7 @@ fn string_from_path(path: &Path) -> Option<String> {
 
 fn select_path(input: &mut String, suggestion: &str, editor_resp: &Response, ui: &mut Ui) {
     append_separator(input, suggestion);
-    utils::textedit_move_cursor_to_end(editor_resp, ui, input.len());
+    front::textedit_move_cursor_to_end(editor_resp, ui, input.len());
 }
 
 /// Replaces `input` with `suggestion`, ending it in a separator so the next

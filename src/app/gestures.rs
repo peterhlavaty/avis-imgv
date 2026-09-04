@@ -152,7 +152,7 @@ impl Application {
     /// own middle-click and double-click meanings, and a gesture that reached
     /// past them would act on a photograph the pointer is nowhere near.
     pub(super) fn handle_gestures(&mut self, ctx: &egui::Context) {
-        if crate::utils::are_inputs_muted(ctx) || ctx.is_pointer_over_area() {
+        if crate::ui::front::are_inputs_muted(ctx) || ctx.is_pointer_over_area() {
             return;
         }
 

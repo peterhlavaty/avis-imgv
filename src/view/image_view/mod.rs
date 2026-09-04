@@ -34,8 +34,8 @@ use bottom_bar::{BarAction, Flags, Status};
 use canvas::{travelled, FrameStyle, Metrics, Style, Viewport};
 
 use crate::ui::empty::{Asked, Nothing};
+use crate::ui::front;
 use crate::ui::menus::Verb;
-use crate::utils;
 use crate::view::visible::Visible;
 use input::Command;
 use slideshow::Slideshow;
@@ -363,7 +363,7 @@ impl ImageView {
                 self.focus_next_pane();
                 // Tab is also how egui walks its widgets, and the field it
                 // lands in mutes every shortcut in the viewer.
-                utils::surrender_focus(ctx);
+                front::surrender_focus(ctx);
             }
             Command::DropPane => self.drop_focused_pane(),
             Command::StopComparing => self.stop_comparing(),

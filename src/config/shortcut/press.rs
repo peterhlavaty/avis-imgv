@@ -3,7 +3,7 @@
 use eframe::egui::{self, Key, KeyboardShortcut, Modifiers};
 
 use super::Shortcut;
-use crate::utils;
+use crate::config::shortcut;
 
 /// Takes this frame's press of `shortcut`, if it is there.
 ///
@@ -89,7 +89,8 @@ fn shift_is_exact(key: Key) -> bool {
 /// to be a log line. Both spellings are accepted, since `Key::from_name` takes
 /// several for the same key.
 pub fn names_a_key(name: &str) -> bool {
-    Key::from_name(name).is_some() || Key::from_name(&utils::capitalize_first_char(name)).is_some()
+    Key::from_name(name).is_some()
+        || Key::from_name(&shortcut::capitalize_first_char(name)).is_some()
 }
 
 pub fn default_shortcut() -> KeyboardShortcut {
@@ -122,7 +123,7 @@ pub fn build_keyboard_shortcut(mods: &[String], key: &str) -> KeyboardShortcut {
         }
     }
 
-    match Key::from_name(&utils::capitalize_first_char(key)) {
+    match Key::from_name(&shortcut::capitalize_first_char(key)) {
         Some(key) => KeyboardShortcut {
             logical_key: key,
             modifiers,

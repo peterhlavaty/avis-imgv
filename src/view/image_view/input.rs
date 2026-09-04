@@ -7,7 +7,7 @@
 use eframe::egui;
 
 use crate::config::{shortcut, ImageViewConfig};
-use crate::utils;
+use crate::ui::front;
 
 /// How much one press of the zoom keys changes the magnification.
 ///
@@ -163,7 +163,7 @@ pub enum Command {
 /// Returns nothing while a text field has focus, so typing a path never
 /// triggers a shortcut.
 pub fn collect(ctx: &egui::Context, config: &ImageViewConfig) -> Vec<Command> {
-    if utils::are_inputs_muted(ctx) {
+    if front::are_inputs_muted(ctx) {
         return Vec::new();
     }
 

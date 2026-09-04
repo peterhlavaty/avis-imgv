@@ -252,7 +252,7 @@ fn the_fine_pan(config: &Config, found: &mut Vec<Complaint>) {
         // whichever the finger is on.
         for chord in pan.chords() {
             let fined = Chord::new(
-                &crate::utils::capitalize_first_char(&chord.key),
+                &crate::config::shortcut::capitalize_first_char(&chord.key),
                 &[fine.value()],
             );
 

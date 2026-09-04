@@ -43,7 +43,7 @@ impl ImageView {
         // Not `are_inputs_muted`, which a focused text field also answers yes
         // to: typing in the filter bar takes the keys, and the wheel over the
         // photograph goes on meaning what it means.
-        if crate::utils::is_in_front(ctx) {
+        if crate::ui::front::is_in_front(ctx) {
             self.viewport.scroll_delta = Vec2::ZERO;
             return;
         }
@@ -240,7 +240,7 @@ impl ImageView {
             return;
         }
 
-        if crate::utils::is_in_front(ctx) || self.pointer_is_on_the_marking(ctx) {
+        if crate::ui::front::is_in_front(ctx) || self.pointer_is_on_the_marking(ctx) {
             return;
         }
 
@@ -251,7 +251,7 @@ impl ImageView {
 
     pub(super) fn handle_context_menu(&mut self, ctx: &egui::Context, response: &Response) {
         // The photograph has no menu while a window is over it.
-        if crate::utils::is_in_front(ctx) {
+        if crate::ui::front::is_in_front(ctx) {
             return;
         }
 

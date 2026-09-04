@@ -12,7 +12,7 @@ use crate::config::{
 // frame and saying what it means are one subject from this side.
 pub use crate::command::{Command, Overlay};
 use crate::metadata::xmp::{Flag, Label};
-use crate::utils;
+use crate::ui::front;
 
 /// Reads this frame's input and returns the commands it maps to.
 pub fn collect(
@@ -30,7 +30,7 @@ pub fn collect(
         commands.push(Command::Exit);
     }
 
-    if utils::are_inputs_muted(ctx) {
+    if front::are_inputs_muted(ctx) {
         // One exception. `are_inputs_muted` treats any focused widget as mute,
         // and the keyboard route to a menu is exactly what somebody who is
         // typing needs to be able to reach.
@@ -194,7 +194,7 @@ pub fn update_overlay(ctx: &egui::Context, open: &mut Option<Overlay>, config: &
     for (overlay, shortcut) in toggles {
         // The overlay that is open owns its own shortcut even while muted.
         let mine = *open == Some(overlay);
-        if !mine && utils::are_inputs_muted(ctx) {
+        if !mine && front::are_inputs_muted(ctx) {
             continue;
         }
 
@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn quitting_works_even_while_something_else_has_the_input() {
         let ctx = context_with(vec![key_press(Key::Q, Modifiers::ALT)]);
-        utils::set_in_front(&ctx, true);
+        front::set_in_front(&ctx, true);
 
         assert_eq!(collected(&ctx), vec![Command::Exit]);
     }
@@ -284,7 +284,7 @@ mod tests {
     #[test]
     fn other_shortcuts_are_muted_while_something_else_has_the_input() {
         let ctx = context_with(vec![key_press(Key::Backspace, Modifiers::NONE)]);
-        utils::set_in_front(&ctx, true);
+        front::set_in_front(&ctx, true);
 
         assert!(collected(&ctx).is_empty());
     }
@@ -292,7 +292,7 @@ mod tests {
     #[test]
     fn typing_a_digit_in_the_search_box_does_not_rate_the_image() {
         let ctx = context_with(vec![key_press(Key::Num3, Modifiers::NONE)]);
-        utils::set_in_front(&ctx, true);
+        front::set_in_front(&ctx, true);
 
         assert!(collected(&ctx).is_empty());
     }
@@ -310,7 +310,7 @@ mod tests {
         assert_eq!(open, Some(Overlay::DirectoryTree));
 
         let ctx = context_with(vec![key_press(Key::T, Modifiers::NONE)]);
-        utils::set_in_front(&ctx, true);
+        front::set_in_front(&ctx, true);
         update_overlay(&ctx, &mut open, &config);
         assert_eq!(open, None);
     }
@@ -379,7 +379,7 @@ mod tests {
         let mut open = Some(Overlay::Navigator);
 
         let ctx = context_with(vec![key_press(Key::Escape, Modifiers::NONE)]);
-        utils::set_in_front(&ctx, true);
+        front::set_in_front(&ctx, true);
         update_overlay(&ctx, &mut open, &config);
 
         assert_eq!(open, None);

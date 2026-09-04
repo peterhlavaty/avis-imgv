@@ -313,6 +313,31 @@ fn order(a: &PathBuf, b: &PathBuf) -> std::cmp::Ordering {
     )
 }
 
+/// Returns true if path contains any images we can open
+pub fn is_valid_path(path: &Path) -> bool {
+    let dir_info = match path.read_dir() {
+        Ok(dir) => dir,
+        Err(_) => return false,
+    };
+
+    for path in dir_info.flatten() {
+        if formats::is_supported(&path.path()) {
+            return true;
+        }
+    }
+
+    false
+}
+
+/// True when a directory name starts with a dot.
+pub fn is_dir_hidden(path: &Path) -> bool {
+    path.file_name()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap_or_default()
+        .starts_with('.')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

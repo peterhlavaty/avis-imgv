@@ -12,6 +12,7 @@ pub mod dragged;
 pub mod drawn;
 pub mod empty;
 pub mod filter_bar;
+pub mod front;
 pub mod histogram;
 pub mod keys;
 pub mod legend;

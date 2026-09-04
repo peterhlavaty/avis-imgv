@@ -127,7 +127,7 @@ pub fn ui(
     let panel = panel.show_animated(ctx, visible, |ui| {
         // A keyword clicked from behind a window is written to a sidecar, so
         // the panel goes quiet while one is up.
-        if crate::utils::is_in_front(ui.ctx()) {
+        if crate::ui::front::is_in_front(ui.ctx()) {
             ui.disable();
         }
 

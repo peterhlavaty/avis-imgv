@@ -272,6 +272,14 @@ impl From<Shortcut> for ShortcutData {
     }
 }
 
+pub fn capitalize_first_char(str: &str) -> String {
+    let mut chars = str.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,10 +1,13 @@
-//! Small helpers shared by the UI: who owns the input, and path predicates.
-
-use std::path::Path;
+//! Who owns the mouse and the keyboard.
+//!
+//! A card in front takes both, and the answer is decided once a frame in
+//! `App::something_is_in_front` and written here — a card that sets and clears
+//! a flag of its own is a card that clears it while another still needs it.
+//!
+//! In egui's memory rather than in a static of this program's, deliberately:
+//! the question is asked per context, and one window's answer is not another's.
 
 use eframe::egui::{self, Id, Response};
-
-use crate::formats;
 
 pub fn textedit_move_cursor_to_end(resp: &Response, ui: &mut egui::Ui, len: usize) {
     if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), resp.id) {
@@ -91,39 +94,6 @@ pub fn are_inputs_muted(ctx: &egui::Context) -> bool {
 
 fn in_front_id() -> Id {
     Id::new("something is in front")
-}
-
-/// Returns true if path contains any images we can open
-pub fn is_valid_path(path: &Path) -> bool {
-    let dir_info = match path.read_dir() {
-        Ok(dir) => dir,
-        Err(_) => return false,
-    };
-
-    for path in dir_info.flatten() {
-        if formats::is_supported(&path.path()) {
-            return true;
-        }
-    }
-
-    false
-}
-
-/// True when a directory name starts with a dot.
-pub fn is_dir_hidden(path: &Path) -> bool {
-    path.file_name()
-        .unwrap_or_default()
-        .to_str()
-        .unwrap_or_default()
-        .starts_with('.')
-}
-
-pub fn capitalize_first_char(str: &str) -> String {
-    let mut chars = str.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
-    }
 }
 
 #[cfg(test)]

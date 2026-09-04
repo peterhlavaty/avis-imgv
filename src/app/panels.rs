@@ -95,7 +95,7 @@ impl MenuAction {
 /// against a menu bar nobody can press.
 pub fn top_menu(ctx: &egui::Context, visible: bool, mode: Mode) -> Option<MenuAction> {
     let mut action = None;
-    let over_a_card = crate::utils::is_in_front(ctx);
+    let over_a_card = crate::ui::front::is_in_front(ctx);
 
     // Where the bar's contents came to inside the panel, so the copy above the
     // card lands on the same pixels: the panel's own rectangle includes its
@@ -636,7 +636,7 @@ pub fn typing_notice(ctx: &egui::Context) {
     // Not while a card is in front. The viewer being deaf is the point
     // there, not a surprise to be explained, and the line would be drawn at
     // the foot of a window nobody is typing into.
-    if crate::utils::is_in_front(ctx) {
+    if crate::ui::front::is_in_front(ctx) {
         return;
     }
 
@@ -728,7 +728,7 @@ mod tests {
         let frame = |input: egui::RawInput| {
             let mut action = None;
             let output = ctx.run(input, |ctx| {
-                crate::utils::set_in_front(ctx, true);
+                crate::ui::front::set_in_front(ctx, true);
                 action = top_menu(ctx, true, Mode::Image);
             });
 

@@ -579,7 +579,7 @@ pub fn ui(ctx: &egui::Context, status: &mut Status<'_>) -> Outcome {
         .show(ctx, |ui| {
             // Readable but not pressable while a window is in front: every
             // button on it changes what the photograph behind is doing.
-            if crate::utils::is_in_front(ui.ctx()) {
+            if crate::ui::front::is_in_front(ui.ctx()) {
                 ui.disable();
             }
 

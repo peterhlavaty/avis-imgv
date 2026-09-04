@@ -1225,7 +1225,7 @@ impl eframe::App for App {
         // A text field with focus mutes every shortcut in the viewer, and
         // finding out which field has it is not the user's job.
         if self.overlay.is_none() && ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-            crate::utils::surrender_focus(ctx);
+            crate::ui::front::surrender_focus(ctx);
         }
 
         self.continue_opening(ctx);
@@ -1246,7 +1246,7 @@ impl eframe::App for App {
         // whether *any* of them is up, and a flag several owners set and clear
         // is a flag one of them clears while another still needs it. After the
         // overlays, so the frame one opens on is already quiet.
-        crate::utils::set_in_front(ctx, self.something_is_in_front());
+        crate::ui::front::set_in_front(ctx, self.something_is_in_front());
 
         self.handle_gestures(ctx);
         self.handle_dropped_files(ctx);

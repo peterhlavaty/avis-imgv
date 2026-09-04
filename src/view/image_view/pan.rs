@@ -17,7 +17,7 @@ use eframe::egui;
 use eframe::epaint::Vec2;
 
 use crate::config::ImageViewConfig;
-use crate::utils;
+use crate::ui::front;
 
 /// Which way the photograph moves for each of the four keys.
 ///
@@ -171,7 +171,7 @@ impl Glide {
 /// is down instead of stepping at whatever rate the operating system chooses
 /// to repeat it.
 pub fn asked(ctx: &egui::Context, config: &ImageViewConfig) -> Keys {
-    if utils::are_inputs_muted(ctx) {
+    if front::are_inputs_muted(ctx) {
         return Keys::default();
     }
 

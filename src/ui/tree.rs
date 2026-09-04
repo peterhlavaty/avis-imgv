@@ -5,7 +5,7 @@ use eframe::{
 };
 use std::path::{Path, PathBuf};
 
-use crate::utils;
+use crate::crawler;
 
 #[derive(Clone)]
 struct Tree {
@@ -160,7 +160,7 @@ impl Tree {
                     Err(_) => return None,
                 };
 
-                if metadata.is_dir() && !utils::is_dir_hidden(&path.path()) {
+                if metadata.is_dir() && !crawler::is_dir_hidden(&path.path()) {
                     let expanded = match parent {
                         Some(parent) => parent == &path.path(),
                         None => false,
@@ -368,7 +368,7 @@ pub fn ui(path: &str, ctx: &egui::Context) -> Option<PathBuf> {
                 });
         });
 
-    crate::utils::in_front(ctx, Some(&shown));
+    crate::ui::front::in_front(ctx, Some(&shown));
 
     result
 }
@@ -396,7 +396,7 @@ fn get_expanded_char(expanded: bool) -> String {
 }
 
 fn get_selected_path(path: &Path) -> Option<PathBuf> {
-    if utils::is_valid_path(path) {
+    if crawler::is_valid_path(path) {
         Some(path.to_path_buf())
     } else {
         None
