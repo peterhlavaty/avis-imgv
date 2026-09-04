@@ -227,6 +227,11 @@ impl App {
         if let Some(index) = self.paths.iter().position(|candidate| candidate == path) {
             self.drop_mark(index);
             self.paths.remove(index);
+            // The runs hold store positions, so everything below the gap has
+            // just moved. Nothing else notices: the caches shift themselves
+            // and the detector only runs on a folder change, so a stack left
+            // untold goes on naming frames that are one photograph away.
+            self.stacking.remove_shifting(index);
         }
 
         self.image_view.pop(path);

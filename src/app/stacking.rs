@@ -163,6 +163,36 @@ impl Stacking {
         self.stacks.step_standing(index, forward)
     }
 
+    /// A photograph at `index` has left the collection.
+    ///
+    /// The runs hold store positions, so every route that takes a photograph
+    /// out has to say so or the sheet folds the wrong frames. Detecting again
+    /// is not the answer: the scan reads the folder, and after a cull the
+    /// folder no longer holds what the runs are about.
+    pub fn remove_shifting(&mut self, index: usize) {
+        if index < self.entries.len() {
+            self.entries.remove(index);
+        }
+
+        self.stacks.remove_shifting(index);
+        self.opened = self.stacks.opened();
+    }
+
+    /// A photograph has arrived at `index`.
+    ///
+    /// It joins no run until the folder is read again — see
+    /// [`Stacks::insert_shifting`]. The entry is kept in step so a later
+    /// detection still lines up with the store.
+    pub fn insert_shifting(&mut self, index: usize, path: &std::path::Path) {
+        if index <= self.entries.len() {
+            self.entries
+                .insert(index, crate::organize::Entry::new(path.to_path_buf()));
+        }
+
+        self.stacks.insert_shifting(index);
+        self.opened = self.stacks.opened();
+    }
+
     /// What to show, given what the filter left.
     pub fn fold(&self, visible: Visible, total: usize) -> Visible {
         if !self.on {

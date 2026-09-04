@@ -91,6 +91,7 @@ impl App {
 
         self.add_mark(at, &path);
         self.paths.insert(at, path.clone());
+        self.stacking.insert_shifting(at, &path);
 
         self.image_view.insert(at, path.clone());
         self.grid_view.insert(at, path);

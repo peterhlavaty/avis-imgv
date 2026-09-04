@@ -188,6 +188,80 @@ impl Stacks {
         self.of.get(&index).and_then(|at| self.stacks.get(*at))
     }
 
+    /// Drops a store position and shifts the ones after it down, keeping the
+    /// runs aligned with a store a photograph has just left.
+    ///
+    /// The same job [`Visible::remove_shifting`] does, and needed for the same
+    /// reason: `members` holds store positions, so culling one frame out of a
+    /// folder moves every frame below it and leaves a run that was not told
+    /// pointing one photograph too far. Re-detecting instead would be the
+    /// obvious answer and is the wrong one — it reads the folder again, and
+    /// the frames it would put in a run are the frames that are still there.
+    ///
+    /// A run left with one frame is no longer a run: `of_groups` refuses those
+    /// on the way in, so keeping one here would be a stack the detector could
+    /// not have made.
+    pub fn remove_shifting(&mut self, index: usize) {
+        for stack in &mut self.stacks {
+            if let Some(at) = stack.members.iter().position(|member| *member == index) {
+                stack.members.remove(at);
+
+                // `standing` counts within `members`, so taking a frame out
+                // from above it moves it. Taking out the frame that was
+                // standing leaves the index where it is, which is the frame
+                // after it — the next of the burst stands for the burst.
+                if stack.standing > at {
+                    stack.standing -= 1;
+                }
+            }
+
+            for member in &mut stack.members {
+                if *member > index {
+                    *member -= 1;
+                }
+            }
+
+            stack.standing = stack.standing.min(stack.members.len().saturating_sub(1));
+        }
+
+        self.stacks.retain(|stack| stack.members.len() >= 2);
+        self.reindex();
+    }
+
+    /// Shifts store positions from `index` up, for a photograph that has
+    /// arrived there.
+    ///
+    /// It joins no run. Which frames belong together is the detector's answer
+    /// and it needs the file, so a photograph put back by an undo sits beside
+    /// its burst rather than in it until the folder is read again. Wrong in a
+    /// small way that is visible; the alternative is wrong in a large way that
+    /// is not.
+    pub fn insert_shifting(&mut self, index: usize) {
+        for stack in &mut self.stacks {
+            for member in &mut stack.members {
+                if *member >= index {
+                    *member += 1;
+                }
+            }
+        }
+
+        self.reindex();
+    }
+
+    /// Builds `of` again from the runs, after their members have moved.
+    ///
+    /// Both shifts keep `members` sorted and keep the runs in the order their
+    /// first frame puts them, because every position moves the same way.
+    fn reindex(&mut self) {
+        self.of.clear();
+
+        for (at, stack) in self.stacks.iter().enumerate() {
+            for member in &stack.members {
+                self.of.insert(*member, at);
+            }
+        }
+    }
+
     /// Leaves out the frames of closed stacks that are not standing for them.
     ///
     /// A stack whose standing frame the filter has hidden falls back to the
@@ -561,5 +635,158 @@ mod tests {
         assert!(stacks.fold(&everything, 7).is_everything());
         assert_eq!(stacks.step_stack(3, true), None);
         assert!(!stacks.toggle(3));
+    }
+
+    /// Culling the frame between the two runs moves the second one down.
+    ///
+    /// The bug this is here for: nothing told the stacks, so the second run
+    /// went on naming 4, 5 and 6 while the store had shifted them to 3, 4 and
+    /// 5, and the sheet folded a frame that belonged to neither.
+    #[test]
+    fn taking_a_photograph_out_moves_the_runs_below_it() {
+        let (_, mut stacks) = stacks(false);
+
+        stacks.remove_shifting(3);
+
+        assert_eq!(
+            stacks.stack_of(0).map(|s| s.members.clone()),
+            Some(vec![0, 1, 2])
+        );
+        assert_eq!(
+            stacks.stack_of(3).map(|s| s.members.clone()),
+            Some(vec![3, 4, 5])
+        );
+        assert_eq!(stacks.stack_of(6), None);
+        assert_eq!(stacks.stacked(), 6);
+    }
+
+    #[test]
+    fn taking_a_frame_out_of_a_run_leaves_the_rest_of_it() {
+        let (_, mut stacks) = stacks(false);
+
+        stacks.remove_shifting(1);
+
+        let first = stacks.stack_of(0).expect("the run survives");
+        assert_eq!(first.members, vec![0, 1]);
+        assert_eq!(
+            stacks.stack_of(3).map(|s| s.members.clone()),
+            Some(vec![3, 4, 5])
+        );
+    }
+
+    /// A run of two that loses one is not a run: `of_groups` refuses those on
+    /// the way in, so keeping it here would make a stack the detector could
+    /// not have made.
+    #[test]
+    fn a_run_worn_down_to_one_frame_stops_being_a_run() {
+        let (_, mut stacks) = stacks(false);
+
+        stacks.remove_shifting(0);
+        stacks.remove_shifting(0);
+
+        assert_eq!(stacks.len(), 1);
+        assert_eq!(stacks.stack_of(0), None);
+        assert_eq!(
+            stacks.stack_of(2).map(|s| s.members.clone()),
+            Some(vec![2, 3, 4])
+        );
+    }
+
+    #[test]
+    fn the_frame_standing_for_a_run_follows_it_down() {
+        let (_, mut stacks) = stacks(false);
+
+        // Stand the second run on its last frame, then cull the first of them.
+        stacks.step_standing(4, true);
+        stacks.step_standing(4, true);
+        let stood_on = stacks.stack_of(4).expect("a run").stands();
+        assert_eq!(stood_on, 6);
+
+        stacks.remove_shifting(4);
+
+        assert_eq!(stacks.stack_of(4).expect("still a run").stands(), 5);
+    }
+
+    /// Taking out the frame that was standing leaves the next one standing,
+    /// rather than falling back to the first.
+    #[test]
+    fn taking_out_the_standing_frame_leaves_the_next_one_standing() {
+        let (_, mut stacks) = stacks(false);
+
+        assert_eq!(stacks.stack_of(0).expect("a run").stands(), 0);
+
+        stacks.remove_shifting(0);
+
+        assert_eq!(stacks.stack_of(0).expect("still a run").stands(), 0);
+        assert_eq!(stacks.stack_of(0).expect("still a run").members, vec![0, 1]);
+    }
+
+    #[test]
+    fn a_photograph_put_back_moves_the_runs_below_it_up() {
+        let (_, mut stacks) = stacks(false);
+
+        stacks.remove_shifting(3);
+        stacks.insert_shifting(3);
+
+        assert_eq!(
+            stacks.stack_of(0).map(|s| s.members.clone()),
+            Some(vec![0, 1, 2])
+        );
+        assert_eq!(
+            stacks.stack_of(4).map(|s| s.members.clone()),
+            Some(vec![4, 5, 6])
+        );
+        assert_eq!(stacks.stack_of(3), None);
+    }
+
+    /// It joins no run, because which frames belong together needs the file.
+    #[test]
+    fn a_photograph_arriving_inside_a_run_does_not_join_it() {
+        let (_, mut stacks) = stacks(false);
+
+        stacks.insert_shifting(1);
+
+        assert_eq!(
+            stacks.stack_of(0).map(|s| s.members.clone()),
+            Some(vec![0, 2, 3])
+        );
+        assert_eq!(stacks.stack_of(1), None);
+    }
+
+    #[test]
+    fn shifting_the_ends_of_the_folder() {
+        let (_, mut stacks) = stacks(false);
+
+        // Past everything: nothing moves.
+        stacks.insert_shifting(7);
+        assert_eq!(
+            stacks.stack_of(4).map(|s| s.members.clone()),
+            Some(vec![4, 5, 6])
+        );
+
+        // The very last frame of the last run.
+        stacks.remove_shifting(6);
+        assert_eq!(
+            stacks.stack_of(4).map(|s| s.members.clone()),
+            Some(vec![4, 5])
+        );
+
+        // The very first.
+        stacks.remove_shifting(0);
+        assert_eq!(
+            stacks.stack_of(0).map(|s| s.members.clone()),
+            Some(vec![0, 1])
+        );
+    }
+
+    #[test]
+    fn shifting_an_empty_set_of_runs_does_nothing() {
+        let mut stacks = Stacks::default();
+
+        stacks.remove_shifting(0);
+        stacks.insert_shifting(0);
+
+        assert!(stacks.is_empty());
+        assert_eq!(stacks.stacked(), 0);
     }
 }

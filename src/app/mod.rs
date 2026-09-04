@@ -1179,11 +1179,11 @@ impl App {
         tracing::info!("Executing callback {callback:?}");
 
         match callback {
-            Callback::Pop(Some(path)) => {
-                self.paths.retain(|candidate| candidate != &path);
-                self.image_view.pop(&path);
-                self.grid_view.pop(&path);
-            }
+            // The same route the watcher and the cull take. It used to be
+            // three of the six things they do, so a photograph popped this way
+            // left its mark behind, left its partner pointing at it, and left
+            // the runs below it one position out.
+            Callback::Pop(Some(path)) => self.forget(&path),
             Callback::Reload(Some(path)) => {
                 self.image_view.reload(&path);
                 self.grid_view.reload(&path);

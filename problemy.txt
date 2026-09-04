@@ -1,0 +1,145 @@
+pravy klik v image mode ma sice otacanie, ale vylepsil by som to nech je to 2 stupnove menu a nech tam ma na hlavnej urovni len
+otocit a pod tym 5 moznosti - v smere ruciciek, v protismere, otocit naopak, zrkadlit vodorovne, zrkadlit zvisle
+
+momentalne ked scrollujem v nastaveniach ma to vplyv aj na aktualnu snimku, tak to nesmie byt, kym som v nastaveniach
+vsetky moje pohyby mysou a stlacenia by sa mali tykat len nastaveni
+
+pridaj na vhodne miesta do claude.md info o tom ze treba vzdy po uprave kodu spravit release build, tiez ze sa v kode treba snazit vyhybat
+duplicitam, pisat znovupouzitelny dostatocne vseobecny kod, spravit refaktor ked treba, zlozkovat primarne podla funkcionality
+
+toto uz do urcitej miery je ale treba to vylepsit - treba implementovat akcie undo a redo, mala by na to byt klavesova skratka ctrl+z a ctrl+y, obidve nastavitelne,
+malo by sa to tykat vsetkych moznych akcii, ktore by mohlo mat zmysel vracat, teda zmena modu, nastavenia, zoomu,
+otvorenie/zatvorenie panela, pohyb po snimke, pridanie tagu, odstranenie suboru..., tiez treba zaviest panel historie kde
+bude vidiet zoznam akcii v poradi ako isli za sebou a bude sa dat vybrat na ktoru sa vratit, bude sa dat nastavit pocet
+akcii ktore sa maju v historii pamatat, ale default bude vsetky, v historii sa bude dat kliknutim pravym na akciu zvolit
+ze sa vykona len tato akcia na ktoru je kliknute a vtedy sa prida do historie ako posledna vykonana akcia, ak sa niekto vrati
+spat tak ma stale moznost redo na akcie pred ktore sa vratil, akcie sa nikdy neprepisuju, ak sa vrati spat a pojde dopredu
+inac (novou akciou) tak to vytvori rozbocku v  historii a vznika v podstate strom akcii
+
+slider je prilis citlivy, mal by radsej fungovat tak, ze ked ho chytim a taham tak sa mys a slider nie su akoby zviazane
+a nehybu sa 1:1 ale mys sa musi pohnut viac aby sa slider pohol len trochu a tym sa bude dat lahsie nastavit presnu hodnotu,
+urcite nastanu situacie ked sa pri tomto mys dostane na okraj obrazovky a nebude sa vediet pohnut dalej aj ked slider este
+nebude na svojom konci v takom pripade treba len pri tomto specifickom pohybe nechat prejst mys cez okraj obrazovky na
+druhu stranu nech moze volne pokracovat teda napriklad ked dosiahne uplne pravu stranu obrazovky tak kurzor mysi skoci
+na uplne lavu stranu obrazovky, citlivost by mala byt nastavitelna v nastaveniach a tiez pod pravym klikom na slider
+
+pridaj moznost pouzivat specialny smetak miesto systemoveho, bude to vlastne len adresar ku ktoremu bude mat tento
+program pristup a bude mat tu vyhodu ze sa bude dat otvorit ako kazdy iny adresar a prehliadnut narychlo ci tam neskoncilo
+nieco co nemalo, musi byt podporovane vratenie zo smetaku, teda pre kazdy subor si treba pamatat odkial sa tam dostal
+a treba podporovat vysypanie, co bude vlastne len delete celeho adresara, bude sa dat z neho vymazavat aj ciastocne
+klasickym shift + delete, ak nebude smetak prazdny pri vypinani programu, program sa spyta ci sa ma pred zavretim vysypat
+smetak, kazde vysypanie smetaka treba potvrdit, defaultny smetak ale zostane systemovy to je nieco s cim asi vacsina pouzivatelov pocita
+
+pridaj do claude.md vhodnym sposobom ze vsetko ma byt nastavitelne a nastavenia maju byt dostupne zo vsetkych miest ktore davaju zmysel
+pravym sa da kliknut na vsetko a zobrazia sa k tomu relevantne nastavenia a akcie
+
+pridat pod pravy klik informacie o tom na co bolo kliknute, treba aplikovat vsade kde to nie je uplne zjavne
+
+v image mode chcem mat moznost oznacit cast snimky, teda ak kliknem a drzim lave tlacitko mysi dovoli mi to nakreslit
+obdlznik odtial kde som zacal drzat potial kde som skoncil, jednotlive strany sa potom budu dat posuvat ked sa na nich
+klikne a a z drzanim sa bude tahat mysou, ked sa vojde do tejto vyznacenej oblasti kurzor sa zmeni na tvar + a kliknutim
+sa nazoomuje tak aby sa tato oblast fitla na screen, kliknutie pravym do tejto oblasti da moznost kopirovat tento vyrez ako obrazok,
+kliknutie mimo vyrez zrusi oznacenie
+
+ked mam otvoreny filmstrip a mysou roztiahnem jeho panel, tak sa teraz vrati spat na povodnu velkost, ale chcem aby
+zostal taky ako ho roztiahnem a aby sa mu obrazky v stripe prisposobili velkostou
+
+chcem aby sa vo filmstripe zobrazili vyznacene vsetky obrazky, na ktore sa pozeram v hlavnom paneli, teda ak mam zobrazene
+3 obrazky vedla seba, tak sa vyznacia na filmstripe tie iste 3 obrazky s tym ze ten hlavny/aktualny snimok bude vyznaceny
+vyrazne viac aby to bolo na prvy pohlad zjavne, zaroven chcem moznost oznacovat obrazky na stripe, to by mohlo byt farebne
+(nastavitelnou farbou) odlisene od oznacenia zobrazenych obrazkov, aktualny snimok je oznaceny automaticky, teda to sedi aj
+s predoslym ze bude rozoznatelny od ostatnych zobrazenych obrazkov, iny snimok sa da oznacit prejdenim nanho akymkolvek sposobom,
+aktualny je oznaceny vzdy, da sa oznacit aj viac snimkov, bud pomocou ctrl+kliknutia - tym sa oznaci okrem aktualneho aj ten na ktory
+bolo kliknute alebo shift+kliknutie - tam sa oznacia aj vsetky snimky medzi aktualnym a kliknutym a specificky pripad
+ak je vybranych viac ci uz v rade alebo aj s medzerami a spravi sa shift+click tak sa oznacia vsetky snimky medzi kliknutym
+a najblizsim oznacenym a vsetky predosle oznacenia zostanu zachovane, najblizsi moze byt doprava alebo dolava na stripe
+ale nikdy sa pri tomto neuvazuje prechod cez koniec stripu, dalsi specificky pripad - pri kliknuti na jeden z oznacenych
+obrazkov na stripe sa oznacenie nezrusi len sa zmeni aktualny snimok a teda aktualny snimok by mal mat hrubsie oznacenie
+ako ostatne oznacene snimky, zmeny oznacenia ako oznacenie snimku, oznacenie viac snimkoc alebo zrusenie oznacenia musia
+byt sucastou historie ale malo by sa to dat vypnut ako kategoria v nastaveniach
+
+oznacene snimky na filmstripe sa budu dat kliknut pravym a budu tam mat moznosti ako kopirovat, vystrihnut a vymazat a tiez specialna
+moznost - zobrazit oznacene vedla seba v hlavnom paneli
+
+bug - panning ma vzdy posunie minimalne o 2 kroky aj ked spravim najkratsie stlacenie ako viem
+
+vylepsenie - nastavitelna rychlost panningu, pri drzani ctrl ina rychlost panningu tiez nastavitelne, default bude nejaka normalna
+rychlost klasicky a po pixeloch pri drzani ctrl
+
+ v hornom menu by malo byt na najvyssej urovni aj "view" kde by sa dalo rychlo nastavit ktore panely maju byt zobrazene - menu, tagy,
+ metadata... , tiez to treba pridat pod pravy klik na hlavny panel teda napriklad na snimku v zakladnom mode len ako show
+ a v podmenu zoznam panelov, a nech je to tak aby uz z too menu bolo zjavne ci je polozka zobrazena podla nejakeho checkboxu alebo ikonky
+ vedla nepisu v menu
+
+
+zanalyzuj ako by bolo dobre to implementovat aby to vhodne fungovalo po novom ale aby sa tym nic nepokazilo a nasledne to samostatne implementuj
+ignoruj subor problemy.txt, ten si spravujem sam
+
+
+
+
+pomaly panning aj zooming aj pri alt + mys, nastavitelny krok pri zoome (klasickom aj presnom) ak nie je
+
+mark clipping a mark focus by mali byt sucast praveho kliku na obrazok
+
+pokial je nieco pod pravym klikom a zaroven to ma klavesovu skratku, mala by sa ta klavesova skratka zobrazit pri tom
+pravom kliknuti s tym ze najprv bude nazov na lavej strane a potom skratka na pravej strane
+
+v nastaveniach musim kliknut presne na nazov kategorie aby som sa tam dostal, chcem aby sa to spravalo viac ako tlacitko
+a teda ma to tam pusti aj ked kliknem napriklad napravo od nazvu kategorie ale samozrejme musim byt stale nad panelom
+kategorii
+
+ v nastaveniach klavesov ked je popis nastavenia prilis dlhy treba ho rozdelit na 2 riadky alebo viac, takto dlhe riadky sposobuju
+ ze je okno s nastaveniami vacsie ako obrazovka co by sa nemalo stavat
+
+ pri kliknuti pravym na reject, chcem vediet nastavit ci ma kliknutie reject prehodi na dalsiu snimku, rovnako aj pre ostatne
+  ako accept, color...
+
+  ked zapnem slideshow mode automaticky by to malo ist uplne full sreen, teda aj sa zavru vsetky panely ako tagy menu metadata...
+
+  pri kliknuti pravym v slideshow mode sa vobec nemaju zobrazovat veci ako pre image mode, miesto toho tam treba mat nastavenia
+  specificke pre slideshow - ako dlho byt na snimku, ako a ci sa po snimku pohybovat... a akurat tam moze zostat nastavenie
+  otacania a na zobrazenie panelov
+
+   este doriesit ohladom filmstripu - ako tagovat/ selectovat/ rejectovat z aktualneho vyberu, ako sa posuvat ked mam zobrazny vyber?
+   neda sa odselectovat vybrany, ktory vybrat potom?
+
+   ked kliknem pravym na panel historie kamkolvek napr na nadpis alebo do prazdneho priestoru, stale tam chcem moznosti
+   zavriet panel a prejst na nastavenia, podobne aj pre vsetky ostatne panely, kliknutim pravym kamkolvek funguje a da sa tym
+   panel minimalne zavriet pripadne dalsie relevantne moznosti pre panel ako nastavenia a ine, ak to tak zatial nie je sprav
+   v kode nejaku spolocnu definiciu pre panel nech sa spravaju v zaklade rovnako a nech sa to nemusi riesit pre kazdy duplicitne
+   teda kazdy bude vzdy reagovat na pravy klik aj ked moznosti pod tym uz budu mat rozdielne (pripadne budu v zaklade dalsie spolocne veci)
+
+   vyber, zmena vyberu a zrusenie vyberu sa maju tiez zapisovat do historie, tiez to moze byt kategoria ktora sa da vypnut v nastaveniach
+
+   nefunguje scrolovanie filmstripu
+
+   reject z panela keywordow nezrusi vyber
+
+
+
+   skontrolovat ci sa da tagovat viac snimkov naraz
+
+   prepinanie ci sa ma zoomovat a panovat spolu alebo osobitne, default je zoomovat a panovat spolu, nastvitelne klavesom
+   aj checkbox na obrazovke
+
+   moznost automaticky zachovat posledny zoom a/alebo posledny panning - asi implementovat ako 2 ikonky na spodnej liste
+   zelenou sa zobrazi ak sa zachovava posledny zoom a/alebo posledny panning, ked je cervenou tak sa zobrazi klasicky fit
+
+
+
+
+
+   //menej dolezite
+   nastavenie ktore umozni na pozadi automaticky nacitat stacky hned potom ako sa nacitaju vsetky snimky
+
+   put this section back nema zmysel pre fixne klavesy
+
+   moznost nastavit viac klaves na rovnaku akciu - specialne okno s nastavenim klavesov pre akciu, bude mat zoznam klavesov pre akciu
+   bude sa dat pridavat bud jednu klavesu alebo kombinaciu a tiez odoberat zo zoznamu, zobrazi sa pri kliknuti v nastaveniach
+
+   lepsie nastavenie toho ake metadata zobrazit, moznost vybrat metadata z aktualnej snimky - teda vylistuju sa vsetky metadata
+   z aktualnej snimky a bude sa dat zakliknut checkboxy ktore urcia ktore metadata sa budu zobrazovat, treba mat moznost ich pridat
+   k uz existujucim alebo tym prepisat vsetky existujuce, malo by sa dat este jednoduchym drag and drop menit poradie
+   zobrazenych metadat
+
