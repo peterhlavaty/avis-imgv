@@ -1,5 +1,31 @@
 # Change Log
 
+## 2026-09-04
+
+- **Culling from a stacked folder no longer mislabels the frames below it.** A
+  stack holds positions in the open collection, and taking a photograph out
+  moved every position after it. Nothing said so, so the runs went on naming
+  frames that were one photograph away: the sheet folded the wrong frames and
+  labelled them with the wrong burst, until the folder was opened again. Every
+  route that adds or removes a photograph now tells the stacks. A frame put back
+  by an undo sits beside its burst rather than in it until the folder is read
+  again, because which frames belong together is a question about the file.
+
+- **The clipping and focus overlays no longer cost a copy of the photograph
+  every frame.** The mask is built once per photograph, but the decoded surface
+  was being copied before the check that says so — on a 60 megapixel raw, a
+  quarter of a gigabyte memcpied sixty times a second while an overlay was on.
+
+- **Advance after marking can be changed from the settings window.** It could
+  not be: the tick was set and then overwritten on the next frame by the flag it
+  had just been asked to change, so only the key ever moved it. This is the same
+  fault "show the strip" had, and there is now a test that fails if a third one
+  is written.
+
+- **The metadata panel and the history panel take the width the settings window
+  gives them**, rather than at the next launch, and both now hold the width a
+  drag leaves them at instead of springing back to fit their contents.
+
 ## 2026-09-03
 
 - **The menu bar works from over a card.** It stayed on screen when the windows
