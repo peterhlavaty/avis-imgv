@@ -287,6 +287,15 @@ Leaving the seam for later means the next session pays for it with interest.
   dragged width back (`ui::width::Dragged`): a width that moved without the
   button down is an animation or a layout pass, and writing it back is a
   feedback loop that corrupts the setting.
+- **A value the program and the file both hold is one row carrying both
+  halves.** `config::mirror::Mirror` is the type, and every `Reflect` variant
+  holds four functions — read and write on each side — so a one-way mirror is a
+  struct literal short of a field and `E0063` rather than a checkbox that
+  silently does nothing. It is a type because the rule was written down here,
+  carefully, with its reasoning, and broken again anyway: "show the strip" and
+  then `tags.advance_after_marking`, both found by somebody noticing a tick did
+  nothing. It is generic over the live half because `App` needs a GPU, and a
+  table of `fn(&App)` is a table no test can walk.
 - **A value that is both view state and a setting is watched once.** A key
   that nudges a panel writes it back, which leaves it visible to the snapshot
   *and* to the settings look, and one press then makes two rows that undo the

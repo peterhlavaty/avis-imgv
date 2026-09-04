@@ -7,6 +7,7 @@ pub mod history;
 pub mod kinds;
 pub mod load;
 pub mod migrate;
+pub mod mirror;
 pub mod mouse;
 pub mod registry;
 pub mod shortcut;

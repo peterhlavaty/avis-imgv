@@ -11,6 +11,7 @@ use eframe::egui::{self, ViewportCommand};
 
 use crate::actions::reveal;
 use crate::config::load::Save;
+use crate::config::mirror::{Mirror, Reflect};
 use crate::config::Config;
 use crate::formats;
 use crate::ui::settings;
@@ -19,6 +20,54 @@ use super::cards::Card;
 use super::panels::MenuAction;
 use super::stores;
 use super::App;
+
+/// The three values the program holds a copy of and the file holds too.
+///
+/// A small `Copy` struct rather than `App` itself, for two reasons: `App`
+/// cannot be borrowed immutably and mutably at once to walk a table against
+/// its own `settings` field, and `App` cannot be built without a GPU, so a
+/// table over it is a table no test can walk.
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+pub(super) struct Mirrored {
+    advancing: bool,
+    filmstrip_visible: bool,
+    history_panel_visible: bool,
+}
+
+/// Both halves of each, in one struct literal each.
+///
+/// Adding a fourth means writing four accessors; leaving one out is a missing
+/// field and the compiler says so. That is the whole mechanism, and it exists
+/// because the rule it replaces was written down carefully and broken twice.
+const MIRRORED: &[Mirror<Mirrored>] = &[
+    Mirror {
+        path: "tags.advance_after_marking",
+        reflect: Reflect::Flag {
+            live: |live| live.advancing,
+            into_live: |live, on| live.advancing = on,
+            file: |config| config.tags.advance_after_marking,
+            into_file: |config, on| config.tags.advance_after_marking = on,
+        },
+    },
+    Mirror {
+        path: "grid_view.filmstrip_visible",
+        reflect: Reflect::Flag {
+            live: |live| live.filmstrip_visible,
+            into_live: |live, on| live.filmstrip_visible = on,
+            file: |config| config.grid_view.filmstrip_visible,
+            into_file: |config, on| config.grid_view.filmstrip_visible = on,
+        },
+    },
+    Mirror {
+        path: "history.panel_visible",
+        reflect: Reflect::Flag {
+            live: |live| live.history_panel_visible,
+            into_live: |live, on| live.history_panel_visible = on,
+            file: |config| config.history.panel_visible,
+            into_file: |config, on| config.history.panel_visible = on,
+        },
+    },
+];
 
 /// Where the manual lives. The README, which is what the program has.
 const MANUAL: &str = "https://github.com/hats-np/avis-imgv#readme";
@@ -187,21 +236,14 @@ impl App {
             moved = true;
         }
 
-        if self.settings.tags.advance_after_marking != self.advancing {
-            self.settings.tags.advance_after_marking = self.advancing;
-            self.tag_config.advance_after_marking = self.advancing;
-            moved = true;
-        }
-
-        if self.settings.grid_view.filmstrip_visible != self.filmstrip_visible {
-            self.settings.grid_view.filmstrip_visible = self.filmstrip_visible;
-            moved = true;
-        }
-
-        if self.settings.history.panel_visible != self.history_panel_visible {
-            self.settings.history.panel_visible = self.history_panel_visible;
-            moved = true;
-        }
+        // The three values the program and the file both hold. A table rather
+        // than three hand-written comparisons, because two of the three had
+        // only this half and the missing one was silent — see
+        // `config::mirror`, where both halves live in one struct literal and a
+        // one-way mirror does not compile.
+        let live = self.mirrored();
+        moved |= crate::config::mirror::remember_all(MIRRORED, &live, &mut self.settings);
+        self.tag_config.advance_after_marking = self.settings.tags.advance_after_marking;
 
         if moved {
             self.save_settings();
@@ -317,16 +359,28 @@ impl App {
         // without this, that was the only direction, and the tick in the
         // settings window was overwritten on the same frame by the flag it had
         // just been asked to change. "Show the strip" had never worked.
-        self.filmstrip_visible = self.settings.grid_view.filmstrip_visible;
-        self.history_panel_visible = self.settings.history.panel_visible;
-        // The third of them, and it had the same fault for the same reason:
-        // `remember_runtime` wrote `advancing` into the file and nothing wrote
-        // it back, so ticking "advance after marking" in the settings window
-        // was undone on the next frame by the flag it had just been asked to
-        // change. Two of these have now been found by hand. The type that
-        // makes a one-way mirror fail to compile is what stops there being a
-        // fourth.
-        self.advancing = self.settings.tags.advance_after_marking;
+        // The other half of the three the panels and the marking need. Both
+        // halves are one struct literal in `config::mirror`, so a value with
+        // only one of them does not compile — which is what stops there being
+        // a fourth after "show the strip" and "advance after marking".
+        let mut live = self.mirrored();
+        crate::config::mirror::apply_all(MIRRORED, &self.settings, &mut live);
+        self.take_mirrored(live);
+    }
+
+    /// The three values the file also holds, as the mirror sees them.
+    fn mirrored(&self) -> Mirrored {
+        Mirrored {
+            advancing: self.advancing,
+            filmstrip_visible: self.filmstrip_visible,
+            history_panel_visible: self.history_panel_visible,
+        }
+    }
+
+    fn take_mirrored(&mut self, live: Mirrored) {
+        self.advancing = live.advancing;
+        self.filmstrip_visible = live.filmstrip_visible;
+        self.history_panel_visible = live.history_panel_visible;
     }
 }
 
@@ -531,87 +585,61 @@ fn restart() {
 
 #[cfg(test)]
 mod tests {
-    /// Every live field the program writes into the file is written back out
-    /// of it.
+    use super::*;
+
+    /// This file used to hold a test that read its own source, found every
+    /// `if self.settings.x != self.y` in `remember_runtime`, and asserted that
+    /// `apply_settings` wrote each one back. It was written in the commit that
+    /// fixed "advance after marking", because at that point the rule had no
+    /// other enforcement.
     ///
-    /// `remember_runtime` writes the file from the program and
-    /// `apply_settings` writes the program from the file. A value with only
-    /// the first half is a setting that cannot be changed from the settings
-    /// window: the tick is overwritten on the next frame by the flag it was
-    /// just asked to change. That has now happened twice — "show the strip",
-    /// and "advance after marking" — and both times it was found by somebody
-    /// noticing a checkbox did nothing.
+    /// It is gone, and its going is the point: the three values are a table of
+    /// `Mirror`s now, and each carries both halves in one struct literal, so a
+    /// one-way mirror is a missing field rather than a passing test. A test
+    /// that reads source is what you write when the type cannot say it.
     ///
-    /// The two halves are matched on the *live* location rather than on the
-    /// settings path, because the settings path is written back by the bulk
-    /// handovers (`set_config`, and the section clones) whether or not the
-    /// field beside it is. That is exactly how the second one hid: the file's
-    /// `tags` section was being handed to `tag_config` in full, while
-    /// `App::advancing` next to it was read by nobody.
-    ///
-    /// Only the fields sourced from a bare `App` field are checked. The ones
-    /// read out of a view by a method — the corner, the opening, the columns —
-    /// go back through `set_config` with the rest of their section, which is a
-    /// different shape and one the compiler already keeps whole.
+    /// What is left to check here is that the table names real settings.
     #[test]
-    fn a_setting_written_from_the_program_is_read_back_into_it() {
-        let source = include_str!("settings.rs");
-        // Cut the tests off, or this very comment is part of what is searched.
-        let code = source
-            .split_once("#[cfg(test)]")
-            .map_or(source, |(code, _)| code);
+    fn every_mirrored_value_is_a_setting_the_registry_has() {
+        assert_eq!(MIRRORED.len(), 3);
 
-        let body = |name: &str| {
-            let from = code
-                .find(&format!("fn {name}("))
-                .unwrap_or_else(|| panic!("{name} is still called that"));
-            let rest = &code[from..];
-            // To the start of the next item at the same indentation.
-            let to = rest[1..].find("\n    /// ").map_or(rest.len(), |at| at + 1);
-            &rest[..to]
-        };
-
-        let remember = body("remember_runtime");
-        let apply = body("apply_settings");
-
-        let mut checked = 0;
-
-        for line in remember.lines() {
-            let Some((left, right)) = line.split_once(" != self.") else {
-                continue;
-            };
-
-            if !left.trim_start().starts_with("if self.settings.") {
-                continue;
-            }
-
-            let live = right.trim_end_matches(&[' ', '{', '\n'][..]).trim();
-
-            // A method call is a view handing its state over, not a field.
-            if live.contains('(') || live.is_empty() {
-                continue;
-            }
-
+        for mirror in MIRRORED {
             assert!(
-                apply.contains(&format!("self.{live} = self.settings.")),
-                "`App::{live}` is written into the file by `remember_runtime` \
-                 and never read back by `apply_settings`, so changing it in \
-                 the settings window does nothing: the next frame overwrites \
-                 it with the value it was asked to change. Add \
-                 `self.{live} = self.settings.<section>.<field>;` to \
-                 `apply_settings`."
+                crate::config::registry::row(mirror.path).is_some(),
+                "{} is mirrored and is not a setting",
+                mirror.path
             );
-
-            checked += 1;
         }
+    }
 
-        // The three that exist today. If the shape of `remember_runtime`
-        // changes so that none is found, the test above passes by matching
-        // nothing at all, which is worse than failing.
-        assert!(
-            checked >= 3,
-            "only {checked} mirrored fields were found; the test has stopped \
-             reading `remember_runtime` and is now asserting nothing"
-        );
+    /// The fault this whole arrangement exists to prevent, played out against
+    /// the real table: the window sets the file, the frame applies it, and the
+    /// write-back that follows finds nothing to undo.
+    #[test]
+    fn a_tick_in_the_settings_window_survives_the_next_frame() {
+        for path in MIRRORED.iter().map(|mirror| mirror.path) {
+            let mut config = Config::default();
+            let mut live = Mirrored::default();
+
+            // Whatever the default is, ask for the other one.
+            crate::config::mirror::apply_all(MIRRORED, &config, &mut live);
+            let before = live;
+
+            for mirror in MIRRORED {
+                if mirror.path == path {
+                    let crate::config::mirror::Reflect::Flag {
+                        file, into_file, ..
+                    } = &mirror.reflect;
+                    let flipped = !file(&config);
+                    into_file(&mut config, flipped);
+                }
+            }
+
+            crate::config::mirror::apply_all(MIRRORED, &config, &mut live);
+            assert_ne!(live, before, "{path} did not reach the program");
+
+            let moved = crate::config::mirror::remember_all(MIRRORED, &live, &mut config);
+            assert!(!moved, "{path} was undone by the write-back");
+        }
     }
 }
