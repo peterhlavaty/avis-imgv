@@ -6,6 +6,7 @@
 //!
 //! - [`atomic`] puts a file in place in one step,
 //! - [`board`] is where a frame leaves a value for the rest of itself,
+//! - [`fault`] is how something that went wrong says so, once,
 //! - [`crawler`] finds the images,
 //! - [`decoder`] turns bytes into RGBA8, reading [`metadata`] from the same
 //!   buffer instead of shelling out,
@@ -27,6 +28,7 @@ pub mod cache;
 pub mod config;
 pub mod crawler;
 pub mod decoder;
+pub mod fault;
 pub mod formats;
 pub mod history;
 pub mod logging;

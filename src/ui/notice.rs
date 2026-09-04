@@ -33,23 +33,25 @@ const MAX_LINES: usize = 4;
 /// afternoon's worth and still nothing to hold in memory.
 const REMEMBERED: usize = 100;
 
-/// How much a message matters.
+/// How badly something went, as the bar draws it.
+///
+/// The enum itself is [`crate::fault::Severity`], because an error says how
+/// bad it was and the bar only paints the answer. It was declared here while
+/// the call site decided, which is what let the same failure reach the bar two
+/// ways.
 ///
 /// Everything used to be the same alarm red — `Color32::from_rgb(72, 32, 32)`
 /// for "Moved 12 photographs to Selects" and for "Access is denied" alike — so
 /// the colour said nothing and a real failure looked like a receipt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Severity {
-    /// Something was done. Most of what a cull says.
-    #[default]
-    Said,
-    /// Something is not as expected, and the work went on.
-    Warning,
-    /// Something failed.
-    Failure,
+pub use crate::fault::Severity;
+
+/// What the bar paints one in.
+trait Painted {
+    fn fill(self) -> Color32;
+    fn label(self) -> &'static str;
 }
 
-impl Severity {
+impl Painted for Severity {
     fn fill(self) -> Color32 {
         match self {
             Severity::Said => Color32::from_rgb(38, 40, 44),
@@ -58,8 +60,7 @@ impl Severity {
         }
     }
 
-    /// What the history calls it.
-    pub fn label(self) -> &'static str {
+    fn label(self) -> &'static str {
         match self {
             Severity::Said => "",
             Severity::Warning => "Warning",
@@ -102,6 +103,21 @@ impl Notices {
     /// Something failed.
     pub fn fail(&mut self, text: impl Into<String>) {
         self.at(Severity::Failure, text);
+    }
+
+    /// Lets a failure report itself.
+    ///
+    /// The sentence and how bad it was both come from the error, so the two
+    /// call sites that raise the same failure cannot word it two ways and a
+    /// caller cannot quietly file a lost sidecar as a remark. The log gets the
+    /// whole path and the chain of causes; the user gets the file's name.
+    ///
+    /// This is the half that was missing. Failures reached the log fifty-four
+    /// times and the user thirty-nine, and which of the two a given failure
+    /// got was decided wherever it happened to be caught.
+    pub fn report<E: crate::fault::Fault + ?Sized>(&mut self, fault: &E) {
+        tracing::warn!("{}", crate::fault::logged(fault));
+        self.at(fault.severity(), crate::fault::said(fault));
     }
 
     fn at(&mut self, severity: Severity, text: impl Into<String>) {

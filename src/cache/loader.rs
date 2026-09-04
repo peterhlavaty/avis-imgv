@@ -230,9 +230,7 @@ fn decode_without_dying(
 
     match decoded {
         Ok(result) => result,
-        Err(_) => Err(DecodeError::Unsupported(
-            "the decoder gave up on this file".to_string(),
-        )),
+        Err(_) => Err(DecodeError::Panicked),
     }
 }
 

@@ -36,6 +36,7 @@ jpegxl-rs = { version = "0.11.2", features = ["vendored"], optional = true }
 # specification on Linux, IFileOperation on Windows -- and never to
 # fs::remove_file. Culling is when people delete fastest and regret hardest.
 trash = "5.2.6"
+thiserror = "2"
 
 [build-dependencies]
 pkg-config = { version = "0.3", optional = true }

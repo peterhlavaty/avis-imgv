@@ -168,23 +168,39 @@ impl DecodeOptions {
 }
 
 /// Why an image could not be loaded.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DecodeError {
-    Read(std::io::Error),
+    #[error("could not be read: {0}")]
+    Read(#[source] std::io::Error),
     /// No decoder handled the bytes, or a raw file had no usable preview.
+    #[error("could not be decoded: {0}")]
     Unsupported(String),
+    /// A decoder panicked partway through, which a malformed file can do to a
+    /// third-party library.
+    ///
+    /// Its own variant rather than an `Unsupported` with a sentence in it: a
+    /// file nothing can decode and a file that brought a decoder down are
+    /// different things, and folding them together meant a bug in a decoder
+    /// was reported for the rest of the session as an unsupported format.
+    #[error("the decoder gave up partway through")]
+    Panicked,
 }
 
-impl fmt::Display for DecodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl crate::fault::Fault for DecodeError {
+    fn doing(&self) -> &'static str {
+        "decode the photograph"
+    }
+
+    fn severity(&self) -> crate::fault::Severity {
         match self {
-            DecodeError::Read(e) => write!(f, "could not be read: {e}"),
-            DecodeError::Unsupported(reason) => write!(f, "could not be decoded: {reason}"),
+            // One file of a folder that will not open is the folder carrying
+            // on without it, which is a warning; the photograph on screen
+            // failing to appear is reported by whoever asked for it.
+            DecodeError::Unsupported(_) => crate::fault::Severity::Warning,
+            DecodeError::Read(_) | DecodeError::Panicked => crate::fault::Severity::Failure,
         }
     }
 }
-
-impl std::error::Error for DecodeError {}
 
 /// Reads and fully prepares `path`.
 pub fn load(path: &Path, options: &DecodeOptions) -> Result<DecodedImage, DecodeError> {
