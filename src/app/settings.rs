@@ -337,6 +337,12 @@ impl App {
         self.catalog = crate::annotations::Catalog::configured(&self.settings.tags);
         self.recent_tags.set_limit(self.settings.tags.recent_tags);
         self.image_view.set_config(self.settings.image_view.clone());
+        // Everything applies while the window is open, a running slideshow
+        // included: the interval and the motion used to be read once, when the
+        // mode was entered, so changing either from the settings page took
+        // effect at the next start.
+        self.image_view
+            .set_slideshow_config(&self.settings.slideshow);
         self.image_view.set_mouse(self.settings.mouse.clone());
         self.image_view
             .set_backdrop(&self.settings.general.backdrop);
@@ -369,18 +375,33 @@ impl App {
     }
 
     /// The three values the file also holds, as the mirror sees them.
+    ///
+    /// The two panels are read as the user *chose* them rather than as they
+    /// are on screen. A fullscreen mode puts every panel away for its turn,
+    /// and a slideshow watched to the end of an evening would otherwise write
+    /// "the strip is away" into the configuration and leave it there — the
+    /// same rule, and the same reason, as `ImageView::opens` against
+    /// `opens_at`.
     fn mirrored(&self) -> Mirrored {
+        let panels = self.preferred_panels();
+
         Mirrored {
             advancing: self.advancing,
-            filmstrip_visible: self.filmstrip_visible,
-            history_panel_visible: self.history_panel_visible,
+            filmstrip_visible: panels.filmstrip,
+            history_panel_visible: panels.history,
         }
     }
 
     fn take_mirrored(&mut self, live: Mirrored) {
         self.advancing = live.advancing;
-        self.filmstrip_visible = live.filmstrip_visible;
-        self.history_panel_visible = live.history_panel_visible;
+
+        let mut panels = self.preferred_panels();
+        panels.filmstrip = live.filmstrip_visible;
+        panels.history = live.history_panel_visible;
+        // Into whichever half holds the answer: a tick in the settings window
+        // during a slideshow is felt when the slideshow ends, which is when
+        // there is a panel to feel it on.
+        self.set_preferred_panels(panels);
     }
 }
 

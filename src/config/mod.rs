@@ -899,7 +899,7 @@ impl Motion {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, PartialEq)]
 pub struct SlideshowConfig {
     #[serde(default = "default_seconds_per_image")]
     pub seconds_per_image: u64,

@@ -50,7 +50,12 @@ type Named = (&'static str, fn(&Panels) -> bool);
 
 impl Panels {
     /// Each panel, with the name to call it by on a row of the history.
-    const EACH: &'static [Named] = &[
+    ///
+    /// Reachable from the crate so that `app::chrome` can hold the list of
+    /// panels and the fields here against each other: a panel with a flag on
+    /// `App` and no field in this struct is one a fullscreen mode would leave
+    /// on the screen and the history would never put back.
+    pub(crate) const EACH: &'static [Named] = &[
         ("the menu", |p| p.menu),
         ("the side panel", |p| p.side),
         ("the frame timings", |p| p.metrics),
@@ -579,6 +584,20 @@ mod tests {
     /// A change of zoom or pan, with the percentage it came to rest at.
     fn zoomed(from: Place, to: Place, percent: f32) -> Change {
         Change::Place { from, to, percent }
+    }
+
+    /// What a fullscreen mode sets the panels to when it takes the screen.
+    ///
+    /// `App::change_screen` puts them away by writing the default, so a panel
+    /// added with a default of `true` would be a panel a slideshow left on
+    /// screen. Asked through `EACH`, which is the exhaustive list.
+    #[test]
+    fn no_panel_is_up_by_default() {
+        let away = Panels::default();
+
+        for (name, read) in Panels::EACH {
+            assert!(!read(&away), "{name} is up in the default");
+        }
     }
 
     /// A move of the cursor, named by where it ended up.

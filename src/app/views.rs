@@ -48,9 +48,18 @@ impl App {
 
     /// Starts and stops what a mode takes over when it is entered.
     ///
-    /// The slideshow fills the screen and runs its own clock; leaving it puts
-    /// the window back the way it was found and the picture back where the
-    /// user had it.
+    /// The slideshow fills the screen, puts every panel away and runs its own
+    /// clock; leaving it puts the window back the way it was found — the
+    /// panels, the window and the picture where the user had them.
+    ///
+    /// Taking the whole screen is the whole of what fullscreen means here. A
+    /// bar, a strip, a keyword panel and a metadata column round a photograph
+    /// nobody is working on are chrome in front of the one thing the mode
+    /// exists for, and a person who asked for a slideshow did not ask for
+    /// them. They are put back rather than forgotten, and nothing about them
+    /// reaches the configuration file in the meantime: see
+    /// `App::preferred_panels`, which is the same distinction as
+    /// `ImageView::opens` against `opens_at`.
     pub(super) fn change_screen(&mut self, leaving: Mode, arriving: Mode) {
         if leaving.is_fullscreen() == arriving.is_fullscreen() {
             return;
@@ -58,6 +67,13 @@ impl App {
 
         let fullscreen = arriving.is_fullscreen() || self.was_fullscreen;
         self.pending_fullscreen = Some(fullscreen);
+
+        if arriving.is_fullscreen() {
+            self.panels_before_fullscreen = Some(self.panels());
+            self.set_panels(crate::history::Panels::default());
+        } else if let Some(panels) = self.panels_before_fullscreen.take() {
+            self.set_panels(panels);
+        }
 
         self.image_view
             .set_slideshow(arriving == Mode::Slideshow, &self.settings.slideshow);
@@ -341,9 +357,14 @@ impl App {
     /// install — where the default height is zero — the key did exactly that.
     /// The two are separate fields now; this is the sentence for whatever the
     /// next one is.
+    /// The flag alone, and not the line in the file it mirrors.
+    /// `grid_view.filmstrip_visible` is one half of a mirror, and
+    /// `remember_runtime` writes it from the half the user chose — which is
+    /// not this one while a fullscreen mode has the strip put away for its
+    /// turn. Written here as well, a strip pulled up during a slideshow would
+    /// be filed as a preference and then written back over on the same frame.
     pub(super) fn toggle_filmstrip(&mut self) {
         self.filmstrip_visible = !self.filmstrip_visible;
-        self.settings.grid_view.filmstrip_visible = self.filmstrip_visible;
 
         if self.filmstrip_visible && self.settings.grid_view.filmstrip_height <= 0.0 {
             // Given a height rather than only complained about: the person
@@ -353,9 +374,8 @@ impl App {
                 "The strip had no height; it is {DEFAULT_FILMSTRIP_HEIGHT:.0} points \
                  now. Drag its top edge to change it."
             ));
+            self.save_settings();
         }
-
-        self.save_settings();
     }
 
     /// Picks the folder up again after a job has changed it.

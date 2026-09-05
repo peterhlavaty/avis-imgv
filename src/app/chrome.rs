@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use eframe::egui::{self, ViewportCommand};
 
 use crate::crawler;
+use crate::history::Panels;
 use crate::ui::{navigator, tree};
 
 use super::input::{self, Overlay};
@@ -134,6 +135,74 @@ impl App {
     /// a frame — not a cost that multiplies by the size of a folder.
     pub(super) fn publish_keys(&self) {
         crate::ui::keys::publish(&self.settings, self.mode);
+    }
+
+    /// Which panels are on screen.
+    ///
+    /// One place, because there are four questions asked of these seven fields
+    /// — the history's look, the history's restore, what a fullscreen mode
+    /// puts away and what it puts back — and seven fields written out four
+    /// times is four chances to leave one of them behind. It has happened
+    /// once: the history panel was added to the half that reads and not to the
+    /// half that writes, and could be opened and closed by every route except
+    /// the one that undoes it.
+    pub(super) fn panels(&self) -> Panels {
+        Panels {
+            menu: self.menu_visible,
+            side: self.side_panel_visible,
+            metrics: self.metrics_visible,
+            tags: self.tag_panel_visible,
+            filter: self.filter_visible,
+            filmstrip: self.filmstrip_visible,
+            history: self.history_panel_visible,
+        }
+    }
+
+    /// Puts the panels the way this says.
+    ///
+    /// Taken apart field by field rather than read one at a time, because a
+    /// struct pattern with no `..` is exhaustive: a panel added to [`Panels`]
+    /// does not compile until it is put back here as well.
+    pub(super) fn set_panels(&mut self, panels: Panels) {
+        let Panels {
+            menu,
+            side,
+            metrics,
+            tags,
+            filter,
+            filmstrip,
+            history,
+        } = panels;
+
+        self.menu_visible = menu;
+        self.side_panel_visible = side;
+        self.metrics_visible = metrics;
+        self.tag_panel_visible = tags;
+        self.filter_visible = filter;
+        self.filmstrip_visible = filmstrip;
+        self.history_panel_visible = history;
+    }
+
+    /// Which panels the user last chose to have on screen.
+    ///
+    /// The same distinction as `ImageView::opens` against `opens_at`: a
+    /// fullscreen mode puts every panel away for its turn, and that is not a
+    /// preference anybody expressed. So everything that *draws* asks
+    /// [`Self::panels`], and the three places that write a panel to a file —
+    /// the session's menu bar and the mirror's two — ask this one, or an
+    /// evening watching a slideshow would end with a configuration saying the
+    /// strip and the bar had been put away.
+    pub(super) fn preferred_panels(&self) -> Panels {
+        self.panels_before_fullscreen
+            .unwrap_or_else(|| self.panels())
+    }
+
+    /// Sets which panels the user has chosen, wherever that answer is kept.
+    pub(super) fn set_preferred_panels(&mut self, panels: Panels) {
+        match &mut self.panels_before_fullscreen {
+            Some(remembered) => *remembered = panels,
+            None => self.set_panels(panels),
+        }
     }
 
     /// Whether the panel that command puts away is on screen.
@@ -314,24 +383,24 @@ impl App {
 mod tests {
     use super::input::Command;
 
+    /// What `panel_is_showing` answers, written down because the match cannot
+    /// be asked without a window.
+    const READ_BACK: &[Command] = &[
+        Command::ToggleMenu,
+        Command::ToggleMetrics,
+        Command::ToggleFilter,
+        Command::ToggleSidePanel,
+        Command::ToggleHistoryPanel,
+        Command::ToggleTagPanel,
+        Command::ToggleFilmstrip,
+    ];
+
     /// Every panel that can be put away is one `panel_is_showing` reads back.
     ///
-    /// The match cannot be asked without a window, so the commands it answers
-    /// are written down here and compared with the list of panels: a panel
-    /// added to `EVERY_PANEL` fails this rather than drawing a tick in the
-    /// View menu that never changes whatever is done to it.
+    /// A panel added to `EVERY_PANEL` fails this rather than drawing a tick in
+    /// the View menu that never changes whatever is done to it.
     #[test]
     fn every_panel_that_can_be_put_away_is_read_back() {
-        const READ_BACK: &[Command] = &[
-            Command::ToggleMenu,
-            Command::ToggleMetrics,
-            Command::ToggleFilter,
-            Command::ToggleSidePanel,
-            Command::ToggleHistoryPanel,
-            Command::ToggleTagPanel,
-            Command::ToggleFilmstrip,
-        ];
-
         for chrome in crate::ui::panel::EVERY_PANEL {
             let Some(hide) = chrome.hide else {
                 continue;
@@ -343,5 +412,17 @@ mod tests {
                 chrome.subject.said()
             );
         }
+    }
+
+    /// And every one of them is a field a fullscreen mode can put away.
+    ///
+    /// [`super::App::set_panels`] is exhaustive over [`Panels`], so nothing
+    /// there can be left behind; what can is a panel given a flag on `App` and
+    /// a row in the list above with no field in `Panels` at all — which is a
+    /// panel a slideshow would leave on the screen, that the history would
+    /// never put back, and that no route could write to a file.
+    #[test]
+    fn every_panel_read_back_is_one_a_fullscreen_mode_puts_away() {
+        assert_eq!(READ_BACK.len(), crate::history::Panels::EACH.len());
     }
 }

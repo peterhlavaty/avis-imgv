@@ -328,6 +328,36 @@ Leaving the seam for later means the next session pays for it with interest.
   being worth pressing the moment only some things answer. `Shift + F10` is
   the keyboard's way in, which is why a menu it can reach is a `named_menu`.
   Nothing, though, is reachable *only* by right-click.
+- **A fullscreen mode is the whole screen and nothing else.** `Mode::Slideshow`
+  is the only one, and entering it puts every panel away and leaving puts back
+  exactly what it found (`App::change_screen`, `panels_before_fullscreen`). The
+  hard half is that four things read those seven flags and two of them write to
+  a file: `App::panels` is what is *on screen* and is what draws and what the
+  ticks say, `App::preferred_panels` is what the user *chose* and is what the
+  session's menu bar, the mirror's two panels and the history's snapshot ask —
+  the same distinction as `ImageView::opens` against `opens_at`, and without it
+  an evening watching a slideshow ends with a configuration saying the bar and
+  the strip had been put away. The history watches the preference rather than
+  the screen for a second reason: the put-away is the mode row's effect, and
+  recorded as a row of its own the two would fight on the way back, where one
+  deed's changes are run in reverse and the mode's own put-back lands last. So
+  a panel toggled inside a slideshow is a look, not a deed — it is not written,
+  not recorded, and not carried out of the mode. `toggle_filmstrip` and
+  `toggle_history_panel` therefore write the flag and *not* the line in the
+  file; the mirror writes that, from the half the user chose.
+
+- **A mode may carry a different menu on the same pixels.** The photograph's
+  menu is a culling photographer's — keep, throw out, compare, bin — and in a
+  slideshow none of it applies to a picture that will be gone in five seconds.
+  `view/image_view/slideshow/menu.rs` is what it answers instead: the way out
+  first, because with every panel away it is the only surface on the screen;
+  the interval and the motion, which are the two decisions somebody watching
+  actually has; and `Row::IN_A_SLIDESHOW`, the two rows of the ordinary list
+  that are still true — the turn and the panels. Its name is its own
+  (`named_menu("slideshow")`), so `App::open_context_for_focus` has an arm for
+  it: an ask nobody claims sits in the mailbox and opens a menu on the frame
+  the mode is left.
+
 - **Which panels are on screen is asked once and drawn twice.**
   `ui::panel::show_and_hide` is the one list — a row per entry of `EVERY_PANEL`
   that can be put away, ticked where it is up, with the key beside it — and it

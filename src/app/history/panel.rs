@@ -46,10 +46,13 @@ impl App {
     /// One place, so that the key, the tick in the settings window and the
     /// second button on the panel itself cannot come to disagree — and so that
     /// however it was asked for, the next launch opens with it as it was left.
+    ///
+    /// The flag alone. `history.panel_visible` is the other half of a mirror
+    /// and `remember_runtime` writes it, from what the user chose rather than
+    /// from what is on screen: a fullscreen mode puts every panel away for its
+    /// turn, and that is not a preference anybody expressed.
     pub(in crate::app) fn toggle_history_panel(&mut self) {
         self.history_panel_visible = !self.history_panel_visible;
-        self.settings.history.panel_visible = self.history_panel_visible;
-        self.save_settings();
     }
 
     /// Goes back — or forward — to a row chosen in the panel.

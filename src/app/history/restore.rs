@@ -10,7 +10,7 @@
 //! because both views follow the cursor, `apply_narrowing` because what is
 //! shown is derived from the rules and has to be derived again.
 
-use crate::history::{Change, Panels, Way};
+use crate::history::{Change, Way};
 
 use super::super::App;
 
@@ -24,33 +24,10 @@ impl App {
                 self.open_directory(&target, None);
             }
             Change::Mode(from, to) => self.set_mode(*pick(way, from, to)),
-            Change::Panels(from, to) => {
-                // Taken apart field by field rather than read one at a time,
-                // because a struct pattern with no `..` is exhaustive: adding a
-                // panel to `Panels` now fails to compile until it is put back
-                // here as well. The history panel itself was added to the
-                // struct and to the half that *reads* it and not to this one,
-                // so it was recorded faithfully and then never restored — the
-                // panel could be opened and closed, and no route through the
-                // history could shut it.
-                let Panels {
-                    menu,
-                    side,
-                    metrics,
-                    tags,
-                    filter,
-                    filmstrip,
-                    history,
-                } = *pick(way, from, to);
-
-                self.menu_visible = menu;
-                self.side_panel_visible = side;
-                self.metrics_visible = metrics;
-                self.tag_panel_visible = tags;
-                self.filter_visible = filter;
-                self.filmstrip_visible = filmstrip;
-                self.history_panel_visible = history;
-            }
+            // The panels the user chose, which is what was watched: while a
+            // fullscreen mode has them away this writes what it will put back,
+            // so the row and the mode cannot disagree whichever runs first.
+            Change::Panels(from, to) => self.set_preferred_panels(*pick(way, from, to)),
             Change::Cursor { from, to, .. } => self.go_to(*pick(way, from, to)),
             Change::Place { from, to, .. } => self.image_view.set_place(*pick(way, from, to)),
             Change::Columns(from, to) => self.grid_view.set_columns(*pick(way, from, to)),

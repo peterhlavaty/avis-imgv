@@ -1,5 +1,34 @@
 # Change Log
 
+## 2026-09-05
+
+- **A slideshow takes the whole screen.** It went fullscreen and put the status
+  bar away, and left the menu bar, the filmstrip, the keyword panel and the
+  metadata column standing round a photograph nobody was working on. Every
+  panel goes away now, and leaving puts back exactly what was found. Nothing
+  about them reaches the configuration file in the meantime — what a fullscreen
+  mode does to the panels is not a preference anybody expressed, so an evening
+  watching a slideshow no longer ends with a configuration saying the strip and
+  the bar had been put away. `--slideshow` is the mode rather than only the
+  clock, so a photo frame started from the command line comes up as one.
+
+- **The picture in a slideshow answers with the slideshow's own menu.** It used
+  to offer the photograph's: keep, throw out, compare, move to the bin — the
+  verbs of somebody culling a shoot, on a picture that will be gone in five
+  seconds. What it carries now is the mode itself. How long each picture is
+  held and whether it moves while it is up are chosen from the menu, and take
+  effect on the picture that is up rather than on the next slideshow. The way
+  out is the first row and names the key that does the same thing, which
+  matters more than it did: with every panel away this menu is the only surface
+  on the screen. The turns and the panels are the two rows that survive from
+  the photograph's list — a photograph that came in on its side is on its side
+  here too, and the panels are how one is brought back without leaving.
+
+- **A slideshow setting changed while one is running is felt at once.** The
+  settings window wrote the file and the view went on with the configuration it
+  had been built with, so the interval and the motion took effect at the next
+  start. Everything applies while the window is open.
+
 ## 2026-09-04
 
 - **A configuration written across a rename is no longer half thrown away.** A

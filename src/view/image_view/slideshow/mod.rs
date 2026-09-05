@@ -1,5 +1,7 @@
 //! Unattended playback: hold each image for a while, drifting slowly into it.
 
+pub mod menu;
+
 use std::time::{Duration, Instant};
 
 use crate::config::{Motion, SlideshowConfig};
@@ -43,6 +45,22 @@ impl Slideshow {
     /// What this slideshow does with a picture while it is up.
     pub fn motion(&self) -> Motion {
         self.motion
+    }
+
+    /// Takes a changed configuration without restarting the clock.
+    ///
+    /// The duration and the motion are chosen from the slideshow's own menu
+    /// while it is running, and everything applies while the window is open —
+    /// so the picture on screen keeps the time it has already had. A shortened
+    /// interval therefore moves on at once, which is what shortening it means.
+    ///
+    /// Written through the constructor rather than field by field, so the
+    /// three that are derived from the file are derived in one place.
+    pub fn set_config(&mut self, config: &SlideshowConfig) {
+        *self = Slideshow {
+            shown_at: self.shown_at,
+            ..Slideshow::new(config)
+        };
     }
 
     /// Restarts the clock, called whenever a new image comes up.
@@ -184,5 +202,31 @@ mod tests {
         let step = slideshow.tick();
 
         assert!(step.zoom_scale.is_finite());
+    }
+
+    /// The whole point of changing it from the menu: the change is felt on the
+    /// picture that is up, not on the one after it.
+    #[test]
+    fn a_changed_configuration_keeps_the_clock_where_it_is() {
+        let mut slideshow = Slideshow::new(&moving(60, 0.0, Motion::Still));
+        slideshow.shown_at = Instant::now() - Duration::from_secs(30);
+
+        slideshow.set_config(&moving(120, 25.0, Motion::Zoom));
+
+        let step = slideshow.tick();
+        assert_eq!(slideshow.motion(), Motion::Zoom);
+        assert!(!step.advance, "half a minute of two is not up");
+        assert!((step.progress - 0.25).abs() < 0.05, "{}", step.progress);
+    }
+
+    /// Shortening it past what this picture has already had moves on at once.
+    #[test]
+    fn a_shortened_interval_moves_on_at_once() {
+        let mut slideshow = Slideshow::new(&moving(600, 0.0, Motion::Still));
+        slideshow.shown_at = Instant::now() - Duration::from_secs(30);
+
+        slideshow.set_config(&moving(5, 0.0, Motion::Still));
+
+        assert!(slideshow.tick().advance);
     }
 }

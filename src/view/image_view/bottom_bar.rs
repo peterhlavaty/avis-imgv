@@ -147,6 +147,16 @@ pub enum BarAction {
     SetKeeping(Keep),
     /// Which half of a raw+JPEG pair is the one browsed.
     SetPairing(Prefer),
+    /// How long a slideshow holds each picture.
+    ///
+    /// Asked for from the slideshow's own menu, which is drawn where the
+    /// configuration is not in hand — and, unlike everything else on this
+    /// list, from a mode where the bar it is named after is not on the screen
+    /// at all. It is here because it is the image view's one outbox, not
+    /// because the bar drew it.
+    SetSlideshowSeconds(u64),
+    /// Whether a slideshow moves the picture while it is up, and how.
+    SetSlideshowMotion(crate::config::Motion),
     /// Go to the settings row behind this readout.
     ///
     /// The reverse trip: somebody who opened the window out of habit learns the

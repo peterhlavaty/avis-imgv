@@ -14,6 +14,7 @@ use crate::config::DragButton;
 use crate::ui::menus::{Chosen, Row, Verb};
 use crate::view::wheel::{self, Job, Notch};
 
+use super::bottom_bar::BarAction;
 use super::{input, pan, ImageView};
 
 /// The most one frame of the wheel may magnify by, counted in notches.
@@ -262,6 +263,15 @@ impl ImageView {
             return;
         }
 
+        // A slideshow carries its own menu. The verbs below are a culling
+        // photographer's — keep, throw out, compare — and a picture that will
+        // be gone in five seconds is not one anybody is deciding about; what
+        // the person watching wants is the slideshow.
+        if self.slideshow.is_some() {
+            self.handle_slideshow_menu(ctx, response);
+            return;
+        }
+
         // The photograph under the *button*, not the one the keys are about.
         // With four side by side those are different photographs three times
         // out of four, and a menu that names one of them while sitting over
@@ -306,10 +316,7 @@ impl ImageView {
                     _ => crate::metadata::xmp::Flag::Rejected,
                 };
 
-                self.bar_actions
-                    .push(crate::view::image_view::bottom_bar::BarAction::FlagOne(
-                        index, flag,
-                    ));
+                self.bar_actions.push(BarAction::FlagOne(index, flag));
             }
             Some(Chosen::Verb(verb)) => self.verb = Some((verb, path)),
             Some(Chosen::Entry(i)) => {

@@ -307,6 +307,21 @@ impl App {
                 self.image_view.set_config(self.settings.image_view.clone());
                 self.save_settings();
             }
+            // The two a slideshow's own menu asks for. Everything applies
+            // while the window is open, so they reach the running slideshow on
+            // this frame rather than at the next one that starts.
+            BarAction::SetSlideshowSeconds(seconds) => {
+                self.settings.slideshow.seconds_per_image = seconds;
+                self.image_view
+                    .set_slideshow_config(&self.settings.slideshow);
+                self.save_settings();
+            }
+            BarAction::SetSlideshowMotion(motion) => {
+                self.settings.slideshow.motion = motion;
+                self.image_view
+                    .set_slideshow_config(&self.settings.slideshow);
+                self.save_settings();
+            }
             BarAction::Settings(path) => self.open_settings_at(path),
             BarAction::ToggleStack => self.apply_command(Command::ToggleStack),
             BarAction::ShowEverything => self.apply_command(Command::SuspendFilter),
@@ -418,6 +433,14 @@ impl App {
             return;
         }
 
+        // Not over a fullscreen mode, which is the whole screen and nothing
+        // else. Not dismissed either: the hint is about a bar that is coming
+        // back, and a first run that began with `--slideshow` would otherwise
+        // have spent it on a screen where there was nothing to press.
+        if self.mode.is_fullscreen() {
+            return;
+        }
+
         // Dismissed by doing the thing rather than by a close button: the
         // hint's whole job is to get those two keys pressed once.
         if self.menu_visible || self.deck.holds(crate::app::cards::Card::CheatSheet) {
@@ -513,6 +536,11 @@ impl App {
         // rather than settings alone.
         crate::ui::surface::ask_for_menu(match self.mode {
             super::Mode::Grid => "cell",
+            // The photograph carries a different menu in a slideshow, and the
+            // ask is claimed by name: left saying "photograph" it would be
+            // claimed by nobody, sit in the mailbox, and open a menu on the
+            // frame the slideshow was left.
+            super::Mode::Slideshow => "slideshow",
             // Whatever is drawn over the photograph owns the surface, and the
             // keyboard has to be able to reach it or the marking's two verbs
             // would be on the second button alone.

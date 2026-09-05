@@ -386,7 +386,8 @@ avis-imgv [OPTIONS] [PATH]
   PATH          An image to open, or a directory to open the first image of.
                 Defaults to the working directory.
 
-  --slideshow   Start in slideshow mode. Useful as a photo frame.
+  --slideshow   Start in slideshow mode: fullscreen, no panels. Useful as a
+                photo frame.
   --fullscreen  Start fullscreen.
   --benchmark   Walk the folder as fast as it will go, report how many images
                 a second that was, and quit.
@@ -666,12 +667,26 @@ to stack.
 
 ## Slideshow
 
-A mode of its own: the window goes fullscreen, the status bar goes away, and
-the pictures change themselves. The arrow keys still work — moving by hand just
-restarts the clock — and leaving the mode puts the window back the way it was.
+A mode of its own, and the whole screen: the window goes fullscreen, every
+panel goes away — the menu bar, the status bar, the filmstrip, the keyword and
+metadata panels, all of them — and the pictures change themselves. The arrow
+keys still work, and moving by hand only restarts the clock. Leaving puts the
+window back the way it was found, with the panels as they were; nothing about
+them is written to the configuration in the meantime, so an evening watching a
+slideshow costs your layout nothing. `--slideshow` starts in it, which is what
+makes the viewer usable as a photo frame.
 
-The **Slideshow** page of the settings sets how long each picture is held
-and what happens while it is up:
+Right-click anywhere on the picture for the slideshow's own menu. It is not the
+photograph's — keeping, throwing out and comparing are for somebody culling a
+shoot, and a picture that will be gone in five seconds is not one anybody is
+deciding about. What it carries is the slideshow: **Leave the slideshow**,
+**Hold each picture for** with the usual intervals, **While it is up** with the
+three motions, and then the two rows that still mean something here, **Turn**
+and **Show** — the second being how a panel is brought back without leaving.
+Changes take effect on the picture that is up, not on the one after it.
+
+The **Slideshow** page of the settings sets the same things, and two more the
+menu does not carry: how far the drift goes, and the ground behind the picture.
 
 | | |
 |---|---|

@@ -376,6 +376,22 @@ impl Row {
         Row::Panels,
     ];
 
+    /// The rows a photograph carries while a slideshow is running.
+    ///
+    /// Two, and they are the two the ordinary list has that are still true
+    /// here. A slideshow is not culling: keeping, throwing out, comparing and
+    /// zooming are all about a photograph somebody is looking at and deciding
+    /// about, and a picture that will be gone in five seconds is neither. What
+    /// is left is the turn — a photograph that came in on its side is a
+    /// photograph on its side in a slideshow too, and putting it right is a
+    /// deed about the file rather than about this moment — and the panels,
+    /// because with every one of them put away the photograph is the whole
+    /// window and the only surface left to ask.
+    ///
+    /// The rest of a slideshow's menu is the slideshow itself, and is drawn by
+    /// `view::image_view::slideshow::menu` around this list.
+    pub const IN_A_SLIDESHOW: &'static [Row] = &[Row::Group("Turn", Verb::TURNS), Row::Panels];
+
     /// The rows a cell carries. `Open` leads, because that is what a cell is
     /// for, and the zoom verbs are not about anything the sheet draws.
     ///

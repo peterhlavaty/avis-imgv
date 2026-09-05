@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use eframe::egui;
 
-use crate::history::{Panels, Watched};
+use crate::history::Watched;
 
 use super::super::App;
 
@@ -46,15 +46,13 @@ impl App {
         let watched = Watched {
             folder: &self.base_path,
             mode: self.mode,
-            panels: Panels {
-                menu: self.menu_visible,
-                side: self.side_panel_visible,
-                metrics: self.metrics_visible,
-                tags: self.tag_panel_visible,
-                filter: self.filter_visible,
-                filmstrip: self.filmstrip_visible,
-                history: self.history_panel_visible,
-            },
+            // What the user chose rather than what is on screen. A fullscreen
+            // mode puts every panel away for its turn, and that effect belongs
+            // to the mode row that caused it: recorded here as well it would
+            // be a second row saying the same thing, and the two would fight
+            // on the way back, where the changes of one deed are run in
+            // reverse and the mode's own put-back would land last.
+            panels: self.preferred_panels(),
             // The store position rather than the position in what is shown, so
             // that coming back to it survives the filter having moved.
             cursor: self.image_view.selected_index(),

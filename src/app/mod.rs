@@ -126,6 +126,15 @@ pub struct App {
     /// Whether the window was already fullscreen before a mode asked for it,
     /// so leaving that mode puts it back the way the user had it.
     was_fullscreen: bool,
+    /// Which panels were up before a fullscreen mode took the screen.
+    ///
+    /// `Some` for exactly as long as one is on screen, which is what
+    /// `preferred_panels` reads to tell what the user chose from what is
+    /// drawn. A slideshow is the whole screen and nothing else — a bar, a
+    /// strip and a keyword panel round a photograph nobody is working on are
+    /// chrome in the way of the only thing the mode is for — and leaving it
+    /// puts back what it found, so an evening watching one costs nothing.
+    panels_before_fullscreen: Option<crate::history::Panels>,
     /// What has gone wrong lately, on its way to the user.
     notices: Notices,
     /// Whether a mark moves on to the next photograph by itself.
@@ -377,7 +386,16 @@ impl App {
             paths: Vec::new(),
             flattened: false,
             organize_view: OrganizeView::new(&config.group),
-            mode: Mode::default(),
+            // `--slideshow` is the mode, not only the clock. It used to start
+            // the image view's slideshow and leave the program saying it was
+            // looking at a photograph, so a photo frame came up with a menu
+            // bar across it and the second button offered to throw pictures
+            // away.
+            mode: if slideshow {
+                Mode::Slideshow
+            } else {
+                Mode::default()
+            },
             menu_visible: panels.menu || first_session || session.menu_visible,
             side_panel_visible: panels.side_panel,
             metrics_visible: false,
@@ -398,6 +416,7 @@ impl App {
             settings_state: crate::ui::settings::State::default(),
             pending_fullscreen: None,
             was_fullscreen: fullscreen,
+            panels_before_fullscreen: None,
             notices: Notices::default(),
             advancing,
             pending_delete: None,
@@ -444,6 +463,13 @@ impl App {
             pending_commands: Vec::new(),
             was_typing: false,
         };
+
+        // What entering a fullscreen mode does, for the one route that does
+        // not enter it: `--slideshow` is already there. The panels are read
+        // out of the configuration in the literal above and put away here, so
+        // there is one answer to what a fullscreen mode looks like rather than
+        // two.
+        app.change_screen(Mode::default(), app.mode);
 
         // Read after the struct is built, because what it says goes to the
         // notices and because a stale one is worth a sentence rather than a
@@ -875,7 +901,10 @@ impl App {
     /// Cheap, and outside the early return above, because the menu bar is not a
     /// position: it is what the person left the window looking like.
     fn note_chrome(&mut self) {
-        self.session.menu_visible = self.menu_visible;
+        // What the user chose, not what is on screen: a fullscreen mode has
+        // the bar away for its turn, and a session ended during a slideshow
+        // would otherwise open the next one with no bar at all.
+        self.session.menu_visible = self.preferred_panels().menu;
     }
 
     /// Where the window is, as the platform reports it this frame.

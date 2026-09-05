@@ -96,6 +96,34 @@ impl ImageView {
         }
     }
 
+    /// Takes a changed slideshow configuration, running or not.
+    ///
+    /// Everything applies while the window is open, and the duration and the
+    /// motion are now chosen from the slideshow's own menu *while it is
+    /// running* — a change that waited for the next start would read as the
+    /// menu having done nothing. The clock is not restarted: the picture on
+    /// screen keeps the time it has already had.
+    ///
+    /// A changed motion re-opens the photograph, because the motion is what
+    /// decides whether it is fitted or filled and the latch would otherwise
+    /// hold it at the answer the old one gave.
+    pub fn set_slideshow_config(&mut self, config: &SlideshowConfig) {
+        if self.slideshow_config == *config {
+            return;
+        }
+
+        let moves = self.slideshow_config.motion != config.motion;
+        self.slideshow_config = config.clone();
+
+        if let Some(slideshow) = &mut self.slideshow {
+            slideshow.set_config(config);
+
+            if moves {
+                self.viewport.opened = false;
+            }
+        }
+    }
+
     /// Takes a changed configuration, for when the keyboard map is edited.
     pub fn set_config(&mut self, config: ImageViewConfig) {
         self.frame.relative_size = config.frame_size_relative_to_image;
